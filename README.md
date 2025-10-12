@@ -1,2 +1,3 @@
-# serger
-Stitch your modules into a single thread.
+# Serger
+Stitch your modules into a single file.
+*Because packaging is overrated.*
