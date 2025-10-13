@@ -1,45 +1,3 @@
-#!/usr/bin/env python3
-"""
-dev/make_script.py
-------------------
-Concatenate all modular source files into one self-contained `pocket-build.py`.
-
-Produces a portable single-file build system ready for direct use or release.
-All internal and relative imports are stripped, and all remaining imports are
-collected, deduplicated, and placed neatly at the top.
-"""
-
-import re
-import subprocess
-from pathlib import Path
-
-# ------------------------------------------------------------
-# Configuration
-# ------------------------------------------------------------
-ROOT = Path(__file__).resolve().parent.parent
-SRC_DIR = ROOT / "src" / "pocket_build"
-OUT_FILE = ROOT / "bin" / "pocket-build.py"
-PYPROJECT = ROOT / "pyproject.toml"
-
-ORDER = [
-    "types.py",
-    "utils.py",
-    "config.py",
-    "build.py",
-    "cli.py",
-]
-
-LICENSE_HEADER = """\
-# Pocket Build — a tiny build system that fits in your pocket.
-# License: MIT-NOAI
-# Full text: https://github.com/apathetic-tools/pocket-build/blob/main/LICENSE
-"""
-
-
-# ------------------------------------------------------------
-# Helpers
-# ------------------------------------------------------------
-def extract_version() -> str:
     if not PYPROJECT.exists():
         return "unknown"
     text = PYPROJECT.read_text(encoding="utf-8")
@@ -62,12 +20,13 @@ def extract_commit() -> str:
 
 
 def split_imports(text: str) -> tuple[list[str], str]:
-    """Split module text into (imports, rest)."""
+    """Split module text into (imports, rest), normalizing indentation."""
     imports: list[str] = []
     body_lines: list[str] = []
     for line in text.splitlines():
-        if re.match(r"^\s*(?:import|from)\s+\S+", line):
-            imports.append(line)
+        stripped = line.lstrip()
+        if re.match(r"^(?:import|from)\s+\S+", stripped):
+            imports.append(stripped)  # ✅ strip indentation
         else:
             body_lines.append(line)
     return imports, "\n".join(body_lines)
