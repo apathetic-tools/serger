@@ -1,0 +1,11 @@
+// .vscode/extensions.json
+{
+    "recommendations": [
+        "bierner.markdown-preview-github-styles",
+        "usernamehw.errorlens",
+        "charliermarsh.ruff",
+        "ms-python.vscode-pylance",
+        "ms-python.isort",
+        "editorconfig.editorconfig"
+    ]
+}

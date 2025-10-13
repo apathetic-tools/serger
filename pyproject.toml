@@ -1,0 +1,110 @@
+# pyproject.toml
+
+[project]
+name = "server"
+version = "0.0.1"
+description = "Stitch your module into a single file"
+authors = [
+    {name = "Apathetic Tools"}
+]
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = [
+]
+
+# --- Development tasks ---
+[tool.poe.tasks]
+# 🧩 All-in-one
+"check:fix" = ["fix", "typecheck", "test"]
+
+# 🔍 Linting and static checks
+check = ["lint", "typecheck",  "test"]
+lint = ["lint:isort", "lint:ruff", "lint:compile"]
+"lint:ruff" = "ruff check ."
+"lint:isort" = ["lint:isort:reg", "lint:isort:script"]
+"lint:isort:reg" = "isort . --check-only --color"
+"lint:isort:script" = {shell = "if [ -f bin/serger.py ]; then isort bin/serger.py --check-only --color; fi" }
+"lint:compile" = ["lint:compile:script"]
+"lint:compile:script" = { shell = "if [ -f bin/serger.py ]; then python -m py_compile bin/serger.py; fi" }
+typecheck = "mypy src"
+test = "pytest -q --color=yes"
+
+# 🧹 Automated fixing / formatting
+fix = ["fix:isort", "fix:ruff", "lint:compile", "fix:format"]
+"fix:isort" = ["fix:isort:reg", "fix:isort:script"]
+"fix:isort:reg" = "isort . --color"
+"fix:isort:script" = {shell = "if [ -f bin/serger.py ]; then isort bin/serger.py --color; fi" }
+"fix:ruff" = "ruff check . --fix"
+"fix:format" = "ruff format ."
+
+# 🧩 Build and license
+"build:script" = "python dev/make_script.py"
+"check:license" = "bash dev/check-license.sh"
+
+# --- Development dependencies ---
+[dependency-groups]
+dev = [
+    "ruff (>=0.14.0,<0.15.0)",
+    "mypy (>=1.18.2,<2.0.0)",
+    "pytest (>=8.4.2,<9.0.0)",
+    "poethepoet (>=0.37.0,<0.38.0)",
+    "pre-commit (>=4.3.0,<5.0.0)",
+    "isort (>=7.0.0,<8.0.0)",
+    "colorama (>=0.4.6,<0.5.0)",
+]
+
+# --- Ruff: formatter and linter ---
+[tool.ruff]
+# target-version = # project.requires-python instead
+line-length = 88
+fix = true
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["I"] # isort will do "I"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# --- isort: formatter import sorting (and merging, which ruff doesn't do) ---
+[tool.isort]
+profile = "black"
+line_length = 88
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+combine_as_imports = true
+known_first_party = ["serger"]
+skip_gitignore = true
+
+# --- Mypy: stricter typing options ---
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+strict = true
+
+# --- pytest: testing framework ---
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+addopts = "-ra"
+
+# --- Black: kept in case someone runs it by accident in their editor ---
+[tool.black]
+# target-version = [] # project.requires-python instead
+line-length = 88
+skip-string-normalization = false
+
+
+# --- Poetry Build System ---
+[project.scripts]
+serger = "serger.__main__:main"
+
+[build-system]
+requires = ["poetry-core>=2.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+package-mode = true
+packages = [{ include = "serger", from = "src" }]

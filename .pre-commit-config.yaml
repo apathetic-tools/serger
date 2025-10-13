@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: poe-check
+        name: Run Poe 'check:fix'
+        entry: bash -c 'export PATH="$HOME/.local/bin:$PATH"; poetry run poe check:fix'
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
