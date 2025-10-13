@@ -2,7 +2,7 @@
 """
 dev/make_script.py
 ------------------
-Concatenate all modular source files into one self-contained `pocket-build.py`.
+Concatenate all modular source files into one self-contained `serger.py`.
 
 Produces a portable single-file build system ready for direct use or release.
 All internal and relative imports are stripped, and all remaining imports are
@@ -19,8 +19,8 @@ from pathlib import Path
 # Configuration
 # ------------------------------------------------------------
 ROOT = Path(__file__).resolve().parent.parent
-SRC_DIR = ROOT / "src" / "pocket_build"
-DEFAULT_OUT_FILE = ROOT / "bin" / "pocket-build.py"
+SRC_DIR = ROOT / "src" / "serger"
+DEFAULT_OUT_FILE = ROOT / "bin" / "serger.py"
 PYPROJECT = ROOT / "pyproject.toml"
 
 ORDER = [
@@ -32,9 +32,9 @@ ORDER = [
 ]
 
 LICENSE_HEADER = """\
-# Pocket Build — a tiny build system that fits in your pocket.
+# Serger — Stitch your module into a single file.
 # License: MIT-NOAI
-# Full text: https://github.com/apathetic-tools/pocket-build/blob/main/LICENSE
+# Full text: https://github.com/apathetic-tools/serger/blob/main/LICENSE
 """
 
 
@@ -85,10 +85,10 @@ def split_imports(text: str) -> tuple[list[str], str]:
 
 
 def strip_internal_imports(lines: list[str]) -> list[str]:
-    """Remove intra-package (`pocket_build.*`) and relative (`.foo`) imports."""
+    """Remove intra-package (`serger.*`) and relative (`.foo`) imports."""
     filtered: list[str] = []
     for line in lines:
-        if re.match(r"^\s*(?:from|import)\s+pocket_build(\.|$)", line):
+        if re.match(r"^\s*(?:from|import)\s+serger(\.|$)", line):
             continue
         if re.match(r"^\s*from\s+\.", line):
             continue
@@ -136,10 +136,10 @@ def build_single_file(out_path: Path) -> None:
         f"{LICENSE_HEADER}\n"
         f"# Version: {version}\n"
         f"# Commit: {commit}\n"
-        f"# Repo: https://github.com/apathetic-tools/pocket-build\n"
+        f"# Repo: https://github.com/apathetic-tools/serger\n"
         "\n"
         '"""\n'
-        "Pocket Build — a tiny build system that fits in your pocket.\n"
+        "Serger — Stitch your module into a single file.\n"
         "This single-file version is auto-generated from modular sources.\n"
         f"Version: {version}\n"
         f"Commit: {commit}\n"
@@ -178,12 +178,12 @@ def build_single_file(out_path: Path) -> None:
 # ------------------------------------------------------------
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Bundle Pocket Build into a single script."
+        description="Bundle Serger into a single script."
     )
     parser.add_argument(
         "--out",
         type=str,
-        help="Custom output path for generated script (default: bin/pocket-build.py)",
+        help="Custom output path for generated script (default: bin/serger.py)",
     )
     args = parser.parse_args()
 

@@ -46,15 +46,15 @@ modules = ["types.py", "utils.py", "config.py", "build.py", "cli.py"]
 imports, bodies = [], []
 
 for mod in modules:
-    tree = cst.parse_module(open(os.path.join("src/server", mod)).read())
+    tree = cst.parse_module(open(os.path.join("src/serger", mod)).read())
     for stmt in tree.body:
         if isinstance(stmt, (cst.Import, cst.ImportFrom)):
-            if "server" not in stmt.code:
+            if "serger" not in stmt.code:
                 imports.append(stmt.code)
         else:
             bodies.append(stmt.code)
 
-with open("bin/server.py", "w") as f:
+with open("bin/serger.py", "w") as f:
     f.write("#!/usr/bin/env python3\n")
     f.write("\n".join(sorted(set(imports))) + "\n\n")
     for body in bodies:

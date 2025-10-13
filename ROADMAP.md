@@ -11,7 +11,7 @@ Planned command-line flags for future releases:
 - `--include` and `--exclude`
 - `--add-include` and `--add-exclude`
 - `--respect-gitignore` and `--no-gitignore`
-- `--self-update` — update pocket-build itself  
+- `--self-update` — update serger itself  
 - `--no-update-check` — skip automatic update check 
 
 ## ⚙️ Config File Enhancements
