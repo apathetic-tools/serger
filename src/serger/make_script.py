@@ -1,3 +1,45 @@
+#!/usr/bin/env python3
+"""
+dev/make_script.py
+------------------
+Concatenate all modular source files into one self-contained `pocket-build.py`.
+
+Produces a portable single-file build system ready for direct use or release.
+All internal and relative imports are stripped, and all remaining imports are
+collected, deduplicated, and placed neatly at the top.
+"""
+
+import re
+import subprocess
+from pathlib import Path
+
+# ------------------------------------------------------------
+# Configuration
+# ------------------------------------------------------------
+ROOT = Path(__file__).resolve().parent.parent
+SRC_DIR = ROOT / "src" / "pocket_build"
+OUT_FILE = ROOT / "bin" / "pocket-build.py"
+PYPROJECT = ROOT / "pyproject.toml"
+
+ORDER = [
+    "types.py",
+    "utils.py",
+    "config.py",
+    "build.py",
+    "cli.py",
+]
+
+LICENSE_HEADER = """\
+# Pocket Build — a tiny build system that fits in your pocket.
+# License: MIT-NOAI
+# Full text: https://github.com/apathetic-tools/pocket-build/blob/main/LICENSE
+"""
+
+
+# ------------------------------------------------------------
+# Helpers
+# ------------------------------------------------------------
+def extract_version() -> str:
     if not PYPROJECT.exists():
         return "unknown"
     text = PYPROJECT.read_text(encoding="utf-8")
@@ -100,6 +142,7 @@ final_script = (
 
 OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
 OUT_FILE.write_text(final_script, encoding="utf-8")
+OUT_FILE.touch()
 
 print(
     f"✅ Built {OUT_FILE.relative_to(ROOT)} ({len(parts)} modules) — "
