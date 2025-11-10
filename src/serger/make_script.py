@@ -26,8 +26,11 @@ DEFAULT_OUT_FILE = ROOT / "bin" / "pocket-build.py"
 PYPROJECT = ROOT / "pyproject.toml"
 
 ORDER = [
+    "meta.py",
     "types.py",
-    "utils.py",
+    "utils_core.py",  # needed before runtime.py
+    "runtime.py",
+    "utils_runtime.py",
     "config.py",
     "build.py",
     "cli.py",
@@ -153,6 +156,10 @@ def build_single_file(
     version = extract_version()
     commit = extract_commit()
 
+    from datetime import datetime, timezone
+
+    build_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
     all_imports: "OrderedDict[str, None]" = OrderedDict()
     parts: list[str] = []
 
@@ -179,6 +186,7 @@ def build_single_file(
         f"{LICENSE_HEADER}\n"
         f"# Version: {version}\n"
         f"# Commit: {commit}\n"
+        f"# Build Date: {build_date}\n"
         f"# Repo: https://github.com/apathetic-tools/pocket-build\n"
         "\n"
         '"""\n'
@@ -186,8 +194,15 @@ def build_single_file(
         "This single-file version is auto-generated from modular sources.\n"
         f"Version: {version}\n"
         f"Commit: {commit}\n"
+        f"Built: {build_date}\n"
         '"""\n\n'
         f"{import_block}\n"
+        "\n"
+        # constants come *after* imports to avoid breaking __future__ rules
+        f"__version__ = {version!r}\n"
+        f"__commit__ = {commit!r}\n"
+        f"__build_date__ = {build_date!r}\n"
+        "\n"
         "\n" + "\n".join(parts) + "\n\nif __name__ == '__main__':\n"
         "    import sys\n"
         "    sys.exit(main(sys.argv[1:]))\n"
