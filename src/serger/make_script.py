@@ -11,6 +11,8 @@ collected, deduplicated, and placed neatly at the top.
 import argparse
 import ast
 import graphlib
+import importlib
+import json
 import os
 import py_compile
 import re
@@ -53,7 +55,7 @@ EXCLUDE_NAMES: list[str] = []
 
 LICENSE_HEADER = """\
 # Pocket Build — a tiny build system that fits in your pocket.
-# License: MIT-NOAI
+# License: MIT-aNOAI
 # Full text: https://github.com/apathetic-tools/pocket-build/blob/main/LICENSE
 """
 
@@ -285,11 +287,6 @@ def verify_no_broken_imports(final_text: str, package_name: str) -> None:
         raise SystemExit(1)
 
 
-# def sanity_check_levels() -> None:
-#     if not hasattr(logging, "TRACE"):
-#         raise RuntimeError("TRACE level not registered before logs.py executed")
-
-
 def suggest_fixed_order(package_name: str) -> None:
     """Print a suggested ORDER_NAMES sequence based on actual internal imports."""
     deps: dict[str, set[str]] = {name: set() for name in ORDER_NAMES}
@@ -318,6 +315,37 @@ def suggest_fixed_order(package_name: str) -> None:
     if topo != ORDER_NAMES:
         print("💡 Suggested ORDER_NAMES based on internal imports:")
         print("   " + ", ".join(topo))
+
+
+def force_mtime_advance(path: Path, seconds: float = 1.0, max_tries: int = 50) -> None:
+    """Reliably bump a file's mtime, preserving atime and nanosecond precision.
+
+    Technicaly should be faster than just sleep and check.
+
+    Ensures the change is visible before returning, even on lazy filesystems.
+
+    We often can't use os.sleep or time.sleep because we monkeypatch it.
+    """
+    real_time = importlib.import_module("time")  # immune to monkeypatch
+    old_m = path.stat().st_mtime_ns
+    ns_bump = int(seconds * 1_000_000_000)
+    new_m: int = old_m
+
+    for _attempt in range(max_tries):
+        st = path.stat()
+        os.utime(path, ns=(int(st.st_atime_ns), int(st.st_mtime_ns + ns_bump)))
+        os.sync()  # flush kernel metadata
+
+        new_m = path.stat().st_mtime_ns
+        if new_m > old_m:
+            return  # ✅ success
+        real_time.sleep(0.00001)  # 10 µs pause before recheck
+
+    xmsg = (
+        f"bump_mtime({path}) failed to advance mtime after {max_tries} attempts "
+        f"(old={old_m}, new={new_m})",
+    )
+    raise AssertionError(xmsg)
 
 
 # ------------------------------------------------------------
@@ -408,9 +436,9 @@ def build_single_file(
         f"{import_block}\n"
         "\n"
         # constants come *after* imports to avoid breaking __future__ rules
-        f"__version__ = {version!r}\n"
-        f"__commit__ = {commit!r}\n"
-        f"__build_date__ = {build_date!r}\n"
+        f"__version__ = {json.dumps(version)}\n"
+        f"__commit__ = {json.dumps(commit)}\n"
+        f"__build_date__ = {json.dumps(build_date)}\n"
         f"__STANDALONE__ = True\n"
         f"__STITCH_SOURCE__ = 'dev/make_script.py'\n"
         "\n"
@@ -425,7 +453,12 @@ def build_single_file(
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(final_script, encoding="utf-8")
-    out_path.touch()
+
+    # Ensure mtime visibly increases across all filesystems
+    try:
+        force_mtime_advance(out_path)
+    except AssertionError as e:
+        print(f"⚠️  Could not force mtime advance: {e}")
 
     rel_path = out_path.relative_to(ROOT) if out_path.is_relative_to(ROOT) else out_path
     print(
