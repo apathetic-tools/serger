@@ -53,7 +53,7 @@
 
       // Output file path (relative to project root)
       // This will be the final single-file executable
-      "out": "dist/serger-self.py"
+      "out": "dist/serger.py"
     }
   ],
 
