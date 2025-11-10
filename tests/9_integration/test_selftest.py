@@ -1,9 +1,16 @@
 # tests/test_cli_selftest.py
-"""Tests for --selftest flag in serger CLI."""
+"""Tests for --selftest flag in serger CLI.
+
+NOTE: These tests need to be updated in Phase 6 to test stitch builds
+instead of file-copying behavior.
+"""
 
 import pytest
 
 import serger.cli as mod_cli
+
+
+pytestmark = pytest.mark.pocket_build_compat
 
 
 def test_selftest_flag_success(

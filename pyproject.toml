@@ -23,7 +23,7 @@ check = ["lint", "typecheck",  "test"]
 lint = ["lint:ruff", "lint:compile"]
 "lint:ruff" = "ruff check ."
 "lint:compile" = ["lint:compile:script"]
-"lint:compile:script" = { shell = "if [ -f bin/serger.py ]; then python -m py_compile bin/serger.py; fi" }
+"lint:compile:script" = { shell = "if [ -f dist/serger.py ]; then python -m py_compile dist/serger.py; fi" }
 
 # 🧠 Type checking
 typecheck = ["typecheck:mypy", "typecheck:pyright"]

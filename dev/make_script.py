@@ -27,7 +27,7 @@ from pathlib import Path
 # ------------------------------------------------------------
 ROOT = Path(__file__).resolve().parent.parent
 SRC_DIR = ROOT / "src" / "serger"
-DEFAULT_OUT_FILE = ROOT / "bin" / "serger.py"
+DEFAULT_OUT_FILE = ROOT / "dist" / "serger.py"
 PYPROJECT = ROOT / "pyproject.toml"
 
 # ------------------------------------------------------------

@@ -1,16 +1,24 @@
 # tests/9_integration/test_installed__execution.py
-"""Verify the installed package version works via `python -m serger`."""
+"""Verify the installed package version works via `python -m serger`.
+
+NOTE: These tests are currently for file-copying (pocket-build responsibility).
+They will be adapted for stitch builds in Phase 5.
+"""
 
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 import serger.meta as mod_meta
 
 
 # --- only for installed runs ---
 __runtime_mode__ = "installed"
+
+pytestmark = pytest.mark.pocket_build_compat
 
 
 def test_installed_module_execution() -> None:
