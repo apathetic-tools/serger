@@ -47,11 +47,10 @@ class BuildConfig(TypedDict, total=False):
     # Single-build convenience (propagated upward)
     watch_interval: float
 
-    # Stitching configuration (optional, for module stitching builds)
-    # If present, this build is a stitch build instead of a copy build
-    package: NotRequired[str]  # Package name for imports (e.g., "serger")
-    order: NotRequired[list[str]]  # Explicit module order for stitching
-    license_header: NotRequired[str]  # License header text for stitched output
+    # Stitching configuration
+    package: str  # Package name for imports (e.g., "serger")
+    order: list[str]  # Explicit module order for stitching
+    license_header: str  # License header text for stitched output
 
 
 class RootConfig(TypedDict, total=False):
