@@ -1,0 +1,55 @@
+// Serger's self-hosting configuration
+// This file defines how to stitch serger itself into a single-file executable
+
+{
+  "builds": [
+    {
+      // Stitching configuration for the main serger package
+      "package": "serger",
+
+      // Explicit module order for stitching
+      // This order is critical - modules must be ordered to satisfy their import dependencies
+      "order": [
+        "constants",       // Base constants (no dependencies)
+        "meta",            // Metadata (no internal dependencies)
+        "config_types",    // Type definitions (needed before utils.py)
+        "utils_logs",      // Logging utilities (needed before logs.py)
+        "logs",            // Logging setup
+        "utils",           // General utilities
+        "utils_types",     // Utility types
+        "utils_schema",    // Schema utilities
+        "config",          // Config loading
+        "config_resolve",  // Config resolution
+        "config_validate", // Config validation
+        "build",           // Build actions
+        "actions",         // CLI actions
+        "stitch",          // Stitching utilities (extracted from dev/make_script.py)
+        "cli"              // Main CLI entry point
+      ],
+
+      // Source modules to include in the stitch
+      // These are glob patterns relative to the source directory
+      "include": [
+        "src/serger/*.py"
+      ],
+
+      // Files to exclude from stitching
+      // These are often development-only or auto-generated utilities
+      "exclude": [
+        "__pycache__/**",
+        "*.pyc",
+        "__init__.py",    // Handled by import shims
+        "make_script.py"  // Development tool, not part of final build
+      ],
+
+      // Output file path (relative to project root)
+      // This will be the final single-file executable
+      "out": "bin/serger.py"
+    }
+  ],
+
+  // Global configuration defaults
+  "log_level": "info",
+  "strict_config": true,
+  "respect_gitignore": true
+}
