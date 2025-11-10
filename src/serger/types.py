@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, TypedDict, Union
+from typing import TypedDict
 
 from typing_extensions import NotRequired
 
@@ -20,11 +20,11 @@ class MetaBuildConfig(TypedDict, total=False):
 
 
 class BuildConfig(TypedDict, total=False):
-    include: List[Union[str, IncludeEntry]]
-    exclude: List[str]
+    include: list[str | IncludeEntry]
+    exclude: list[str]
     out: str
     __meta__: MetaBuildConfig
 
 
 class RootConfig(TypedDict, total=False):
-    builds: List[BuildConfig]
+    builds: list[BuildConfig]
