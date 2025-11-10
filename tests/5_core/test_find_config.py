@@ -1,0 +1,105 @@
+# tests/70-config-tests/test_find_config.py
+
+from argparse import Namespace
+from pathlib import Path
+
+import pytest
+
+import serger.config as mod_config
+import serger.meta as mod_meta
+import serger.utils_logs as mod_logs
+
+
+def test_find_config_raises_for_missing_file(tmp_path: Path) -> None:
+    """Explicit --config path that doesn't exist should raise FileNotFoundError."""
+    # --- setup ---
+    args = Namespace(config=str(tmp_path / "nope.json"))
+
+    # --- execute and verify ---
+    with pytest.raises(FileNotFoundError, match="not found"):
+        mod_config.find_config(args, tmp_path)
+
+
+def test_find_config_returns_explicit_file(tmp_path: Path) -> None:
+    """Should return the explicit file path when it exists."""
+    # --- setup ---
+    cfg = tmp_path / ".serger.json"
+    cfg.write_text("{}")
+    args = Namespace(config=str(cfg))
+
+    # --- execute ---
+    result = mod_config.find_config(args, tmp_path)
+
+    # --- verify ---
+    assert result == cfg.resolve()
+
+
+def test_find_config_logs_and_returns_none_when_missing(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    """Should log and return None when no default config file exists."""
+    # --- setup ---
+    args = Namespace(config=None)
+
+    # --- execute ---
+    result = mod_config.find_config(args, tmp_path)
+
+    # --- verify ---
+    assert result is None
+    # ensure an error was logged
+    out = capsys.readouterr().err.lower()
+    assert mod_logs.TAG_STYLES["ERROR"][1].lower() in out
+    assert "config" in out
+
+
+def test_find_config_warns_for_multiple_candidates(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    """If multiple config files exist, should warn and use the first."""
+    # --- setup ---
+    prefix = mod_meta.PROGRAM_CONFIG
+    py = tmp_path / f".{prefix}.py"
+    json = tmp_path / f".{prefix}json"
+    jsonc = tmp_path / f".{prefix}.jsonc"
+    for f in (py, json, jsonc):
+        f.write_text("{}")
+
+    args = Namespace(config=None)
+
+    # --- execute ---
+    result = mod_config.find_config(args, tmp_path)
+
+    # --- verify ---
+    assert result == py
+    # confirm that at least one warning was logged
+    out = capsys.readouterr().err.lower()
+    assert mod_logs.TAG_STYLES["WARNING"][1].lower() in out
+    assert "multiple config" in out
+
+
+def test_find_config_raises_for_directory(tmp_path: Path) -> None:
+    """Explicit --config path pointing to a directory should raise ValueError."""
+    # --- setup ---
+    args = Namespace(config=str(tmp_path))
+
+    # --- execute and verify ---
+    with pytest.raises(ValueError, match="directory"):
+        mod_config.find_config(args, tmp_path)
+
+
+def test_find_config_respects_missing_level(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    """missing_level argument should control log level on missing config."""
+    # --- setup ---
+    args = Namespace(config=None)
+
+    # --- execute ---
+    mod_config.find_config(args, tmp_path, missing_level="warning")
+
+    # --- verify ---
+    out = capsys.readouterr().err.lower()
+    assert mod_logs.TAG_STYLES["WARNING"][1].lower() in out

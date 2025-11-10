@@ -1,0 +1,213 @@
+# tests/_30_utils_tests/is_excluded_raw.py
+"""Tests for is_excluded_raw and its wrapper is_excluded.
+
+Checklist:
+- matches_patterns — simple include/exclude match using relative glob patterns.
+- relative_path — confirms relative path resolution against root.
+- outside_root — verifies paths outside root never match.
+- absolute_pattern — ensures absolute patterns under the same root are matched.
+- file_root_special_case — handles case where root itself is a file, not a directory.
+- mixed_patterns — validates mixed matching and non-matching patterns.
+- wrapper_delegates — checks that the wrapper forwards args correctly.
+- gitignore_double_star_diff — '**' not recursive unlike gitignore in ≤Py3.10.
+"""
+
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+import serger.utils as mod_utils
+from tests.utils import patch_everywhere
+
+
+def test_is_excluded_raw_matches_patterns(tmp_path: Path) -> None:
+    """Verify exclude pattern matching works correctly.
+
+    Example:
+      path:     /tmp/.../foo/bar.txt
+      root:     /tmp/...
+      pattern:  ["foo/*"]
+      Result: True
+      Explanation: pattern 'foo/*' matches 'foo/bar.txt' relative to root.
+
+    """
+    # --- setup ---
+    root = tmp_path
+    file = root / "foo/bar.txt"
+    file.parent.mkdir(parents=True)
+    file.touch()
+
+    # --- execute + verify ---
+    assert mod_utils.is_excluded_raw(file, ["foo/*"], root)
+    assert not mod_utils.is_excluded_raw(file, ["baz/*"], root)
+
+
+def test_is_excluded_raw_relative_path(tmp_path: Path) -> None:
+    """Handles relative file path relative to given root.
+
+    Example:
+      path:     "src/file.txt"
+      root:     /tmp/.../
+      pattern:  ["src/*"]
+      Result: True
+      Explanation: path is relative; pattern matches within the same root.
+
+    """
+    # --- setup ---
+    root = tmp_path
+    (root / "src").mkdir()
+    (root / "src/file.txt").touch()
+
+    rel_path = Path("src/file.txt")
+
+    # --- execute + verify ---
+    assert mod_utils.is_excluded_raw(rel_path, ["src/*"], root)
+    assert not mod_utils.is_excluded_raw(rel_path, ["dist/*"], root)
+
+
+def test_is_excluded_raw_outside_root(tmp_path: Path) -> None:
+    """Paths outside the root should never match.
+
+    Example:
+      path:     /tmp/outside.txt
+      root:     /tmp/root/
+      pattern:  ["*.txt"]
+      Result: False
+      Explanation: file is not under root; function skips comparison.
+
+    """
+    # --- setup ---
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.touch()
+
+    # --- execute + verify ---
+    assert not mod_utils.is_excluded_raw(outside, ["*.txt"], root)
+
+
+def test_is_excluded_raw_absolute_pattern(tmp_path: Path) -> None:
+    """Absolute patterns matching under the same root should match.
+
+    Example:
+      path:     /tmp/.../a/b/c.txt
+      root:     /tmp/.../
+      pattern:  ["/tmp/.../a/b/*.txt"]
+      Result: True
+      Explanation: pattern is absolute but lies within root;
+                   converted to relative 'a/b/*.txt'.
+
+    """
+    # --- setup ---
+    root = tmp_path
+    file = root / "a/b/c.txt"
+    file.parent.mkdir(parents=True)
+    file.touch()
+
+    abs_pattern = str(root / "a/b/*.txt")
+
+    # --- execute + verify ---
+    assert mod_utils.is_excluded_raw(file, [abs_pattern], root)
+    assert not mod_utils.is_excluded_raw(file, [str(root / "x/*.txt")], root)
+
+
+def test_is_excluded_raw_file_root_special_case(tmp_path: Path) -> None:
+    """If the root itself is a file, match it directly.
+
+    Example:
+      path:     data.csv
+      root:     /tmp/.../data.csv
+      pattern:  []
+      Result: True
+      Explanation: root is a file; function returns True
+                   when path resolves to that file.
+
+    """
+    # --- setup ---
+    root_file = tmp_path / "data.csv"
+    root_file.touch()
+
+    # path argument can be either relative or absolute
+    rel_same = Path("data.csv")
+    abs_same = root_file
+
+    # --- execute + verify ---
+    assert mod_utils.is_excluded_raw(rel_same, [], root_file)
+    assert mod_utils.is_excluded_raw(abs_same, [], root_file)
+
+    # unrelated file should not match
+    other = tmp_path / "other.csv"
+    other.touch()
+    assert not mod_utils.is_excluded_raw(other, [], root_file)
+
+
+def test_is_excluded_raw_mixed_patterns(tmp_path: Path) -> None:
+    """Mix of matching and non-matching patterns should behave predictably.
+
+    Example:
+      path:     /tmp/.../dir/sample.tmp
+      root:     /tmp/.../
+      pattern:  ["*.py", "dir/*.tmp", "ignore/*"]
+      Result: True
+      Explanation: second pattern matches; earlier and later do not.
+
+    """
+    # --- setup ---
+    root = tmp_path
+    file = root / "dir/sample.tmp"
+    file.parent.mkdir(parents=True)
+    file.touch()
+
+    patterns = ["*.py", "dir/*.tmp", "ignore/*"]
+
+    # --- execute + verify ---
+    assert mod_utils.is_excluded_raw(file, patterns, root)
+
+
+def test_is_excluded_raw_gitignore_double_star(tmp_path: Path) -> None:
+    """Document that gitignore's '**' recursion IS emulated.
+
+    Example:
+      path:     /tmp/.../dir/sub/file.py
+      root:     /tmp/.../
+      pattern:  ["dir/**/*.py"]
+      Result:   True  (Python ≥3.11)
+                True  (Python ≤3.10)
+      Explanation:
+        - In Python ≤3.10, we backport 3.11 behaviour.
+        - In Python ≥3.11, fnmatch matches recursively across directories.
+    """
+    # --- setup ---
+    root = tmp_path
+    nested = root / "dir/sub/file.py"
+    nested.parent.mkdir(parents=True)
+    nested.touch()
+
+    # --- execute ---
+    result = mod_utils.is_excluded_raw(nested, ["dir/**/*.py"], root)
+
+    # --- verify ---
+    assert result, "Expected True on Python ≥3.11 where '**' is recursive"
+
+
+def test_gitignore_double_star_backport_py310(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # --- setup ---
+    root = tmp_path
+    nested = root / "dir/sub/file.py"
+    nested.parent.mkdir(parents=True)
+    nested.touch()
+
+    # --- patch and execute ---
+    # Force utils to think it's running on Python 3.10
+    fake_sys = SimpleNamespace(version_info=(3, 10, 0))
+    patch_everywhere(
+        monkeypatch, mod_utils, "get_sys_version_info", lambda: fake_sys.version_info
+    )
+    result = mod_utils.is_excluded_raw(nested, ["dir/**/*.py"], root)
+
+    # --- verify ---
+    # Assert: backport should match recursively on 3.10
+    assert result is True
