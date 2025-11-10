@@ -1,7 +1,7 @@
 # pyproject.toml
 
 [project]
-name = "server"
+name = "serger"
 version = "0.0.1"
 description = "Stitch your module into a single file"
 authors = [
@@ -20,28 +20,63 @@ dependencies = [
 
 # 🔍 Linting and static checks
 check = ["lint", "typecheck",  "test"]
-lint = ["lint:isort", "lint:ruff", "lint:compile"]
+lint = ["lint:ruff", "lint:compile"]
 "lint:ruff" = "ruff check ."
-"lint:isort" = ["lint:isort:reg", "lint:isort:script"]
-"lint:isort:reg" = "isort . --check-only --color"
-"lint:isort:script" = {shell = "if [ -f bin/serger.py ]; then isort bin/serger.py --check-only --color; fi" }
 "lint:compile" = ["lint:compile:script"]
 "lint:compile:script" = { shell = "if [ -f bin/serger.py ]; then python -m py_compile bin/serger.py; fi" }
-typecheck = "mypy src"
-test = "pytest -q --color=yes"
+
+# 🧠 Type checking
+typecheck = ["typecheck:mypy", "typecheck:pyright"]
+"typecheck:mypy" = "mypy src tests"
+# run pyright to simulate pylance for AI CLI auto-fix
+"typecheck:pyright" = "pyright src tests"
+
+# 🧪 Tests (runs both: installed + singlefile)
+test = ["test:pytest:installed", "test:pytest:script"]
+"test:pytest:installed" = "pytest"
+"test:pytest:script" = [
+  "build:script",
+  { cmd = "pytest", env = { RUNTIME_MODE="singlefile" } }
+]
+
+# 📊 Coverage reporting
+"coverage:clean" = { shell = "rm -f .coverage .coverage.*" }
+"coverage:run:installed" = { cmd = "pytest --cov=src --cov-report= --cov-context=test", env = { COVERAGE_FILE=".coverage.installed" } }
+"coverage:run:singlefile" = { cmd = "pytest --cov=src --cov-report= --cov-context=test", env = { RUNTIME_MODE="singlefile", COVERAGE_FILE=".coverage.singlefile" } }
+"coverage:combine" = { cmd = "coverage combine .coverage.installed .coverage.singlefile" }
+"coverage:base" = [
+  "coverage:clean",
+  "coverage:run:installed",
+  "build:script",
+  "coverage:run:singlefile",
+  "coverage:combine",
+]
+
+"coverage" = [
+  "coverage:base",
+  { cmd = "coverage report --show-missing" },
+  { cmd = "coverage html" },
+]
+"coverage:html" = [
+  "coverage:base",
+  { cmd = "coverage html" },
+]
 
 # 🧹 Automated fixing / formatting
-fix = ["fix:isort", "fix:ruff", "lint:compile", "fix:format"]
-"fix:isort" = ["fix:isort:reg", "fix:isort:script"]
-"fix:isort:reg" = "isort . --color"
-"fix:isort:script" = {shell = "if [ -f bin/serger.py ]; then isort bin/serger.py --color; fi" }
-"fix:ruff" = "ruff check . --fix"
-"fix:format" = "ruff format ."
+fix = ["fix:ruff:installed", "fix:ruff:bin", "lint:compile", "fix:format:installed", "fix:format:bin"]
+"fix:ruff:installed" = "ruff check . --fix"
+"fix:ruff:bin" = { shell = "if [ -d bin ]; then ruff check bin --fix; fi" }
+"fix:format:installed" = "ruff format ."
+"fix:format:bin" = { shell = "if [ -d bin ]; then ruff format bin; fi" }
 
 # 🧩 Build and license
 "build:script" = "python dev/make_script.py"
 "check:license" = "bash dev/check-license.sh"
-"verify:pytest" = "POCKET_BUILD_DEBUG=1 pytest tests/test_build.py"
+
+# 🧪 Internal verification
+[tool.poe.tasks."verify:pytest"]
+cmd = "pytest tests/test_pytest.py"
+env = { RUNTIME_DEBUG = "1" }
 
 # --- Development dependencies ---
 [dependency-groups]
@@ -51,8 +86,12 @@ dev = [
     "pytest (>=8.4.2,<9.0.0)",
     "poethepoet (>=0.37.0,<0.38.0)",
     "pre-commit (>=4.3.0,<5.0.0)",
-    "isort (>=7.0.0,<8.0.0)",
     "colorama (>=0.4.6,<0.5.0)",
+    "pytest-dependency (>=0.6.0,<0.7.0)",
+    "pytest-timeout (>=2.4.0,<3.0.0)",
+    "pytest-benchmark (>=5.1.0,<6.0.0)",
+    "pytest-cov (>=7.0.0,<8.0.0)",
+    "pyright (>=1.1.407,<2.0.0)",
 ]
 
 # --- Ruff: formatter and linter ---
@@ -60,36 +99,152 @@ dev = [
 # target-version = # project.requires-python instead
 line-length = 88
 fix = true
+respect-gitignore = true
 
 [tool.ruff.lint]
-select = ["E", "F", "W"]
-ignore = ["I"] # isort will do "I"
+allowed-confusables = [
+  "’", # ai uses produces this
+  "–", # ai uses produces this
+]
+
+# we select all then ignore so we can buy-into new rulesets we would otherwise miss
+select = [
+  "ALL"
+]
+
+
+# https://docs.astral.sh/ruff/rules/
+ignore = [
+  "ANN401", # Dynamically typed expressions
+
+  "COM812", # missing trailing comma (redundant with the formatter)
+  "COM819", # trailing comma prohibited (redundant with the formatter)
+
+  "D100", # Missing docstring in public module
+  "D101", # Missing docstring in public class
+  "D102", # Missing docstring in public method
+  "D103", # Missing docstring in public function
+  "D104", # Missing docstring in public package
+  "D105", # Missing docstring in magic method
+  "D106", # Missing docstring in public nested class
+  "D107", # Missing docstring in `__init__`
+  "D200", # One-line docstring should fit on one line
+  "D203", # Force blank between class and docstring
+  "D205", # 1 blank line required between summary line and description
+  "D209", # Multi-line docstring closing quotes should be on a separate line
+  "D212", # Multi-line docstring summary should start at the first line
+  "D213", # Force first line of docstring """ to not have text
+  "D400", # First line should end with a period
+  "D401", # First line of docstring should be in imperative mood
+  "D413", # Missing blank line after last section ("Example")
+  "D415", # First line should end with a period, question mark, or exclamation point
+
+  "ERA001", # Found commented-out code (too aggresive)
+
+  "EXE001", # shebang files must be executable
+
+  "FBT003", # Boolean positional value in function call (too aggresive, includes class instantiation)
+
+  "RET504", # Unnecessary assignment to `var` before `return` statement
+
+  # "RUF002", # Docstring contains ambiguous -- allow specific ambiguous via lint.allowed-confusables
+  # "RUF003", # Comment contains ambiguous -- allow specific ambiguous via lint.allowed-confusables
+
+  "TC003", # Move standard library import into TYPE_CHECKING block (too pedantic with __future__ annotations)
+
+#  "TRY300", # Consider moving this statement to an `else` block
+]
+
+[tool.ruff.lint.per-file-ignores]
+"bin/**/*.py" = [
+  "ICN001", # Allow from imports in bin
+  "INP001", # missing __init__.py
+  "T201", # print found
+]
+"dev/**/*.py" = [
+  "ICN001", # Allow from imports in dev
+  "INP001", # missing __init__.py
+  "T201", # print found
+]
+"src/**/*.py" = [
+  "ICN001", # Allow from imports in src
+]
+"tests/**/*.py" = [
+  "INP001", # missing __init__.py
+  "S101", # Use of `assert` detected
+  "T201", # print found
+]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 
-# --- isort: formatter import sorting (and merging, which ruff doesn't do) ---
+[tool.ruff.lint.flake8-import-conventions]
+banned-from = ["serger"] # only in tests, see per-file ignores
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+known-first-party = ["serger"]
+force-single-line = false
+lines-after-imports = 2
+
+[tool.ruff.lint.mccabe]
+# Flag errors (`C901`) whenever the complexity level exceeds 15.
+max-complexity = 15
+
+[tool.ruff.lint.pylint]
+max-args = 10
+max-returns = 5
+
+# --- isort: kept in case someone runs it by accident in their editor ---
 [tool.isort]
-profile = "black"
-line_length = 88
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-combine_as_imports = true
+profile = "black"                # Matches Ruff formatter style
+line_length = 88                 # Keep consistent with Ruff
+combine_as_imports = true        # Same as Ruff’s setting
 known_first_party = ["serger"]
-skip_gitignore = true
+skip_gitignore = true            # Avoid touching ignored files
+force_single_line = false        # Don’t explode imports unnecessarily
+atomic = true                    # Fail instead of partial reordering if conflicts occur
+
 
 # --- Mypy: stricter typing options ---
 [tool.mypy]
 python_version = "3.10"
-ignore_missing_imports = true
 strict = true
 
+# --- Pyright: static type checker (powers Pylance) ---
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "strict"
+
+# --- Coverage: code coverage tracking ---
+[tool.coverage.run]
+source = ["src"]
+omit = ["*/tests/*", "*/test_*.py"]
+# Enable subprocess coverage tracking (for python -m serger calls)
+concurrency = ["thread", "multiprocessing"]
+sigterm = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
 # --- pytest: testing framework ---
-[tool.pytest.ini_options]
-pythonpath = ["src"]
-addopts = "-ra"
+# see pytest.ini
+#   it has a alrge number of ignores
+#   so we keep it separate
+# [tool.pytest.ini_options]
 
 # --- Black: kept in case someone runs it by accident in their editor ---
 [tool.black]
