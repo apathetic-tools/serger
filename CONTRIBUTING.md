@@ -7,16 +7,9 @@ This guide explains how to set up your environment, run checks, and safely contr
 
 ## 🐍 Supported Python Versions
 
-Serger targets **Python 3.10+**.  
+Serger targets **Python 3.10+**.
 That keeps compatibility with Ubuntu 22.04 (the baseline CI OS) while staying modern.
-
-| Platform | Default Python | Notes |
-|-----------|----------------|-------|
-| Ubuntu 22.04 LTS | 3.10 | Minimum supported baseline. |
-| Ubuntu 24.04 LTS | 3.12 | Current CI default. |
-| macOS (Homebrew / Python.org) | 3.12 | Must be user-installed. |
-| Windows (Microsoft Store) | 3.12 | Microsoft’s LTS release. |
-| GitHub Actions `ubuntu-latest` | 3.10 → 3.12 | Both available during transition. |
+See the [decision record #4](DECISIONS.md#dec04) for background on this choice.
 
 > The build itself has **no runtime dependencies** — only dev tools use Poetry.
 
@@ -57,15 +50,12 @@ All key workflows are defined in **`[tool.poe.tasks]`** inside `pyproject.toml`.
 |----------|-------------|
 | `poetry run poe check:fix` | Auto-fix issues, re-format, type-check, and re-test. |
 | `poetry run poe check` | Run linting (`ruff`), type checks (`mypy`), and tests (`pytest`). |
-| `poetry run poe fix` | Run all auto-fixers (isort + Ruff + formatter). |
+| `poetry run poe fix` | Run all auto-fixers (`ruff`). |
 | `poetry run poe build:script` | Bundle the project into a single portable script in `bin/`. |
 
 Example workflow:
 
 ```bash
-# Run full check
-poetry run poe check
-
 # Auto-fix & re-check
 poetry run poe check:fix
 ```
@@ -74,25 +64,18 @@ poetry run poe check:fix
 
 ## 🔗 Pre-commit Hook
 
-Pre-commit is configured to run `poe check` before every commit.
+Pre-commit is configured to run **`poe fix`** on each commit,  
+and **`poe check`** before every push.  
+This keeps your local commits tidy and ensures CI stays green.
 
 Install the hook once:
 
 ```bash
-poetry run pre-commit install
+poetry run pre-commit install --install-hooks
+poetry run pre-commit install --hook-type pre-push
 ```
 
-Manually trigger it on all files anytime:
-
-```bash
-poetry run pre-commit run --all-files
-```
-
-If any linter, type check, or test fails, the commit is blocked — fix with:
-
-```bash
-poetry run poe check:fix
-```
+If any linter, type check, or test fails, the commit is blocked. It may have auto-fixed the problem, try commiting again before troubleshooting.
 
 ### 🧩 Fixing the `setlocale` Warning
 

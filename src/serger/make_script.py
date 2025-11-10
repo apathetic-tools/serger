@@ -26,8 +26,8 @@ from pathlib import Path
 # Configuration
 # ------------------------------------------------------------
 ROOT = Path(__file__).resolve().parent.parent
-SRC_DIR = ROOT / "src" / "pocket_build"
-DEFAULT_OUT_FILE = ROOT / "bin" / "pocket-build.py"
+SRC_DIR = ROOT / "src" / "serger"
+DEFAULT_OUT_FILE = ROOT / "bin" / "serger.py"
 PYPROJECT = ROOT / "pyproject.toml"
 
 # ------------------------------------------------------------
@@ -54,9 +54,9 @@ SHIM_NAMES = [n for n in ORDER_NAMES if not n.startswith("_")]
 EXCLUDE_NAMES: list[str] = []
 
 LICENSE_HEADER = """\
-# Pocket Build — a tiny build system that fits in your pocket.
+# Serger — Stitch your module into a single file.
 # License: MIT-aNOAI
-# Full text: https://github.com/apathetic-tools/pocket-build/blob/main/LICENSE
+# Full text: https://github.com/apathetic-tools/serger/blob/main/LICENSE
 """
 
 
@@ -407,7 +407,7 @@ def build_single_file(
 
     shim_block = [
         "# --- import shims for single-file runtime ---",
-        "_pkg = 'pocket_build'",
+        "_pkg = 'serger'",
         "_mod = sys.modules.get(f'{_pkg}_single') or sys.modules.get(_pkg)",
         "if _mod:",
         *[f"    sys.modules[f'{{_pkg}}.{name}'] = _mod" for name in SHIM_NAMES],
@@ -422,12 +422,12 @@ def build_single_file(
         f"# Version: {version}\n"
         f"# Commit: {commit}\n"
         f"# Build Date: {build_date}\n"
-        f"# Repo: https://github.com/apathetic-tools/pocket-build\n"
+        f"# Repo: https://github.com/apathetic-tools/serger\n"
         "\n# ruff: noqa: E402\n"
         "\n"
         f"{future_block}\n"
         '"""\n'
-        "Pocket Build — a tiny build system that fits in your pocket.\n"
+        "Serger — Stitch your module into a single file.\n"
         "This single-file version is auto-generated from modular sources.\n"
         f"Version: {version}\n"
         f"Commit: {commit}\n"
@@ -488,12 +488,12 @@ def build_single_file(
 # ------------------------------------------------------------
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Bundle Pocket Build into a single script.",
+        description="Bundle Serger into a single script.",
     )
     parser.add_argument(
         "--package",
-        default="pocket_build",
-        help="Root package name (default: pocket_build)",
+        default="serger",
+        help="Root package name (default: serger)",
     )
     parser.add_argument(
         "--out",
