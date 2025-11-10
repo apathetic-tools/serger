@@ -8,6 +8,8 @@ All internal and relative imports are stripped, and all remaining imports are
 collected, deduplicated, and placed neatly at the top.
 """
 
+# ruff: noqa: T201
+
 import argparse
 import ast
 import graphlib

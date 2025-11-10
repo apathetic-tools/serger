@@ -1,248 +1,523 @@
 # src/serger/cli.py
+
 import argparse
-import contextlib
-import io
-import re
-import subprocess
+import platform
 import sys
+from dataclasses import dataclass
+from difflib import get_close_matches
 from pathlib import Path
-from typing import Any, List, Optional, cast
 
-from .build import run_build
-from .config import parse_builds
-from .types import BuildConfig, MetaBuildConfig
-from .utils import RED, YELLOW, colorize, debug_print, load_jsonc
-
-
-def get_metadata_from_header(script_path: Path) -> tuple[str, str]:
-    """Extract version and commit from bundled header if present."""
-    version = "unknown"
-    commit = "unknown"
-
-    try:
-        text = script_path.read_text(encoding="utf-8")
-        for line in text.splitlines():
-            if line.startswith("# Version:"):
-                version = line.split(":", 1)[1].strip()
-            elif line.startswith("# Commit:"):
-                commit = line.split(":", 1)[1].strip()
-    except Exception:
-        pass
-
-    return version, commit
-
-
-def get_metadata() -> tuple[str, str]:
-    """
-    Return (version, commit) tuple for Serger.
-    - Bundled script → parse from header
-    - Source package → read pyproject.toml + git
-    """
-    script_path = Path(__file__)
-
-    # --- Heuristic: bundled script lives outside `src/` ---
-    if "src" not in str(script_path):
-        return get_metadata_from_header(script_path)
-
-    # --- Modular / source package case ---
-
-    # Source package case
-    version = "unknown"
-    commit = "unknown"
-
-    # Try pyproject.toml for version
-    root = Path(__file__).resolve().parents[2]
-
-    pyproject = root / "pyproject.toml"
-    if pyproject.exists():
-        text = pyproject.read_text()
-        match = re.search(r'(?m)^\s*version\s*=\s*["\']([^"\']+)["\']', text)
-        if match:
-            version = match.group(1)
-
-    # Try git for commit
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        commit = result.stdout.strip()
-    except Exception:
-        pass
-
-    return version, commit
+from .actions import get_metadata, run_selftest, watch_for_changes
+from .build import run_all_builds
+from .config import (
+    can_run_configless,
+    load_and_validate_config,
+)
+from .config_resolve import resolve_config
+from .config_types import (
+    BuildConfigResolved,
+    RootConfig,
+    RootConfigResolved,
+)
+from .constants import (
+    DEFAULT_DRY_RUN,
+    DEFAULT_WATCH_INTERVAL,
+)
+from .logs import get_logger
+from .meta import (
+    PROGRAM_CONFIG,
+    PROGRAM_DISPLAY,
+    PROGRAM_SCRIPT,
+)
+from .utils import get_sys_version_info
+from .utils_logs import LEVEL_ORDER, safe_log
+from .utils_types import cast_hint
 
 
-def setup_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="serger")
-    parser.add_argument("--include", nargs="+", help="Override include patterns.")
+# --------------------------------------------------------------------------- #
+# CLI setup and helpers
+# --------------------------------------------------------------------------- #
+
+
+class HintingArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> None:  # type: ignore[override]
+        # Build known option strings: ["-v", "--verbose", "--log-level", ...]
+        known_opts: list[str] = []
+        for action in self._actions:
+            known_opts.extend([s for s in action.option_strings if s])
+
+        hint_lines: list[str] = []
+        # Argparse message for bad flags is typically
+        # "unrecognized arguments: --inclde ..."
+        if "unrecognized arguments:" in message:
+            bad = message.split("unrecognized arguments:", 1)[1].strip()
+            # Split conservatively on whitespace
+            bad_args = [tok for tok in bad.split() if tok.startswith("-")]
+            for arg in bad_args:
+                close = get_close_matches(arg, known_opts, n=1, cutoff=0.6)
+                if close:
+                    hint_lines.append(f"Hint: did you mean {close[0]}?")
+
+        # Print usage + the original error
+        self.print_usage(sys.stderr)
+        full = f"{self.prog}: error: {message}"
+        if hint_lines:
+            full += "\n" + "\n".join(hint_lines)
+        self.exit(2, full + "\n")
+
+
+def _setup_parser() -> argparse.ArgumentParser:
+    """Define and return the CLI argument parser."""
+    parser = HintingArgumentParser(prog=PROGRAM_SCRIPT)
+
+    # --- Positional shorthand arguments ---
+    parser.add_argument(
+        "positional_include",
+        nargs="*",
+        metavar="INCLUDE",
+        help="Positional include paths or patterns (shorthand for --include).",
+    )
+    parser.add_argument(
+        "positional_out",
+        nargs="?",
+        metavar="OUT",
+        help="Positional output directory (shorthand for --out).",
+    )
+
+    # --- Standard flags ---
+    parser.add_argument(
+        "--include",
+        nargs="+",
+        help="Override include patterns. Format: path or path:dest",
+    )
     parser.add_argument("--exclude", nargs="+", help="Override exclude patterns.")
     parser.add_argument("-o", "--out", help="Override output directory.")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Simulate build actions without copying or deleting files.",
+    )
     parser.add_argument("-c", "--config", help="Path to build config file.")
 
+    parser.add_argument(
+        "--add-include",
+        nargs="+",
+        help=(
+            "Additional include paths (relative to cwd). "
+            "Format: path or path:dest. Extends config includes."
+        ),
+    )
+    parser.add_argument(
+        "--add-exclude",
+        nargs="+",
+        help="Additional exclude patterns (relative to cwd). Extends config excludes.",
+    )
+
+    parser.add_argument(
+        "--watch",
+        nargs="?",
+        type=float,
+        metavar="SECONDS",
+        default=None,
+        help=(
+            "Rebuild automatically on changes. "
+            "Optionally specify interval in seconds"
+            f" (default config or: {DEFAULT_WATCH_INTERVAL}). "
+        ),
+    )
+
+    # --- Gitignore behavior ---
+    gitignore = parser.add_mutually_exclusive_group()
+    gitignore.add_argument(
+        "--gitignore",
+        dest="respect_gitignore",
+        action="store_true",
+        help="Respect .gitignore when selecting files (default).",
+    )
+    gitignore.add_argument(
+        "--no-gitignore",
+        dest="respect_gitignore",
+        action="store_false",
+        help="Ignore .gitignore and include all files.",
+    )
+    gitignore.set_defaults(respect_gitignore=None)
+
+    # --- Color ---
+    color = parser.add_mutually_exclusive_group()
+    color.add_argument(
+        "--no-color",
+        dest="use_color",
+        action="store_const",
+        const=False,
+        help="Disable ANSI color output.",
+    )
+    color.add_argument(
+        "--color",
+        dest="use_color",
+        action="store_const",
+        const=True,
+        help="Force-enable ANSI color output (overrides auto-detect).",
+    )
+    color.set_defaults(use_color=None)
+
+    # --- Version and verbosity ---
     parser.add_argument("--version", action="store_true", help="Show version info.")
 
-    noise = parser.add_mutually_exclusive_group()
-    noise.add_argument("-q", "--quiet", action="store_true", help="Suppress output.")
-    noise.add_argument("-v", "--verbose", action="store_true", help="Verbose logs.")
+    log_level = parser.add_mutually_exclusive_group()
+    log_level.add_argument(
+        "-q",
+        "--quiet",
+        action="store_const",
+        const="warning",
+        dest="log_level",
+        help="Suppress non-critical output (same as --log-level warning).",
+    )
+    log_level.add_argument(
+        "-v",
+        "--verbose",
+        action="store_const",
+        const="debug",
+        dest="log_level",
+        help="Verbose output (same as --log-level debug).",
+    )
+    log_level.add_argument(
+        "--log-level",
+        choices=LEVEL_ORDER,
+        default=None,
+        dest="log_level",
+        help="Set log verbosity level.",
+    )
+    parser.add_argument(
+        "--selftest",
+        action="store_true",
+        help="Run a built-in sanity test to verify tool correctness.",
+    )
     return parser
 
 
-def find_config(args: argparse.Namespace, cwd: Path) -> Optional[Path]:
-    if args.config:
-        config = Path(args.config).expanduser().resolve()
-        if not config.exists():
-            print(colorize(f"⚠️  Config file not found: {config}", YELLOW))
-            return None
-        return config
+def _normalize_positional_args(
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
+) -> None:
+    """Normalize positional arguments into explicit include/out flags."""
+    logger = get_logger()
+    includes: list[str] = getattr(args, "positional_include", [])
+    out_pos: str | None = getattr(args, "positional_out", None)
 
-    candidates = [
-        cwd / ".serger.py",
-        cwd / ".serger.jsonc",
-        cwd / ".serger.json",
-    ]
-    found = [p for p in candidates if p.exists()]
+    # If no --out, assume last positional is output if we have ≥2 positionals
+    if not getattr(args, "out", None) and len(includes) >= 2 and not out_pos:  # noqa: PLR2004
+        out_pos = includes.pop()
 
-    if found:
-        if len(found) > 1:
-            names = ", ".join(p.name for p in found)
-            print(
-                colorize(
-                    (
-                        f"⚠️  Multiple config files detected ({names});"
-                        f" using {found[0].name}."
-                    ),
-                    YELLOW,
-                )
+    # If --out provided, treat all positionals as includes
+    elif getattr(args, "out", None) and out_pos:
+        logger.trace(
+            "Interpreting all positionals as includes since --out was provided.",
+        )
+        includes.append(out_pos)
+        out_pos = None
+
+    # Conflict: can't mix --include and positional includes
+    if getattr(args, "include", None) and (includes or out_pos):
+        parser.error(
+            "Cannot mix positional include arguments with --include; "
+            "use --out for destination or --add-include to extend."
+        )
+
+    # Internal sanity check
+    assert not (getattr(args, "out", None) and out_pos), (  # only for dev # noqa: S101
+        "out_pos not cleared after normalization"
+    )
+
+    # Assign normalized values
+    if includes:
+        args.include = includes
+    if out_pos:
+        args.out = out_pos
+
+
+# --------------------------------------------------------------------------- #
+# Main entry helpers
+# --------------------------------------------------------------------------- #
+
+
+@dataclass
+class _LoadedConfig:
+    """Container for loaded and resolved configuration data."""
+
+    config_path: Path | None
+    root_cfg: RootConfig
+    resolved_root: RootConfigResolved
+    resolved_builds: list[BuildConfigResolved]
+    config_dir: Path
+    cwd: Path
+
+
+def _initialize_logger(args: argparse.Namespace) -> None:
+    """Initialize logger with CLI args, env vars, and defaults."""
+    logger = get_logger()
+    logger.setLevel(logger.determine_log_level(args=args))
+    logger.enable_color = getattr(
+        args, "enable_color", logger.determine_color_enabled()
+    )
+    logger.trace("[BOOT] log-level initialized: %s", logger.level_name)
+
+    logger.debug(
+        "Runtime: Python %s (%s)\n    %s",
+        platform.python_version(),
+        platform.python_implementation(),
+        sys.version.replace("\n", " "),
+    )
+
+
+def _validate_includes(
+    root_cfg: RootConfig,
+    resolved_builds: list[BuildConfigResolved],
+    resolved_root: RootConfigResolved,
+    args: argparse.Namespace,
+) -> bool:
+    """
+    Validate that builds have include patterns.
+
+    Returns True if validation passes, False if we should abort.
+    Logs appropriate warnings/errors.
+    """
+    logger = get_logger()
+
+    # Check for builds with missing includes. Respect per-build strict_config:
+    # - If ANY build with no includes has strict_config=true → error (abort)
+    # - If ALL builds with no includes have strict_config=false → warning (continue)
+    # - If builds=[] and root strict_config=true → error
+    # - If builds=[] and root strict_config=false → warning
+    #
+    # The presence of "include" key (even if empty) signals intentional choice:
+    #   [] or includes=[]                  → include:[] in build → no check
+    #   {"include": []}                    → include:[] in build → no check
+    #   {"builds": [{"include": []}]}      → include:[] in build → no check
+    #
+    # Missing "include" key likely means forgotten:
+    #   {} or ""                           → no include key → check
+    #   {"builds": []}                     → no include key → check
+    #   {"log_level": "debug"}             → no include key → check
+    #   {"builds": [{"out": "dist"}]}      → no include key → check
+    original_builds = root_cfg.get("builds", [])
+    has_explicit_include_key = any(
+        isinstance(b, dict) and "include" in b  # pyright: ignore[reportUnnecessaryIsInstance]
+        for b in original_builds
+    )
+
+    # Check if any builds have missing includes (respecting CLI overrides)
+    has_cli_includes = bool(
+        getattr(args, "add_include", None) or getattr(args, "include", None)
+    )
+
+    # Builds with no includes
+    builds_missing_includes = [b for b in resolved_builds if not b.get("include")]
+
+    # Check if ALL builds have no includes (including zero builds)
+    all_builds_missing = len(resolved_builds) == 0 or len(
+        builds_missing_includes
+    ) == len(resolved_builds)
+
+    if not has_explicit_include_key and not has_cli_includes and all_builds_missing:
+        # Determine if we should error or warn based on strict_config
+        # If builds exist, check ANY build for strict_config=true
+        # If no builds, use root-level strict_config
+        if builds_missing_includes:
+            any_strict = any(
+                b.get("strict_config", True) for b in builds_missing_includes
             )
-        return found[0]
+        else:
+            # No builds at all - use root strict_config
+            any_strict = resolved_root.get("strict_config", True)
+
+        if any_strict:
+            # Error: at least one build with missing includes is strict
+            logger.error(
+                "No include patterns found "
+                "(strict_config=true prevents continuing).\n"
+                "   Use 'include' in your config or pass "
+                "--include / --add-include.",
+            )
+            return False
+
+        # Warning: builds have no includes but all are non-strict
+        logger.warning(
+            "No include patterns found.\n"
+            "   Use 'include' in your config or pass "
+            "--include / --add-include.",
+        )
+
+    return True
+
+
+def _handle_early_exits(args: argparse.Namespace) -> int | None:
+    """
+    Handle early exit conditions (version, selftest, Python version check).
+
+    Returns exit code if we should exit early, None otherwise.
+    """
+    logger = get_logger()
+
+    # --- Version flag ---
+    if getattr(args, "version", None):
+        meta = get_metadata()
+        standalone = " [standalone]" if globals().get("__STANDALONE__", False) else ""
+        logger.info(
+            "%s %s (%s)%s", PROGRAM_DISPLAY, meta.version, meta.commit, standalone
+        )
+        return 0
+
+    # --- Python version check ---
+    if get_sys_version_info() < (3, 10):
+        logger.error("%s requires Python 3.10 or newer.", {PROGRAM_DISPLAY})
+        return 1
+
+    # --- Self-test mode ---
+    if getattr(args, "selftest", None):
+        return 0 if run_selftest() else 1
 
     return None
 
 
-def load_config(config_path: Path) -> dict[str, Any]:
-    if config_path.suffix == ".py":
-        config_globals: dict[str, Any] = {}
-        sys.path.insert(0, str(config_path.parent))
-        try:
-            exec(config_path.read_text(), config_globals)
-            debug_print(
-                f"[DEBUG EXEC] globals after exec: {list(config_globals.keys())}"
-            )
-            debug_print(f"[DEBUG EXEC] builds: {config_globals.get('builds')}")
-        finally:
-            sys.path.pop(0)
+def _load_and_resolve_config(
+    args: argparse.Namespace,
+    parser: argparse.ArgumentParser,
+) -> _LoadedConfig:
+    """Load config, normalize args, and resolve final configuration."""
+    logger = get_logger()
 
-        if "config" in config_globals:
-            return cast(dict[str, Any], config_globals["config"])
-        if "builds" in config_globals:
-            return {"builds": config_globals["builds"]}
+    # --- Load configuration ---
+    config_path: Path | None = None
+    root_cfg: RootConfig | None = None
+    config_result = load_and_validate_config(args)
+    if config_result is not None:
+        config_path, root_cfg, _validation_summary = config_result
 
-        raise ValueError(f"{config_path.name} did not define `config` or `builds`")
-    else:
-        return load_jsonc(config_path)
+    logger.trace("[CONFIG] log-level re-resolved from config: %s", logger.level_name)
 
-
-def resolve_build_config(
-    build_cfg: BuildConfig, args: argparse.Namespace, config_dir: Path, cwd: Path
-) -> BuildConfig:
-    """Merge CLI overrides and normalize paths."""
-    # Make a mutable copy
-    resolved: dict[str, Any] = dict(build_cfg)
-
-    meta = cast(MetaBuildConfig, dict(resolved.get("__meta__", {})))
-    meta["origin"] = str(config_dir)
-
-    # Normalize includes
-    includes: list[str] = []
-    if args.include:
-        # CLI paths → relative to cwd
-        meta["include_base"] = str(cwd)
-        for i in cast(list[str], args.include):
-            includes.append(str((cwd / i).resolve()))
-    elif "include" in build_cfg:
-        meta["include_base"] = str(config_dir)
-        for i in cast(list[str], build_cfg.get("include")):
-            includes.append(str((config_dir / i).resolve()))
-    resolved["include"] = includes
-
-    # Normalize excludes
-    excludes: list[str] = []
-    if args.exclude:
-        meta["exclude_base"] = str(cwd)
-        for e in cast(list[str], args.exclude):
-            excludes.append(str((cwd / e).resolve()))
-    elif "exclude" in build_cfg:
-        meta["exclude_base"] = str(config_dir)
-        for e in build_cfg.get("exclude", []):
-            excludes.append(str((config_dir / e).resolve()))
-    resolved["exclude"] = excludes
-
-    # Normalize output path
-    out_dir = args.out or resolved.get("out", "dist")
-    if args.out:
-        meta["out_base"] = str(cwd)
-        resolved["out"] = str((cwd / out_dir).resolve())
-    else:
-        meta["out_base"] = str(config_dir)
-        resolved["out"] = str((config_dir / out_dir).resolve())
-
-    # Explicitly cast back to BuildConfig for return
-    resolved["__meta__"] = meta
-    return cast(BuildConfig, resolved)
-
-
-def main(argv: Optional[List[str]] = None) -> int:
-    parser = setup_parser()
-    args = parser.parse_args(argv)
-
-    # --- Version flag ---
-    if args.version:
-        version, commit = get_metadata()
-        print(f"Serger {version} ({commit})")
-        return 0
-
-    # --- Python version check ---
-    if sys.version_info < (3, 10):
-        print(colorize("❌ serger requires Python 3.10 or newer.", RED))
-        return 1
-
-    # --- Config path handling ---
+    # --- Normalize shorthand arguments ---
+    _normalize_positional_args(args, parser)
     cwd = Path.cwd().resolve()
-    config_path = find_config(args, cwd)
-    if not config_path:
-        print(colorize("⚠️  No build config found (.serger.json).", YELLOW))
-        return 1
+    config_dir = config_path.parent if config_path else cwd
 
-    # --- Config + Build handling ---
-    config_dir = config_path.parent.resolve()
-    raw_config = load_config(config_path)
-    debug_print(f"[DEBUG RAW CONFIG] {raw_config}")
-    builds = parse_builds(raw_config)
-    debug_print(f"[DEBUG BUILDS AFTER PARSE] {builds}")
+    # --- Configless early bailout ---
+    if root_cfg is None and not can_run_configless(args):
+        logger.error(
+            "No build config found (.%s.json) and no includes provided.",
+            PROGRAM_CONFIG,
+        )
+        xmsg = "No config file or CLI includes provided"
+        raise RuntimeError(xmsg)
 
-    resolved_builds = [resolve_build_config(b, args, config_dir, cwd) for b in builds]
+    # --- CLI-only mode fallback ---
+    if root_cfg is None:
+        logger.info("No config file found — using CLI-only mode.")
+        root_cfg = cast_hint(RootConfig, {"builds": [{}]})
 
-    # --- Quiet mode: temporarily suppress stdout ---
-    if args.quiet:
-        # everything printed inside this block is discarded
-        with contextlib.redirect_stdout(io.StringIO()):
-            for build_cfg in resolved_builds:
-                run_build(build_cfg, verbose=args.verbose or False)
+    # --- Resolve config with args and defaults ---
+    resolved_root = resolve_config(root_cfg, args, config_dir, cwd)
+    resolved_builds = resolved_root["builds"]
+
+    return _LoadedConfig(
+        config_path=config_path,
+        root_cfg=root_cfg,
+        resolved_root=resolved_root,
+        resolved_builds=resolved_builds,
+        config_dir=config_dir,
+        cwd=cwd,
+    )
+
+
+def _execute_builds(
+    resolved_builds: list[BuildConfigResolved],
+    resolved_root: RootConfigResolved,
+    args: argparse.Namespace,
+    argv: list[str] | None,
+) -> None:
+    """Execute builds either in watch mode or one-time mode."""
+    watch_enabled = getattr(args, "watch", None) is not None or (
+        "--watch" in (argv or [])
+    )
+
+    if watch_enabled:
+        watch_interval = resolved_root["watch_interval"]
+        watch_for_changes(
+            lambda: run_all_builds(
+                resolved_builds,
+                dry_run=getattr(args, "dry_run", DEFAULT_DRY_RUN),
+            ),
+            resolved_builds,
+            interval=watch_interval,
+        )
+    else:
+        run_all_builds(
+            resolved_builds, dry_run=getattr(args, "dry_run", DEFAULT_DRY_RUN)
+        )
+
+
+# --------------------------------------------------------------------------- #
+# Main entry
+# --------------------------------------------------------------------------- #
+
+
+def main(argv: list[str] | None = None) -> int:
+    logger = get_logger()  # init (use env + defaults)
+
+    try:
+        parser = _setup_parser()
+        args = parser.parse_args(argv)
+
+        # --- Early runtime init (use CLI + env + defaults) ---
+        _initialize_logger(args)
+
+        # --- Handle early exits (version, selftest, etc.) ---
+        early_exit_code = _handle_early_exits(args)
+        if early_exit_code is not None:
+            return early_exit_code
+
+        # --- Load and resolve configuration ---
+        config = _load_and_resolve_config(args, parser)
+
+        # --- Validate includes ---
+        if not _validate_includes(
+            config.root_cfg, config.resolved_builds, config.resolved_root, args
+        ):
+            return 1
+
+        # --- Dry-run notice ---
+        if getattr(args, "dry_run", None):
+            logger.info("🧪 Dry-run mode: no files will be written or deleted.\n")
+
+        # --- Config summary ---
+        if config.config_path:
+            logger.info("🔧 Using config: %s", config.config_path.name)
+        else:
+            logger.info("🔧 Running in CLI-only mode (no config file).")
+        logger.info("📁 Config root: %s", config.config_dir)
+        logger.info("📂 Invoked from: %s", config.cwd)
+        logger.info("🔧 Running %d build(s)\n", len(config.resolved_builds))
+
+        # --- Execute builds ---
+        _execute_builds(config.resolved_builds, config.resolved_root, args, argv)
+
+    except (FileNotFoundError, ValueError, TypeError, RuntimeError) as e:
+        # controlled termination
+        silent = getattr(e, "silent", False)
+        if not silent:
+            try:
+                logger.error_if_not_debug(str(e))
+            except Exception:  # noqa: BLE001
+                safe_log(f"[FATAL] Logging failed while reporting: {e}")
+        return getattr(e, "code", 1)
+
+    except Exception as e:  # noqa: BLE001
+        # unexpected internal error
+        try:
+            logger.critical_if_not_debug("Unexpected internal error: %s", e)
+        except Exception:  # noqa: BLE001
+            safe_log(f"[FATAL] Logging failed while reporting: {e}")
+
+        return getattr(e, "code", 1)
+
+    else:
         return 0
-
-    # --- Normal / verbose mode ---
-    print(f"🔧 Using config: {config_path.name}")
-    print(f"📁 Config base: {config_dir}")
-    print(f"📂 Invoked from: {cwd}\n")
-    print(f"🔧 Running {len(resolved_builds)} build(s)\n")
-
-    for i, build_cfg in enumerate(resolved_builds, 1):
-        print(f"▶️  Build {i}/{len(resolved_builds)}")
-        run_build(build_cfg, verbose=args.verbose or False)
-
-    print("🎉 All builds complete.")
-    return 0
