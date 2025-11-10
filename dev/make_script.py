@@ -441,7 +441,7 @@ def build_single_file(
         f"__commit__ = {json.dumps(commit)}\n"
         f"__build_date__ = {json.dumps(build_date)}\n"
         f"__STANDALONE__ = True\n"
-        f"__STITCH_SOURCE__ = 'dev/make_script.py'\n"
+        f'__STITCH_SOURCE__ = "dev/make_script.py"\n'
         "\n"
         "\n" + "\n".join(parts) + "\n"
         f"{shim_text}\n"
