@@ -46,6 +46,8 @@
 
 ### Future (Post-Phase 7)
 
+- run ruff on resulting script if available
+- how does pyproject.toml factor into it?
 - Auto-discovery of module order via topological sort
 - Module-level configuration (metadata, headers)
 - Multi-package stitching support
