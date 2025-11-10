@@ -51,6 +51,8 @@ class BuildConfig(TypedDict, total=False):
     package: str  # Package name for imports (e.g., "serger")
     order: list[str]  # Explicit module order for stitching
     license_header: str  # License header text for stitched output
+    display_name: str  # Display name for header (defaults to package)
+    description: str  # Description for header (defaults to blank)
 
 
 class RootConfig(TypedDict, total=False):
@@ -86,6 +88,8 @@ class BuildConfigResolved(TypedDict):
     package: NotRequired[str]
     order: NotRequired[list[str]]
     license_header: NotRequired[str]
+    display_name: NotRequired[str]
+    description: NotRequired[str]
 
 
 class RootConfigResolved(TypedDict):

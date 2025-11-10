@@ -432,7 +432,42 @@ def _collect_modules(
     return module_sources, all_imports, parts
 
 
+def _format_header_line(
+    *,
+    display_name: str,
+    description: str,
+    package_name: str,
+) -> str:
+    """Format the header comment line based on config values.
+
+    Rules:
+    - Both provided: "# DisplayName — Description"
+    - Only name: "# DisplayName"
+    - Nothing: "# package_name"
+    - Only description: "# package_name — Description"
+
+    Args:
+        display_name: Optional display name from config
+        description: Optional description from config
+        package_name: Package name (fallback)
+
+    Returns:
+        Formatted header comment line (without trailing newline)
+    """
+    # Use display_name if provided, otherwise fall back to package_name
+    name = display_name.strip() if display_name else package_name
+    desc = description.strip() if description else ""
+
+    if name and desc:
+        return f"# {name} — {desc}"
+    if name:
+        return f"# {name}"
+    # default to package_name
+    return f"# {package_name}"
+
+
 def _build_final_script(
+    *,
     package_name: str,
     all_imports: OrderedDict[str, None],
     parts: list[str],
@@ -441,6 +476,8 @@ def _build_final_script(
     version: str,
     commit: str,
     build_date: str,
+    display_name: str = "",
+    description: str = "",
 ) -> str:
     """Build the final stitched script.
 
@@ -453,6 +490,8 @@ def _build_final_script(
         version: Version string
         commit: Commit hash
         build_date: Build timestamp
+        display_name: Optional display name for header
+        description: Optional description for header
 
     Returns:
         Final script text
@@ -483,9 +522,20 @@ def _build_final_script(
     ]
     shim_text = "\n".join(shim_block)
 
+    # Generate formatted header line
+    header_line = _format_header_line(
+        display_name=display_name,
+        description=description,
+        package_name=package_name,
+    )
+
+    # Build license/header section
+    license_section = f"{license_header}\n" if license_header else ""
+
     return (
         "#!/usr/bin/env python3\n"
-        f"{license_header}\n"
+        f"{header_line}\n"
+        f"{license_section}"
         f"# Version: {version}\n"
         f"# Commit: {commit}\n"
         f"# Build Date: {build_date}\n"
@@ -623,15 +673,27 @@ def stitch_modules(
     detect_name_collisions(module_sources)
 
     # --- Final Assembly ---
+    # Extract display configuration
+    display_name_raw = config.get("display_name", "")
+    description_raw = config.get("description", "")
+
+    # Type guards
+    if not isinstance(display_name_raw, str):
+        display_name_raw = ""
+    if not isinstance(description_raw, str):
+        description_raw = ""
+
     final_script = _build_final_script(
-        package_name,
-        all_imports,
-        parts,
-        order_names,
-        license_header,
-        version,
-        commit,
-        build_date,
+        package_name=package_name,
+        all_imports=all_imports,
+        parts=parts,
+        order_names=order_names,
+        license_header=license_header,
+        version=version,
+        commit=commit,
+        build_date=build_date,
+        display_name=display_name_raw,
+        description=description_raw,
     )
 
     # --- Verification ---

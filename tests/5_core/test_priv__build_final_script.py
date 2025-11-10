@@ -109,7 +109,7 @@ class TestBuildFinalScriptMetadata:
             build_date="2025-01-01",
         )
 
-        assert "__version__ = '3.2.1'" in result
+        assert '__version__ = "3.2.1"' in result
 
     def test_embeds_commit_constant(self) -> None:
         """Should embed __commit__ constant."""
@@ -127,7 +127,7 @@ class TestBuildFinalScriptMetadata:
             build_date="2025-01-01",
         )
 
-        assert "__commit__ = 'xyz789'" in result
+        assert '__commit__ = "xyz789"' in result
 
     def test_embeds_build_date_constant(self) -> None:
         """Should embed __build_date__ constant."""
@@ -145,7 +145,7 @@ class TestBuildFinalScriptMetadata:
             build_date="2025-12-25 15:30:00 UTC",
         )
 
-        assert "__build_date__ = '2025-12-25 15:30:00 UTC'" in result
+        assert '__build_date__ = "2025-12-25 15:30:00 UTC"' in result
 
     def test_embeds_standalone_flag(self) -> None:
         """Should embed __STANDALONE__ = True flag."""

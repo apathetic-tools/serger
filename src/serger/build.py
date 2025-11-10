@@ -464,10 +464,15 @@ def run_build(
 
     # Prepare config dict for stitch_modules
     exclude_names_raw = build_cfg.get("exclude_names", [])
+    display_name_raw = build_cfg.get("display_name", "")
+    description_raw = build_cfg.get("description", "")
+
     stitch_config: dict[str, object] = {
         "package": package,
         "order": order,
         "exclude_names": exclude_names_raw,
+        "display_name": display_name_raw,
+        "description": description_raw,
     }
 
     # Extract metadata for embedding

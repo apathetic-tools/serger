@@ -97,8 +97,8 @@ class TestStitchModulesBasic:
             assert "# === main.py ===" in content
             assert "BASE = 1" in content
             assert "MAIN = BASE" in content
-            assert "__version__ = '1.0.0'" in content
-            assert "__commit__ = 'abc123'" in content
+            assert '__version__ = "1.0.0"' in content
+            assert '__commit__ = "abc123"' in content
 
     def test_stitch_with_external_imports(self) -> None:
         """Should collect external imports and place at top."""
@@ -294,8 +294,8 @@ class TestStitchModulesMetadata:
             assert "# Version: 2.1.3" in content
             assert "# Commit: def456" in content
             assert "# Build Date: 2025-06-15 10:30:00 UTC" in content
-            assert "__version__ = '2.1.3'" in content
-            assert "__commit__ = 'def456'" in content
+            assert '__version__ = "2.1.3"' in content
+            assert '__commit__ = "def456"' in content
             assert "__STANDALONE__ = True" in content
 
     def test_license_header_optional(self) -> None:
@@ -433,3 +433,119 @@ class TestStitchModulesOutput:
 
             # Verify it compiles
             py_compile.compile(str(out_path), doraise=True)
+
+
+class TestStitchModulesDisplayConfig:
+    """Test displayName and description configuration in stitch_modules."""
+
+    def test_both_display_name_and_description(self) -> None:
+        """Should format header with both name and description."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = Path(tmpdir)
+            out_path = Path(tmpdir) / "output.py"
+
+            (src_dir / "main.py").write_text("MAIN = 1\n")
+
+            config: dict[str, Any] = {
+                "package": "testpkg",
+                "order": ["main"],
+                "exclude_names": [],
+                "display_name": "TestProject",
+                "description": "A test project",
+            }
+
+            mod_stitch.stitch_modules(
+                config,
+                src_dir,
+                out_path,
+                license_header="# License: MIT\n",
+            )
+
+            content = out_path.read_text()
+            lines = content.split("\n")
+            # First line after shebang should be formatted header
+            assert lines[1] == "# TestProject — A test project"
+
+    def test_only_display_name(self) -> None:
+        """Should format header with only display name."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = Path(tmpdir)
+            out_path = Path(tmpdir) / "output.py"
+
+            (src_dir / "main.py").write_text("MAIN = 1\n")
+
+            config: dict[str, Any] = {
+                "package": "testpkg",
+                "order": ["main"],
+                "exclude_names": [],
+                "display_name": "TestProject",
+            }
+
+            mod_stitch.stitch_modules(config, src_dir, out_path)
+
+            content = out_path.read_text()
+            lines = content.split("\n")
+            assert lines[1] == "# TestProject"
+
+    def test_only_description(self) -> None:
+        """Should format header with package name and description."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = Path(tmpdir)
+            out_path = Path(tmpdir) / "output.py"
+
+            (src_dir / "main.py").write_text("MAIN = 1\n")
+
+            config: dict[str, Any] = {
+                "package": "testpkg",
+                "order": ["main"],
+                "exclude_names": [],
+                "description": "A test project",
+            }
+
+            mod_stitch.stitch_modules(config, src_dir, out_path)
+
+            content = out_path.read_text()
+            lines = content.split("\n")
+            assert lines[1] == "# testpkg — A test project"
+
+    def test_neither_provided_defaults_to_package_name(self) -> None:
+        """Should use package name when neither field provided."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = Path(tmpdir)
+            out_path = Path(tmpdir) / "output.py"
+
+            (src_dir / "main.py").write_text("MAIN = 1\n")
+
+            config: dict[str, Any] = {
+                "package": "testpkg",
+                "order": ["main"],
+                "exclude_names": [],
+            }
+
+            mod_stitch.stitch_modules(config, src_dir, out_path)
+
+            content = out_path.read_text()
+            lines = content.split("\n")
+            assert lines[1] == "# testpkg"
+
+    def test_empty_strings_treated_as_not_provided(self) -> None:
+        """Should treat empty strings as not provided."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = Path(tmpdir)
+            out_path = Path(tmpdir) / "output.py"
+
+            (src_dir / "main.py").write_text("MAIN = 1\n")
+
+            config: dict[str, Any] = {
+                "package": "testpkg",
+                "order": ["main"],
+                "exclude_names": [],
+                "display_name": "",
+                "description": "",
+            }
+
+            mod_stitch.stitch_modules(config, src_dir, out_path)
+
+            content = out_path.read_text()
+            lines = content.split("\n")
+            assert lines[1] == "# testpkg"
