@@ -70,8 +70,8 @@ fix = ["fix:ruff:installed", "fix:ruff:bin", "lint:compile", "fix:format:install
 "fix:format:bin" = { shell = "if [ -d bin ]; then ruff format bin; fi" }
 
 # 🧩 Build and license
-"build:script" = ["build:script:legacy"]
-"build:script:new" = "python -m serger"
+"build:script" = ["build:script:legacy", "build:script:self"]
+"build:script:self" = "python -m serger"
 "build:script:legacy" = "python dev/make_script.py"
 "check:license" = "bash dev/check-license.sh"
 

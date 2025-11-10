@@ -14,6 +14,8 @@ from typing import (
     get_type_hints,
 )
 
+from typing_extensions import NotRequired
+
 from .config_types import IncludeResolved, OriginType, PathResolved
 
 
@@ -135,6 +137,7 @@ def safe_isinstance(value: Any, expected_type: Any) -> bool:  # noqa: PLR0911
 
     Handles:
       - typing.Union, Optional, Any
+      - typing.NotRequired
       - TypedDict subclasses
       - list[...] with inner types
       - Defensive fallback for exotic typing constructs
@@ -145,6 +148,13 @@ def safe_isinstance(value: Any, expected_type: Any) -> bool:  # noqa: PLR0911
 
     origin = get_origin(expected_type)
     args = get_args(expected_type)
+
+    # --- Handle NotRequired (extract inner type) ---
+    if origin is NotRequired:
+        # NotRequired[str] → validate as str
+        if args:
+            return safe_isinstance(value, args[0])
+        return True
 
     # --- Handle Literals explicitly ---
     if origin is Literal:

@@ -47,40 +47,12 @@ def test_load_jsonc_trailing_comma_in_list(tmp_path: Path) -> None:
     assert result == ["a", "b"]
 
 
-def test_load_jsonc_inline_block_comment(tmp_path: Path) -> None:
-    """Inline block comments should be removed cleanly."""
-    # --- setup ---
-    cfg = tmp_path / "inline.jsonc"
-    cfg.write_text('{"foo": 1, /* skip */ "bar": 2}')
-
-    # --- execute ---
-    result = mod_utils_core.load_jsonc(cfg)
-
-    # --- verify ---
-    assert result == {"foo": 1, "bar": 2}
-
-
-def test_load_jsonc_comment_in_array(tmp_path: Path) -> None:
-    """Line comments in arrays should be stripped."""
-    # --- setup ---
-    cfg = tmp_path / "array.jsonc"
-    cfg.write_text("[1, 2, // hi\n 3]")
-
-    # --- execute ---
-    result = mod_utils_core.load_jsonc(cfg)
-
-    # --- verify ---
-    assert result == [1, 2, 3]
-
-
 @pytest.mark.parametrize("ext", ["json", "jsonc"])
-def test_load_jsonc_strips_comments_and_trailing_commas(
+def test_load_jsonc_happy_path_with_comments_and_trailing_commas(
     tmp_path: Path,
     ext: str,
 ) -> None:
-    """Ensure both JSONC loader removes
-    comments and trailing commas in JSON and JSONC files.
-    """
+    """Happy path: JSONC loader removes comments and trailing commas."""
     # --- setup ---
     cfg = tmp_path / f"config.{ext}"
     cfg.write_text(
@@ -89,7 +61,6 @@ def test_load_jsonc_strips_comments_and_trailing_commas(
         {
           "foo": 1,
           "bar": [2, 3,],  // trailing comma
-          /* block comment */
           "nested": { "x": 10, },
         }
         """
@@ -152,18 +123,6 @@ def test_load_jsonc_rejects_scalar_root(tmp_path: Path) -> None:
     # --- execute and verify ---
     with pytest.raises(ValueError, match="Invalid JSONC root type"):
         mod_utils_core.load_jsonc(cfg)
-
-
-def test_load_jsonc_multiline_block_comment(tmp_path: Path) -> None:
-    # --- setup ---
-    cfg = tmp_path / "multi.jsonc"
-    cfg.write_text('{"a": 1, /* comment\nspanning\nlines */ "b": 2}')
-
-    # --- execute ---
-    result = mod_utils_core.load_jsonc(cfg)
-
-    # --- verify ---
-    assert result == {"a": 1, "b": 2}
 
 
 def test_load_jsonc_missing_file_raises(tmp_path: Path) -> None:

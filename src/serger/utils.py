@@ -51,6 +51,88 @@ def get_sys_version_info() -> tuple[int, int, int] | tuple[int, int, int, str, i
     return sys.version_info
 
 
+def _strip_jsonc_comments(text: str) -> str:  # noqa: PLR0912
+    """Strip comments from JSONC while preserving string contents.
+
+    Handles //, #, and /* */ comments without modifying content inside strings.
+    """
+    result: list[str] = []
+    in_string = False
+    in_escape = False
+    i = 0
+    while i < len(text):
+        ch = text[i]
+
+        # Handle escape sequences in strings
+        if in_escape:
+            result.append(ch)
+            in_escape = False
+            i += 1
+            continue
+
+        if ch == "\\" and in_string:
+            result.append(ch)
+            in_escape = True
+            i += 1
+            continue
+
+        # Toggle string state
+        if ch in ('"', "'") and (not in_string or text[i - 1 : i] != "\\"):
+            in_string = not in_string
+            result.append(ch)
+            i += 1
+            continue
+
+        # If in a string, keep everything
+        if in_string:
+            result.append(ch)
+            i += 1
+            continue
+
+        # Outside strings: handle comments
+        # Check for // comment (but skip URLs like http://)
+        if (
+            ch == "/"
+            and i + 1 < len(text)
+            and text[i + 1] == "/"
+            and not (i > 0 and text[i - 1] == ":")
+        ):
+            # Skip to end of line
+            while i < len(text) and text[i] != "\n":
+                i += 1
+            if i < len(text):
+                result.append("\n")
+                i += 1
+            continue
+
+        # Check for # comment
+        if ch == "#":
+            # Skip to end of line
+            while i < len(text) and text[i] != "\n":
+                i += 1
+            if i < len(text):
+                result.append("\n")
+                i += 1
+            continue
+
+        # Check for block comments /* ... */
+        if ch == "/" and i + 1 < len(text) and text[i + 1] == "*":
+            # Skip to end of block comment
+            i += 2
+            while i + 1 < len(text):
+                if text[i] == "*" and text[i + 1] == "/":
+                    i += 2
+                    break
+                i += 1
+            continue
+
+        # Regular character
+        result.append(ch)
+        i += 1
+
+    return "".join(result)
+
+
 def load_jsonc(path: Path) -> dict[str, Any] | list[Any] | None:
     """Load JSONC (JSON with comments and trailing commas)."""
     logger = get_logger()
@@ -65,12 +147,7 @@ def load_jsonc(path: Path) -> dict[str, Any] | list[Any] | None:
         raise ValueError(xmsg)
 
     text = path.read_text(encoding="utf-8")
-
-    # Remove // and # comments (but not URLs like "http://")
-    text = re.sub(r'(?<!["\'])\s*(?<!:)//.*|(?<!["\'])\s*#.*', "", text)
-
-    # Remove block comments /* ... */
-    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+    text = _strip_jsonc_comments(text)
 
     # Remove trailing commas before } or ]
     text = re.sub(r",(?=\s*[}\]])", "", text)
