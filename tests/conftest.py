@@ -3,7 +3,7 @@
 
 Each pytest run now targets a single runtime mode:
 - Normal mode (default): uses src/serger
-- Standalone mode: uses bin/script.py when RUNTIME_MODE=singlefile
+- Standalone mode: uses dist/script.py when RUNTIME_MODE=singlefile
 
 Switch mode with: RUNTIME_MODE=singlefile pytest
 """

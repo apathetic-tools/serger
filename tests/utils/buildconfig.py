@@ -62,7 +62,9 @@ def make_build_cfg(
     return {
         "include": include,
         "exclude": exclude or [],
-        "out": out if out is not None else make_resolved(tmp_path / "dist", tmp_path),
+        "out": out
+        if out is not None
+        else make_resolved(tmp_path / "dist" / "script.py", tmp_path),
         "__meta__": make_meta(tmp_path),
         "respect_gitignore": respect_gitignore,
         "log_level": log_level,

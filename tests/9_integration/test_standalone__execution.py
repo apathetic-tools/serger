@@ -2,11 +2,16 @@
 """Verify that the standalone standalone version (`bin/script.py`)
 was generated correctly — includes metadata, license header,
 and matches the declared version from pyproject.toml.
+
+NOTE: These tests are currently for file-copying (pocket-build responsibility).
+They will be adapted for stitch builds in Phase 5.
 """
 
 import subprocess
 import tempfile
 from pathlib import Path
+
+import pytest
 
 import serger.meta as mod_meta
 from tests.utils import PROJ_ROOT
@@ -15,11 +20,13 @@ from tests.utils import PROJ_ROOT
 # --- only for singlefile runs ---
 __runtime_mode__ = "singlefile"
 
+pytestmark = pytest.mark.pocket_build_compat
+
 
 def test_standalone_script_metadata_and_execution() -> None:
     """Ensure the generated script.py script is complete and functional."""
     # --- setup ---
-    script = PROJ_ROOT / "bin" / f"{mod_meta.PROGRAM_CONFIG}.py"
+    script = PROJ_ROOT / "dist" / f"{mod_meta.PROGRAM_SCRIPT}.py"
 
     # --- execute and verify ---
 

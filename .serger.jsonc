@@ -8,7 +8,7 @@
       "package": "serger",
 
       // License header text for stitched output
-      "license_header": "# Serger — Stitch your module into a single file.\n# License: MIT-aNOAI\n# Full text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",
+      "license_header": "# Serger — Stitch your module into a single file.\n# License: MIT-aNOAI\n# Full text: https://github.com/apathetic-tools/serger/blob/main/LICENSE\n",
 
       // Explicit module order for stitching
       // This order is critical - modules must be ordered to satisfy their import dependencies
@@ -46,7 +46,7 @@
 
       // Output file path (relative to project root)
       // This will be the final single-file executable
-      "out": "bin/serger.py"
+      "out": "dist/serger.py"
     }
   ],
 

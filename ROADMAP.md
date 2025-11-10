@@ -7,29 +7,6 @@
 
 ### Phases
 
-**Phase 1: Extract stitching utilities** ✅ COMPLETE
-- Extracted helpers from `src/make_script.py` into `src/serger/stitch.py`
-- Utilities: `split_imports()`, `compute_module_order()`, `detect_name_collisions()`, `verify_no_broken_imports()`, etc.
-- Full test coverage in `tests/5_core/test_*.py`
-- Exception handling refactored: RuntimeError instead of SystemExit
-
-**Phase 2: Add config structure for stitching** ✅ COMPLETE
-- Extended `BuildConfig` and `BuildConfigResolved` TypedDict types with optional `package` and `order` fields
-- Reused existing pocket-build `include`, `exclude`, and `out` fields (no new parallel structures)
-- Created `.serger.jsonc` with serger's self-hosting build configuration (package, module order, includes, excludes, output path)
-
-**Phase 3: Implement orchestration function** ✅ COMPLETE
-- Created `stitch_modules(config)` orchestration function in `src/serger/stitch.py` (lines 512-640)
-- Refactored into focused helpers: `_collect_modules()` and `_build_final_script()` for maintainability
-- Coordinates all stitching utilities in proper sequence: validation → collection → collision detection → assembly → verification → output
-- Handles metadata embedding (version, commit, build date), import shims, and comprehensive logging
-- Full type safety with proper guards and casts; passes all linting and type checkers
-- **Comprehensive test coverage**: 49 new tests across 3 test files:
-  - `test_stitch_modules.py` (37 tests): validation, basic stitching, collisions, metadata, shims, output
-  - `test_priv__collect_modules.py` (13 tests): module collection, imports, ordering, edge cases
-  - `test_priv__build_final_script.py` (17 tests): script assembly, metadata, imports, shims, docstrings
-  - All tests passing (561 total), full code quality compliance
-
 **Phase 4-7: CLI integration and cleanup** ⏳ PENDING
 - Integrate stitching into main CLI (load `.serger.jsonc` and invoke `stitch_modules()`)
 - Remove copy-based `build.py` (belongs in pocket-build)

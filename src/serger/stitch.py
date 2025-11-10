@@ -564,7 +564,7 @@ def stitch_modules(
         >>> stitch_modules(
         ...     config=config,
         ...     src_dir=Path("src"),
-        ...     out_path=Path("bin/mymodule.py"),
+        ...     out_path=Path("dist/mymodule.py"),
         ...     version="1.0.0",
         ... )
     """

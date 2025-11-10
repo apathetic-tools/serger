@@ -1,5 +1,9 @@
 # tests/test_cli_watch.py
-"""Tests for package.cli (package and standalone versions)."""
+"""Tests for package.cli (package and standalone versions).
+
+NOTE: These tests are currently for file-copying (pocket-build responsibility).
+They will be adapted for stitch builds in Phase 5.
+"""
 
 from collections.abc import Callable
 from pathlib import Path
@@ -15,6 +19,9 @@ import serger.meta as mod_meta
 from tests.utils import (
     patch_everywhere,
 )
+
+
+pytestmark = pytest.mark.pocket_build_compat
 
 
 def test_watch_flag_invokes_watch_mode(

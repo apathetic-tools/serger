@@ -28,7 +28,7 @@ from tests.utils import PROJ_ROOT, make_test_trace
 TEST_TRACE = make_test_trace("🪞")
 
 SRC_ROOT = PROJ_ROOT / "src"
-BIN_ROOT = PROJ_ROOT / "bin"
+DIST_ROOT = PROJ_ROOT / "dist"
 
 
 def list_important_modules() -> list[str]:
@@ -87,7 +87,7 @@ def test_pytest_runtime_cache_integrity() -> None:
     # --- setup ---
     mode = os.getenv("RUNTIME_MODE", "unknown")
     utils_file = str(inspect.getsourcefile(mod_utils))
-    expected_script = BIN_ROOT / f"{mod_meta.PROGRAM_CONFIG}.py"
+    expected_script = DIST_ROOT / f"{mod_meta.PROGRAM_SCRIPT}.py"
 
     # --- execute ---
     TEST_TRACE(f"RUNTIME_MODE={mode}")
@@ -103,7 +103,7 @@ def test_pytest_runtime_cache_integrity() -> None:
         assert runtime_mode == "standalone"
 
         # path peeks
-        assert utils_file.startswith(str(BIN_ROOT)), f"{utils_file} not in bin/"
+        assert utils_file.startswith(str(DIST_ROOT)), f"{utils_file} not in dist/"
 
         # exists
         assert expected_script.exists(), (

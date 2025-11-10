@@ -29,7 +29,7 @@ __runtime_mode__ = "singlefile"
 def test_standalone_script_metadata_and_execution() -> None:
     """Ensure the generated script.py script is complete and functional."""
     # --- setup ---
-    script = PROJ_ROOT / "bin" / f"{mod_meta.PROGRAM_CONFIG}.py"
+    script = PROJ_ROOT / "dist" / f"{mod_meta.PROGRAM_SCRIPT}.py"
     pyproject = PROJ_ROOT / "pyproject.toml"
 
     # --- execute and verify ---
@@ -91,7 +91,7 @@ def test_standalone_script_metadata_and_execution() -> None:
 def test_standalone_script_has_python_constants_and_parses_them() -> None:
     """Ensure __version__ and __commit__ constants exist and match header."""
     # --- setup ---
-    script = PROJ_ROOT / "bin" / f"{mod_meta.PROGRAM_CONFIG}.py"
+    script = PROJ_ROOT / "dist" / f"{mod_meta.PROGRAM_SCRIPT}.py"
 
     # --- execute ---
     text = script.read_text(encoding="utf-8")

@@ -1,5 +1,9 @@
 # tests/test_cli_gitignore.py
-"""Tests for .gitignore handling and precedence in module.cli."""
+"""Tests for .gitignore handling and precedence in module.cli.
+
+NOTE: These tests are currently for file-copying (pocket-build responsibility).
+They will be adapted for stitch builds in Phase 5.
+"""
 
 import json
 import shutil
@@ -9,6 +13,9 @@ import pytest
 
 import serger.cli as mod_cli
 import serger.meta as mod_meta
+
+
+pytestmark = pytest.mark.pocket_build_compat
 
 
 # ---------------------------------------------------------------------------

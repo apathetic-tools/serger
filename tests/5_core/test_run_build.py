@@ -1,5 +1,9 @@
 # tests/test_build.py
-"""Tests for package.build (package and standalone versions)."""
+"""Tests for package.build (package and standalone versions).
+
+NOTE: These tests are currently for file-copying (pocket-build responsibility).
+They will be adapted for stitch builds in Phase 5.
+"""
 
 from pathlib import Path
 
@@ -10,6 +14,8 @@ import serger.config_types as mod_types
 import serger.logs as mod_logs
 from tests.utils import make_build_cfg, make_include_resolved
 
+
+pytestmark = pytest.mark.pocket_build_compat
 
 def test_run_build_includes_directory_itself(
     tmp_path: Path,

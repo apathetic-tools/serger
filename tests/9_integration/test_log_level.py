@@ -1,5 +1,9 @@
 # tests/test_cli_log_level.py
-"""Tests for package.cli (package and standalone versions)."""
+"""Tests for package.cli (package and standalone versions).
+
+NOTE: These tests are currently for file-copying (pocket-build responsibility).
+They will be adapted for stitch builds in Phase 5.
+"""
 
 import json
 from pathlib import Path
@@ -9,6 +13,9 @@ import pytest
 import serger.cli as mod_cli
 import serger.logs as mod_logs
 import serger.meta as mod_meta
+
+
+pytestmark = pytest.mark.pocket_build_compat
 
 
 # --- constants --------------------------------------------------------------------
