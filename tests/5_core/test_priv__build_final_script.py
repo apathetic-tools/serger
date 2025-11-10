@@ -55,7 +55,7 @@ class TestBuildFinalScriptBasic:
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        license_text = "# License: MIT"
+        license_text = "License: MIT"
         result = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
@@ -67,7 +67,7 @@ class TestBuildFinalScriptBasic:
             build_date="2025-01-01",
         )
 
-        assert license_text in result
+        assert f"# {license_text}" in result
 
     def test_includes_metadata_comments(self) -> None:
         """Should include version, commit, and date comments."""

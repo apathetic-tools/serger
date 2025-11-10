@@ -295,7 +295,7 @@ class TestStitchModulesMetadata:
                 config=config,
                 src_dir=src_dir,
                 out_path=out_path,
-                license_header="# License: MIT",
+                license_header="License: MIT",
                 version="2.1.3",
                 commit="def456",
                 build_date="2025-06-15 10:30:00 UTC",
