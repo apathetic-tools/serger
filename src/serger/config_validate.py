@@ -34,6 +34,8 @@ ROOT_ONLY_MSG = "Ignored {keys} {ctx}: these options only apply at the root leve
 FIELD_EXAMPLES: dict[str, str] = {
     "root.builds.*.include": '["src/", "lib/"]',
     "root.builds.*.out": '"dist/script.py"',
+    "root.builds.*.display_name": '"MyProject"',
+    "root.builds.*.description": '"A description of the project"',
     "root.watch_interval": "1.5",
     "root.log_level": '"debug"',
     "root.strict_config": "true",

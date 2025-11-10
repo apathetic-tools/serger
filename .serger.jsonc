@@ -7,8 +7,12 @@
       // Stitching configuration for the main serger package
       "package": "serger",
 
+      // Display name and description for output header
+      "display_name": "Serger",
+      "description": "Stitch your module into a single file.",
+
       // License header text for stitched output
-      "license_header": "# Serger — Stitch your module into a single file.\n# License: MIT-aNOAI\n# Full text: https://github.com/apathetic-tools/serger/blob/main/LICENSE\n",
+      "license_header": "# License: MIT-aNOAI\n# Full text: https://github.com/apathetic-tools/serger/blob/main/LICENSE\n",
 
       // Explicit module order for stitching
       // This order is critical - modules must be ordered to satisfy their import dependencies
