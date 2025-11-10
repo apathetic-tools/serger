@@ -26,6 +26,7 @@ DEFAULT_OUT_FILE = ROOT / "bin" / "pocket-build.py"
 PYPROJECT = ROOT / "pyproject.toml"
 
 ORDER = [
+    "constants.py",
     "meta.py",
     "types.py",
     "utils_core.py",  # needed before runtime.py
@@ -106,7 +107,7 @@ def split_imports(
             mod = node.module or ""
             if node.level > 0 or mod.startswith(package_name):
                 is_internal = True
-        elif isinstance(node, ast.Import):
+        else:  # isinstance(node, ast.Import):
             if any(alias.name.startswith(package_name) for alias in node.names):
                 is_internal = True
 
@@ -179,6 +180,13 @@ def build_single_file(
         header = f"# === {filename} ==="
         parts.append(f"\n{header}\n{body.strip()}\n\n")
 
+    future_imports: "OrderedDict[str, None]" = OrderedDict()
+    for imp in list(all_imports.keys()):
+        if imp.strip().startswith("from __future__"):
+            future_imports.setdefault(imp, None)
+            del all_imports[imp]
+
+    future_block = "".join(future_imports.keys())
     import_block = "".join(all_imports.keys())
 
     final_script = (
@@ -188,7 +196,9 @@ def build_single_file(
         f"# Commit: {commit}\n"
         f"# Build Date: {build_date}\n"
         f"# Repo: https://github.com/apathetic-tools/pocket-build\n"
+        "\n# ruff: noqa: E402\n"
         "\n"
+        f"{future_block}\n"
         '"""\n'
         "Pocket Build — a tiny build system that fits in your pocket.\n"
         "This single-file version is auto-generated from modular sources.\n"
