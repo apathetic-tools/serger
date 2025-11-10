@@ -7,6 +7,9 @@
       // Stitching configuration for the main serger package
       "package": "serger",
 
+      // License header text for stitched output
+      "license_header": "# Serger — Stitch your module into a single file.\n# License: MIT-aNOAI\n# Full text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",
+
       // Explicit module order for stitching
       // This order is critical - modules must be ordered to satisfy their import dependencies
       "order": [
@@ -38,8 +41,7 @@
       "exclude": [
         "__pycache__/**",
         "*.pyc",
-        "__init__.py",    // Handled by import shims
-        "make_script.py"  // Development tool, not part of final build
+        "__init__.py"    // Handled by import shims
       ],
 
       // Output file path (relative to project root)
