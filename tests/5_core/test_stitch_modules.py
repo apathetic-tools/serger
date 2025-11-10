@@ -24,7 +24,9 @@ class TestStitchModulesValidation:
             src_dir = Path(tmpdir)
             out_path = Path(tmpdir) / "output.py"
             with pytest.raises(RuntimeError, match="package"):
-                mod_stitch.stitch_modules(config, src_dir, out_path)
+                mod_stitch.stitch_modules(
+                    config=config, src_dir=src_dir, out_path=out_path
+                )
 
     def test_missing_order_field(self) -> None:
         """Should raise RuntimeError when order is not specified."""
@@ -35,7 +37,9 @@ class TestStitchModulesValidation:
             src_dir = Path(tmpdir)
             out_path = Path(tmpdir) / "output.py"
             with pytest.raises(RuntimeError, match="order"):
-                mod_stitch.stitch_modules(config, src_dir, out_path)
+                mod_stitch.stitch_modules(
+                    config=config, src_dir=src_dir, out_path=out_path
+                )
 
     def test_invalid_package_type(self) -> None:
         """Should raise TypeError when package is not a string."""
@@ -47,7 +51,9 @@ class TestStitchModulesValidation:
             src_dir = Path(tmpdir)
             out_path = Path(tmpdir) / "output.py"
             with pytest.raises(TypeError, match="package"):
-                mod_stitch.stitch_modules(config, src_dir, out_path)
+                mod_stitch.stitch_modules(
+                    config=config, src_dir=src_dir, out_path=out_path
+                )
 
     def test_invalid_order_type(self) -> None:
         """Should raise TypeError when order is not a list."""
@@ -59,7 +65,9 @@ class TestStitchModulesValidation:
             src_dir = Path(tmpdir)
             out_path = Path(tmpdir) / "output.py"
             with pytest.raises(TypeError, match="order"):
-                mod_stitch.stitch_modules(config, src_dir, out_path)
+                mod_stitch.stitch_modules(
+                    config=config, src_dir=src_dir, out_path=out_path
+                )
 
 
 class TestStitchModulesBasic:
@@ -82,9 +90,9 @@ class TestStitchModulesBasic:
             }
 
             mod_stitch.stitch_modules(
-                config,
-                src_dir,
-                out_path,
+                config=config,
+                src_dir=src_dir,
+                out_path=out_path,
                 version="1.0.0",
                 commit="abc123",
                 build_date="2025-01-01",
@@ -118,7 +126,7 @@ class TestStitchModulesBasic:
                 "exclude_names": [],
             }
 
-            mod_stitch.stitch_modules(config, src_dir, out_path)
+            mod_stitch.stitch_modules(config=config, src_dir=src_dir, out_path=out_path)
 
             content = out_path.read_text()
             # External imports should be near the top
@@ -142,7 +150,7 @@ class TestStitchModulesBasic:
                 "exclude_names": [],
             }
 
-            mod_stitch.stitch_modules(config, src_dir, out_path)
+            mod_stitch.stitch_modules(config=config, src_dir=src_dir, out_path=out_path)
 
             content = out_path.read_text()
             # Output should have shebang at top, but not in module sections
@@ -168,7 +176,7 @@ class TestStitchModulesBasic:
                 "exclude_names": [],
             }
 
-            mod_stitch.stitch_modules(config, src_dir, out_path)
+            mod_stitch.stitch_modules(config=config, src_dir=src_dir, out_path=out_path)
 
             content = out_path.read_text()
             # Check order is preserved
@@ -193,7 +201,7 @@ class TestStitchModulesBasic:
             }
 
             # Should not raise, just skip missing module
-            mod_stitch.stitch_modules(config, src_dir, out_path)
+            mod_stitch.stitch_modules(config=config, src_dir=src_dir, out_path=out_path)
 
             content = out_path.read_text()
             assert "# === exists.py ===" in content
@@ -221,7 +229,9 @@ class TestStitchModulesCollisionDetection:
             }
 
             with pytest.raises(RuntimeError, match="collision"):
-                mod_stitch.stitch_modules(config, src_dir, out_path)
+                mod_stitch.stitch_modules(
+                    config=config, src_dir=src_dir, out_path=out_path
+                )
 
     def test_collision_detection_classes(self) -> None:
         """Should raise RuntimeError when classes collide."""
@@ -240,7 +250,9 @@ class TestStitchModulesCollisionDetection:
             }
 
             with pytest.raises(RuntimeError, match="collision"):
-                mod_stitch.stitch_modules(config, src_dir, out_path)
+                mod_stitch.stitch_modules(
+                    config=config, src_dir=src_dir, out_path=out_path
+                )
 
     def test_no_collision_with_ignored_names(self) -> None:
         """Should allow collisions with ignored names like __version__."""
@@ -259,7 +271,7 @@ class TestStitchModulesCollisionDetection:
             }
 
             # Should not raise - __version__ is ignored
-            mod_stitch.stitch_modules(config, src_dir, out_path)
+            mod_stitch.stitch_modules(config=config, src_dir=src_dir, out_path=out_path)
 
 
 class TestStitchModulesMetadata:
@@ -280,9 +292,9 @@ class TestStitchModulesMetadata:
             }
 
             mod_stitch.stitch_modules(
-                config,
-                src_dir,
-                out_path,
+                config=config,
+                src_dir=src_dir,
+                out_path=out_path,
                 license_header="# License: MIT",
                 version="2.1.3",
                 commit="def456",
@@ -313,7 +325,12 @@ class TestStitchModulesMetadata:
             }
 
             # Should not raise with empty license header
-            mod_stitch.stitch_modules(config, src_dir, out_path, license_header="")
+            mod_stitch.stitch_modules(
+                config=config,
+                src_dir=src_dir,
+                out_path=out_path,
+                license_header="",
+            )
 
             content = out_path.read_text()
             assert "#!/usr/bin/env python3" in content
@@ -337,7 +354,7 @@ class TestStitchModulesShims:
                 "exclude_names": [],
             }
 
-            mod_stitch.stitch_modules(config, src_dir, out_path)
+            mod_stitch.stitch_modules(config=config, src_dir=src_dir, out_path=out_path)
 
             content = out_path.read_text()
             # Shim block should exist
@@ -361,7 +378,7 @@ class TestStitchModulesShims:
                 "exclude_names": [],
             }
 
-            mod_stitch.stitch_modules(config, src_dir, out_path)
+            mod_stitch.stitch_modules(config=config, src_dir=src_dir, out_path=out_path)
 
             content = out_path.read_text()
             # Public should have shim (check for f-string with curly braces {_pkg})
@@ -387,7 +404,7 @@ class TestStitchModulesOutput:
                 "exclude_names": [],
             }
 
-            mod_stitch.stitch_modules(config, src_dir, out_path)
+            mod_stitch.stitch_modules(config=config, src_dir=src_dir, out_path=out_path)
 
             # Output file should exist
             assert out_path.exists()
@@ -408,7 +425,7 @@ class TestStitchModulesOutput:
                 "exclude_names": [],
             }
 
-            mod_stitch.stitch_modules(config, src_dir, out_path)
+            mod_stitch.stitch_modules(config=config, src_dir=src_dir, out_path=out_path)
 
             # Check executable bit is set
             mode = out_path.stat().st_mode
@@ -429,7 +446,7 @@ class TestStitchModulesOutput:
                 "exclude_names": [],
             }
 
-            mod_stitch.stitch_modules(config, src_dir, out_path)
+            mod_stitch.stitch_modules(config=config, src_dir=src_dir, out_path=out_path)
 
             # Verify it compiles
             py_compile.compile(str(out_path), doraise=True)
@@ -455,9 +472,9 @@ class TestStitchModulesDisplayConfig:
             }
 
             mod_stitch.stitch_modules(
-                config,
-                src_dir,
-                out_path,
+                config=config,
+                src_dir=src_dir,
+                out_path=out_path,
                 license_header="# License: MIT\n",
             )
 
@@ -481,7 +498,7 @@ class TestStitchModulesDisplayConfig:
                 "display_name": "TestProject",
             }
 
-            mod_stitch.stitch_modules(config, src_dir, out_path)
+            mod_stitch.stitch_modules(config=config, src_dir=src_dir, out_path=out_path)
 
             content = out_path.read_text()
             lines = content.split("\n")
@@ -502,7 +519,7 @@ class TestStitchModulesDisplayConfig:
                 "description": "A test project",
             }
 
-            mod_stitch.stitch_modules(config, src_dir, out_path)
+            mod_stitch.stitch_modules(config=config, src_dir=src_dir, out_path=out_path)
 
             content = out_path.read_text()
             lines = content.split("\n")
@@ -522,7 +539,7 @@ class TestStitchModulesDisplayConfig:
                 "exclude_names": [],
             }
 
-            mod_stitch.stitch_modules(config, src_dir, out_path)
+            mod_stitch.stitch_modules(config=config, src_dir=src_dir, out_path=out_path)
 
             content = out_path.read_text()
             lines = content.split("\n")
@@ -544,8 +561,163 @@ class TestStitchModulesDisplayConfig:
                 "description": "",
             }
 
-            mod_stitch.stitch_modules(config, src_dir, out_path)
+            mod_stitch.stitch_modules(config=config, src_dir=src_dir, out_path=out_path)
 
             content = out_path.read_text()
             lines = content.split("\n")
             assert lines[1] == "# testpkg"
+
+
+class TestRepoField:
+    """Test repo field in stitch_modules header."""
+
+    def test_repo_field_included_when_provided(self) -> None:
+        """Should include repo line in header when repo is provided."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = Path(tmpdir)
+            out_path = Path(tmpdir) / "output.py"
+
+            (src_dir / "main.py").write_text("MAIN = 1\n")
+
+            config: dict[str, Any] = {
+                "package": "testpkg",
+                "order": ["main"],
+                "repo": "https://github.com/user/project",
+            }
+
+            mod_stitch.stitch_modules(
+                config=config,
+                src_dir=src_dir,
+                out_path=out_path,
+            )
+
+            content = out_path.read_text()
+            assert "# Repo: https://github.com/user/project" in content
+
+    def test_repo_field_omitted_when_not_provided(self) -> None:
+        """Should NOT include repo line when repo is not in config."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = Path(tmpdir)
+            out_path = Path(tmpdir) / "output.py"
+
+            (src_dir / "main.py").write_text("MAIN = 1\n")
+
+            config: dict[str, Any] = {
+                "package": "testpkg",
+                "order": ["main"],
+                # repo field deliberately omitted
+            }
+
+            mod_stitch.stitch_modules(
+                config=config,
+                src_dir=src_dir,
+                out_path=out_path,
+            )
+
+            content = out_path.read_text()
+            assert "# Repo:" not in content
+
+    def test_repo_field_omitted_when_empty_string(self) -> None:
+        """Should NOT include repo line when repo is empty string."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = Path(tmpdir)
+            out_path = Path(tmpdir) / "output.py"
+
+            (src_dir / "main.py").write_text("MAIN = 1\n")
+
+            config: dict[str, Any] = {
+                "package": "testpkg",
+                "order": ["main"],
+                "repo": "",  # explicitly empty
+            }
+
+            mod_stitch.stitch_modules(
+                config=config,
+                src_dir=src_dir,
+                out_path=out_path,
+            )
+
+            content = out_path.read_text()
+            assert "# Repo:" not in content
+
+    def test_repo_line_position_in_header(self) -> None:
+        """Should place repo line after Build Date and before ruff noqa."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            src_dir = Path(tmpdir)
+            out_path = Path(tmpdir) / "output.py"
+
+            (src_dir / "main.py").write_text("MAIN = 1\n")
+
+            config: dict[str, Any] = {
+                "package": "testpkg",
+                "order": ["main"],
+                "repo": "https://github.com/test/test",
+            }
+
+            mod_stitch.stitch_modules(
+                config=config,
+                src_dir=src_dir,
+                out_path=out_path,
+                version="1.0.0",
+                build_date="2025-01-01 12:00:00 UTC",
+            )
+
+            content = out_path.read_text()
+            lines = content.split("\n")
+
+            # Find key header lines
+            build_date_idx = None
+            repo_idx = None
+            ruff_noqa_idx = None
+
+            for i, line in enumerate(lines):
+                if "# Build Date:" in line:
+                    build_date_idx = i
+                if "# Repo:" in line:
+                    repo_idx = i
+                if "# ruff: noqa:" in line:
+                    ruff_noqa_idx = i
+
+            assert build_date_idx is not None, "Build Date line not found"
+            assert repo_idx is not None, "Repo line not found"
+            assert ruff_noqa_idx is not None, "Ruff noqa line not found"
+
+            # Verify order: Build Date → Repo → ruff noqa
+            assert build_date_idx < repo_idx, (
+                f"Repo line should come after Build Date "
+                f"(Build Date at {build_date_idx}, Repo at {repo_idx})"
+            )
+            assert repo_idx < ruff_noqa_idx, (
+                f"Ruff noqa line should come after Repo "
+                f"(Repo at {repo_idx}, Ruff noqa at {ruff_noqa_idx})"
+            )
+
+    def test_repo_string_passed_through(self) -> None:
+        """Should pass repo string through as-is to header."""
+        test_strings = [
+            "https://github.com/user/repo",
+            "my-custom-repo-string",
+            "any arbitrary string value",
+        ]
+
+        for repo_str in test_strings:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                src_dir = Path(tmpdir)
+                out_path = Path(tmpdir) / "output.py"
+
+                (src_dir / "main.py").write_text("MAIN = 1\n")
+
+                config: dict[str, Any] = {
+                    "package": "testpkg",
+                    "order": ["main"],
+                    "repo": repo_str,
+                }
+
+                mod_stitch.stitch_modules(
+                    config=config,
+                    src_dir=src_dir,
+                    out_path=out_path,
+                )
+
+                content = out_path.read_text()
+                assert f"# Repo: {repo_str}" in content

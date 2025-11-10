@@ -438,13 +438,13 @@ def _format_header_line(
     description: str,
     package_name: str,
 ) -> str:
-    """Format the header comment line based on config values.
+    """Format the header text based on config values.
 
     Rules:
-    - Both provided: "# DisplayName — Description"
-    - Only name: "# DisplayName"
-    - Nothing: "# package_name"
-    - Only description: "# package_name — Description"
+    - Both provided: "DisplayName — Description"
+    - Only name: "DisplayName"
+    - Nothing: "package_name"
+    - Only description: "package_name — Description"
 
     Args:
         display_name: Optional display name from config
@@ -452,21 +452,21 @@ def _format_header_line(
         package_name: Package name (fallback)
 
     Returns:
-        Formatted header comment line (without trailing newline)
+        Formatted header text (without "# " prefix or trailing newline)
     """
     # Use display_name if provided, otherwise fall back to package_name
     name = display_name.strip() if display_name else package_name
     desc = description.strip() if description else ""
 
     if name and desc:
-        return f"# {name} — {desc}"
+        return f"{name} — {desc}"
     if name:
-        return f"# {name}"
+        return f"{name}"
     # default to package_name
-    return f"# {package_name}"
+    return f"{package_name}"
 
 
-def _build_final_script(
+def _build_final_script(  # noqa: PLR0913
     *,
     package_name: str,
     all_imports: OrderedDict[str, None],
@@ -478,6 +478,7 @@ def _build_final_script(
     build_date: str,
     display_name: str = "",
     description: str = "",
+    repo: str = "",
 ) -> str:
     """Build the final stitched script.
 
@@ -492,6 +493,7 @@ def _build_final_script(
         build_date: Build timestamp
         display_name: Optional display name for header
         description: Optional description for header
+        repo: Optional repository URL for header
 
     Returns:
         Final script text
@@ -531,19 +533,21 @@ def _build_final_script(
 
     # Build license/header section
     license_section = f"{license_header}\n" if license_header else ""
+    repo_line = f"# Repo: {repo}\n" if repo else ""
 
     return (
         "#!/usr/bin/env python3\n"
-        f"{header_line}\n"
+        f"# {header_line}\n"
         f"{license_section}"
         f"# Version: {version}\n"
         f"# Commit: {commit}\n"
         f"# Build Date: {build_date}\n"
+        f"{repo_line}"
         "\n# ruff: noqa: E402\n"
         "\n"
         f"{future_block}\n"
         '"""\n'
-        f"Stitched output from {package_name}\n"
+        f"{header_line}\n"
         "This single-file version is auto-generated from modular sources.\n"
         f"Version: {version}\n"
         f"Commit: {commit}\n"
@@ -566,7 +570,8 @@ def _build_final_script(
     )
 
 
-def stitch_modules(
+def stitch_modules(  # noqa: PLR0915
+    *,
     config: dict[str, object],
     src_dir: Path,
     out_path: Path,
@@ -676,12 +681,15 @@ def stitch_modules(
     # Extract display configuration
     display_name_raw = config.get("display_name", "")
     description_raw = config.get("description", "")
+    repo_raw = config.get("repo", "")
 
     # Type guards
     if not isinstance(display_name_raw, str):
         display_name_raw = ""
     if not isinstance(description_raw, str):
         description_raw = ""
+    if not isinstance(repo_raw, str):
+        repo_raw = ""
 
     final_script = _build_final_script(
         package_name=package_name,
@@ -694,6 +702,7 @@ def stitch_modules(
         build_date=build_date,
         display_name=display_name_raw,
         description=description_raw,
+        repo=repo_raw,
     )
 
     # --- Verification ---

@@ -53,6 +53,7 @@ class BuildConfig(TypedDict, total=False):
     license_header: str  # License header text for stitched output
     display_name: str  # Display name for header (defaults to package)
     description: str  # Description for header (defaults to blank)
+    repo: str  # Repository URL for header (optional)
 
 
 class RootConfig(TypedDict, total=False):
@@ -90,6 +91,7 @@ class BuildConfigResolved(TypedDict):
     license_header: NotRequired[str]
     display_name: NotRequired[str]
     description: NotRequired[str]
+    repo: NotRequired[str]
 
 
 class RootConfigResolved(TypedDict):
