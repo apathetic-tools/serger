@@ -36,6 +36,7 @@ FIELD_EXAMPLES: dict[str, str] = {
     "root.builds.*.out": '"dist/script.py"',
     "root.builds.*.display_name": '"MyProject"',
     "root.builds.*.description": '"A description of the project"',
+    "root.builds.*.repo": '"https://github.com/user/project"',
     "root.watch_interval": "1.5",
     "root.log_level": '"debug"',
     "root.strict_config": "true",

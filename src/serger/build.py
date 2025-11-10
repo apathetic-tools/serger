@@ -466,6 +466,7 @@ def run_build(
     exclude_names_raw = build_cfg.get("exclude_names", [])
     display_name_raw = build_cfg.get("display_name", "")
     description_raw = build_cfg.get("description", "")
+    repo_raw = build_cfg.get("repo", "")
 
     stitch_config: dict[str, object] = {
         "package": package,
@@ -473,6 +474,7 @@ def run_build(
         "exclude_names": exclude_names_raw,
         "display_name": display_name_raw,
         "description": description_raw,
+        "repo": repo_raw,
     }
 
     # Extract metadata for embedding
@@ -488,9 +490,9 @@ def run_build(
 
     try:
         stitch_modules(
-            stitch_config,
-            src_dir,
-            out_path,
+            config=stitch_config,
+            src_dir=src_dir,
+            out_path=out_path,
             license_header=license_header,
             version=version,
             commit=commit,

@@ -18,7 +18,7 @@ class TestFormatHeaderLine:
             description="A test project",
             package_name="fallback",
         )
-        assert result == "# MyProject — A test project"
+        assert result == "MyProject — A test project"
 
     def test_only_display_name(self) -> None:
         """Should format header with only display name."""
@@ -27,7 +27,7 @@ class TestFormatHeaderLine:
             description="",
             package_name="fallback",
         )
-        assert result == "# MyProject"
+        assert result == "MyProject"
 
     def test_only_description(self) -> None:
         """Should format header with package name and description."""
@@ -36,7 +36,7 @@ class TestFormatHeaderLine:
             description="A test project",
             package_name="fallback",
         )
-        assert result == "# fallback — A test project"
+        assert result == "fallback — A test project"
 
     def test_neither_provided(self) -> None:
         """Should use package name when neither field provided."""
@@ -45,7 +45,7 @@ class TestFormatHeaderLine:
             description="",
             package_name="fallback",
         )
-        assert result == "# fallback"
+        assert result == "fallback"
 
     def test_whitespace_trimmed(self) -> None:
         """Should trim leading/trailing whitespace."""
@@ -54,4 +54,4 @@ class TestFormatHeaderLine:
             description="  A test project  ",
             package_name="fallback",
         )
-        assert result == "# MyProject — A test project"
+        assert result == "MyProject — A test project"

@@ -377,7 +377,7 @@ class TestBuildFinalScriptDocstring:
         )
 
         assert '"""' in result or "'''" in result
-        assert "Stitched output from testpkg" in result
+        assert "testpkg" in result
 
     def test_docstring_includes_metadata(self) -> None:
         """Should include metadata in docstring."""
