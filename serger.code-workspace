@@ -8,4 +8,10 @@
 			"path": ".",
 		},
 	],
+	"settings": {
+		"claudeCode.environmentVariables": [
+      {"name": "NO_COLOR", "value": "1"},
+      {"name": "PYTHONIOENCODING", "value": "utf-8"}
+    ],
+	},
 }

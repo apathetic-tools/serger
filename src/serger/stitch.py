@@ -12,7 +12,9 @@ import os
 import py_compile
 import re
 import subprocess
+from collections import OrderedDict
 from pathlib import Path
+from typing import cast
 
 from .logs import get_logger
 
@@ -380,3 +382,268 @@ def force_mtime_advance(path: Path, seconds: float = 1.0, max_tries: int = 50) -
         f"(old={old_m}, new={new_m})",
     )
     raise AssertionError(xmsg)
+
+
+def _collect_modules(
+    src_dir: Path, order_names: list[str], package_name: str
+) -> tuple[dict[str, str], OrderedDict[str, None], list[str]]:
+    """Collect and process module sources.
+
+    Args:
+        src_dir: Directory containing Python modules
+        order_names: List of module names in stitch order
+        package_name: Root package name
+
+    Returns:
+        Tuple of (module_sources, all_imports, parts)
+    """
+    logger = get_logger()
+    all_imports: OrderedDict[str, None] = OrderedDict()
+    module_sources: dict[str, str] = {}
+    parts: list[str] = []
+
+    # Reserve import for shim system
+    all_imports.setdefault("import sys\n", None)
+
+    for module_name in order_names:
+        module_path = src_dir / f"{module_name}.py"
+        if not module_path.exists():
+            logger.warning("Skipping missing module: %s.py", module_name)
+            continue
+
+        module_text = module_path.read_text(encoding="utf-8")
+        module_text = strip_redundant_blocks(module_text)
+        module_sources[f"{module_name}.py"] = module_text
+
+        # Extract imports
+        external_imports, module_body = split_imports(module_text, package_name)
+        for imp in external_imports:
+            all_imports.setdefault(imp, None)
+
+        # Create module section
+        header = f"# === {module_name}.py ==="
+        parts.append(f"\n{header}\n{module_body.strip()}\n\n")
+
+        logger.debug("Processed module: %s", module_name)
+
+    return module_sources, all_imports, parts
+
+
+def _build_final_script(
+    package_name: str,
+    all_imports: OrderedDict[str, None],
+    parts: list[str],
+    order_names: list[str],
+    license_header: str,
+    version: str,
+    commit: str,
+    build_date: str,
+) -> str:
+    """Build the final stitched script.
+
+    Args:
+        package_name: Root package name
+        all_imports: Collected external imports
+        parts: Module code sections
+        order_names: List of module names (for shim generation)
+        license_header: License header text
+        version: Version string
+        commit: Commit hash
+        build_date: Build timestamp
+
+    Returns:
+        Final script text
+    """
+    logger = get_logger()
+    logger.debug("Building final script...")
+
+    # Separate __future__ imports
+    future_imports: OrderedDict[str, None] = OrderedDict()
+    for imp in list(all_imports.keys()):
+        if imp.strip().startswith("from __future__"):
+            future_imports.setdefault(imp, None)
+            del all_imports[imp]
+
+    future_block = "".join(future_imports.keys())
+    import_block = "".join(all_imports.keys())
+
+    # Generate import shims
+    shim_names = [n for n in order_names if not n.startswith("_")]
+    shim_block = [
+        "# --- import shims for single-file runtime ---",
+        f"_pkg = {package_name!r}",
+        "_mod = sys.modules.get(f'{_pkg}_single') or sys.modules.get(_pkg)",
+        "if _mod:",
+        *[f"    sys.modules[f'{{_pkg}}.{name}'] = _mod" for name in shim_names],
+        "del _pkg, _mod",
+        "",
+    ]
+    shim_text = "\n".join(shim_block)
+
+    return (
+        "#!/usr/bin/env python3\n"
+        f"{license_header}\n"
+        f"# Version: {version}\n"
+        f"# Commit: {commit}\n"
+        f"# Build Date: {build_date}\n"
+        "\n# ruff: noqa: E402\n"
+        "\n"
+        f"{future_block}\n"
+        '"""\n'
+        f"Stitched output from {package_name}\n"
+        "This single-file version is auto-generated from modular sources.\n"
+        f"Version: {version}\n"
+        f"Commit: {commit}\n"
+        f"Built: {build_date}\n"
+        '"""\n\n'
+        f"{import_block}\n"
+        "\n"
+        # constants come *after* imports to avoid breaking __future__ rules
+        f"__version__ = {version!r}\n"
+        f"__commit__ = {commit!r}\n"
+        f"__build_date__ = {build_date!r}\n"
+        f"__STANDALONE__ = True\n"
+        f"__STITCH_SOURCE__ = 'stitch_modules()'\n"
+        "\n"
+        "\n" + "\n".join(parts) + "\n"
+        f"{shim_text}\n"
+    )
+
+
+def stitch_modules(
+    config: dict[str, object],
+    src_dir: Path,
+    out_path: Path,
+    license_header: str = "",
+    version: str = "unknown",
+    commit: str = "unknown",
+    build_date: str = "unknown",
+) -> None:
+    """Orchestrate stitching of multiple Python modules into a single file.
+
+    This is the main entry point for the stitching process. It coordinates all
+    stitching utilities to produce a single, self-contained Python script from
+    modular sources.
+
+    The function:
+    1. Validates configuration completeness
+    2. Verifies all modules are listed and dependencies are consistent
+    3. Collects and deduplicates external imports
+    4. Assembles modules in correct order
+    5. Detects name collisions
+    6. Generates final script with metadata
+    7. Verifies the output compiles
+
+    Args:
+        config: BuildConfigResolved with stitching fields (package, order).
+                Must include 'package' and 'include' fields for stitching.
+        src_dir: Directory containing Python modules to stitch
+        out_path: Path where final stitched script should be written
+        license_header: Optional license header text for generated script
+        version: Version string to embed in script metadata
+        commit: Commit hash to embed in script metadata
+        build_date: Build timestamp to embed in script metadata
+
+    Raises:
+        RuntimeError: If any validation or stitching step fails
+        AssertionError: If mtime advancing fails
+
+    Example:
+        >>> from pathlib import Path
+        >>> from serger.config_types import BuildConfigResolved
+        >>> config = {
+        ...     "package": "mymodule",
+        ...     "order": ["base", "utils", "main"],
+        ...     "include": [
+        ...         {"path": "base.py", "root": Path("src")},
+        ...         {"path": "utils.py", "root": Path("src")},
+        ...         {"path": "main.py", "root": Path("src")},
+        ...     ],
+        ...     "exclude": [],
+        ... }
+        >>> stitch_modules(
+        ...     config=config,
+        ...     src_dir=Path("src"),
+        ...     out_path=Path("bin/mymodule.py"),
+        ...     version="1.0.0",
+        ... )
+    """
+    logger = get_logger()
+    package_name_raw = config.get("package", "unknown")
+    order_names_raw = config.get("order", [])
+    exclude_names_raw = config.get("exclude_names", [])
+
+    # Type guards for mypy/pyright
+    if not isinstance(package_name_raw, str):
+        msg = "Config 'package' must be a string"
+        raise TypeError(msg)
+    if not isinstance(order_names_raw, list):
+        msg = "Config 'order' must be a list"
+        raise TypeError(msg)
+    if not isinstance(exclude_names_raw, list):
+        msg = "Config 'exclude_names' must be a list"
+        raise TypeError(msg)
+
+    # Cast to known types after type guards
+    package_name = package_name_raw
+    order_names = cast("list[str]", order_names_raw)
+    exclude_names = cast("list[str]", exclude_names_raw)
+
+    if not package_name or package_name == "unknown":
+        msg = "Config must specify 'package' for stitching"
+        raise RuntimeError(msg)
+
+    if not order_names:
+        msg = "Config must specify 'order' (module names) for stitching"
+        raise RuntimeError(msg)
+
+    logger.info("Starting stitch process for package: %s", package_name)
+
+    # --- Validation Phase ---
+    logger.debug("Validating module listing...")
+    verify_all_modules_listed(src_dir, order_names, exclude_names)
+
+    logger.debug("Checking module order consistency...")
+    suggest_order_mismatch(order_names, package_name, src_dir)
+
+    # --- Collection Phase ---
+    logger.debug("Collecting module sources...")
+    module_sources, all_imports, parts = _collect_modules(
+        src_dir, order_names, package_name
+    )
+
+    # --- Collision Detection ---
+    logger.debug("Detecting name collisions...")
+    detect_name_collisions(module_sources)
+
+    # --- Final Assembly ---
+    final_script = _build_final_script(
+        package_name,
+        all_imports,
+        parts,
+        order_names,
+        license_header,
+        version,
+        commit,
+        build_date,
+    )
+
+    # --- Verification ---
+    logger.debug("Verifying assembled script...")
+    verify_no_broken_imports(final_script, package_name)
+
+    # --- Output ---
+    logger.debug("Writing output file: %s", out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(final_script, encoding="utf-8")
+    out_path.chmod(0o755)
+
+    # Advance mtime to ensure visibility across filesystems
+    logger.debug("Advancing mtime...")
+    force_mtime_advance(out_path)
+
+    logger.info(
+        "Successfully stitched %d modules into %s",
+        len(parts),
+        out_path,
+    )
