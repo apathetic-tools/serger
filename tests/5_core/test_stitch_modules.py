@@ -1,3 +1,4 @@
+# tests/5_core/test_stitch_modules.py
 """Tests for stitch_modules orchestration function and helpers."""
 
 import py_compile

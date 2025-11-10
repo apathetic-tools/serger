@@ -1,4 +1,4 @@
-# tests/30-utils-tests/_20_log_tests/test_safe_log.py
+# tests/0_independant/test_safe_log.py
 
 
 import sys

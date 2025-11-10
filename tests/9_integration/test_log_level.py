@@ -1,4 +1,4 @@
-# tests/test_cli_log_level.py
+# tests/9_integration/test_log_level.py
 """Tests for package.cli (package and standalone versions).
 
 NOTE: These tests are currently for file-copying (pocket-build responsibility).

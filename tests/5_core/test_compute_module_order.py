@@ -1,3 +1,4 @@
+# tests/5_core/test_compute_module_order.py
 """Tests for compute_module_order function."""
 
 import tempfile

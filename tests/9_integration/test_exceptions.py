@@ -1,4 +1,4 @@
-# tests/test_cli.py
+# tests/9_integration/test_exceptions.py
 """Tests for package.cli (package and standalone versions)."""
 
 import logging

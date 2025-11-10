@@ -1,3 +1,4 @@
+# tests/5_core/test_strip_redundant_blocks.py
 """Tests for strip_redundant_blocks function."""
 
 import serger.stitch as mod_stitch

@@ -1,4 +1,4 @@
-# tests/_30_utils_tests/test_utils.py
+# tests/0_independant/test_plural.py
 """Tests for package.utils (package and standalone versions)."""
 
 # not doing tests for has_glob_chars()

@@ -1,4 +1,4 @@
-# tests/30-utils-tests/test_collect_msg.py
+# tests/0_independant/test_collect_msg.py
 
 import serger.utils_schema as mod_utils_schema
 from tests.utils import make_summary

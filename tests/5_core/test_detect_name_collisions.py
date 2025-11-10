@@ -1,3 +1,4 @@
+# tests/5_core/test_detect_name_collisions.py
 """Tests for detect_name_collisions function."""
 
 import pytest

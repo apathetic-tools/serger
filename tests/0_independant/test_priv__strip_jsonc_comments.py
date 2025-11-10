@@ -1,3 +1,4 @@
+# tests/0_independant/test_priv__strip_jsonc_comments.py
 """Tests for serger.utils._strip_jsonc_comments (private helper)."""
 
 # ruff: noqa: SLF001

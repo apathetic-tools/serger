@@ -1,4 +1,4 @@
-# tests/test_make_script_integration.py
+# tests/9_integration/test_make_script.py
 """Integration tests for `dev/make_script.py`.
 
 These verify that the  standalone script (`bin/script.py`)

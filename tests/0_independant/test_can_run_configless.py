@@ -1,4 +1,4 @@
-# tests/5_core/test_can_run_configless.py
+# tests/0_independant/test_can_run_configless.py
 
 from argparse import Namespace
 

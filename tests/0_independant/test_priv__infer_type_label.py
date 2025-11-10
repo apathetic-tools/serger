@@ -1,4 +1,4 @@
-# tests/_30_utils_tests/schema/private/test_infer_type_label.py
+# tests/0_independant/test_priv__infer_type_label.py
 """Smoke tests for serger.config_validate internal validator helpers."""
 
 # we import `_` private for testing purposes only

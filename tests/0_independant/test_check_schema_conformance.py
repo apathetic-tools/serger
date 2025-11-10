@@ -1,4 +1,4 @@
-# tests/30-utils-tests/test_utils_schema_check.py
+# tests/0_independant/test_check_schema_conformance.py
 """Focused tests for serger.config_validate._check_schema_conformance."""
 
 # we import `_` private for testing purposes only

@@ -1,4 +1,4 @@
-# tests/30-utils-tests/test_flush_schema_aggregators.py
+# tests/0_independant/test_flush_schema_aggregators.py
 
 from typing import cast
 

@@ -1,4 +1,4 @@
-# tests/test_cli.py
+# tests/9_integration/test_version.py
 """Tests for package.cli (package and standalone versions)."""
 
 import os

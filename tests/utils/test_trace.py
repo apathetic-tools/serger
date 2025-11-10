@@ -1,4 +1,4 @@
-# tests/utils/trace.py
+# tests/utils/test_trace.py
 """Unified trace logger for pytest diagnostics.
 
 Uses monotonic timestamps for ordering and writes directly to sys.__stderr__

@@ -1,4 +1,4 @@
-# tests/test_standalone_metadata.py
+# tests/9_integration/test_standalone__execution.py
 """Verify that the standalone standalone version (`bin/script.py`)
 was generated correctly — includes metadata, license header,
 and matches the declared version from pyproject.toml.

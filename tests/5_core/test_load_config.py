@@ -1,4 +1,4 @@
-# tests/70-config-tests/test_load_config.py
+# tests/5_core/test_load_config.py
 
 from pathlib import Path
 
