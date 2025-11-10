@@ -67,10 +67,11 @@ def watch_for_changes(
         f: f.stat().st_mtime for f in included_files if f.exists()
     }
 
-    # Collect all output directories to ignore
-    out_dirs: list[Path] = [
-        (b["out"]["root"] / b["out"]["path"]).resolve() for b in resolved_builds
-    ]
+    # Collect all output paths to ignore (can be directories or files)
+    out_paths: list[Path] = []
+    for b in resolved_builds:
+        out_path = (b["out"]["root"] / b["out"]["path"]).resolve()
+        out_paths.append(out_path)
 
     rebuild_func()  # initial build
 
@@ -85,9 +86,9 @@ def watch_for_changes(
 
             changed: list[Path] = []
             for f in included_files:
-                # skip anything inside any build's output directory
-                if any(f.is_relative_to(out_dir) for out_dir in out_dirs):
-                    continue  # ignore output folder
+                # skip files that are inside or equal to any output path
+                if any(f == out_p or f.is_relative_to(out_p) for out_p in out_paths):
+                    continue  # ignore output files/folders
                 old_m = mtimes.get(f)
                 if not f.exists():
                     if old_m is not None:

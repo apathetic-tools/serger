@@ -1,12 +1,19 @@
 # tests/test_cli_positionals.py
 
-"""Tests for positional argument and flag interaction in module.cli."""
+"""Tests for positional argument and flag interaction in module.cli.
+
+NOTE: These tests are currently for file-copying (pocket-build responsibility).
+They will be adapted for stitch builds in Phase 5.
+"""
 
 from pathlib import Path
 
 import pytest
 
 import serger.cli as mod_cli
+
+
+pytestmark = pytest.mark.pocket_build_compat
 
 
 # --- constants --------------------------------------------------------------------
@@ -46,11 +53,11 @@ def _make_src(tmp_path: Path, *names: str) -> Path:
 # ---------------------------------------------------------------------------
 
 
-def test_positional_include_and_out(
+def test_positional_include_and_out_dir(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """`src dist/` should treat src as include and dist/ as out."""
+    """`src bin/` should treat src as include and bin/ (directory) as out."""
     # --- setup ---
     _make_src(tmp_path, "file.txt")
 
@@ -64,7 +71,7 @@ def test_positional_include_and_out(
     assert (dist / "file.txt").exists()
 
 
-def test_multiple_includes_and_out(
+def test_multiple_includes_and_out_dir(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -84,6 +91,26 @@ def test_multiple_includes_and_out(
     dist = tmp_path / "dist"
     assert (dist / "a.txt").exists()
     assert (dist / "b.txt").exists()
+
+
+def test_positional_include_and_out_file(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """`src bin/output.py` should treat src as include and output file."""
+    # --- setup ---
+    _make_src(tmp_path, "module.py")
+    (tmp_path / "src" / "data.txt").write_text("data")
+
+    # --- patch and execute ---
+    code = _run_cli(monkeypatch, tmp_path, ["src/", "dist/stitch_output.py"])
+
+    # --- verify ---
+    assert code == 0
+
+    output_file = tmp_path / "dist" / "stitch_output.py"
+    assert output_file.exists()
+    assert output_file.is_file()
 
 
 # ---------------------------------------------------------------------------

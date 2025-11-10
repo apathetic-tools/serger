@@ -81,7 +81,7 @@ def _setup_parser() -> argparse.ArgumentParser:
         "positional_out",
         nargs="?",
         metavar="OUT",
-        help="Positional output directory (shorthand for --out).",
+        help="Positional output file or directory (shorthand for --out).",
     )
 
     # --- Standard flags ---
@@ -91,7 +91,11 @@ def _setup_parser() -> argparse.ArgumentParser:
         help="Override include patterns. Format: path or path:dest",
     )
     parser.add_argument("--exclude", nargs="+", help="Override exclude patterns.")
-    parser.add_argument("-o", "--out", help="Override output directory.")
+    parser.add_argument(
+        "-o",
+        "--out",
+        help="Override output file or directory (e.g., 'dist/serger.py' or 'bin').",
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",
