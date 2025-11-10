@@ -8,9 +8,7 @@
 ### Phases
 
 **Phase 4-7: CLI integration and cleanup** ⏳ PENDING
-- Integrate stitching into main CLI (load `.serger.jsonc` and invoke `stitch_modules()`)
 - Remove copy-based `build.py` (belongs in pocket-build)
-- Replace `dev/make_script.py` with config-driven approach
 - Update selftest with stitch validation
 
 ### Key Points

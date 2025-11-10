@@ -508,6 +508,9 @@ def _build_final_script(
         "\n"
         "\n" + "\n".join(parts) + "\n"
         f"{shim_text}\n"
+        "\nif __name__ == '__main__':\n"
+        "    import sys\n"
+        "    sys.exit(main(sys.argv[1:]))\n"
     )
 
 
