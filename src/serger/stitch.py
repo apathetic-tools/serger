@@ -9,6 +9,7 @@ import handling, code analysis, and assembly.
 import ast
 import graphlib
 import importlib
+import json
 import os
 import py_compile
 import re
@@ -18,6 +19,7 @@ from pathlib import Path
 from typing import cast
 
 from .logs import get_logger
+from .meta import PROGRAM_PACKAGE
 
 
 def extract_version(pyproject_path: Path) -> str:
@@ -500,11 +502,11 @@ def _build_final_script(
         f"{import_block}\n"
         "\n"
         # constants come *after* imports to avoid breaking __future__ rules
-        f"__version__ = {version!r}\n"
-        f"__commit__ = {commit!r}\n"
-        f"__build_date__ = {build_date!r}\n"
+        f"__version__ = {json.dumps(version)}\n"
+        f"__commit__ = {json.dumps(commit)}\n"
+        f"__build_date__ = {json.dumps(build_date)}\n"
         f"__STANDALONE__ = True\n"
-        f"__STITCH_SOURCE__ = 'stitch_modules()'\n"
+        f"__STITCH_SOURCE__ = {json.dumps(PROGRAM_PACKAGE)}\n"
         "\n"
         "\n" + "\n".join(parts) + "\n"
         f"{shim_text}\n"
