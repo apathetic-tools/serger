@@ -1,6 +1,66 @@
 <!-- Roadmap.md -->
 # 🧭 Roadmap
 
+## Stitching Refactoring (Current Focus)
+
+**Important Clarification**: Serger is **purely a Python module stitcher** - it combines multiple source files into a single executable script. File copying/building is pocket-build's responsibility, not serger's.
+
+### Phases
+
+**Phase 1: Extract stitching utilities** ✅ COMPLETE
+- Extracted helpers from `src/make_script.py` into `src/serger/stitch.py`
+- Utilities: `split_imports()`, `compute_module_order()`, `detect_name_collisions()`, `verify_no_broken_imports()`, etc.
+- Full test coverage in `tests/5_core/test_*.py`
+- Exception handling refactored: RuntimeError instead of SystemExit
+
+**Phase 2: Add config structure for stitching** ✅ COMPLETE
+- Extended `BuildConfig` and `BuildConfigResolved` TypedDict types with optional `package` and `order` fields
+- Reused existing pocket-build `include`, `exclude`, and `out` fields (no new parallel structures)
+- Created `.serger.jsonc` with serger's self-hosting build configuration (package, module order, includes, excludes, output path)
+
+**Phase 3: Implement orchestration function** ✅ COMPLETE
+- Created `stitch_modules(config)` orchestration function in `src/serger/stitch.py` (lines 512-640)
+- Refactored into focused helpers: `_collect_modules()` and `_build_final_script()` for maintainability
+- Coordinates all stitching utilities in proper sequence: validation → collection → collision detection → assembly → verification → output
+- Handles metadata embedding (version, commit, build date), import shims, and comprehensive logging
+- Full type safety with proper guards and casts; passes all linting and type checkers
+
+**Phase 4-7: CLI integration and cleanup** ⏳ PENDING
+- Integrate stitching into main CLI (load `.serger.jsonc` and invoke `stitch_modules()`)
+- Remove copy-based `build.py` (belongs in pocket-build)
+- Replace `dev/make_script.py` with config-driven approach
+- Update selftest with stitch validation
+
+### Key Points
+
+- **One responsibility**: Stitching only, no file copying
+- **Config-driven**: Eliminate hardcoded module order
+- **Self-hosting**: Serger builds itself using its own config
+- **Backward compatible**: Existing utilities unchanged
+- **Well-tested**: Unit, integration, and E2E coverage
+
+### Future (Post-Phase 7)
+
+- Auto-discovery of module order via topological sort
+- Module-level configuration (metadata, headers)
+- Multi-package stitching support
+- Incremental stitching with dependency caching
+
+---
+
+# Once Stitch refactor into pocket-build CLI is complete:
+
+## TODO
+
+- have it's own configuration file
+- don't repeat files
+- allow you to specify a file for order, then include the rest of the dir
+- builds without a version should have timestamp
+
+---
+
+# Once the TODO are done:
+
 ## 🧰 CLI Parameters
 Planned command-line flags for future releases:
 
@@ -23,16 +83,15 @@ Exploring bundling options for generating the single-file release:
 
 ## 🧑‍💻 Development
 
-
-deployment
+## deployment
   - Deploy action when I tag a release should create a release and attach it to the tagged release.
   
-API
+## API
   - put utils into a submodule (as long as our sticher can handle it)
   - can utils/config be made into a single submodule? how does that play with the bundler?
   - do we want a way to dump the schema for documentation purposes?
 
-documentation
+## Documentation
   - where do we document the structure of the project? what do we document inside it vs here?
   - where do we do longer usage documentation? README can get a bit big
   - logo? images? icon? readme banner?
@@ -47,14 +106,6 @@ Potential quality-of-life features:
 - split out and depend on (dev-only) a pytest multi-target plugin
 - publish to PyPI, NPM, PACKAGIST, others?
 
-## make_script TODO
-
-- have it's own configuration file
-- make it more agnostic (and not serger specific)
-- don't repeat files
-- allow you to specify a file for order, then include the rest of the dir
-- document decisions/rejected
-- builds without a version should have timestamp
 
 > See [REJECTED.md](REJECTED.md) for experiments and ideas that were explored but intentionally not pursued.
 

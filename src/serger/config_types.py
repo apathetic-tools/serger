@@ -47,6 +47,11 @@ class BuildConfig(TypedDict, total=False):
     # Single-build convenience (propagated upward)
     watch_interval: float
 
+    # Stitching configuration (optional, for module stitching builds)
+    # If present, this build is a stitch build instead of a copy build
+    package: NotRequired[str]  # Package name for imports (e.g., "serger")
+    order: NotRequired[list[str]]  # Explicit module order for stitching
+
 
 class RootConfig(TypedDict, total=False):
     builds: list[BuildConfig]
@@ -76,6 +81,10 @@ class BuildConfigResolved(TypedDict):
 
     # global provenance (optional, for audit/debug)
     __meta__: MetaBuildConfigResolved
+
+    # Stitching fields (optional - present if this is a stitch build)
+    package: NotRequired[str]
+    order: NotRequired[list[str]]
 
 
 class RootConfigResolved(TypedDict):
