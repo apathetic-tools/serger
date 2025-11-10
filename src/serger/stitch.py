@@ -1,3 +1,4 @@
+# src/serger/stitch.py
 """Stitching logic for combining multiple Python modules into a single file.
 
 This module handles the core functionality for stitching together modular

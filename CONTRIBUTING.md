@@ -116,7 +116,7 @@ Serger ships two forms:
 
 | Target | Command | Output |
 |---------|----------|--------|
-| **Single-file script** | `poetry run poe build.single` | Creates `bin/serger.py` |
+| **Single-file script** | `poetry run poe build:script` | Creates `dist/serger.py` |
 | **PyPI package** | `poetry build && poetry publish` | Builds and uploads wheel & sdist |
 
 To publish:

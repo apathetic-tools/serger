@@ -1,4 +1,4 @@
-# tests/test_utils_color.py
+# tests/0_independant/test_colorize.py
 """Tests for color utility helpers in module.utils."""
 
 import pytest

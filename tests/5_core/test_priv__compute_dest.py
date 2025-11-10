@@ -1,4 +1,4 @@
-# tests/50-build-tests/private/test_compute_dest.py
+# tests/5_core/test_priv__compute_dest.py
 """Tests for _compute_dest() destination resolution logic.
 
 Checklist:

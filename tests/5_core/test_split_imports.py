@@ -1,3 +1,4 @@
+# tests/5_core/test_split_imports.py
 """Tests for split_imports function."""
 
 import serger.stitch as mod_stitch

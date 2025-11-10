@@ -1,4 +1,4 @@
-# tests/test_cli_selftest.py
+# tests/9_integration/test_selftest.py
 """Tests for --selftest flag in serger CLI.
 
 NOTE: These tests need to be updated in Phase 6 to test stitch builds

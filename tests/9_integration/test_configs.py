@@ -1,4 +1,4 @@
-# tests/test_cli.py
+# tests/9_integration/test_configs.py
 """Tests for package.cli (package and standalone versions).
 
 NOTE: These tests are currently for file-copying (pocket-build responsibility).

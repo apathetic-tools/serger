@@ -1,4 +1,4 @@
-# tests/test_utils_safe_isinstance.py
+# tests/0_independant/test_safe_isinstance.py
 """Focused tests for serger.utils_core.safe_isinstance."""
 
 from typing import Any, Literal, TypedDict, TypeVar

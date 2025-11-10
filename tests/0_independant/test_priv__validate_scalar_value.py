@@ -1,4 +1,4 @@
-# tests/_30_utils_tests/schema/private/test_validate_scalar_value.py
+# tests/0_independant/test_priv__validate_scalar_value.py
 """Smoke tests for serger.config_validate internal validator helpers."""
 
 # we import `_` private for testing purposes only

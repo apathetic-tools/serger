@@ -1,4 +1,4 @@
-# tests/00-pytest-health-tests/test_20_no_app_from_import.py
+# tests/0_independant/test_no_from_app_imports.py
 
 import ast
 from pathlib import Path

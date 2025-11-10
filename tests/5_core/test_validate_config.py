@@ -1,4 +1,4 @@
-# tests/test_config_validate.py
+# tests/5_core/test_validate_config.py
 """Tests for serger.config_validate."""
 
 from typing import Any

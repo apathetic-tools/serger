@@ -1,4 +1,4 @@
-# tests/_30_utils_tests/test_utils.py
+# tests/0_independant/test_capture_output.py
 """Tests for package.utils (package and standalone versions)."""
 
 import sys

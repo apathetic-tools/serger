@@ -1,4 +1,4 @@
-# tests/test_copy_file.py.py
+# tests/5_core/test_copy_file.py
 """Tests for package.build (package and standalone versions)."""
 
 from pathlib import Path

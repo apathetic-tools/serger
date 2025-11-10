@@ -1,4 +1,4 @@
-# tests/test_10_pytest_runtime_mode_swap.py
+# tests/0_independant/test_pytest__runtime_mode_swap.py
 """Ensures pytest is running against the intended runtime (installed vs singlefile)
 and that Python’s import cache (`sys.modules`) points to the correct sources.
 

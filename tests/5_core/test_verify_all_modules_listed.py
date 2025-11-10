@@ -1,3 +1,4 @@
+# tests/5_core/test_verify_all_modules_listed.py
 """Tests for verify_all_modules_listed function."""
 
 import tempfile

@@ -1,3 +1,4 @@
+# tests/5_core/test_priv__build_final_script.py
 """Tests for internal _build_final_script helper function."""
 
 # we import `_` private for testing purposes only

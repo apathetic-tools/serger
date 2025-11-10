@@ -1,4 +1,4 @@
-# tests/test_cli_gitignore.py
+# tests/9_integration/test_gitignore.py
 """Tests for .gitignore handling and precedence in module.cli.
 
 NOTE: These tests are currently for file-copying (pocket-build responsibility).

@@ -1,4 +1,4 @@
-# tests/test_cli_positionals.py
+# tests/9_integration/test_positionals.py
 
 """Tests for positional argument and flag interaction in module.cli.
 

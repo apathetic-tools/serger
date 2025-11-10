@@ -1,4 +1,4 @@
-# tests/test_cli_watch.py
+# tests/5_core/test_priv__setup_parser.py
 """Tests for package.cli (package and standalone versions)."""
 
 # we import `_` private for testing purposes only

@@ -1,4 +1,4 @@
-# tests/test_00_pytest_runs.py
+# tests/0_independant/test_pytest__runs.py
 # These tests are here whenever we need to troubleshoot
 #   that pytest itself works with the current config. The
 #   tests here should always pass and do not invoke our

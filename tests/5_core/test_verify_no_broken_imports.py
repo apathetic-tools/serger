@@ -1,3 +1,4 @@
+# tests/5_core/test_verify_no_broken_imports.py
 """Tests for verify_no_broken_imports function."""
 
 import pytest

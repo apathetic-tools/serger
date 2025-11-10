@@ -1,4 +1,4 @@
-# tests/test_cli_watch.py
+# tests/5_core/test_watch_for_changes.py
 """Tests for package.cli (package and standalone versions)."""
 
 import time

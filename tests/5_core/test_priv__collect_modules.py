@@ -1,3 +1,4 @@
+# tests/5_core/test_priv__collect_modules.py
 """Tests for internal _collect_modules helper function."""
 
 # we import `_` private for testing purposes only

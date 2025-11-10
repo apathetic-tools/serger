@@ -1,4 +1,4 @@
-# tests/07-config-tests/private/test_normalize_path_with_root.py
+# tests/5_core/test_priv__normalize_path_with_root.py
 
 """Direct tests for _normalize_path_with_root, ensuring consistent path semantics."""
 

@@ -1,4 +1,4 @@
-# tests/_30_utils_tests/load_jsonc.py
+# tests/0_independant/test_load_jsonc.py
 """Tests for package.utils (package and standalone versions)."""
 
 from pathlib import Path

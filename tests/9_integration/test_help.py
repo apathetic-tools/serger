@@ -1,4 +1,4 @@
-# tests/test_cli.py
+# tests/9_integration/test_help.py
 """Tests for package.cli (package and standalone versions)."""
 
 import pytest

@@ -1,4 +1,4 @@
-# tests/test_build.py
+# tests/5_core/test_run_build.py
 """Tests for package.build (package and standalone versions).
 
 NOTE: These tests are currently for file-copying (pocket-build responsibility).

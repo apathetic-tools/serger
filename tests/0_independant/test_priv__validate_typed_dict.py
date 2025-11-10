@@ -1,4 +1,4 @@
-# tests/_30_utils_tests/schema/private/test_validate_typed_dict.py
+# tests/0_independant/test_priv__validate_typed_dict.py
 """Smoke tests for serger.config_validate internal validator helpers."""
 
 # we import `_` private for testing purposes only

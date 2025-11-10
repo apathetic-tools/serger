@@ -1,3 +1,4 @@
+# tests/0_independant/test_priv__compile_glob_recursive.py
 r"""Tests for serger.utils._compile_glob_recursive() regex generator.
 
 _compile_glob_recursive() compiles a glob pattern to a regex pattern,

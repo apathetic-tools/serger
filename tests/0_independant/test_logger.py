@@ -1,4 +1,4 @@
-# tests/30-utils-tests/_20_log_tests/test_log.py
+# tests/0_independant/test_logger.py
 
 import io
 import re

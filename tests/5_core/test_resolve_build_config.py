@@ -1,4 +1,4 @@
-# tests/test_config_resolve.py
+# tests/5_core/test_resolve_build_config.py
 
 """Tests for serger.config_resolve."""
 

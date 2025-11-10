@@ -1,4 +1,4 @@
-# tests/test_determine_color_enabled.py
+# tests/0_independant/test_determine_color_enabled.py
 """Tests for ApatheticCLILogger.determine_color_enabled()."""
 
 import sys

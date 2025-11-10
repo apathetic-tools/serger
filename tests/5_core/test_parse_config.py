@@ -1,4 +1,4 @@
-# tests/test_config.py
+# tests/5_core/test_parse_config.py
 """Tests for package.config (package and standalone versions)."""
 
 from typing import Any

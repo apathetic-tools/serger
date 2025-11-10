@@ -1,3 +1,4 @@
+# tests/utils/log_fixtures.py
 """Reusable fixtures for testing the Apathetic logger system."""
 
 import uuid

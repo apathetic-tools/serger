@@ -1,4 +1,4 @@
-# tests/70-config-tests/test_find_config.py
+# tests/5_core/test_find_config.py
 
 from argparse import Namespace
 from pathlib import Path
