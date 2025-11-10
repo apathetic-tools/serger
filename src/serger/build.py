@@ -3,13 +3,13 @@
 
 import contextlib
 import re
+import shutil
 from pathlib import Path
 
 from .config_types import BuildConfigResolved, IncludeResolved, PathResolved
 from .constants import DEFAULT_DRY_RUN
 from .logs import get_logger
 from .utils import (
-    code_porting_placeholder,
     has_glob_chars,
     is_excluded_raw,
 )
@@ -123,9 +123,8 @@ def copy_file(
     logger.debug("📄 %s → %s", rel_src, rel_dest)
 
     if not dry_run:
-        # dest.parent.mkdir(parents=True, exist_ok=True)
-        # shutil.copy2(src, dest)
-        code_porting_placeholder("copy_file copy2")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest)
 
 
 def copy_directory(
@@ -163,8 +162,7 @@ def copy_directory(
 
     # Ensure destination exists even if src is empty
     if not dry_run:
-        # dest.mkdir(parents=True, exist_ok=True)
-        code_porting_placeholder("copy_directory dest mkdir")
+        dest.mkdir(parents=True, exist_ok=True)
 
     for item in src.iterdir():
         # Skip excluded directories and their contents early
@@ -176,8 +174,7 @@ def copy_directory(
         if item.is_dir():
             logger.trace(f"📁 {item.relative_to(src_root)}")
             if not dry_run:
-                # target.mkdir(parents=True, exist_ok=True)
-                code_porting_placeholder("copy_directory target mkdir")
+                target.mkdir(parents=True, exist_ok=True)
             copy_directory(
                 item,
                 target,
@@ -188,10 +185,9 @@ def copy_directory(
         else:
             logger.debug("📄 %s", item.relative_to(src_root))
             if not dry_run:
-                # target.parent.mkdir(parents=True, exist_ok=True)
-                # shutil.copy2(item, target)
                 # TODO: should this call copy_file? # noqa: TD002, TD003, FIX002
-                code_porting_placeholder("copy_directory copy2")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(item, target)
 
     logger.debug("📁 Copied directory: %s", src.relative_to(src_root))
 
@@ -241,8 +237,7 @@ def copy_item(
             f"📁 (shallow from pattern={pattern_str!r}) {src.relative_to(src_root)}",
         )
         if not dry_run:
-            # dest.mkdir(parents=True, exist_ok=True)
-            code_porting_placeholder("copy_item dest mkdir")
+            dest.mkdir(parents=True, exist_ok=True)
         return
 
     # Normal behavior
@@ -270,13 +265,11 @@ def _build_prepare_output_dir(out_dir: Path, *, dry_run: bool) -> None:
         if dry_run:
             logger.info("🧪 (dry-run) Would remove existing directory: %s", out_dir)
         else:
-            # shutil.rmtree(out_dir)
-            code_porting_placeholder("_build_prepare_output_dir out_dir rmtree")
+            shutil.rmtree(out_dir)
     if dry_run:
         logger.info("🧪 (dry-run) Would create: %s", out_dir)
     else:
-        # out_dir.mkdir(parents=True, exist_ok=True)
-        code_porting_placeholder("_build_prepare_output_dir out_dir mkdir")
+        out_dir.mkdir(parents=True, exist_ok=True)
 
 
 def _build_process_includes(
