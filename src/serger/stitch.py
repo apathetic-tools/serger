@@ -532,7 +532,12 @@ def _build_final_script(  # noqa: PLR0913
     )
 
     # Build license/header section
-    license_section = f"{license_header}\n" if license_header else ""
+    # Prefix each line of the license header with "# " if provided
+    license_section = ""
+    if license_header:
+        lines = license_header.strip().split("\n")
+        prefixed_lines = [f"# {line}" for line in lines]
+        license_section = "\n".join(prefixed_lines) + "\n"
     repo_line = f"# Repo: {repo}\n" if repo else ""
 
     return (

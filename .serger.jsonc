@@ -15,7 +15,7 @@
       "repo": "https://github.com/apathetic-tools/serger",
 
       // License header text for stitched output
-      "license_header": "# License: MIT-aNOAI\n# Full text: https://github.com/apathetic-tools/serger/blob/main/LICENSE\n",
+      "license_header": "License: MIT-aNOAI\nFull text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",
 
       // Explicit module order for stitching
       // This order is critical - modules must be ordered to satisfy their import dependencies
