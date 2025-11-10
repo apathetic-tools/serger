@@ -1,5 +1,9 @@
 # tests/test_cli_paths.py
-"""Tests for package.cli (package and standalone versions)."""
+"""Tests for package.cli (package and standalone versions).
+
+NOTE: These tests are currently for file-copying (pocket-build responsibility).
+They will be adapted for stitch builds in Phase 5.
+"""
 
 import json
 from pathlib import Path
@@ -10,12 +14,15 @@ import serger.cli as mod_cli
 import serger.meta as mod_meta
 
 
-def test_configless_run_with_include_flag(
+pytestmark = pytest.mark.pocket_build_compat
+
+
+def test_configless_run_with_include_flag_and_out_dir(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Should run successfully without a config file when --include is provided."""
+    """Should run with --include and --out (directory) without config file."""
     # --- setup ---
     src_dir = tmp_path / "src"
     src_dir.mkdir()
@@ -37,6 +44,40 @@ def test_configless_run_with_include_flag(
     dist = tmp_path / "dist"
     assert dist.exists()
     assert (dist / "foo.txt").exists()
+
+    # Log output should mention CLI-only mode
+    assert "CLI-only mode".lower() in out or "no config file".lower() in out
+    assert "Build completed".lower() in out
+
+
+def test_configless_run_with_include_flag_and_out_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Should run with --include and --out (file) without config file."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    (src_dir / "module.py").write_text("# module")
+    (src_dir / "data.txt").write_text("data")
+
+    # --- patch and execute ---
+    # No config file on purpose
+    monkeypatch.chdir(tmp_path)
+    code = mod_cli.main(["--include", "src/**", "--out", "bin/output.py"])
+
+    # --- verify ---
+    captured = capsys.readouterr()
+    out = (captured.out + captured.err).lower()
+
+    # Should exit successfully
+    assert code == 0
+
+    # Output file should exist
+    output_file = tmp_path / "dist" / "output.py"
+    assert output_file.exists()
+    assert output_file.is_file()
 
     # Log output should mention CLI-only mode
     assert "CLI-only mode".lower() in out or "no config file".lower() in out
@@ -85,12 +126,12 @@ def test_custom_config_path(
     assert "Using config: custom.json".lower() in out
 
 
-def test_out_flag_overrides_config(
+def test_out_flag_overrides_config_with_dir(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Should use the --out flag instead of the config-defined output path."""
+    """--out flag (directory) overrides config-defined output path."""
     # --- setup ---
     src_dir = tmp_path / "src"
     src_dir.mkdir()
@@ -120,6 +161,41 @@ def test_out_flag_overrides_config(
 
     # Optional: check output logs
     assert "override-dist".lower() in out
+
+
+def test_out_flag_overrides_config_with_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Should use the --out flag (file) instead of the config-defined output path."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    (src_dir / "module.py").write_text("# module")
+
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    config.write_text(
+        json.dumps(
+            {"builds": [{"include": ["src/**"], "exclude": [], "out": "ignored"}]},
+        ),
+    )
+
+    # --- patch and execute ---
+    monkeypatch.chdir(tmp_path)
+    code = mod_cli.main(["--out", "bin/output.py"])
+
+    # --- verify ---
+    out = capsys.readouterr().out.lower()
+
+    assert code == 0
+    # Confirm it built into the override file
+    override_file = tmp_path / "dist" / "output.py"
+    assert override_file.exists()
+    assert override_file.is_file()
+
+    # Optional: check output logs
+    assert "output.py".lower() in out
 
 
 def test_out_flag_relative_to_cwd(
@@ -154,11 +230,11 @@ def test_out_flag_relative_to_cwd(
     assert not (project / "output").exists()
 
 
-def test_config_out_relative_to_config_file(
+def test_config_out_relative_to_config_file_with_dir(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Out path in config should be relative to the config file itself."""
+    """Out path (directory) in config should be relative to the config file itself."""
     # --- setup ---
     project = tmp_path / "project"
     project.mkdir()
@@ -180,6 +256,39 @@ def test_config_out_relative_to_config_file(
     dist_dir = project / "dist"
     # Contents of src should be copied directly into dist/
     assert (dist_dir / "file.txt").exists()
+    # Ensure it didn't build relative to the CWD
+    assert not (cwd / "dist").exists()
+
+
+def test_config_out_relative_to_config_file_with_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Out path (file) in config should be relative to the config file itself."""
+    # --- setup ---
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "src").mkdir()
+    (project / "src" / "module.py").write_text("# module")
+
+    config = project / f".{mod_meta.PROGRAM_CONFIG}.json"
+    config.write_text(
+        json.dumps({"builds": [{"include": ["src/**"], "out": "bin/output.py"}]}),
+    )
+
+    # --- patch and execute ---
+    cwd = tmp_path / "runner"
+    cwd.mkdir()
+    monkeypatch.chdir(cwd)
+    code = mod_cli.main(["--config", str(config)])
+
+    # --- verify ---
+    assert code == 0
+
+    output_file = project / "dist" / "output.py"
+    # Output file should exist relative to config directory
+    assert output_file.exists()
+    assert output_file.is_file()
     # Ensure it didn't build relative to the CWD
     assert not (cwd / "dist").exists()
 

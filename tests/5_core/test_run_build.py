@@ -17,6 +17,7 @@ from tests.utils import make_build_cfg, make_include_resolved
 
 pytestmark = pytest.mark.pocket_build_compat
 
+
 def test_run_build_includes_directory_itself(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,

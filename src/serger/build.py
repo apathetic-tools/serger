@@ -9,6 +9,7 @@ from pathlib import Path
 from .config_types import BuildConfigResolved, IncludeResolved, PathResolved
 from .constants import DEFAULT_DRY_RUN
 from .logs import get_logger
+from .stitch import stitch_modules
 from .utils import (
     has_glob_chars,
     is_excluded_raw,
@@ -258,8 +259,14 @@ def copy_item(
         )
 
 
-def _build_prepare_output_dir(out_dir: Path, *, dry_run: bool) -> None:
-    """Create or clean the output directory as needed."""
+def _build_prepare_output_dir(  # pyright: ignore[reportUnusedFunction]
+    out_dir: Path, *, dry_run: bool
+) -> None:
+    """Create or clean the output directory as needed.
+
+    NOTE: This function is intentionally unused (kept for Phase 5 cleanup).
+    File copying functionality is handled by pocket-build, not serger.
+    """
     logger = get_logger()
     if out_dir.exists():
         if dry_run:
@@ -272,7 +279,7 @@ def _build_prepare_output_dir(out_dir: Path, *, dry_run: bool) -> None:
         out_dir.mkdir(parents=True, exist_ok=True)
 
 
-def _build_process_includes(
+def _build_process_includes(  # pyright: ignore[reportUnusedFunction]
     includes: list[IncludeResolved],
     excludes: list[PathResolved],
     out_entry: PathResolved,
@@ -280,6 +287,11 @@ def _build_process_includes(
     out_dir: Path,
     dry_run: bool,
 ) -> None:
+    """Process include patterns and copy matching files.
+
+    NOTE: This function is intentionally unused (kept for Phase 5 cleanup).
+    File copying functionality is handled by pocket-build, not serger.
+    """
     logger = get_logger()
     for inc in includes:
         src_pattern = str(inc["path"])
@@ -387,28 +399,89 @@ def _build_copy_matches(
 def run_build(
     build_cfg: BuildConfigResolved,
 ) -> None:
-    """Execute a single build task using a fully resolved config."""
+    """Execute a single build task using a fully resolved config.
+
+    Serger handles module stitching builds (combining Python modules into
+    a single executable script). File copying is the responsibility of
+    pocket-build, not serger.
+    """
     logger = get_logger()
     dry_run = build_cfg.get("dry_run", DEFAULT_DRY_RUN)
-    includes: list[IncludeResolved] = build_cfg["include"]
-    excludes: list[PathResolved] = build_cfg["exclude"]
-    out_entry: PathResolved = build_cfg["out"]
-    out_dir = (out_entry["root"] / out_entry["path"]).resolve()
 
-    logger.trace(f"[RUN_BUILD] out_dir={out_dir}, includes={len(includes)} patterns")
+    # Extract stitching fields from config
+    package = build_cfg.get("package")
+    order = build_cfg.get("order")
+    license_header = build_cfg.get("license_header", "")
+    out_entry = build_cfg["out"]
 
-    # --- Clean and recreate output directory ---
-    _build_prepare_output_dir(out_dir, dry_run=dry_run)
+    # Skip if stitching fields are not provided
+    if not package or not order:
+        logger.warning(
+            "Skipping build: 'package' and 'order' fields are required for "
+            "stitch builds. This build has neither. "
+            "(File copying is handled by pocket-build, not serger.)"
+        )
+        return
 
-    # --- Process includes ---
-    _build_process_includes(
-        includes,
-        excludes,
-        out_entry,
-        out_dir=out_dir,
-        dry_run=dry_run,
-    )
-    logger.info("✅ Build completed → %s\n", out_dir)
+    # Type checking - ensure correct types after narrowing
+    if package and not isinstance(package, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+        xmsg = f"Invalid package name (expected str, got {type(package).__name__})"
+        raise TypeError(xmsg)
+    if order and not isinstance(order, list):  # pyright: ignore[reportUnnecessaryIsInstance]
+        xmsg = f"Invalid order (expected list, got {type(order).__name__})"
+        raise TypeError(xmsg)
+
+    # Determine output file path
+    out_path = (out_entry["root"] / out_entry["path"]).resolve()
+    if out_path.is_dir():
+        out_path = out_path / f"{package}.py"
+
+    if dry_run:
+        logger.info("🧪 (dry-run) Would stitch %s to: %s", package, out_path)
+        return
+
+    # For stitching, we need the source directory containing the modules
+    # Use the first include's root as the source directory
+    includes = build_cfg.get("include", [])
+    if not includes:
+        xmsg = "Stitch build requires at least one include pattern"
+        raise ValueError(xmsg)
+
+    # Get source directory from first include
+    src_entry = includes[0]
+    src_dir = Path(src_entry["root"]).resolve()
+
+    # Prepare config dict for stitch_modules
+    stitch_config: dict[str, object] = {
+        "package": package,
+        "order": order,
+    }
+
+    # Extract metadata for embedding
+    # For now, use defaults - can be enhanced to extract from pyproject.toml/git
+    version = "unknown"
+    commit = "unknown"
+    build_date = "unknown"
+
+    # Create parent directory if needed
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    logger.info("🧵 Stitching %s → %s", package, out_path)
+
+    try:
+        stitch_modules(
+            stitch_config,
+            src_dir,
+            out_path,
+            license_header=license_header,
+            version=version,
+            commit=commit,
+            build_date=build_date,
+        )
+        logger.info("✅ Stitch completed → %s\n", out_path)
+    except RuntimeError as e:
+        xmsg = f"Stitch build failed: {e}"
+        raise RuntimeError(xmsg) from e
 
 
 def run_all_builds(
