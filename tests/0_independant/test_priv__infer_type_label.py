@@ -7,6 +7,8 @@
 
 from typing import Any, TypedDict
 
+from typing_extensions import NotRequired
+
 import serger.utils_schema as mod_utils_schema
 
 
@@ -40,3 +42,53 @@ def test_infer_type_label_handles_unusual_types() -> None:
     assert "Any" in mod_utils_schema._infer_type_label(list[Any])
     # Should fall back gracefully on unknown types
     assert isinstance(mod_utils_schema._infer_type_label(Any), str)
+
+
+class TestNotRequiredTypeLabels:
+    """Test _infer_type_label with NotRequired types."""
+
+    def test_notrequired_string_unwraps_to_str(self) -> None:
+        """NotRequired[str] should unwrap to 'str' label."""
+        nr = NotRequired[str]
+        label = mod_utils_schema._infer_type_label(nr)
+
+        # --- verify ---
+        assert "str" in label
+        assert "NotRequired" not in label
+
+    def test_notrequired_int_unwraps_to_int(self) -> None:
+        """NotRequired[int] should unwrap to 'int' label."""
+        nr = NotRequired[int]
+        label = mod_utils_schema._infer_type_label(nr)
+
+        # --- verify ---
+        assert "int" in label
+        assert "NotRequired" not in label
+
+    def test_notrequired_list_of_str(self) -> None:
+        """NotRequired[list[str]] should unwrap to list[str]."""
+        nr = NotRequired[list[str]]
+        label = mod_utils_schema._infer_type_label(nr)
+
+        # --- verify ---
+        assert "list" in label
+        assert "NotRequired" not in label
+
+    def test_notrequired_typeddict(self) -> None:
+        """NotRequired[TypedDict] should unwrap to TypedDict name."""
+        nr = NotRequired[MiniBuild]
+        label = mod_utils_schema._infer_type_label(nr)
+
+        # --- verify ---
+        assert "MiniBuild" in label
+        assert "NotRequired" not in label
+
+    def test_notrequired_union(self) -> None:
+        """NotRequired[str | int] should unwrap properly."""
+        nr = NotRequired[str | int]
+        label = mod_utils_schema._infer_type_label(nr)
+
+        # --- verify ---
+        # Should be some representation of the union
+        assert isinstance(label, str)
+        assert "NotRequired" not in label

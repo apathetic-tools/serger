@@ -3,6 +3,8 @@
 
 from typing import Any, Literal, TypedDict, TypeVar
 
+from typing_extensions import NotRequired
+
 import serger.utils_types as mod_utils_types
 
 
@@ -118,3 +120,70 @@ def test_tuple_generic_support() -> None:
     # --- execute and verify ---
     assert mod_utils_types.safe_isinstance((1, "a"), tup)
     assert not mod_utils_types.safe_isinstance(("a", 1), tup)
+
+
+class TestNotRequired:
+    """Tests for NotRequired type handling."""
+
+    def test_notrequired_string_accepts_string(self) -> None:
+        """NotRequired[str] should accept strings."""
+        nr = NotRequired[str]
+
+        # --- execute and verify ---
+        assert mod_utils_types.safe_isinstance("hello", nr)
+
+    def test_notrequired_string_rejects_int(self) -> None:
+        """NotRequired[str] should reject integers."""
+        nr = NotRequired[str]
+
+        # --- execute and verify ---
+        assert not mod_utils_types.safe_isinstance(42, nr)
+
+    def test_notrequired_int(self) -> None:
+        """NotRequired[int] should validate int types."""
+        nr = NotRequired[int]
+
+        # --- execute and verify ---
+        assert mod_utils_types.safe_isinstance(123, nr)
+        assert not mod_utils_types.safe_isinstance("not int", nr)
+
+    def test_notrequired_list_of_str(self) -> None:
+        """NotRequired[list[str]] should work with list generics."""
+        nr = NotRequired[list[str]]
+
+        # --- execute and verify ---
+        assert mod_utils_types.safe_isinstance(["a", "b"], nr)
+        assert not mod_utils_types.safe_isinstance(["a", 2], nr)
+        assert not mod_utils_types.safe_isinstance("not a list", nr)
+
+    def test_notrequired_union(self) -> None:
+        """NotRequired can wrap Union types."""
+        nr = NotRequired[str | int]
+
+        # --- execute and verify ---
+        assert mod_utils_types.safe_isinstance("hello", nr)
+        assert mod_utils_types.safe_isinstance(42, nr)
+        assert not mod_utils_types.safe_isinstance(3.14, nr)
+
+    def test_notrequired_dict(self) -> None:
+        """NotRequired can wrap dict types."""
+        nr = NotRequired[dict[str, int]]
+
+        # --- execute and verify ---
+        assert mod_utils_types.safe_isinstance({"a": 1, "b": 2}, nr)
+        assert not mod_utils_types.safe_isinstance({"a": "not int"}, nr)
+        assert not mod_utils_types.safe_isinstance("not a dict", nr)
+
+    def test_notrequired_typeddict(self) -> None:
+        """NotRequired can wrap TypedDict types."""
+
+        class Config(TypedDict):
+            name: str
+            value: int
+
+        nr = NotRequired[Config]
+
+        # --- execute and verify ---
+        assert mod_utils_types.safe_isinstance({"name": "test", "value": 1}, nr)
+        assert mod_utils_types.safe_isinstance({}, nr)  # TypedDicts treat dicts
+        assert not mod_utils_types.safe_isinstance("not a dict", nr)

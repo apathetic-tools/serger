@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from difflib import get_close_matches
 from typing import Any, TypedDict, cast, get_args, get_origin
 
+from typing_extensions import NotRequired
+
 from .constants import DEFAULT_HINT_CUTOFF
 from .utils import fnmatchcase_portable, plural
 from .utils_types import cast_hint, safe_isinstance, schema_from_typeddict
@@ -147,6 +149,11 @@ def _infer_type_label(
     try:
         origin = get_origin(expected_type)
         args = get_args(expected_type)
+
+        # Unwrap NotRequired to get the actual type
+        if origin is NotRequired and args:
+            return _infer_type_label(args[0])
+
         if origin is list and args:
             return f"list[{getattr(args[0], '__name__', repr(args[0]))}]"
         if isinstance(expected_type, type):
