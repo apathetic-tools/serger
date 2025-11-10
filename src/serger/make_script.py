@@ -34,6 +34,7 @@ ORDER_NAMES: list[str] = [
     "types",
     "utils",  # needed before runtime.py
     "utils_types",
+    "utils_schema",
     "runtime",
     "utils_using_runtime",
     "config",
@@ -242,10 +243,11 @@ def build_single_file(
     build_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     all_imports: "OrderedDict[str, None]" = OrderedDict()
-    parts: list[str] = []
 
     # imports for shim
     all_imports.setdefault("import sys\n", None)
+
+    parts: list[str] = []
 
     # for name collision detection
     module_sources: dict[str, str] = {}
@@ -313,6 +315,8 @@ def build_single_file(
         f"__version__ = {version!r}\n"
         f"__commit__ = {commit!r}\n"
         f"__build_date__ = {build_date!r}\n"
+        f"__STANDALONE__ = True\n"
+        f"__STITCH_SOURCE__ = 'dev/make_script.py'\n"
         "\n"
         "\n" + "\n".join(parts) + "\n"
         f"{shim_text}\n"
@@ -326,7 +330,10 @@ def build_single_file(
     out_path.touch()
 
     rel_path = out_path.relative_to(ROOT) if out_path.is_relative_to(ROOT) else out_path
-    print(f"✅ Built {rel_path} ({len(parts)} modules) — version {version} ({commit}).")
+    print(
+        f"✅ Built {rel_path} ({len(parts)} modules)"
+        f" — version {version} ({commit}) ({build_date})."
+    )
 
     # 🧹 Auto-format if possible
     try:
