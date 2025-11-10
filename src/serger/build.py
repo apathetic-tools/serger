@@ -4,12 +4,13 @@
 import contextlib
 import re
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .config_types import BuildConfigResolved, IncludeResolved, PathResolved
 from .constants import DEFAULT_DRY_RUN
 from .logs import get_logger
-from .stitch import stitch_modules
+from .stitch import extract_commit, extract_version, stitch_modules
 from .utils import (
     has_glob_chars,
     is_excluded_raw,
@@ -441,7 +442,7 @@ def run_build(
         return
 
     # For stitching, we need the source directory containing the modules
-    # Use the first include's root as the source directory
+    # Extract from the first include pattern (e.g., "src/serger/*.py" → "src/serger")
     includes = build_cfg.get("include", [])
     if not includes:
         xmsg = "Stitch build requires at least one include pattern"
@@ -449,19 +450,31 @@ def run_build(
 
     # Get source directory from first include
     src_entry = includes[0]
-    src_dir = Path(src_entry["root"]).resolve()
+    root_path = Path(src_entry["root"]).resolve()
+    include_pattern = str(src_entry["path"])
+
+    # Strip glob pattern to get directory (e.g., "src/serger/*.py" → "src/serger")
+    if has_glob_chars(include_pattern):
+        src_dir = root_path / str(_non_glob_prefix(include_pattern))
+    else:
+        # If no glob, assume it's a directory path
+        src_dir = root_path / include_pattern
+
+    src_dir = src_dir.resolve()
 
     # Prepare config dict for stitch_modules
+    exclude_names_raw = build_cfg.get("exclude_names", [])
     stitch_config: dict[str, object] = {
         "package": package,
         "order": order,
+        "exclude_names": exclude_names_raw,
     }
 
     # Extract metadata for embedding
-    # For now, use defaults - can be enhanced to extract from pyproject.toml/git
-    version = "unknown"
-    commit = "unknown"
-    build_date = "unknown"
+
+    version = extract_version(root_path / "pyproject.toml")
+    commit = extract_commit(root_path)
+    build_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     # Create parent directory if needed
     out_path.parent.mkdir(parents=True, exist_ok=True)
