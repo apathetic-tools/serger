@@ -2,7 +2,7 @@
 """
 dev/make_script.py
 ------------------
-Concatenate all modular source files into one self-contained `pocket-build.py`.
+Concatenate all modular source files into one self-contained `script.py`.
 
 Produces a portable single-file build system ready for direct use or release.
 All internal and relative imports are stripped, and all remaining imports are
@@ -28,20 +28,24 @@ PYPROJECT = ROOT / "pyproject.toml"
 # ------------------------------------------------------------
 # Module order (defines both build order and shim targets)
 # ------------------------------------------------------------
-ORDER_NAMES = [
+ORDER_NAMES: list[str] = [
     "constants",
     "meta",
     "types",
-    "utils_core",  # needed before runtime.py
+    "utils",  # needed before runtime.py
+    "utils_types",
     "runtime",
-    "utils_runtime",
+    "utils_using_runtime",
     "config",
+    "config_resolve",
+    "config_validate",
     "build",
     "actions",
     "cli",
 ]
 ORDER = [f"{n}.py" for n in ORDER_NAMES]
 SHIM_NAMES = [n for n in ORDER_NAMES if not n.startswith("_")]
+EXCLUDE_NAMES: list[str] = []
 
 LICENSE_HEADER = """\
 # Pocket Build — a tiny build system that fits in your pocket.
@@ -204,6 +208,23 @@ def detect_name_collisions(sources: dict[str, str]) -> None:
         raise SystemExit(1)
 
 
+def verify_all_modules_listed() -> None:
+    """Ensure all .py files in SRC_DIR are listed in ORDER or EXCLUDE_NAMES."""
+    all_files = sorted(
+        p.name for p in SRC_DIR.glob("*.py") if not p.name.startswith("__")
+    )
+
+    known = set(ORDER + [f"{n}.py" for n in EXCLUDE_NAMES])
+    unknown = [f for f in all_files if f not in known]
+
+    if unknown:
+        print("❌ Unlisted source files detected:")
+        for f in unknown:
+            print(f"   - {f}")
+        print("\nPlease add them to ORDER_NAMES or EXCLUDE_NAMES.")
+        raise SystemExit(1)
+
+
 # ------------------------------------------------------------
 # Build process
 # ------------------------------------------------------------
@@ -215,6 +236,8 @@ def build_single_file(
     commit = extract_commit()
 
     from datetime import datetime, timezone
+
+    verify_all_modules_listed()
 
     build_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
@@ -337,11 +360,15 @@ def main() -> None:
     parser.add_argument(
         "--out",
         type=str,
-        help="Custom output path for generated script (default: bin/pocket-build.py)",
+        help="Custom output path for generated script (default: bin/script.py)",
     )
     args = parser.parse_args()
 
-    out_path = Path(args.out).expanduser().resolve() if args.out else DEFAULT_OUT_FILE
+    out_path = (
+        Path(args.out).expanduser().resolve()
+        if getattr(args, "out", None)
+        else DEFAULT_OUT_FILE
+    )
     build_single_file(out_path, package_name=args.package)
 
     verify_compiles(out_path)
