@@ -41,6 +41,7 @@ fix = ["fix:isort", "fix:ruff", "lint:compile", "fix:format"]
 # 🧩 Build and license
 "build:script" = "python dev/make_script.py"
 "check:license" = "bash dev/check-license.sh"
+"verify:pytest" = "POCKET_BUILD_DEBUG=1 pytest tests/test_build.py"
 
 # --- Development dependencies ---
 [dependency-groups]
