@@ -8,6 +8,7 @@ import pytest
 
 import serger.cli as mod_cli
 import serger.meta as mod_meta
+from tests.utils import is_ci
 
 
 def test_version_flag(
@@ -25,7 +26,7 @@ def test_version_flag(
 
     if os.getenv("RUNTIME_MODE") in {"singlefile"}:
         # Standalone version — commit may be known or local
-        if os.getenv("CI") or os.getenv("GIT_TAG") or os.getenv("GITHUB_REF"):
+        if is_ci():
             assert re.search(r"\([0-9a-f]{4,}\)", out)
         else:
             assert "(unknown (local build))".lower() in out
