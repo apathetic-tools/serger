@@ -63,7 +63,8 @@ test = ["test:pytest:installed", "test:pytest:script"]
 ]
 
 # 🧹 Automated fixing / formatting
-fix = ["fix:ruff:installed", "lint:compile", "fix:format:installed"]
+fix = ["generate:ai-rules", "fix:ruff:installed", "lint:compile", "fix:format:installed"]
+"generate:ai-rules" = "python dev/generate_ai_rules.py"
 "fix:dist" = ["fix:ruff:dist", "lint:compile", "fix:format:dist"]
 "fix:ruff:installed" = "ruff check . --fix"
 "fix:ruff:dist" = { shell = "if [ -d dist ]; then ruff check dist --fix; fi" }

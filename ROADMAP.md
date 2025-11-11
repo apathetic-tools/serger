@@ -21,7 +21,6 @@ Some of these we just want to consider, and may not want to implement.
 - builds without a version should have timestamp
 - way to specify an import as being unmovable via comment
 - how can we keep internal imports in stich mode and avoid conflicts?
-- consolidate AI advice documents
 - how can we report what we ignore, in src and in tests
 - would it simplify our code if we added Resolved for PostCategory and ToolConfig?
 - a pytest that checks if we have a top level private function ignore and if so, the file should be called test_priv__
