@@ -18,7 +18,6 @@ Some of these we just want to consider, and may not want to implement.
 - Multi-package stitching support
 - Incremental stitching with dependency caching
 - allow you to specify a file for order, then include the rest of the dir
-- builds without a version should have timestamp
 - way to specify an import as being unmovable via comment
 - how can we keep internal imports in stich mode and avoid conflicts?
 - how can we report what we ignore, in src and in tests

@@ -5,7 +5,9 @@ Serger now only handles stitch builds (combining Python modules into
 a single executable script). File copying is handled by pocket-build.
 """
 
+import re
 from pathlib import Path
+from typing import cast
 
 import serger.build as mod_build
 import serger.logs as mod_logs
@@ -193,3 +195,58 @@ def test_run_build_dry_run_skips_stitching(
     # --- verify ---
     out_file = tmp_path / "dist" / "script.py"
     assert not out_file.exists()
+
+
+def test_run_build_uses_timestamp_when_no_version(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Should use timestamp as version when no version is found."""
+    # --- setup ---
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "main.py").write_text("MAIN = 1\n")
+
+    # Create pyproject.toml without version
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text("# no version here\n")
+
+    cfg = make_build_cfg(
+        tmp_path,
+        [make_include_resolved("src/*.py", tmp_path)],
+    )
+    cfg["package"] = "testpkg"
+    cfg["order"] = ["src/main.py"]
+    # Ensure no version in config (it's added dynamically, so we need to cast)
+    cfg_dict = cast("dict[str, object]", cfg)
+    if "_pyproject_version" in cfg_dict:
+        del cfg_dict["_pyproject_version"]
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        mod_build.run_build(cfg)
+
+    # --- verify ---
+    out_file = tmp_path / "dist" / "script.py"
+    assert out_file.exists()
+    content = out_file.read_text()
+
+    # Version should be a timestamp, not "unknown"
+    version_match = re.search(r"^# Version:\s*(.+)$", content, re.MULTILINE)
+    assert version_match, "Version line not found in output"
+    version = version_match.group(1).strip()
+
+    assert version != "unknown", "Version should not be 'unknown'"
+    # Should match timestamp format: YYYY-MM-DD HH:MM:SS UTC
+    assert re.match(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC", version), (
+        f"Version should be a timestamp, got: {version}"
+    )
+
+    # Verify __version__ constant also has the timestamp
+    version_const_match = re.search(r'__version__\s*=\s*"([^"]+)"', content)
+    assert version_const_match, "__version__ constant not found"
+    version_const = version_const_match.group(1)
+    assert version_const == version, (
+        f"__version__ constant should match header version: "
+        f"{version_const} != {version}"
+    )
