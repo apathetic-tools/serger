@@ -33,6 +33,7 @@
         "config_validate", // Config validation
         "build",           // Build actions
         "actions",         // CLI actions
+        "selftest",        // Self-test functionality (uses build)
         "stitch",          // Stitching utilities (extracted from dev/make_script.py)
         "cli"              // Main CLI entry point
       ],

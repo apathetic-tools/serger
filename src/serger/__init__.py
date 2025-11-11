@@ -17,7 +17,6 @@ Highlights:
 
 from .actions import (
     get_metadata,
-    run_selftest,
     watch_for_changes,
 )
 from .build import (
@@ -69,6 +68,7 @@ from .meta import (
     PROGRAM_SCRIPT,
     Metadata,
 )
+from .selftest import run_selftest
 from .utils import (
     get_glob_root,
     has_glob_chars,

@@ -300,8 +300,21 @@ class ApatheticCLILogger(logging.Logger):
         self._log(level_no, msg, args, **kwargs)
 
     @contextmanager
-    def use_level(self, level: str | int) -> Generator[None, None, None]:
-        """Use a context to temporarily log with a different log-level."""
+    def use_level(
+        self, level: str | int, *, minimum: bool = False
+    ) -> Generator[None, None, None]:
+        """Use a context to temporarily log with a different log-level.
+
+        Args:
+            level: Log level to use (string name or numeric value)
+            minimum: If True, only set the level if it's more verbose (lower
+                numeric value) than the current level. This prevents downgrading
+                from a more verbose level (e.g., TRACE) to a less verbose one
+                (e.g., DEBUG). Defaults to False.
+
+        Yields:
+            None: Context manager yields control to the with block
+        """
         prev_level = self.level
 
         # Resolve level
@@ -319,8 +332,15 @@ class ApatheticCLILogger(logging.Logger):
             yield
             return
 
-        # Apply new level
-        self.setLevel(level_no)
+        # Apply new level (only if more verbose when minimum=True)
+        if minimum:
+            # Only set if requested level is more verbose (lower number) than current
+            if level_no < prev_level:
+                self.setLevel(level_no)
+            # Otherwise keep current level (don't downgrade)
+        else:
+            self.setLevel(level_no)
+
         try:
             yield
         finally:

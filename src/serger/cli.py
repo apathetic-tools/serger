@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from difflib import get_close_matches
 from pathlib import Path
 
-from .actions import get_metadata, run_selftest, watch_for_changes
+from .actions import get_metadata, watch_for_changes
 from .build import run_all_builds
 from .config import (
     can_run_configless,
@@ -29,6 +29,7 @@ from .meta import (
     PROGRAM_DISPLAY,
     PROGRAM_SCRIPT,
 )
+from .selftest import run_selftest
 from .utils import get_sys_version_info
 from .utils_logs import LEVEL_ORDER, safe_log
 from .utils_types import cast_hint

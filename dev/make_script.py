@@ -47,6 +47,7 @@ ORDER_NAMES: list[str] = [
     "config_validate",
     "build",
     "actions",
+    "selftest",  # self-test functionality (uses build)
     "stitch",  # stitching utilities
     "cli",
 ]
