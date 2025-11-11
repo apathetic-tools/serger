@@ -87,10 +87,10 @@ def load_toml(path: Path, *, required: bool = False) -> dict[str, Any] | None:
 
     # Try tomli (required for Python 3.10)
     try:
-        import tomli  # type: ignore[import-not-found] # noqa: PLC0415
+        import tomli  # type: ignore[import-not-found,unused-ignore] # noqa: PLC0415  # pyright: ignore[reportMissingImports]
 
         with path.open("rb") as f:
-            return tomli.load(f)  # type: ignore[no-any-return]
+            return tomli.load(f)  # type: ignore[no-any-return,unused-ignore]  # pyright: ignore[reportUnknownReturnType]
     except ImportError:
         if required:
             xmsg = (
