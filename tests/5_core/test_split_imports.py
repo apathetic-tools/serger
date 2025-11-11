@@ -120,3 +120,61 @@ def func2():
     assert "import external_lib" in body
     assert "def func1():" in body
     assert "def func2():" in body
+
+
+def test_split_imports_no_move_comment() -> None:
+    """Imports with # serger: no-move comment should stay in place."""
+    code = """import sys
+import json  # serger: no-move
+from pathlib import Path
+
+def foo():
+    pass
+"""
+    imports, body = mod_stitch.split_imports(code, "serger")
+    # sys should be hoisted
+    assert "import sys" in "".join(imports)
+    # json should NOT be hoisted (has no-move comment)
+    assert "import json" not in "".join(imports)
+    assert "import json  # serger: no-move" in body
+    # Path should be hoisted
+    assert "from pathlib import Path" in "".join(imports)
+    assert "def foo():" in body
+
+
+def test_split_imports_no_move_comment_variations() -> None:
+    """Test various comment format variations."""
+    code = """import sys
+import json  # serger:no-move
+import os  # serger: no-move
+import re  # SERGER: NO-MOVE
+"""
+    imports, body = mod_stitch.split_imports(code, "serger")
+    # Only sys should be hoisted (no comment)
+    assert "import sys" in "".join(imports)
+    # All others should stay in place
+    assert "import json" not in "".join(imports)
+    assert "import os" not in "".join(imports)
+    assert "import re" not in "".join(imports)
+    assert "import json" in body
+    assert "import os" in body
+    assert "import re" in body
+
+
+def test_split_imports_no_move_multiline() -> None:
+    """Test no-move comment with multi-line imports."""
+    code = """import sys
+from pathlib import (
+    Path,
+    PurePath,  # serger: no-move
+)
+from typing import Optional
+"""
+    imports, body = mod_stitch.split_imports(code, "serger")
+    # sys and Optional should be hoisted
+    assert "import sys" in "".join(imports)
+    assert "from typing import Optional" in "".join(imports)
+    # Path import should stay in place (has no-move comment)
+    assert "from pathlib import" not in "".join(imports)
+    assert "from pathlib import" in body
+    assert "PurePath" in body
