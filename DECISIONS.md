@@ -14,6 +14,34 @@ For formatting guidelines, see the [DECISIONS.md Style Guide](./DECISIONS_STYLE_
 
 ---
 
+## 📄 Only Support `pyproject.toml` for Project Metadata
+<a id="dec12"></a>*DEC 12 — 2025-11-11*
+
+### Context
+
+Serger needs to extract project metadata (name, version, description, license) for embedding in stitched scripts. Historically, Python projects used `setup.py` and `setup.cfg` for this information, but modern Python packaging has standardized on `pyproject.toml` (PEP 621).
+
+### Options Considered
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **Only `pyproject.toml`** | ✅ Modern standard (PEP 621)<br>✅ Single source of truth<br>✅ Widely adopted<br>✅ Simpler implementation | ⚠️ Doesn't support legacy projects |
+| **Support `setup.py` and `setup.cfg`** | ✅ Backward compatible with older projects | ❌ Legacy formats being phased out<br>❌ More complex parsing logic<br>❌ Multiple sources of truth |
+| **Support all formats** | ✅ Maximum compatibility | ❌ Significant implementation complexity<br>❌ Maintenance burden<br>❌ Conflicts when multiple formats exist |
+
+### Decision
+
+**Only support `pyproject.toml`** for extracting project metadata.
+
+This aligns with modern Python packaging standards and keeps the implementation focused. Projects using legacy formats can migrate to `pyproject.toml` or manually specify metadata in their Serger config.
+
+<br/><br/>
+
+---
+---
+
+<br/><br/>
+
 ## 🪵 Adopt Standard Library `logging`
 <a id="dec11"></a>*DEC 11 — 2025-10-15 → revised 2025-10-31*  
 

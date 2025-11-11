@@ -48,6 +48,10 @@ class BuildConfig(TypedDict, total=False):
     watch_interval: float
     use_ruff: bool  # Use ruff for post-processing if available
 
+    # Pyproject.toml integration
+    use_pyproject: bool  # Whether to pull metadata from pyproject.toml
+    pyproject_path: str  # Path to pyproject.toml (overrides root default)
+
     # Stitching configuration
     package: str  # Package name for imports (e.g., "serger")
     order: list[str]  # Explicit module order for stitching
@@ -69,6 +73,10 @@ class RootConfig(TypedDict, total=False):
     strict_config: bool
     watch_interval: float
     use_ruff: bool  # Use ruff for post-processing if available
+
+    # Pyproject.toml integration
+    use_pyproject: bool  # Whether to pull metadata from pyproject.toml (default: true)
+    pyproject_path: str  # Path to pyproject.toml (fallback for single builds)
 
 
 class BuildConfigResolved(TypedDict):

@@ -509,3 +509,235 @@ def test_resolve_build_config_include_windows_drive_only(
     assert inc_list[1]["path"] == "D:\\"
     assert inc_list[1]["origin"] == "cli"
     assert "dest" not in inc_list[1]
+
+
+# ---------------------------------------------------------------------------
+# Pyproject.toml integration tests
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_build_config_single_build_auto_uses_pyproject(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Single build should automatically use pyproject.toml by default."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+version = "1.2.3"
+description = "A test package"
+license = "MIT"
+"""
+    )
+    raw = make_build_input(include=["src/**"])
+    root_cfg: mod_types.RootConfig = {"builds": [raw]}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    assert resolved.get("display_name") == "test-package"
+    assert resolved.get("description") == "A test package"
+    assert resolved.get("license_header") == "MIT"
+    assert resolved.get("_pyproject_version") == "1.2.3"
+
+
+def test_resolve_build_config_single_build_respects_use_pyproject_false(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Single build should respect explicit use_pyproject: false."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+version = "1.2.3"
+"""
+    )
+    raw = make_build_input(include=["src/**"], use_pyproject=False)
+    root_cfg: mod_types.RootConfig = {"builds": [raw]}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    assert (
+        "display_name" not in resolved or resolved.get("display_name") != "test-package"
+    )
+    assert "_pyproject_version" not in resolved
+
+
+def test_resolve_build_config_multi_build_requires_opt_in(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Multi-build should require explicit opt-in to use pyproject.toml."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+version = "1.2.3"
+"""
+    )
+    raw1 = make_build_input(include=["src1/**"])
+    raw2 = make_build_input(include=["src2/**"])
+    root_cfg: mod_types.RootConfig = {"builds": [raw1, raw2]}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw1, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    # Should not use pyproject.toml without explicit opt-in
+    assert (
+        "display_name" not in resolved or resolved.get("display_name") != "test-package"
+    )
+    assert "_pyproject_version" not in resolved
+
+
+def test_resolve_build_config_multi_build_with_opt_in(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Multi-build should use pyproject.toml when build explicitly opts in."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+version = "1.2.3"
+description = "A test package"
+"""
+    )
+    raw1 = make_build_input(include=["src1/**"], use_pyproject=True)
+    raw2 = make_build_input(include=["src2/**"])
+    root_cfg: mod_types.RootConfig = {"builds": [raw1, raw2]}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw1, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    assert resolved.get("display_name") == "test-package"
+    assert resolved.get("description") == "A test package"
+    assert resolved.get("_pyproject_version") == "1.2.3"
+
+
+def test_resolve_build_config_path_resolution_build_level(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Build-level pyproject_path should take precedence."""
+    # --- setup ---
+    custom_pyproject = tmp_path / "custom.toml"
+    custom_pyproject.write_text(
+        """[project]
+name = "custom-package"
+version = "2.0.0"
+"""
+    )
+    default_pyproject = tmp_path / "pyproject.toml"
+    default_pyproject.write_text(
+        """[project]
+name = "default-package"
+version = "1.0.0"
+"""
+    )
+    raw = make_build_input(
+        include=["src/**"], pyproject_path="custom.toml", use_pyproject=True
+    )
+    root_cfg: mod_types.RootConfig = {"builds": [raw]}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    assert resolved.get("display_name") == "custom-package"
+    assert resolved.get("_pyproject_version") == "2.0.0"
+
+
+def test_resolve_build_config_path_resolution_root_level(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Root-level pyproject_path should be used when build opts in."""
+    # --- setup ---
+    root_pyproject = tmp_path / "root.toml"
+    root_pyproject.write_text(
+        """[project]
+name = "root-package"
+version = "3.0.0"
+"""
+    )
+    raw = make_build_input(include=["src/**"], use_pyproject=True)
+    root_cfg: mod_types.RootConfig = {"builds": [raw], "pyproject_path": "root.toml"}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    assert resolved.get("display_name") == "root-package"
+    assert resolved.get("_pyproject_version") == "3.0.0"
+
+
+def test_resolve_build_config_does_not_override_explicit_fields(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Should not override explicitly set fields in config."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "pyproject-name"
+version = "1.0.0"
+description = "pyproject description"
+license = "MIT"
+"""
+    )
+    raw = make_build_input(
+        include=["src/**"],
+        display_name="config-name",
+        description="config description",
+    )
+    root_cfg: mod_types.RootConfig = {"builds": [raw]}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    # Explicitly set fields should not be overridden
+    assert resolved.get("display_name") == "config-name"
+    assert resolved.get("description") == "config description"
+    # But version should still be extracted (stored as _pyproject_version)
+    assert resolved.get("_pyproject_version") == "1.0.0"
