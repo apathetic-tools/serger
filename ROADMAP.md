@@ -3,31 +3,32 @@
 
 **Important Clarification**: Serger is **purely a Python module stitcher** - it combines multiple source files into a single executable script. File copying/building is pocket-build's responsibility, not serger's. We brought in a lot of pocket-build code because some of the functionality overlapped in how it accomplished things. Some remnanent can be removed, while some can be reused.
 
-
 ## Key Points
 - **One responsibility**: Stitching only, no file copying
 - **Config-driven**: Eliminate hardcoded module order
 - **Self-hosting**: Serger builds itself using its own config
 - **Well-tested**: Unit, integration, and E2E coverage
 
-## Future considerations and ideas ( post-Refactoring)
 Some of these we just want to consider, and may not want to implement.
 
-- Remove any leftover unused copy-based `build.py` and related tests
+## Misc
+
 - Auto-discovery of module order via topological sort
 - Module-level configuration (metadata, headers)
 - Multi-package stitching support
 - Incremental stitching with dependency caching
 - allow you to specify a file for order, then include the rest of the dir
 - builds without a version should have timestamp
-- isort support
-- black support
-- custom formatter support
-- custom checker support
-- custom import formatter support
 - way to specify an import as being unmovable via comment
 - how can we keep internal imports in stich mode and avoid conflicts?
 - consolidate AI advice documents
+- how can we report what we ignore, in src and in tests
+- would it simplify our code if we added Resolved for PostCategory and ToolConfig?
+- a pytest that checks if we have a top level private function ignore and if so, the file should be called test_priv__
+- evaluate ignores and determine if we can fix them instead of ignore them
+- add instructions to prioritise fixing errors instead of ignoring them
+- instructions so it fixes line length issues not ignore them
+- instructions try to prefix the variable name with _ if there is an unused argument instead of ignoring it. not possible if you have to match a signature exactly (sometimes for hooks like in pytest hooks)
 
 
 ## 🧰 CLI Parameters

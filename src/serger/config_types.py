@@ -10,6 +10,32 @@ from typing_extensions import NotRequired
 OriginType = Literal["cli", "config", "plugin", "default", "code", "gitignore", "test"]
 
 
+# Post-processing configuration types
+class ToolConfig(TypedDict, total=False):
+    command: str  # executable name (optional - defaults to key if missing)
+    args: list[str]  # command arguments (optional, replaces defaults)
+    path: str  # custom executable path
+    options: list[str]  # additional CLI arguments (appends to args)
+
+
+class PostCategoryConfig(TypedDict, total=False):
+    enabled: bool  # default: True
+    priority: list[str]  # tool names in priority order
+    tools: NotRequired[dict[str, ToolConfig]]  # per-tool overrides
+
+
+class PostProcessingConfig(TypedDict, total=False):
+    enabled: bool  # master switch, default: True
+    category_order: list[str]  # order to run categories
+    categories: NotRequired[dict[str, PostCategoryConfig]]  # category definitions
+
+
+class PostProcessingConfigResolved(TypedDict):
+    enabled: bool
+    category_order: list[str]
+    categories: dict[str, PostCategoryConfig]
+
+
 class PathResolved(TypedDict):
     path: Path | str  # absolute or relative to `root`, or a pattern
     root: Path  # canonical origin directory for resolution
@@ -46,7 +72,7 @@ class BuildConfig(TypedDict, total=False):
 
     # Single-build convenience (propagated upward)
     watch_interval: float
-    use_ruff: bool  # Use ruff for post-processing if available
+    post_processing: PostProcessingConfig  # Post-processing configuration
 
     # Pyproject.toml integration
     use_pyproject: bool  # Whether to pull metadata from pyproject.toml
@@ -72,7 +98,7 @@ class RootConfig(TypedDict, total=False):
     # runtime behavior
     strict_config: bool
     watch_interval: float
-    use_ruff: bool  # Use ruff for post-processing if available
+    post_processing: PostProcessingConfig  # Post-processing configuration
 
     # Pyproject.toml integration
     use_pyproject: bool  # Whether to pull metadata from pyproject.toml (default: true)
@@ -102,7 +128,9 @@ class BuildConfigResolved(TypedDict):
     display_name: NotRequired[str]
     description: NotRequired[str]
     repo: NotRequired[str]
-    use_ruff: NotRequired[bool]  # Use ruff for post-processing if available
+    post_processing: NotRequired[
+        PostProcessingConfigResolved
+    ]  # Post-processing configuration
 
 
 class RootConfigResolved(TypedDict):
@@ -112,4 +140,4 @@ class RootConfigResolved(TypedDict):
     log_level: str
     strict_config: bool
     watch_interval: float
-    use_ruff: bool
+    post_processing: PostProcessingConfigResolved

@@ -333,7 +333,7 @@ def run_build(  # noqa: PLR0915
     display_name_raw = build_cfg.get("display_name", "")
     description_raw = build_cfg.get("description", "")
     repo_raw = build_cfg.get("repo", "")
-    use_ruff = build_cfg.get("use_ruff", True)
+    post_processing = build_cfg.get("post_processing")
 
     stitch_config: dict[str, object] = {
         "package": package,
@@ -363,7 +363,7 @@ def run_build(  # noqa: PLR0915
             version=version,
             commit=commit,
             build_date=build_date,
-            use_ruff=use_ruff,
+            post_processing=post_processing,
         )
         logger.info("✅ Stitch completed → %s\n", out_path)
     except RuntimeError as e:
