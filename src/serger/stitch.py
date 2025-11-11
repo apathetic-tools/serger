@@ -203,12 +203,23 @@ def split_imports(  # noqa: C901, PLR0915
             current = parent_map.get(current)
         return None
 
+    def has_no_move_comment(snippet: str) -> bool:
+        """Check if import has a # serger: no-move comment."""
+        # Look for # serger: no-move or # serger:no-move (with or without space)
+        pattern = r"#\s*serger\s*:\s*no-move"
+        return bool(re.search(pattern, snippet, re.IGNORECASE))
+
     def collect_imports(node: ast.AST) -> None:
         """Recursively collect all import nodes from the AST."""
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             start = node.lineno - 1
             end = getattr(node, "end_lineno", node.lineno)
             snippet = "".join(lines[start:end])
+
+            # Check for # serger: no-move comment
+            if has_no_move_comment(snippet):
+                # Keep import in place - don't add to external_imports or ranges
+                return
 
             # --- Determine whether it's internal ---
             is_internal = False
