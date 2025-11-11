@@ -1,4 +1,4 @@
-# Serger 🧰 
+# Serger 🧵 
 
 
 [![CI](https://github.com/apathetic-tools/serger/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/goldilocks/serger/actions/workflows/ci.yml)

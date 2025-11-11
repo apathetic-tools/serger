@@ -85,14 +85,14 @@ def safe_log(msg: str) -> None:
 # --- Logging for debugging tests -------------------------------------------------
 
 
-def make_test_trace(icon: str = "🧰") -> Callable[..., Any]:
+def make_test_trace(icon: str = "🧵") -> Callable[..., Any]:
     def local_trace(label: str, *args: Any) -> Any:
         return TEST_TRACE(label, *args, icon=icon)
 
     return local_trace
 
 
-def TEST_TRACE(label: str, *args: Any, icon: str = "🧰") -> None:  # noqa: N802
+def TEST_TRACE(label: str, *args: Any, icon: str = "🧵") -> None:  # noqa: N802
     """Emit a synchronized, flush-safe diagnostic line.
 
     Args:

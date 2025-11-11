@@ -26,9 +26,7 @@ Some of these we just want to consider, and may not want to implement.
 - would it simplify our code if we added Resolved for PostCategory and ToolConfig?
 - a pytest that checks if we have a top level private function ignore and if so, the file should be called test_priv__
 - evaluate ignores and determine if we can fix them instead of ignore them
-- add instructions to prioritise fixing errors instead of ignoring them
-- instructions so it fixes line length issues not ignore them
-- instructions try to prefix the variable name with _ if there is an unused argument instead of ignoring it. not possible if you have to match a signature exactly (sometimes for hooks like in pytest hooks)
+
 
 
 ## 🧰 CLI Parameters
