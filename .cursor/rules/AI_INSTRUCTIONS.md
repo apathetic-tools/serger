@@ -1,4 +1,4 @@
-# Serger Project Context
+# AI Instructions for Serger Project
 
 ## Project Overview
 Serger is a Python module stitcher that combines multiple source files into a single executable script.
@@ -57,18 +57,6 @@ Serger is a Python module stitcher that combines multiple source files into a si
 ### Git Commit Conventions
 - NEVER include AI tool attribution or Co-Authored-By trailers in commit messages
 - Write clean, conventional commit messages
-
-## AI Model Strategy
-
-When identifying tasks that require complex reasoning, planning, or analysis, ask for confirmation before proceeding:
-
-> "This task appears to require significant planning and reasoning. Would you like me to use Claude Sonnet 4.5 to create a detailed execution plan first, then switch to Haiku 4.5 for implementation?"
-
-If confirmed, follow this workflow:
-1. **Planning phase**: Use the Task tool with `model: "sonnet"` and `subagent_type: "general-purpose"` to create a detailed execution plan and document the approach
-2. **Execution phase**: After receiving the plan, use Claude Haiku 4.5 to implement the plan following the documented steps
-
-This hybrid approach combines Sonnet's superior reasoning for complex problems with Haiku's speed for straightforward implementation.
 
 ## See Also
 - `pyproject.toml` - All tool configurations and poe tasks
