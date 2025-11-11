@@ -250,6 +250,11 @@ def _extract_build_metadata(
         version = extract_version(root_path / "pyproject.toml")
     commit = extract_commit(root_path)
     build_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    # If no version found, use timestamp as version
+    if version == "unknown":
+        version = build_date
+
     return version, commit, build_date
 
 
