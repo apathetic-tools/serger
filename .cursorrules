@@ -1,0 +1,42 @@
+# Cursor AI Rules for Serger Project
+
+## Project Overview
+Serger is a Python module stitcher that combines multiple source files into a single executable script.
+
+## Key Conventions
+
+### Code Quality
+- **Line length**: Maximum 88 characters (enforced by Ruff)
+- **Python version**: Target Python 3.10+ compatibility
+- **Type checking**: Strict Pyright/Pylance + Mypy compliance required
+- **Linting**: All code must pass `poetry run poe check:fix`
+
+### Execution
+- Always use `poetry run python3` (not bare `python3`) to ensure execution in the project's virtual environment
+- Use `poetry run poe` tasks for all common operations (see pyproject.toml)
+
+### Important Files
+- `dist/serger.py` is **generated** - never edit directly
+- Generate it using `poetry run poe build:script`
+- `dist/` contains build outputs - do not edit
+
+### Project Structure
+- `src/serger/` - Main source code
+- `tests/` - Test suite
+- `dev/` - Development scripts
+
+### Git Commit Conventions
+- NEVER include AI tool attribution or Co-Authored-By trailers in commit messages
+- Write clean, conventional commit messages
+
+## Development Workflow
+1. Make changes to source files in `src/serger/`
+2. Run `poetry run poe check:fix` before committing
+3. Run `poetry run poe build:script` to regenerate `dist/serger.py` if needed
+4. Run `poetry run poe test` to verify changes
+
+## See Also
+- `.claude/CLAUDE.md` - Additional project context
+- `pyproject.toml` - All tool configurations and poe tasks
+- `ROADMAP.md` - Project roadmap and future plans
+
