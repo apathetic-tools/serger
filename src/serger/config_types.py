@@ -46,6 +46,7 @@ class BuildConfig(TypedDict, total=False):
 
     # Single-build convenience (propagated upward)
     watch_interval: float
+    use_ruff: bool  # Use ruff for post-processing if available
 
     # Stitching configuration
     package: str  # Package name for imports (e.g., "serger")
@@ -67,6 +68,7 @@ class RootConfig(TypedDict, total=False):
     # runtime behavior
     strict_config: bool
     watch_interval: float
+    use_ruff: bool  # Use ruff for post-processing if available
 
 
 class BuildConfigResolved(TypedDict):
@@ -92,6 +94,7 @@ class BuildConfigResolved(TypedDict):
     display_name: NotRequired[str]
     description: NotRequired[str]
     repo: NotRequired[str]
+    use_ruff: NotRequired[bool]  # Use ruff for post-processing if available
 
 
 class RootConfigResolved(TypedDict):
@@ -101,3 +104,4 @@ class RootConfigResolved(TypedDict):
     log_level: str
     strict_config: bool
     watch_interval: float
+    use_ruff: bool

@@ -22,3 +22,4 @@ DEFAULT_HINT_CUTOFF: float = 0.75
 DEFAULT_STRICT_CONFIG: bool = True
 DEFAULT_OUT_DIR: str = "dist"
 DEFAULT_DRY_RUN: bool = False
+DEFAULT_USE_RUFF: bool = True

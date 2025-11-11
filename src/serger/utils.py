@@ -2,6 +2,7 @@
 
 
 import json
+import os
 import re
 import sys
 from collections.abc import Iterator
@@ -49,6 +50,27 @@ class CapturedOutput:
 
 def get_sys_version_info() -> tuple[int, int, int] | tuple[int, int, int, str, int]:
     return sys.version_info
+
+
+def is_running_under_pytest() -> bool:
+    """Detect if code is running under pytest.
+
+    Checks multiple indicators:
+    - Environment variables set by pytest
+    - Command-line arguments containing 'pytest'
+
+    Returns:
+        True if running under pytest, False otherwise
+    """
+    return (
+        "pytest" in os.environ.get("_", "")
+        or "PYTEST_CURRENT_TEST" in os.environ
+        or any(
+            "pytest" in arg
+            for arg in sys.argv
+            if isinstance(arg, str)  # pyright: ignore[reportUnnecessaryIsInstance]
+        )
+    )
 
 
 def _strip_jsonc_comments(text: str) -> str:  # noqa: PLR0912

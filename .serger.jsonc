@@ -34,6 +34,7 @@
         "build",           // Build actions
         "actions",         // CLI actions
         "selftest",        // Self-test functionality (uses build)
+        "verify_script",   // Script verification and post-processing
         "stitch",          // Stitching utilities (extracted from dev/make_script.py)
         "cli"              // Main CLI entry point
       ],
