@@ -54,3 +54,69 @@ def test_split_imports_invalid_syntax() -> None:
     imports, body = mod_stitch.split_imports(code, "serger")
     assert imports == []
     assert body == code
+
+
+def test_split_imports_function_local_external_stays() -> None:
+    """Function-local external imports should stay in place."""
+    code = """import sys
+
+def load_toml():
+    try:
+        import tomllib
+        return tomllib.load
+    except ImportError:
+        import tomli
+        return tomli.load
+"""
+    imports, body = mod_stitch.split_imports(code, "serger")
+    # Module-level import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Function-local imports should stay in body
+    assert "import tomllib" in body
+    assert "import tomli" in body
+    assert "def load_toml():" in body
+
+
+def test_split_imports_function_local_internal_removed() -> None:
+    """Function-local internal imports should be removed."""
+    code = """import sys
+
+def compute_order():
+    from .utils import derive_module_name
+    return derive_module_name(Path("test.py"), Path("."), None)
+"""
+    imports, body = mod_stitch.split_imports(code, "serger")
+    # Module-level import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Function-local internal import should be removed
+    assert "from .utils import" not in body
+    assert "derive_module_name" in body  # Usage should remain
+    assert "def compute_order():" in body
+
+
+def test_split_imports_mixed_scenarios() -> None:
+    """Test mixed module-level and function-local imports."""
+    code = """import json
+from pathlib import Path
+
+def func1():
+    from .internal import helper
+    return helper()
+
+def func2():
+    try:
+        import external_lib
+        return external_lib.do_something()
+    except ImportError:
+        pass
+"""
+    imports, body = mod_stitch.split_imports(code, "serger")
+    # Module-level externals hoisted
+    assert "import json" in "".join(imports)
+    assert "from pathlib import Path" in "".join(imports)
+    # Function-local internal removed
+    assert "from .internal import" not in body
+    # Function-local external stays
+    assert "import external_lib" in body
+    assert "def func1():" in body
+    assert "def func2():" in body

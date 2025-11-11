@@ -18,19 +18,19 @@ def test_collect_included_files_expands_patterns(tmp_path: Path) -> None:
     # --- setup ---
     src = tmp_path / "src"
     src.mkdir()
-    (src / "a.txt").write_text("A")
-    (src / "b.txt").write_text("B")
+    (src / "a.py").write_text("A = 1\n")
+    (src / "b.py").write_text("B = 2\n")
 
     build = make_build_cfg(
         tmp_path,
-        [make_include_resolved("src/*.txt", tmp_path)],
+        [make_include_resolved("src/*.py", tmp_path)],
     )
 
     # --- execute ---
     files = mod_actions._collect_included_files([build])
 
     # --- verify ---
-    assert set(files) == {src / "a.txt", src / "b.txt"}
+    assert set(files) == {(src / "a.py").resolve(), (src / "b.py").resolve()}
 
 
 def test_collect_included_files_handles_nonexistent_paths(tmp_path: Path) -> None:

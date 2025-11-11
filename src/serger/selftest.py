@@ -113,9 +113,16 @@ def _create_build_config(
         out_resolved = make_pathresolved(out_file, tmp_dir, "code")
         logger.trace("[SELFTEST] Resolved output: %s", out_resolved)
 
+        # Order entries should be file paths relative to tmp_dir (config_root)
+        # Since include pattern is testpkg_dir/*.py, files are under testpkg_dir
+        order_entries = [
+            str((test_pkg_dir / "base.py").relative_to(tmp_dir)),
+            str((test_pkg_dir / "utils.py").relative_to(tmp_dir)),
+            str((test_pkg_dir / "main.py").relative_to(tmp_dir)),
+        ]
         config = {
             "package": "testpkg",
-            "order": ["base", "utils", "main"],
+            "order": order_entries,
             "include": [include_resolved],
             "exclude": [],
             "out": out_resolved,
@@ -321,9 +328,9 @@ def _verify_content(stitched_file: Path) -> None:
     )
 
     expected_markers = [
-        "# === base.py ===",
-        "# === utils.py ===",
-        "# === main.py ===",
+        "# === base ===",
+        "# === utils ===",
+        "# === main ===",
         "BASE_VALUE = 42",
         "def get_value()",
         "def main(",

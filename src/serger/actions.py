@@ -6,6 +6,7 @@ from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
 
+from .build import collect_included_files
 from .config_types import BuildConfigResolved
 from .constants import DEFAULT_WATCH_INTERVAL
 from .logs import get_logger
@@ -13,25 +14,22 @@ from .meta import Metadata
 
 
 def _collect_included_files(resolved_builds: list[BuildConfigResolved]) -> list[Path]:
-    """Flatten all include globs into a unique list of files."""
-    files: set[Path] = set()
+    """Flatten all include globs into a unique list of files.
+
+    Uses collect_included_files() from build.py for consistency.
+    Watch mode respects excludes from config.
+    """
+    all_files: list[Path] = []
 
     for b in resolved_builds:
-        for inc in b.get("include", []):
-            # Merge root and path into a single glob pattern (as before)
-            full_pattern = Path(inc["root"]) / inc["path"]
+        includes = b.get("include", [])
+        excludes = b.get("exclude", [])
+        # Collect files for this build (watch mode respects excludes from config)
+        files, _file_to_include = collect_included_files(includes, excludes)
+        all_files.extend(files)
 
-            # Use Path.glob/rglob equivalently to glob.glob(recursive=True)
-            if "**" in str(full_pattern):
-                matches = full_pattern.parent.rglob(full_pattern.name)
-            else:
-                matches = full_pattern.parent.glob(full_pattern.name)
-
-            for p in matches:
-                if p.is_file():
-                    files.add(p.resolve())
-
-    return sorted(files)
+    # Return unique sorted list
+    return sorted(set(all_files))
 
 
 def watch_for_changes(
