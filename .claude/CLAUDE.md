@@ -14,7 +14,7 @@ This project can be deployed in two ways:
   - `poetry run poe test` - Run test suite
   - `poetry run poe coverage` - Generate code coverage report (dual runtime coverage)
   - `poetry run poe check:fix` - Fix, type check, and test (run before committing)
-  - `poetry run poe build:script` - Generate the single-file bin/serger.py
+  - `poetry run poe build:script` - Generate the single-file dist/serger.py
 
 - **Python execution:**
   - Always use `poetry run python3` (not bare `python3`) to ensure execution in the project's virtual environment
@@ -30,8 +30,8 @@ This project can be deployed in two ways:
   - Write clean, conventional commit messages without any AI tool attribution
 
 - **Important files:**
-  - `bin/serger.py` is **generated** - never edit directly
-  - Generate it using `poetry run poe build:script` (runs `python src/make_script.py`)
+  - `dist/serger.py` is **generated** - never edit directly
+  - Generate it using `poetry run poe build:script` (runs `python -m serger`)
 
 ## AI Model Strategy
 
@@ -48,5 +48,5 @@ This hybrid approach combines Sonnet's superior reasoning for complex problems w
 ## Project Structure
 
 - `src/serger/` - Main source code
-- `bin/serger.py` - Generated single-file executable (do not edit directly)
+- `dist/serger.py` - Generated single-file executable (do not edit directly)
 - `tests/` - Test suite
