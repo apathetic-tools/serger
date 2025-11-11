@@ -21,6 +21,7 @@ from .constants import (
     DEFAULT_OUT_DIR,
     DEFAULT_RESPECT_GITIGNORE,
     DEFAULT_STRICT_CONFIG,
+    DEFAULT_USE_RUFF,
     DEFAULT_WATCH_INTERVAL,
 )
 from .logs import get_logger
@@ -379,6 +380,19 @@ def resolve_build_config(
         resolved_cfg["strict_config"] = DEFAULT_STRICT_CONFIG
 
     # ------------------------------
+    # Use ruff
+    # ------------------------------
+    # Cascade: build-level → root-level → default
+    build_use_ruff = resolved_cfg.get("use_ruff")
+    root_use_ruff = (root_cfg or {}).get("use_ruff")
+    if isinstance(build_use_ruff, bool):
+        resolved_cfg["use_ruff"] = build_use_ruff
+    elif isinstance(root_use_ruff, bool):
+        resolved_cfg["use_ruff"] = root_use_ruff
+    else:
+        resolved_cfg["use_ruff"] = DEFAULT_USE_RUFF
+
+    # ------------------------------
     # Attach provenance
     # ------------------------------
     resolved_cfg["__meta__"] = meta
@@ -444,11 +458,19 @@ def resolve_config(
         resolve_build_config(b, args, config_dir, cwd, root_cfg) for b in builds_input
     ]
 
+    # ------------------------------
+    # Use ruff
+    # ------------------------------
+    use_ruff = root_cfg.get("use_ruff")
+    if not isinstance(use_ruff, bool):
+        use_ruff = DEFAULT_USE_RUFF
+
     resolved_root: RootConfigResolved = {
         "builds": resolved_builds,
         "strict_config": root_cfg.get("strict_config", False),
         "watch_interval": watch_interval,
         "log_level": log_level,
+        "use_ruff": use_ruff,
     }
 
     return resolved_root

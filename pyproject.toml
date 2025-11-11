@@ -63,11 +63,12 @@ test = ["test:pytest:installed", "test:pytest:script"]
 ]
 
 # 🧹 Automated fixing / formatting
-fix = ["fix:ruff:installed", "fix:ruff:bin", "lint:compile", "fix:format:installed", "fix:format:bin"]
+fix = ["fix:ruff:installed", "lint:compile", "fix:format:installed"]
+"fix:dist" = ["fix:ruff:dist", "lint:compile", "fix:format:dist"]
 "fix:ruff:installed" = "ruff check . --fix"
-"fix:ruff:bin" = { shell = "if [ -d bin ]; then ruff check bin --fix; fi" }
+"fix:ruff:dist" = { shell = "if [ -d dist ]; then ruff check dist --fix; fi" }
 "fix:format:installed" = "ruff format ."
-"fix:format:bin" = { shell = "if [ -d bin ]; then ruff format bin; fi" }
+"fix:format:dist" = { shell = "if [ -d dist ]; then ruff format dist; fi" }
 
 # 🧩 Build and license
 "build:script" = ["build:script:legacy", "build:script:self"]

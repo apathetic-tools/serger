@@ -9,7 +9,6 @@
 
 **Phase 4-7: CLI integration and cleanup** ⏳ PENDING
 - Remove copy-based `build.py` (belongs in pocket-build)
-- Update selftest with stitch validation
 
 ### Key Points
 
@@ -21,7 +20,6 @@
 
 ### Future (Post-Phase 7)
 
-- run ruff on resulting script if available
 - how does pyproject.toml factor into it?
 - Auto-discovery of module order via topological sort
 - Module-level configuration (metadata, headers)

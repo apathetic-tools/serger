@@ -11,7 +11,6 @@ import graphlib
 import importlib
 import json
 import os
-import py_compile
 import re
 import subprocess
 from collections import OrderedDict
@@ -20,6 +19,8 @@ from typing import cast
 
 from .logs import get_logger
 from .meta import PROGRAM_PACKAGE
+from .utils import is_running_under_pytest
+from .verify_script import post_stitch_processing
 
 
 def extract_version(pyproject_path: Path) -> str:
@@ -148,24 +149,6 @@ def strip_redundant_blocks(text: str) -> str:
     )
 
     return text.strip()
-
-
-def verify_compiles(path: Path) -> None:
-    """Ensure the generated script compiles cleanly.
-
-    Args:
-        path: Path to generated Python script
-
-    Raises:
-        RuntimeError: If compilation fails
-    """
-    try:
-        py_compile.compile(str(path), doraise=True)
-        logger = get_logger()
-        logger.info("Compiled successfully.")
-    except py_compile.PyCompileError as e:
-        msg = f"Syntax error in generated script: {e.msg}"
-        raise RuntimeError(msg) from e
 
 
 def detect_name_collisions(sources: dict[str, str]) -> None:
@@ -584,6 +567,7 @@ def stitch_modules(  # noqa: PLR0915
     version: str = "unknown",
     commit: str = "unknown",
     build_date: str = "unknown",
+    use_ruff: bool | None = None,
 ) -> None:
     """Orchestrate stitching of multiple Python modules into a single file.
 
@@ -599,6 +583,7 @@ def stitch_modules(  # noqa: PLR0915
     5. Detects name collisions
     6. Generates final script with metadata
     7. Verifies the output compiles
+    8. Optionally runs ruff formatting and linting if available
 
     Args:
         config: BuildConfigResolved with stitching fields (package, order).
@@ -609,6 +594,9 @@ def stitch_modules(  # noqa: PLR0915
         version: Version string to embed in script metadata
         commit: Commit hash to embed in script metadata
         build_date: Build timestamp to embed in script metadata
+        use_ruff: Whether to run ruff on the stitched file if available.
+                  If None, auto-detects test environment and disables ruff during tests.
+                  Defaults to True in non-test environments.
 
     Raises:
         RuntimeError: If any validation or stitching step fails
@@ -635,6 +623,12 @@ def stitch_modules(  # noqa: PLR0915
         ... )
     """
     logger = get_logger()
+
+    # Auto-detect test environment and disable ruff if not explicitly set
+    if use_ruff is None:
+        # Disable ruff in test environments to avoid reformatting test outputs
+        use_ruff = not is_running_under_pytest()
+
     package_name_raw = config.get("package", "unknown")
     order_names_raw = config.get("order", [])
     exclude_names_raw = config.get("exclude_names", [])
@@ -723,6 +717,9 @@ def stitch_modules(  # noqa: PLR0915
     # Advance mtime to ensure visibility across filesystems
     logger.debug("Advancing mtime...")
     force_mtime_advance(out_path)
+
+    # Post-processing: ruff, compilation checks, and verification
+    post_stitch_processing(out_path, use_ruff=use_ruff)
 
     logger.info(
         "Successfully stitched %d modules into %s",
