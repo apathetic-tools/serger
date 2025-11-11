@@ -4,12 +4,11 @@ was generated correctly — includes metadata, license header,
 and matches the declared version from pyproject.toml.
 """
 
-import os
 import re
 import sys
 from typing import Any, cast
 
-from tests.utils import PROJ_ROOT
+from tests.utils import PROJ_ROOT, is_ci
 
 
 if sys.version_info >= (3, 11):
@@ -67,7 +66,7 @@ def test_standalone_script_metadata_and_execution() -> None:
         r"^# Version:\s*([\w.\-]+)", text, re.MULTILINE | re.IGNORECASE
     )
 
-    if os.getenv("CI") or os.getenv("GIT_TAG") or os.getenv("GITHUB_REF"):
+    if is_ci():
         commit_match = re.search(
             r"^# Commit:\s*([0-9a-f]{4,})", text, re.MULTILINE | re.IGNORECASE
         )

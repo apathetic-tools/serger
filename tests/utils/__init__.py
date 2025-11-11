@@ -7,6 +7,7 @@ from .buildconfig import (
     make_meta,
     make_resolved,
 )
+from .ci import is_ci
 from .config_validate import make_summary
 from .force_mtime_advance import force_mtime_advance
 from .patch_everywhere import patch_everywhere
@@ -20,6 +21,7 @@ __all__ = [
     "PROJ_ROOT",
     "TEST_TRACE",
     "force_mtime_advance",
+    "is_ci",
     "make_build_cfg",
     "make_build_input",
     "make_include_resolved",
