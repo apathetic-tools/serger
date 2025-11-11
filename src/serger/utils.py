@@ -52,6 +52,56 @@ def get_sys_version_info() -> tuple[int, int, int] | tuple[int, int, int, str, i
     return sys.version_info
 
 
+def load_toml(path: Path, *, required: bool = False) -> dict[str, Any] | None:
+    """Load and parse a TOML file, supporting Python 3.10 and 3.11+.
+
+    Uses:
+    - `tomllib` (Python 3.11+ standard library)
+    - `tomli` (required for Python 3.10 - must be installed separately)
+
+    Args:
+        path: Path to TOML file
+        required: If True, raise RuntimeError when tomli is missing on Python 3.10.
+                  If False, return None when unavailable (caller handles gracefully).
+
+    Returns:
+        Parsed TOML data as a dictionary, or None if unavailable and not required
+
+    Raises:
+        FileNotFoundError: If the file doesn't exist
+        RuntimeError: If required=True and neither tomllib nor tomli is available
+        ValueError: If the file cannot be parsed
+    """
+    if not path.exists():
+        xmsg = f"TOML file not found: {path}"
+        raise FileNotFoundError(xmsg)
+
+    # Try tomllib (Python 3.11+)
+    try:
+        import tomllib  # type: ignore[import-not-found] # noqa: PLC0415
+
+        with path.open("rb") as f:
+            return tomllib.load(f)  # type: ignore[no-any-return]
+    except ImportError:
+        pass
+
+    # Try tomli (required for Python 3.10)
+    try:
+        import tomli  # type: ignore[import-not-found] # noqa: PLC0415
+
+        with path.open("rb") as f:
+            return tomli.load(f)  # type: ignore[no-any-return]
+    except ImportError:
+        if required:
+            xmsg = (
+                "TOML parsing requires 'tomli' package on Python 3.10. "
+                "Install it with: pip install tomli, or disable pyproject.toml support "
+                "by setting 'use_pyproject: false' in your config."
+            )
+            raise RuntimeError(xmsg) from None
+        return None
+
+
 def is_running_under_pytest() -> bool:
     """Detect if code is running under pytest.
 

@@ -23,6 +23,64 @@ from .utils_types import cast_hint, make_pathresolved
 # --------------------------------------------------------------------------- #
 
 
+def _resolve_src_dir(
+    includes: list[IncludeResolved],
+) -> tuple[Path, Path]:
+    """Resolve source directory and root path from include patterns.
+
+    Args:
+        includes: List of include patterns
+
+    Returns:
+        Tuple of (src_dir, root_path)
+
+    Raises:
+        ValueError: If no includes provided
+    """
+    if not includes:
+        xmsg = "Stitch build requires at least one include pattern"
+        raise ValueError(xmsg)
+
+    # Get source directory from first include
+    src_entry = includes[0]
+    root_path = Path(src_entry["root"]).resolve()
+    include_pattern = str(src_entry["path"])
+
+    # Strip glob pattern to get directory (e.g., "src/serger/*.py" → "src/serger")
+    if has_glob_chars(include_pattern):
+        src_dir = root_path / str(_non_glob_prefix(include_pattern))
+    else:
+        # If no glob, assume it's a directory path
+        src_dir = root_path / include_pattern
+
+    return src_dir.resolve(), root_path
+
+
+def _extract_build_metadata(
+    build_cfg: BuildConfigResolved,
+    root_path: Path,
+) -> tuple[str, str, str]:
+    """Extract version, commit, and build date for embedding.
+
+    Args:
+        build_cfg: Resolved build config
+        root_path: Project root path
+
+    Returns:
+        Tuple of (version, commit, build_date)
+    """
+    # Use version from resolved config if available (from pyproject.toml),
+    # otherwise fall back to extracting it directly
+    version_raw = build_cfg.get("_pyproject_version")
+    if version_raw and isinstance(version_raw, str):
+        version = version_raw
+    else:
+        version = extract_version(root_path / "pyproject.toml")
+    commit = extract_commit(root_path)
+    build_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    return version, commit, build_date
+
+
 def _compute_dest(  # noqa: PLR0911
     src: Path,
     root: Path,
@@ -441,26 +499,9 @@ def run_build(
         logger.info("🧪 (dry-run) Would stitch %s to: %s", package, out_path)
         return
 
-    # For stitching, we need the source directory containing the modules
-    # Extract from the first include pattern (e.g., "src/serger/*.py" → "src/serger")
+    # Resolve source directory from includes
     includes = build_cfg.get("include", [])
-    if not includes:
-        xmsg = "Stitch build requires at least one include pattern"
-        raise ValueError(xmsg)
-
-    # Get source directory from first include
-    src_entry = includes[0]
-    root_path = Path(src_entry["root"]).resolve()
-    include_pattern = str(src_entry["path"])
-
-    # Strip glob pattern to get directory (e.g., "src/serger/*.py" → "src/serger")
-    if has_glob_chars(include_pattern):
-        src_dir = root_path / str(_non_glob_prefix(include_pattern))
-    else:
-        # If no glob, assume it's a directory path
-        src_dir = root_path / include_pattern
-
-    src_dir = src_dir.resolve()
+    src_dir, root_path = _resolve_src_dir(includes)
 
     # Prepare config dict for stitch_modules
     exclude_names_raw = build_cfg.get("exclude_names", [])
@@ -479,10 +520,7 @@ def run_build(
     }
 
     # Extract metadata for embedding
-
-    version = extract_version(root_path / "pyproject.toml")
-    commit = extract_commit(root_path)
-    build_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    version, commit, build_date = _extract_build_metadata(build_cfg, root_path)
 
     # Create parent directory if needed
     out_path.parent.mkdir(parents=True, exist_ok=True)

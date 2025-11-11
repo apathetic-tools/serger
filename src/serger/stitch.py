@@ -14,12 +14,13 @@ import os
 import re
 import subprocess
 from collections import OrderedDict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
 from .logs import get_logger
 from .meta import PROGRAM_PACKAGE
-from .utils import is_running_under_pytest
+from .utils import is_running_under_pytest, load_toml
 from .verify_script import post_stitch_processing
 
 
@@ -37,6 +38,79 @@ def extract_version(pyproject_path: Path) -> str:
     text = pyproject_path.read_text(encoding="utf-8")
     match = re.search(r'(?m)^\s*version\s*=\s*["\']([^"\']+)["\']', text)
     return match.group(1) if match else "unknown"
+
+
+@dataclass
+class PyprojectMetadata:
+    """Metadata extracted from pyproject.toml."""
+
+    name: str = ""
+    version: str = ""
+    description: str = ""
+    license_text: str = ""
+
+    def has_any(self) -> bool:
+        """Check if any metadata was found."""
+        return bool(self.name or self.version or self.description or self.license_text)
+
+
+def extract_pyproject_metadata(
+    pyproject_path: Path, *, required: bool = False
+) -> PyprojectMetadata | None:
+    """Extract metadata from pyproject.toml file.
+
+    Extracts name, version, description, and license from the [project] section.
+    Uses load_toml() utility which supports Python 3.10 and 3.11+.
+
+    Args:
+        pyproject_path: Path to pyproject.toml file
+        required: If True, raise RuntimeError when tomli is missing on Python 3.10.
+                  If False, return None when unavailable.
+
+    Returns:
+        PyprojectMetadata with extracted fields (empty strings if not found),
+        or None if unavailable
+
+    Raises:
+        RuntimeError: If required=True and TOML parsing is unavailable
+    """
+    if not pyproject_path.exists():
+        return PyprojectMetadata()
+
+    try:
+        data = load_toml(pyproject_path, required=required)
+        if data is None:
+            # TOML parsing unavailable and not required
+            return None
+        project = data.get("project", {})
+    except (FileNotFoundError, ValueError):
+        # If parsing fails, return empty metadata
+        return PyprojectMetadata()
+
+    # Extract fields from parsed TOML
+    name = project.get("name", "")
+    version = project.get("version", "")
+    description = project.get("description", "")
+
+    # Handle license (can be string or dict with "file" key)
+    license_text = ""
+    license_val = project.get("license")
+    if isinstance(license_val, str):
+        license_text = license_val
+    elif isinstance(license_val, dict) and "file" in license_val:
+        file_val = license_val.get("file")  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
+        if isinstance(file_val, str):
+            filename = file_val
+        else:
+            filename = str(file_val) if file_val is not None else "LICENSE"  # pyright: ignore[reportUnknownArgumentType]
+        license_text = f"See {filename} if distributed alongside this script"
+
+    return PyprojectMetadata(
+        name=name if isinstance(name, str) else "",
+        version=version if isinstance(version, str) else "",
+        description=description if isinstance(description, str) else "",
+        license_text=license_text,
+    )
 
 
 def extract_commit(root_path: Path) -> str:

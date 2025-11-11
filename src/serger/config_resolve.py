@@ -21,10 +21,12 @@ from .constants import (
     DEFAULT_OUT_DIR,
     DEFAULT_RESPECT_GITIGNORE,
     DEFAULT_STRICT_CONFIG,
+    DEFAULT_USE_PYPROJECT,
     DEFAULT_USE_RUFF,
     DEFAULT_WATCH_INTERVAL,
 )
 from .logs import get_logger
+from .stitch import PyprojectMetadata, extract_pyproject_metadata
 from .utils import has_glob_chars
 from .utils_types import cast_hint, make_includeresolved, make_pathresolved
 
@@ -32,6 +34,215 @@ from .utils_types import cast_hint, make_includeresolved, make_pathresolved
 # --------------------------------------------------------------------------- #
 # helpers
 # --------------------------------------------------------------------------- #
+
+
+def _should_use_pyproject(
+    build_cfg: BuildConfig,
+    root_cfg: RootConfig | None,
+    num_builds: int,
+) -> bool:
+    """Determine if pyproject.toml should be used for this build.
+
+    Args:
+        build_cfg: Build config
+        root_cfg: Root config (may be None)
+        num_builds: Number of builds in root config
+
+    Returns:
+        True if pyproject.toml should be used, False otherwise
+    """
+    build_use_pyproject = build_cfg.get("use_pyproject")
+    root_use_pyproject = (root_cfg or {}).get("use_pyproject")
+    build_pyproject_path = build_cfg.get("pyproject_path")
+
+    # Determine if this build has opted in
+    build_opted_in = False
+    if isinstance(build_use_pyproject, bool):
+        build_opted_in = build_use_pyproject
+    elif build_pyproject_path:
+        # Specifying a path is an implicit opt-in
+        build_opted_in = True
+
+    if num_builds > 1:
+        # Multi-build: build must explicitly opt-in
+        return build_opted_in
+
+    # Single build: use root/default settings unless build explicitly opts out
+    if isinstance(build_use_pyproject, bool):
+        return build_use_pyproject
+    if build_pyproject_path:
+        return True
+    # Use root setting or default
+    if isinstance(root_use_pyproject, bool):
+        return root_use_pyproject
+    return DEFAULT_USE_PYPROJECT
+
+
+def _resolve_pyproject_path(
+    build_cfg: BuildConfig,
+    root_cfg: RootConfig | None,
+    config_dir: Path,
+) -> Path:
+    """Resolve the path to pyproject.toml file.
+
+    Args:
+        build_cfg: Build config
+        root_cfg: Root config (may be None)
+        config_dir: Config directory for path resolution
+
+    Returns:
+        Resolved path to pyproject.toml
+    """
+    build_pyproject_path = build_cfg.get("pyproject_path")
+    root_pyproject_path = (root_cfg or {}).get("pyproject_path")
+
+    if build_pyproject_path:
+        # Build-level path takes precedence
+        return (config_dir / build_pyproject_path).resolve()
+    if root_pyproject_path:
+        # Root-level path
+        return (config_dir / root_pyproject_path).resolve()
+    # Default: config_dir / "pyproject.toml" (project root)
+    return config_dir / "pyproject.toml"
+
+
+def _is_explicitly_requested(
+    build_cfg: BuildConfig,
+    root_cfg: RootConfig | None,
+) -> bool:
+    """Check if pyproject.toml was explicitly requested (not just default).
+
+    Args:
+        build_cfg: Build config
+        root_cfg: Root config (may be None)
+
+    Returns:
+        True if explicitly requested, False if just default behavior
+    """
+    build_use_pyproject = build_cfg.get("use_pyproject")
+    root_use_pyproject = (root_cfg or {}).get("use_pyproject")
+    build_pyproject_path = build_cfg.get("pyproject_path")
+    root_pyproject_path = (root_cfg or {}).get("pyproject_path")
+
+    return (
+        isinstance(build_use_pyproject, bool)
+        or build_pyproject_path is not None
+        or isinstance(root_use_pyproject, bool)
+        or root_pyproject_path is not None
+    )
+
+
+def _extract_pyproject_metadata_safe(
+    pyproject_path: Path,
+    *,
+    explicitly_requested: bool,
+) -> PyprojectMetadata:
+    """Extract metadata from pyproject.toml with error handling.
+
+    Args:
+        pyproject_path: Path to pyproject.toml
+        explicitly_requested: Whether pyproject was explicitly requested
+
+    Returns:
+        PyprojectMetadata object (may be empty if unavailable)
+
+    Raises:
+        RuntimeError: If explicitly requested and TOML parsing unavailable
+    """
+    logger = get_logger()
+
+    try:
+        metadata = extract_pyproject_metadata(
+            pyproject_path, required=explicitly_requested
+        )
+    except RuntimeError as e:
+        # If explicitly requested and TOML parsing unavailable, re-raise
+        if explicitly_requested:
+            xmsg = (
+                "pyproject.toml support was explicitly requested but "
+                f"TOML parsing is unavailable. {e!s}"
+            )
+            raise RuntimeError(xmsg) from e
+        # If not explicitly requested, this shouldn't happen (should return None)
+        raise
+
+    if metadata is None:
+        # TOML parsing unavailable but not explicitly requested - warn and skip
+        logger.warning(
+            "pyproject.toml found but TOML parsing unavailable "
+            "(Python 3.10 requires 'tomli'). "
+            "Skipping metadata extraction. Install 'tomli' to enable, "
+            "or explicitly set 'use_pyproject: false' to disable this warning."
+        )
+        # Create empty metadata object
+        metadata = PyprojectMetadata()
+
+    return metadata
+
+
+def _apply_metadata_fields(
+    resolved_cfg: dict[str, Any],
+    metadata: PyprojectMetadata,
+    pyproject_path: Path,
+) -> None:
+    """Apply extracted metadata fields to resolved config.
+
+    Args:
+        resolved_cfg: Mutable resolved config dict (modified in place)
+        metadata: Extracted metadata
+        pyproject_path: Path to pyproject.toml (for logging)
+    """
+    logger = get_logger()
+
+    # Fill in missing fields (only if not already set in config)
+    if metadata.version and not resolved_cfg.get("version"):
+        # Note: version is not a build config field, but we'll store it
+        # for use in build.py later
+        resolved_cfg["_pyproject_version"] = metadata.version
+
+    if metadata.name and not resolved_cfg.get("display_name"):
+        resolved_cfg["display_name"] = metadata.name
+
+    if metadata.description and not resolved_cfg.get("description"):
+        resolved_cfg["description"] = metadata.description
+
+    if metadata.license_text and not resolved_cfg.get("license_header"):
+        resolved_cfg["license_header"] = metadata.license_text
+
+    if metadata.has_any():
+        logger.trace(f"[resolve_build_config] Extracted metadata from {pyproject_path}")
+
+
+def _apply_pyproject_metadata(
+    resolved_cfg: dict[str, Any],
+    *,
+    build_cfg: BuildConfig,
+    root_cfg: RootConfig | None,
+    config_dir: Path,
+    num_builds: int,
+) -> None:
+    """Extract and apply pyproject.toml metadata to resolved config.
+
+    Handles all the logic for determining when to use pyproject.toml,
+    path resolution, and filling in missing fields.
+
+    Args:
+        resolved_cfg: Mutable resolved config dict (modified in place)
+        build_cfg: Original build config
+        root_cfg: Root config (may be None)
+        config_dir: Config directory for path resolution
+        num_builds: Number of builds in the root config
+    """
+    if not _should_use_pyproject(build_cfg, root_cfg, num_builds):
+        return
+
+    pyproject_path = _resolve_pyproject_path(build_cfg, root_cfg, config_dir)
+    explicitly_requested = _is_explicitly_requested(build_cfg, root_cfg)
+
+    metadata = _extract_pyproject_metadata_safe(
+        pyproject_path, explicitly_requested=explicitly_requested
+    )
+    _apply_metadata_fields(resolved_cfg, metadata, pyproject_path)
 
 
 def _load_gitignore_patterns(path: Path) -> list[str]:
@@ -391,6 +602,18 @@ def resolve_build_config(
         resolved_cfg["use_ruff"] = root_use_ruff
     else:
         resolved_cfg["use_ruff"] = DEFAULT_USE_RUFF
+
+    # ------------------------------
+    # Pyproject.toml metadata
+    # ------------------------------
+    num_builds = len((root_cfg or {}).get("builds", []))
+    _apply_pyproject_metadata(
+        resolved_cfg,
+        build_cfg=build_cfg,
+        root_cfg=root_cfg,
+        config_dir=config_dir,
+        num_builds=num_builds,
+    )
 
     # ------------------------------
     # Attach provenance

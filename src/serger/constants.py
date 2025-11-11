@@ -23,3 +23,4 @@ DEFAULT_STRICT_CONFIG: bool = True
 DEFAULT_OUT_DIR: str = "dist"
 DEFAULT_DRY_RUN: bool = False
 DEFAULT_USE_RUFF: bool = True
+DEFAULT_USE_PYPROJECT: bool = True
