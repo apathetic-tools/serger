@@ -13,16 +13,21 @@ from .config_types import (
     MetaBuildConfigResolved,
     OriginType,
     PathResolved,
+    PostCategoryConfig,
+    PostProcessingConfig,
+    PostProcessingConfigResolved,
     RootConfig,
     RootConfigResolved,
+    ToolConfig,
 )
 from .constants import (
+    DEFAULT_CATEGORIES,
+    DEFAULT_CATEGORY_ORDER,
     DEFAULT_ENV_WATCH_INTERVAL,
     DEFAULT_OUT_DIR,
     DEFAULT_RESPECT_GITIGNORE,
     DEFAULT_STRICT_CONFIG,
     DEFAULT_USE_PYPROJECT,
-    DEFAULT_USE_RUFF,
     DEFAULT_WATCH_INTERVAL,
 )
 from .logs import get_logger
@@ -254,6 +259,250 @@ def _load_gitignore_patterns(path: Path) -> list[str]:
             if clean_line and not clean_line.startswith("#"):
                 patterns.append(clean_line)
     return patterns
+
+
+def _merge_post_processing(  # noqa: C901, PLR0912, PLR0915
+    build_cfg: PostProcessingConfig | None,
+    root_cfg: PostProcessingConfig | None,
+) -> PostProcessingConfig:
+    """Deep merge post-processing configs: build-level → root-level → default.
+
+    Args:
+        build_cfg: Build-level post-processing config (may be None)
+        root_cfg: Root-level post-processing config (may be None)
+
+    Returns:
+        Merged post-processing config
+    """
+    # Start with defaults
+    merged: PostProcessingConfig = {
+        "enabled": True,
+        "category_order": list(DEFAULT_CATEGORY_ORDER),
+        "categories": {
+            cat: {
+                "enabled": bool(cfg.get("enabled", True)),
+                "priority": (
+                    list(cast("list[str]", cfg["priority"]))
+                    if isinstance(cfg.get("priority"), list)
+                    else []
+                ),
+            }
+            for cat, cfg in DEFAULT_CATEGORIES.items()
+        },
+    }
+
+    # Merge root-level config
+    if root_cfg:
+        if "enabled" in root_cfg:
+            merged["enabled"] = root_cfg["enabled"]
+        if "category_order" in root_cfg:
+            merged["category_order"] = list(root_cfg["category_order"])
+
+        if "categories" in root_cfg:
+            if "categories" not in merged:
+                merged["categories"] = {}
+            for cat_name, cat_cfg in root_cfg["categories"].items():
+                if cat_name not in merged["categories"]:
+                    merged["categories"][cat_name] = {}
+                # Merge category config
+                merged_cat = merged["categories"][cat_name]
+                if "enabled" in cat_cfg:
+                    merged_cat["enabled"] = cat_cfg["enabled"]
+                if "priority" in cat_cfg:
+                    merged_cat["priority"] = list(cat_cfg["priority"])
+                if "tools" in cat_cfg:
+                    if "tools" not in merged_cat:
+                        merged_cat["tools"] = {}
+                    # Tool options replace (don't merge)
+                    for tool_name, tool_override in cat_cfg["tools"].items():
+                        root_override_dict: dict[str, object] = {}
+                        if "command" in tool_override:
+                            root_override_dict["command"] = tool_override["command"]
+                        if "args" in tool_override:
+                            root_override_dict["args"] = list(tool_override["args"])
+                        if "path" in tool_override:
+                            root_override_dict["path"] = tool_override["path"]
+                        if "options" in tool_override:
+                            root_override_dict["options"] = list(
+                                tool_override["options"]
+                            )
+                        merged_cat["tools"][tool_name] = cast_hint(
+                            ToolConfig, root_override_dict
+                        )
+
+    # Merge build-level config (overrides root)
+    if build_cfg:
+        if "enabled" in build_cfg:
+            merged["enabled"] = build_cfg["enabled"]
+        if "category_order" in build_cfg:
+            merged["category_order"] = list(build_cfg["category_order"])
+
+        if "categories" in build_cfg:
+            if "categories" not in merged:
+                merged["categories"] = {}
+            for cat_name, cat_cfg in build_cfg["categories"].items():
+                if cat_name not in merged["categories"]:
+                    merged["categories"][cat_name] = {}
+                # Merge category config
+                merged_cat = merged["categories"][cat_name]
+                if "enabled" in cat_cfg:
+                    merged_cat["enabled"] = cat_cfg["enabled"]
+                if "priority" in cat_cfg:
+                    merged_cat["priority"] = list(cat_cfg["priority"])
+                if "tools" in cat_cfg:
+                    if "tools" not in merged_cat:
+                        merged_cat["tools"] = {}
+                    # Tool options replace (don't merge)
+                    for tool_name, tool_override in cat_cfg["tools"].items():
+                        build_override_dict: dict[str, object] = {}
+                        if "command" in tool_override:
+                            build_override_dict["command"] = tool_override["command"]
+                        if "args" in tool_override:
+                            build_override_dict["args"] = list(tool_override["args"])
+                        if "path" in tool_override:
+                            build_override_dict["path"] = tool_override["path"]
+                        if "options" in tool_override:
+                            build_override_dict["options"] = list(
+                                tool_override["options"]
+                            )
+                        merged_cat["tools"][tool_name] = cast_hint(
+                            ToolConfig, build_override_dict
+                        )
+
+    return merged
+
+
+def resolve_post_processing(  # noqa: C901, PLR0912, PLR0915
+    build_cfg: BuildConfig,
+    root_cfg: RootConfig | None,
+) -> PostProcessingConfigResolved:
+    """Resolve post-processing configuration with cascade and validation.
+
+    Args:
+        build_cfg: Build config
+        root_cfg: Root config (may be None)
+
+    Returns:
+        Resolved post-processing configuration
+    """
+    logger = get_logger()
+
+    # Extract configs
+    build_post = build_cfg.get("post_processing")
+    root_post = (root_cfg or {}).get("post_processing")
+
+    # Merge configs
+    merged = _merge_post_processing(
+        build_post if isinstance(build_post, dict) else None,
+        root_post if isinstance(root_post, dict) else None,
+    )
+
+    # Validate category_order - warn on invalid category names
+    valid_categories = set(DEFAULT_CATEGORIES.keys())
+    category_order = merged.get("category_order", DEFAULT_CATEGORY_ORDER)
+    invalid_categories = [cat for cat in category_order if cat not in valid_categories]
+    if invalid_categories:
+        logger.warning(
+            "Invalid category names in post_processing.category_order: %s. "
+            "Valid categories are: %s",
+            invalid_categories,
+            sorted(valid_categories),
+        )
+
+    # Build resolved config with all categories (even if not in category_order)
+    resolved_categories: dict[str, PostCategoryConfig] = {}
+    for cat_name, default_cat in DEFAULT_CATEGORIES.items():
+        # Start with default
+        enabled_val = default_cat.get("enabled", True)
+        priority_val = default_cat.get("priority", [])
+        resolved_cat: PostCategoryConfig = {
+            "enabled": bool(enabled_val) if isinstance(enabled_val, bool) else True,
+            "priority": (
+                list(cast("list[str]", priority_val))
+                if isinstance(priority_val, list)
+                else []
+            ),
+        }
+
+        # Process tools from defaults if present
+        if "tools" in default_cat:
+            tools_dict: dict[str, ToolConfig] = {}
+            for tool_name, tool_override in default_cat["tools"].items():
+                override_dict: dict[str, object] = {}
+                if "command" in tool_override:
+                    override_dict["command"] = tool_override["command"]
+                if "args" in tool_override:
+                    override_dict["args"] = list(tool_override["args"])
+                if "path" in tool_override:
+                    override_dict["path"] = tool_override["path"]
+                if "options" in tool_override:
+                    override_dict["options"] = list(tool_override["options"])
+                tools_dict[tool_name] = cast_hint(ToolConfig, override_dict)
+            resolved_cat["tools"] = tools_dict
+
+        # Apply merged config if present
+        if "categories" in merged and cat_name in merged["categories"]:
+            merged_cat = merged["categories"][cat_name]
+            if "enabled" in merged_cat:
+                resolved_cat["enabled"] = merged_cat["enabled"]
+            if "priority" in merged_cat:
+                resolved_cat["priority"] = list(merged_cat["priority"])
+            if "tools" in merged_cat:
+                # Merge tools: user config overrides defaults
+                if "tools" not in resolved_cat:
+                    resolved_cat["tools"] = {}
+                merged_tools_dict = resolved_cat["tools"]
+                for tool_name, tool_override in merged_cat["tools"].items():
+                    merged_override_dict: dict[str, object] = {}
+                    if "command" in tool_override:
+                        merged_override_dict["command"] = tool_override["command"]
+                    if "args" in tool_override:
+                        merged_override_dict["args"] = list(tool_override["args"])
+                    if "path" in tool_override:
+                        merged_override_dict["path"] = tool_override["path"]
+                    if "options" in tool_override:
+                        merged_override_dict["options"] = list(tool_override["options"])
+                    merged_tools_dict[tool_name] = cast_hint(
+                        ToolConfig, merged_override_dict
+                    )
+                resolved_cat["tools"] = merged_tools_dict
+
+        # Fallback: ensure all tools in priority are in tools dict
+        # If a tool is in priority but not in tools, look it up from DEFAULT_CATEGORIES
+        if "priority" in resolved_cat:
+            if "tools" not in resolved_cat:
+                resolved_cat["tools"] = {}
+            tools_dict = resolved_cat["tools"]
+            default_tools = default_cat.get("tools", {})
+            for tool_label in resolved_cat["priority"]:
+                if tool_label not in tools_dict and tool_label in default_tools:
+                    # Copy from defaults as fallback
+                    default_override = default_tools[tool_label]
+                    fallback_dict: dict[str, object] = {}
+                    if "command" in default_override:
+                        fallback_dict["command"] = default_override["command"]
+                    if "args" in default_override:
+                        fallback_dict["args"] = list(default_override["args"])
+                    if "path" in default_override:
+                        fallback_dict["path"] = default_override["path"]
+                    if "options" in default_override:
+                        fallback_dict["options"] = list(default_override["options"])
+                    tools_dict[tool_label] = cast_hint(ToolConfig, fallback_dict)
+            resolved_cat["tools"] = tools_dict
+
+        # Empty priority = disabled
+        if not resolved_cat.get("priority"):
+            resolved_cat["enabled"] = False
+
+        resolved_categories[cat_name] = resolved_cat
+
+    resolved: PostProcessingConfigResolved = {
+        "enabled": merged.get("enabled", True),
+        "category_order": list(category_order),
+        "categories": resolved_categories,
+    }
+
+    return resolved
 
 
 def _parse_include_with_dest(
@@ -591,17 +840,10 @@ def resolve_build_config(
         resolved_cfg["strict_config"] = DEFAULT_STRICT_CONFIG
 
     # ------------------------------
-    # Use ruff
+    # Post-processing
     # ------------------------------
     # Cascade: build-level → root-level → default
-    build_use_ruff = resolved_cfg.get("use_ruff")
-    root_use_ruff = (root_cfg or {}).get("use_ruff")
-    if isinstance(build_use_ruff, bool):
-        resolved_cfg["use_ruff"] = build_use_ruff
-    elif isinstance(root_use_ruff, bool):
-        resolved_cfg["use_ruff"] = root_use_ruff
-    else:
-        resolved_cfg["use_ruff"] = DEFAULT_USE_RUFF
+    resolved_cfg["post_processing"] = resolve_post_processing(build_cfg, root_cfg)
 
     # ------------------------------
     # Pyproject.toml metadata
@@ -682,18 +924,18 @@ def resolve_config(
     ]
 
     # ------------------------------
-    # Use ruff
+    # Post-processing
     # ------------------------------
-    use_ruff = root_cfg.get("use_ruff")
-    if not isinstance(use_ruff, bool):
-        use_ruff = DEFAULT_USE_RUFF
+    # For root-level, create a dummy build config to use the same resolution function
+    dummy_build: BuildConfig = {}
+    post_processing = resolve_post_processing(dummy_build, root_cfg)
 
     resolved_root: RootConfigResolved = {
         "builds": resolved_builds,
         "strict_config": root_cfg.get("strict_config", False),
         "watch_interval": watch_interval,
         "log_level": log_level,
-        "use_ruff": use_ruff,
+        "post_processing": post_processing,
     }
 
     return resolved_root

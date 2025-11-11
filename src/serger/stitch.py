@@ -17,10 +17,10 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 
-from .config_types import IncludeResolved
+from .config_types import IncludeResolved, PostProcessingConfigResolved
 from .logs import get_logger
 from .meta import PROGRAM_PACKAGE
-from .utils import derive_module_name, is_running_under_pytest, load_toml
+from .utils import derive_module_name, load_toml
 from .verify_script import post_stitch_processing
 
 
@@ -787,7 +787,7 @@ def _build_final_script(  # noqa: PLR0913
     )
 
 
-def stitch_modules(  # noqa: PLR0915, PLR0912, C901
+def stitch_modules(  # noqa: PLR0915, PLR0912
     *,
     config: dict[str, object],
     file_paths: list[Path],
@@ -798,7 +798,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     version: str = "unknown",
     commit: str = "unknown",
     build_date: str = "unknown",
-    use_ruff: bool | None = None,
+    post_processing: PostProcessingConfigResolved | None = None,
 ) -> None:
     """Orchestrate stitching of multiple Python modules into a single file.
 
@@ -814,7 +814,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     5. Detects name collisions
     6. Generates final script with metadata
     7. Verifies the output compiles
-    8. Optionally runs ruff formatting and linting if available
+    8. Optionally runs post-processing tools (static checker, formatter, import sorter)
 
     Args:
         config: BuildConfigResolved with stitching fields (package, order).
@@ -827,20 +827,13 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         version: Version string to embed in script metadata
         commit: Commit hash to embed in script metadata
         build_date: Build timestamp to embed in script metadata
-        use_ruff: Whether to run ruff on the stitched file if available.
-                  If None, auto-detects test environment and disables ruff during tests.
-                  Defaults to True in non-test environments.
+        post_processing: Post-processing configuration (if None, skips post-processing)
 
     Raises:
         RuntimeError: If any validation or stitching step fails
         AssertionError: If mtime advancing fails
     """
     logger = get_logger()
-
-    # Auto-detect test environment and disable ruff if not explicitly set
-    if use_ruff is None:
-        # Disable ruff in test environments to avoid reformatting test outputs
-        use_ruff = not is_running_under_pytest()
 
     package_name_raw = config.get("package", "unknown")
     order_paths_raw = config.get("order", [])
@@ -945,8 +938,8 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     logger.debug("Advancing mtime...")
     force_mtime_advance(out_path)
 
-    # Post-processing: ruff, compilation checks, and verification
-    post_stitch_processing(out_path, use_ruff=use_ruff)
+    # Post-processing: tools, compilation checks, and verification
+    post_stitch_processing(out_path, post_processing=post_processing)
 
     logger.info(
         "Successfully stitched %d modules into %s",

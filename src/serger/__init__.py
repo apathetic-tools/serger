@@ -52,7 +52,6 @@ from .constants import (
     DEFAULT_OUT_DIR,
     DEFAULT_RESPECT_GITIGNORE,
     DEFAULT_STRICT_CONFIG,
-    DEFAULT_USE_RUFF,
     DEFAULT_WATCH_INTERVAL,
 )
 from .logs import (
@@ -114,7 +113,6 @@ __all__ = [  # noqa: RUF022
     "DEFAULT_OUT_DIR",
     "DEFAULT_RESPECT_GITIGNORE",
     "DEFAULT_STRICT_CONFIG",
-    "DEFAULT_USE_RUFF",
     "DEFAULT_WATCH_INTERVAL",
     "Metadata",
     "PROGRAM_DISPLAY",

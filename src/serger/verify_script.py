@@ -11,6 +11,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from .config_types import PostProcessingConfigResolved, ToolConfig
 from .logs import get_logger
 
 
@@ -38,73 +39,169 @@ def verify_compiles(file_path: Path) -> bool:
         return True
 
 
-def ruff_is_available() -> str | None:
-    """Check if ruff is available in the system PATH.
-
-    Returns:
-        Path to ruff executable if available, None otherwise
-    """
-    return shutil.which("ruff")
-
-
-def run_ruff_if_available(file_path: Path) -> bool:
-    """Run ruff check --fix and ruff format on a file if ruff is available.
+def find_tool_executable(
+    tool_name: str,
+    custom_path: str | None = None,
+) -> str | None:
+    """Find tool executable, checking custom_path first, then PATH.
 
     Args:
-        file_path: Path to Python file to format
+        tool_name: Name of the tool to find
+        custom_path: Optional custom path to the executable
 
     Returns:
-        True if ruff was run successfully, False if ruff is not available
+        Path to executable if found, None otherwise
+    """
+    if custom_path:
+        path = Path(custom_path)
+        if path.exists() and path.is_file():
+            return str(path.resolve())
+        # If custom path doesn't exist, fall back to PATH
+
+    return shutil.which(tool_name)
+
+
+def build_tool_command(
+    tool_label: str,
+    _category: str,
+    file_path: Path,
+    _tool_override: ToolConfig | None = None,
+    tools_dict: dict[str, ToolConfig] | None = None,
+) -> list[str] | None:
+    """Build the full command to execute a tool.
+
+    Args:
+        tool_label: Tool name or custom label (simple tool name or custom instance)
+        _category: Category name (static_checker, formatter, import_sorter) -
+            unused, kept for API compatibility
+        file_path: Path to the file to process
+        _tool_override: Optional tool override config (deprecated, unused)
+        tools_dict: Dict of tool overrides keyed by label
+            (includes defaults from resolved config)
+
+    Returns:
+        Command list if tool is available, None otherwise
+    """
+    # Look up tool in tools_dict (includes defaults from resolved config)
+    if tools_dict and tool_label in tools_dict:
+        override = tools_dict[tool_label]
+        actual_tool_name = override.get("command", tool_label)  # default to key
+
+        # Args is required in tools dict (defaults are merged in during resolution)
+        if "args" not in override:
+            return None
+        base_args = override["args"]
+
+        # Append options (not replace)
+        extra = override.get("options", [])
+        custom_path = override.get("path")
+    else:
+        # Tool not found in tools_dict - not supported
+        # (All tools should be in tools dict, including defaults)
+        return None
+
+    # Find executable
+    executable = find_tool_executable(actual_tool_name, custom_path=custom_path)
+    if not executable:
+        return None
+
+    return [executable, *base_args, *extra, str(file_path)]
+
+
+def execute_post_processing(
+    file_path: Path,
+    config: PostProcessingConfigResolved,
+) -> None:
+    """Execute post-processing tools on a file according to configuration.
+
+    Args:
+        file_path: Path to the file to process
+        config: Resolved post-processing configuration
     """
     logger = get_logger()
-    ruff_cmd = ruff_is_available()
-    if ruff_cmd is None:
-        logger.debug("ruff not found in PATH, skipping ruff processing")
-        return False
 
-    logger.debug("Running ruff on %s", file_path)
+    if not config["enabled"]:
+        logger.debug("Post-processing disabled, skipping")
+        return
 
-    # Run ruff check --fix
-    try:
-        result = subprocess.run(  # noqa: S603
-            [ruff_cmd, "check", str(file_path), "--fix"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.returncode != 0:
-            logger.debug(
-                "ruff check --fix exited with code %d: %s",
-                result.returncode,
-                result.stderr,
+    # Track executed commands for deduplication
+    executed_commands: set[tuple[str, ...]] = set()
+
+    # Process categories in order
+    for category_name in config["category_order"]:
+        if category_name not in config["categories"]:
+            continue
+
+        category = config["categories"][category_name]
+        if not category.get("enabled", True):
+            logger.debug("Category %s is disabled, skipping", category_name)
+            continue
+
+        priority = category.get("priority", [])
+        if not priority:
+            logger.debug("Category %s has empty priority, skipping", category_name)
+            continue
+
+        # Try tools in priority order
+        tool_ran = False
+        tools_dict = category.get("tools", {})
+        for tool_label in priority:
+            # For backward compatibility, check if tool_label exists in tools dict
+            # If it does, it's a custom instance; if not, it's a simple tool name
+            tool_override = (
+                tools_dict.get(tool_label) if tool_label in tools_dict else None
             )
-        else:
-            logger.debug("ruff check --fix completed successfully")
-    except Exception as e:  # noqa: BLE001
-        logger.debug("Error running ruff check --fix: %s", e)
-        return False
-
-    # Run ruff format
-    try:
-        result = subprocess.run(  # noqa: S603
-            [ruff_cmd, "format", str(file_path)],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.returncode != 0:
-            logger.debug(
-                "ruff format exited with code %d: %s",
-                result.returncode,
-                result.stderr,
+            command = build_tool_command(
+                tool_label, category_name, file_path, tool_override, tools_dict
             )
-        else:
-            logger.debug("ruff format completed successfully")
-    except Exception as e:  # noqa: BLE001
-        logger.debug("Error running ruff format: %s", e)
-        return False
 
-    return True
+            if command is None:
+                logger.debug(
+                    "Tool %s not available or doesn't support category %s",
+                    tool_label,
+                    category_name,
+                )
+                continue
+
+            # Deduplicate: skip if we've already run this exact command
+            command_tuple = tuple(command)
+            if command_tuple in executed_commands:
+                logger.debug("Skipping duplicate command: %s", " ".join(command))
+                continue
+
+            # Execute command
+            logger.debug("Running %s for category %s", tool_label, category_name)
+            try:
+                result = subprocess.run(  # noqa: S603
+                    command,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if result.returncode == 0:
+                    logger.debug(
+                        "%s completed successfully for category %s",
+                        tool_label,
+                        category_name,
+                    )
+                    tool_ran = True
+                    executed_commands.add(command_tuple)
+                    break  # Success, move to next category
+                logger.debug(
+                    "%s exited with code %d: %s",
+                    tool_label,
+                    result.returncode,
+                    result.stderr or result.stdout,
+                )
+            except Exception as e:  # noqa: BLE001
+                logger.debug("Error running %s: %s", tool_label, e)
+
+        if not tool_ran:
+            logger.debug(
+                "No tool succeeded for category %s (tried: %s)",
+                category_name,
+                priority,
+            )
 
 
 def verify_executes(file_path: Path) -> bool:
@@ -179,20 +276,20 @@ def verify_executes(file_path: Path) -> bool:
 def post_stitch_processing(
     out_path: Path,
     *,
-    use_ruff: bool = True,
+    post_processing: PostProcessingConfigResolved | None = None,
 ) -> None:
-    """Post-process a stitched file with ruff, compilation checks, and verification.
+    """Post-process a stitched file with tools, compilation checks, and verification.
 
     This function:
-    1. Compiles the file before ruff processing
-    2. Runs ruff check --fix and ruff format if ruff is available and use_ruff is True
-    3. Compiles the file after ruff processing
-    4. Reverts changes if compilation fails after ruff but succeeded before
+    1. Compiles the file before post-processing
+    2. Runs configured post-processing tools (static checker, formatter, import sorter)
+    3. Compiles the file after post-processing
+    4. Reverts changes if compilation fails after processing but succeeded before
     5. Runs a basic execution sanity check
 
     Args:
         out_path: Path to the stitched Python file
-        use_ruff: Whether to attempt ruff processing (default: True)
+        post_processing: Post-processing configuration (if None, skips post-processing)
 
     Raises:
         RuntimeError: If compilation fails and cannot be reverted
@@ -200,12 +297,12 @@ def post_stitch_processing(
     logger = get_logger()
     logger.debug("Starting post-stitch processing for %s", out_path)
 
-    # Compile before ruff
+    # Compile before post-processing
     compiled_before = verify_compiles(out_path)
     if not compiled_before:
         logger.warning(
-            "Stitched file does not compile before ruff processing. "
-            "Skipping ruff and continuing."
+            "Stitched file does not compile before post-processing. "
+            "Skipping post-processing and continuing."
         )
         # Still try to verify it executes
         verify_executes(out_path)
@@ -214,34 +311,34 @@ def post_stitch_processing(
     # Save original content in case we need to revert
     original_content = out_path.read_text(encoding="utf-8")
 
-    # Run ruff if requested and available
-    ruff_ran = False
-    if use_ruff:
-        ruff_ran = run_ruff_if_available(out_path)
-        if ruff_ran:
-            logger.debug("Ruff processing completed")
-        else:
-            logger.debug("Ruff processing skipped (not available or failed)")
+    # Run post-processing if configured
+    processing_ran = False
+    if post_processing:
+        execute_post_processing(out_path, post_processing)
+        processing_ran = True
+        logger.debug("Post-processing completed")
+    else:
+        logger.debug("Post-processing skipped (no configuration)")
 
-    # Compile after ruff
+    # Compile after post-processing
     compiled_after = verify_compiles(out_path)
-    if not compiled_after and compiled_before and ruff_ran:
-        # Revert if it compiled before but not after ruff
+    if not compiled_after and compiled_before and processing_ran:
+        # Revert if it compiled before but not after processing
         logger.warning(
-            "File no longer compiles after ruff processing. Reverting changes."
+            "File no longer compiles after post-processing. Reverting changes."
         )
         out_path.write_text(original_content, encoding="utf-8")
         out_path.chmod(0o755)
         # Verify it compiles after revert
         if not verify_compiles(out_path):
             xmsg = (
-                "File does not compile after reverting ruff changes. "
+                "File does not compile after reverting post-processing changes. "
                 "This indicates a problem with the original stitched file."
             )
             raise RuntimeError(xmsg)
     elif not compiled_after:
         # It didn't compile after, but either it didn't compile before
-        # or ruff didn't run, so we can't revert
+        # or processing didn't run, so we can't revert
         xmsg = "Stitched file does not compile after post-processing"
         raise RuntimeError(xmsg)
 

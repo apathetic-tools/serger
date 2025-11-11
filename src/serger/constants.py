@@ -1,6 +1,9 @@
 # src/serger/constants.py
 """Central constants used across the project."""
 
+from typing import Any
+
+
 RUNTIME_MODES = {
     "standalone",  # single stitched file
     "installed",  # poetry-installed / pip-installed / importable
@@ -22,5 +25,45 @@ DEFAULT_HINT_CUTOFF: float = 0.75
 DEFAULT_STRICT_CONFIG: bool = True
 DEFAULT_OUT_DIR: str = "dist"
 DEFAULT_DRY_RUN: bool = False
-DEFAULT_USE_RUFF: bool = True
 DEFAULT_USE_PYPROJECT: bool = True
+
+# --- post-processing defaults ---
+DEFAULT_CATEGORY_ORDER: list[str] = ["static_checker", "formatter", "import_sorter"]
+
+# Type: dict[str, PostCategoryConfig] - matches PostCategoryConfig structure
+# All tool commands are defined in tools dict for consistency (supports custom labels)
+DEFAULT_CATEGORIES: dict[str, dict[str, Any]] = {
+    "static_checker": {
+        "enabled": True,
+        "priority": ["ruff"],
+        "tools": {
+            "ruff": {
+                "args": ["check", "--fix"],
+            },
+        },
+    },
+    "formatter": {
+        "enabled": True,
+        "priority": ["ruff", "black"],
+        "tools": {
+            "ruff": {
+                "args": ["format"],
+            },
+            "black": {
+                "args": ["format"],
+            },
+        },
+    },
+    "import_sorter": {
+        "enabled": True,
+        "priority": ["ruff", "isort"],
+        "tools": {
+            "ruff": {
+                "args": ["check", "--select", "I", "--fix"],
+            },
+            "isort": {
+                "args": ["--fix"],
+            },
+        },
+    },
+}

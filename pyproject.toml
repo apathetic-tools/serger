@@ -1,8 +1,8 @@
 # pyproject.toml
 
 [project]
-name = "serger"
-version = "0.0.1"
+name = "Serger"
+version = "0.1.0"
 description = "Stitch your module into a single file"
 authors = [
     {name = "Apathetic Tools"}
