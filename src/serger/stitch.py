@@ -16,11 +16,11 @@ import subprocess
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
 
+from .config_types import IncludeResolved
 from .logs import get_logger
 from .meta import PROGRAM_PACKAGE
-from .utils import is_running_under_pytest, load_toml
+from .utils import derive_module_name, is_running_under_pytest, load_toml
 from .verify_script import post_stitch_processing
 
 
@@ -146,7 +146,7 @@ def extract_commit(root_path: Path) -> str:
     return "unknown"
 
 
-def split_imports(
+def split_imports(  # noqa: C901, PLR0915
     text: str,
     package_name: str,
 ) -> tuple[list[str], str]:
@@ -154,6 +154,7 @@ def split_imports(
 
     Separates internal package imports from external imports, removing all
     imports from the function body (they'll be collected and deduplicated).
+    Recursively finds imports at all levels, including inside functions.
 
     Args:
         text: Python source code
@@ -175,29 +176,91 @@ def split_imports(
     external_imports: list[str] = []
     all_import_ranges: list[tuple[int, int]] = []
 
-    for node in tree.body:
-        if not isinstance(node, (ast.Import, ast.ImportFrom)):
-            continue
+    def find_parent(
+        node: ast.AST,
+        tree: ast.AST,
+        target_type: type[ast.AST] | tuple[type[ast.AST], ...],
+    ) -> ast.AST | None:
+        """Find if a node is inside a specific parent type by tracking parent nodes."""
+        # Build a mapping of child -> parent
+        parent_map: dict[ast.AST, ast.AST] = {}
 
-        start = node.lineno - 1
-        end = getattr(node, "end_lineno", node.lineno)
-        snippet = "".join(lines[start:end])
+        def build_parent_map(parent: ast.AST) -> None:
+            """Recursively build parent mapping."""
+            for child in ast.iter_child_nodes(parent):
+                parent_map[child] = parent
+                build_parent_map(child)
 
-        # --- Determine whether it's internal ---
-        is_internal = False
-        if isinstance(node, ast.ImportFrom):
-            mod = node.module or ""
-            if node.level > 0 or mod.startswith(package_name):
+        build_parent_map(tree)
+
+        # Walk up the parent chain to find target type
+        current: ast.AST | None = node
+        while current is not None:
+            if isinstance(current, target_type):
+                # Type checker can't infer the specific type from isinstance check
+                # We know it's the target_type due to the isinstance check
+                return current  # mypy: ignore[return-value]
+            current = parent_map.get(current)
+        return None
+
+    def collect_imports(node: ast.AST) -> None:
+        """Recursively collect all import nodes from the AST."""
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            start = node.lineno - 1
+            end = getattr(node, "end_lineno", node.lineno)
+            snippet = "".join(lines[start:end])
+
+            # --- Determine whether it's internal ---
+            is_internal = False
+            if isinstance(node, ast.ImportFrom):
+                mod = node.module or ""
+                if node.level > 0 or mod.startswith(package_name):
+                    is_internal = True
+            elif any(alias.name.startswith(package_name) for alias in node.names):
                 is_internal = True
-        elif any(alias.name.startswith(package_name) for alias in node.names):
-            is_internal = True
 
-        # Always skip import lines from body, internal or not
-        all_import_ranges.append((start, end))
+            # Check if import is inside if TYPE_CHECKING block
+            type_checking_block = find_parent(node, tree, ast.If)
+            if (
+                type_checking_block
+                and isinstance(type_checking_block, ast.If)
+                and isinstance(type_checking_block.test, ast.Name)
+                and type_checking_block.test.id == "TYPE_CHECKING"
+                and len(type_checking_block.body) == 1
+            ):
+                # If this is the only statement in the if block, remove entire block
+                type_start = type_checking_block.lineno - 1
+                type_end = getattr(
+                    type_checking_block, "end_lineno", type_checking_block.lineno
+                )
+                all_import_ranges.append((type_start, type_end))
+                return  # Skip this import, entire block will be removed
 
-        # Only keep non-internal imports for the top section
-        if not is_internal:
-            external_imports.append(snippet)
+            # Always remove internal imports (they break in stitched mode)
+            if is_internal:
+                all_import_ranges.append((start, end))
+            else:
+                # External: hoist module-level to top, keep function-local in place
+                is_module_level = not find_parent(
+                    node, tree, (ast.FunctionDef, ast.AsyncFunctionDef)
+                )
+                if is_module_level:
+                    # Module-level external import - hoist to top section
+                    import_text = snippet.strip()
+                    if import_text:
+                        if not import_text.endswith("\n"):
+                            import_text += "\n"
+                        external_imports.append(import_text)
+                        all_import_ranges.append((start, end))
+                # Function-local external imports stay in place (not added to ranges)
+
+        # Recursively visit child nodes
+        for child in ast.iter_child_nodes(node):
+            collect_imports(child)
+
+    # Collect all imports recursively
+    for node in tree.body:
+        collect_imports(node)
 
     # --- Remove *all* import lines from the body ---
     skip = {i for s, e in all_import_ranges for i in range(s, e)}
@@ -285,61 +348,72 @@ def detect_name_collisions(sources: dict[str, str]) -> None:
 
 
 def verify_all_modules_listed(
-    src_dir: Path, order_names: list[str], exclude_names: list[str]
+    file_paths: list[Path], order_paths: list[Path], exclude_paths: list[Path]
 ) -> None:
-    """Ensure all .py files in src_dir are listed in order or exclude names.
+    """Ensure all included files are listed in order or exclude paths.
 
     Args:
-        src_dir: Source directory containing modules
-        order_names: List of module names to stitch
-        exclude_names: List of module names to exclude
+        file_paths: List of all included file paths
+        order_paths: List of file paths in stitch order
+        exclude_paths: List of file paths to exclude
 
     Raises:
         RuntimeError: If unlisted files are found
     """
-    all_files = sorted(
-        p.name for p in src_dir.glob("*.py") if not p.name.startswith("__")
-    )
-
-    order_files = [f"{n}.py" for n in order_names]
-    exclude_files = [f"{n}.py" for n in exclude_names]
-    known = set(order_files + exclude_files)
-    unknown = [f for f in all_files if f not in known]
+    file_set = set(file_paths)
+    order_set = set(order_paths)
+    exclude_set = set(exclude_paths)
+    known = order_set | exclude_set
+    unknown = file_set - known
 
     if unknown:
-        unknown_list = ", ".join(unknown)
+        unknown_list = ", ".join(str(p) for p in sorted(unknown))
         msg = f"Unlisted source files detected: {unknown_list}"
         raise RuntimeError(msg)
 
 
-def compute_module_order(
-    src_dir: Path, order_names: list[str], package_name: str
-) -> list[str]:
+def compute_module_order(  # noqa: C901, PLR0912
+    file_paths: list[Path],
+    package_root: Path,
+    package_name: str,
+    file_to_include: dict[Path, IncludeResolved],
+) -> list[Path]:
     """Compute correct module order based on import dependencies.
 
     Uses topological sorting of internal imports to determine the correct
     order for stitching.
 
     Args:
-        src_dir: Source directory containing modules
-        order_names: Initial/desired module order
+        file_paths: List of file paths in initial order
+        package_root: Common root of all included files
         package_name: Root package name
+        file_to_include: Mapping of file path to its include (for dest access)
 
     Returns:
-        Topologically sorted list of module names
+        Topologically sorted list of file paths
 
     Raises:
         RuntimeError: If circular imports are detected
     """
-    deps: dict[str, set[str]] = {name: set() for name in order_names}
+    # Map file paths to derived module names
+    file_to_module: dict[Path, str] = {}
+    module_to_file: dict[str, Path] = {}
+    for file_path in file_paths:
+        include = file_to_include.get(file_path)
+        module_name = derive_module_name(file_path, package_root, include)
+        file_to_module[file_path] = module_name
+        module_to_file[module_name] = file_path
 
-    for name in order_names:
-        path = src_dir / f"{name}.py"
-        if not path.exists():
+    # Build dependency graph using derived module names
+    deps: dict[str, set[str]] = {file_to_module[fp]: set() for fp in file_paths}
+
+    for file_path in file_paths:
+        module_name = file_to_module[file_path]
+        if not file_path.exists():
             continue
 
         try:
-            tree = ast.parse(path.read_text(encoding="utf-8"))
+            tree = ast.parse(file_path.read_text(encoding="utf-8"))
         except SyntaxError:
             continue
 
@@ -347,43 +421,95 @@ def compute_module_order(
             if isinstance(node, ast.ImportFrom):
                 mod = node.module or ""
                 if mod.startswith(package_name):
-                    dep = mod.split(".")[-1]
-                    if dep in deps and dep != name:
-                        deps[name].add(dep)
+                    # Handle nested imports: package.core.base -> core.base
+                    # Remove package prefix and check if it matches any module
+                    mod_suffix = (
+                        mod[len(package_name) + 1 :]
+                        if mod.startswith(package_name + ".")
+                        else mod[len(package_name) :]
+                        if mod == package_name
+                        else ""
+                    )
+                    if mod_suffix:
+                        # Check if this matches any derived module name
+                        for dep_module in deps:
+                            matches = dep_module == mod_suffix or dep_module.startswith(
+                                mod_suffix + "."
+                            )
+                            if matches and dep_module != module_name:
+                                deps[module_name].add(dep_module)
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    mod = alias.name
+                    if mod.startswith(package_name):
+                        # Handle nested imports
+                        mod_suffix = (
+                            mod[len(package_name) + 1 :]
+                            if mod.startswith(package_name + ".")
+                            else mod[len(package_name) :]
+                            if mod == package_name
+                            else ""
+                        )
+                        if mod_suffix:
+                            # Check if this matches any derived module name
+                            for dep_module in deps:
+                                matches = (
+                                    dep_module == mod_suffix
+                                    or dep_module.startswith(mod_suffix + ".")
+                                )
+                                if matches and dep_module != module_name:
+                                    deps[module_name].add(dep_module)
 
     # detect circular imports first
     try:
         sorter = graphlib.TopologicalSorter(deps)
-        topo = list(sorter.static_order())
+        topo_modules = list(sorter.static_order())
     except graphlib.CycleError as e:
         msg = f"Circular dependency detected: {e.args[1] if e.args else 'unknown'}"
         raise RuntimeError(msg) from e
 
-    return topo
+    # Convert back to file paths
+    topo_paths = [module_to_file[mod] for mod in topo_modules if mod in module_to_file]
+    return topo_paths
 
 
 def suggest_order_mismatch(
-    order_names: list[str], package_name: str, src_dir: Path
+    order_paths: list[Path],
+    package_root: Path,
+    package_name: str,
+    file_to_include: dict[Path, IncludeResolved],
 ) -> None:
     """Warn if module order violates dependencies.
 
     Args:
-        order_names: List of module names in intended order
+        order_paths: List of file paths in intended order
+        package_root: Common root of all included files
         package_name: Root package name
-        src_dir: Source directory containing modules
+        file_to_include: Mapping of file path to its include (for dest access)
     """
     logger = get_logger()
-    topo = compute_module_order(src_dir, order_names, package_name)
+    topo_paths = compute_module_order(
+        order_paths, package_root, package_name, file_to_include
+    )
 
-    # compare order_names to topological sort
+    # compare order_paths to topological sort
     mismatched = [
-        n for n in order_names if n in topo and topo.index(n) != order_names.index(n)
+        p
+        for p in order_paths
+        if p in topo_paths and topo_paths.index(p) != order_paths.index(p)
     ]
     if mismatched:
         logger.warning("Possible module misordering detected:")
-        for n in mismatched:
-            logger.warning("  - %s appears before one of its dependencies", n)
-        logger.warning("Suggested order: %s", ", ".join(topo))
+
+        for p in mismatched:
+            include = file_to_include.get(p)
+            module_name = derive_module_name(p, package_root, include)
+            logger.warning("  - %s appears before one of its dependencies", module_name)
+        topo_modules = [
+            derive_module_name(p, package_root, file_to_include.get(p))
+            for p in topo_paths
+        ]
+        logger.warning("Suggested order: %s", ", ".join(topo_modules))
 
 
 def verify_no_broken_imports(final_text: str, package_name: str) -> None:
@@ -396,14 +522,34 @@ def verify_no_broken_imports(final_text: str, package_name: str) -> None:
     Raises:
         RuntimeError: If unresolved imports remain
     """
-    pattern = re.compile(rf"\bimport {package_name}\.(\w+)")
-    broken = {
-        m.group(1)
-        for m in pattern.finditer(final_text)
-        if f"# === {m.group(1)}.py ===" not in final_text
-    }
+    # Pattern for nested imports: package.core.base or package.core
+    # Matches: import package.module or import package.sub.module
+    import_pattern = re.compile(rf"\bimport {re.escape(package_name)}\.([\w.]+)")
+    # Pattern for from imports: from package.core import base or
+    # from package.core.base import something
+    from_pattern = re.compile(rf"\bfrom {re.escape(package_name)}\.([\w.]+)\s+import")
+
+    broken: set[str] = set()
+
+    # Check import statements
+    for m in import_pattern.finditer(final_text):
+        mod_suffix = m.group(1)
+        # Check if module is in the stitched output
+        # Header format: # === module_name === (may contain dots for nested modules)
+        header_pattern = re.compile(rf"# === {re.escape(mod_suffix)} ===")
+        if not header_pattern.search(final_text):
+            broken.add(f"{package_name}.{mod_suffix}")
+
+    # Check from ... import statements
+    for m in from_pattern.finditer(final_text):
+        mod_suffix = m.group(1)
+        # Check if module is in the stitched output
+        header_pattern = re.compile(rf"# === {re.escape(mod_suffix)} ===")
+        if not header_pattern.search(final_text):
+            broken.add(f"{package_name}.{mod_suffix}")
+
     if broken:
-        broken_list = ", ".join(f"{package_name}.{mod}" for mod in sorted(broken))
+        broken_list = ", ".join(sorted(broken))
         msg = f"Unresolved internal imports: {broken_list}"
         raise RuntimeError(msg)
 
@@ -445,33 +591,42 @@ def force_mtime_advance(path: Path, seconds: float = 1.0, max_tries: int = 50) -
 
 
 def _collect_modules(
-    src_dir: Path, order_names: list[str], package_name: str
-) -> tuple[dict[str, str], OrderedDict[str, None], list[str]]:
-    """Collect and process module sources.
+    file_paths: list[Path],
+    package_root: Path,
+    package_name: str,
+    file_to_include: dict[Path, IncludeResolved],
+) -> tuple[dict[str, str], OrderedDict[str, None], list[str], list[str]]:
+    """Collect and process module sources from file paths.
 
     Args:
-        src_dir: Directory containing Python modules
-        order_names: List of module names in stitch order
+        file_paths: List of file paths to stitch (in order)
+        package_root: Common root of all included files
         package_name: Root package name
+        file_to_include: Mapping of file path to its include (for dest access)
 
     Returns:
-        Tuple of (module_sources, all_imports, parts)
+        Tuple of (module_sources, all_imports, parts, derived_module_names)
     """
     logger = get_logger()
     all_imports: OrderedDict[str, None] = OrderedDict()
     module_sources: dict[str, str] = {}
     parts: list[str] = []
+    derived_module_names: list[str] = []
 
     # Reserve import for shim system
     all_imports.setdefault("import sys\n", None)
 
-    for module_name in order_names:
-        module_path = src_dir / f"{module_name}.py"
-        if not module_path.exists():
-            logger.warning("Skipping missing module: %s.py", module_name)
+    for file_path in file_paths:
+        if not file_path.exists():
+            logger.warning("Skipping missing file: %s", file_path)
             continue
 
-        module_text = module_path.read_text(encoding="utf-8")
+        # Derive module name from file path
+        include = file_to_include.get(file_path)
+        module_name = derive_module_name(file_path, package_root, include)
+        derived_module_names.append(module_name)
+
+        module_text = file_path.read_text(encoding="utf-8")
         module_text = strip_redundant_blocks(module_text)
         module_sources[f"{module_name}.py"] = module_text
 
@@ -480,13 +635,13 @@ def _collect_modules(
         for imp in external_imports:
             all_imports.setdefault(imp, None)
 
-        # Create module section
-        header = f"# === {module_name}.py ==="
+        # Create module section - use derived module name in header
+        header = f"# === {module_name} ==="
         parts.append(f"\n{header}\n{module_body.strip()}\n\n")
 
-        logger.debug("Processed module: %s", module_name)
+        logger.debug("Processed module: %s (from %s)", module_name, file_path)
 
-    return module_sources, all_imports, parts
+    return module_sources, all_imports, parts, derived_module_names
 
 
 def _format_header_line(
@@ -632,10 +787,12 @@ def _build_final_script(  # noqa: PLR0913
     )
 
 
-def stitch_modules(  # noqa: PLR0915
+def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     *,
     config: dict[str, object],
-    src_dir: Path,
+    file_paths: list[Path],
+    package_root: Path,
+    file_to_include: dict[Path, IncludeResolved],
     out_path: Path,
     license_header: str = "",
     version: str = "unknown",
@@ -661,8 +818,10 @@ def stitch_modules(  # noqa: PLR0915
 
     Args:
         config: BuildConfigResolved with stitching fields (package, order).
-                Must include 'package' and 'include' fields for stitching.
-        src_dir: Directory containing Python modules to stitch
+                Must include 'package' and 'order' fields for stitching.
+        file_paths: List of file paths to stitch (in order)
+        package_root: Common root of all included files
+        file_to_include: Mapping of file path to its include (for dest access)
         out_path: Path where final stitched script should be written
         license_header: Optional license header text for generated script
         version: Version string to embed in script metadata
@@ -675,26 +834,6 @@ def stitch_modules(  # noqa: PLR0915
     Raises:
         RuntimeError: If any validation or stitching step fails
         AssertionError: If mtime advancing fails
-
-    Example:
-        >>> from pathlib import Path
-        >>> from serger.config_types import BuildConfigResolved
-        >>> config = {
-        ...     "package": "mymodule",
-        ...     "order": ["base", "utils", "main"],
-        ...     "include": [
-        ...         {"path": "base.py", "root": Path("src")},
-        ...         {"path": "utils.py", "root": Path("src")},
-        ...         {"path": "main.py", "root": Path("src")},
-        ...     ],
-        ...     "exclude": [],
-        ... }
-        >>> stitch_modules(
-        ...     config=config,
-        ...     src_dir=Path("src"),
-        ...     out_path=Path("dist/mymodule.py"),
-        ...     version="1.0.0",
-        ... )
     """
     logger = get_logger()
 
@@ -704,46 +843,60 @@ def stitch_modules(  # noqa: PLR0915
         use_ruff = not is_running_under_pytest()
 
     package_name_raw = config.get("package", "unknown")
-    order_names_raw = config.get("order", [])
-    exclude_names_raw = config.get("exclude_names", [])
+    order_paths_raw = config.get("order", [])
+    exclude_paths_raw = config.get("exclude_names", [])
 
     # Type guards for mypy/pyright
     if not isinstance(package_name_raw, str):
         msg = "Config 'package' must be a string"
         raise TypeError(msg)
-    if not isinstance(order_names_raw, list):
+    if not isinstance(order_paths_raw, list):
         msg = "Config 'order' must be a list"
         raise TypeError(msg)
-    if not isinstance(exclude_names_raw, list):
+    if not isinstance(exclude_paths_raw, list):
         msg = "Config 'exclude_names' must be a list"
         raise TypeError(msg)
 
     # Cast to known types after type guards
     package_name = package_name_raw
-    order_names = cast("list[str]", order_names_raw)
-    exclude_names = cast("list[str]", exclude_names_raw)
+    # order and exclude_names are already resolved to Path objects in run_build()
+    # Convert to Path objects explicitly
+
+    order_paths: list[Path] = []
+    for item in order_paths_raw:  # pyright: ignore[reportUnknownVariableType]
+        if isinstance(item, str):
+            order_paths.append(Path(item))
+        elif isinstance(item, Path):
+            order_paths.append(item)
+
+    exclude_paths: list[Path] = []
+    for item in exclude_paths_raw:  # pyright: ignore[reportUnknownVariableType]
+        if isinstance(item, str):
+            exclude_paths.append(Path(item))
+        elif isinstance(item, Path):
+            exclude_paths.append(item)
 
     if not package_name or package_name == "unknown":
         msg = "Config must specify 'package' for stitching"
         raise RuntimeError(msg)
 
-    if not order_names:
-        msg = "Config must specify 'order' (module names) for stitching"
+    if not order_paths:
+        msg = "Config must specify 'order' (file paths) for stitching"
         raise RuntimeError(msg)
 
     logger.info("Starting stitch process for package: %s", package_name)
 
     # --- Validation Phase ---
     logger.debug("Validating module listing...")
-    verify_all_modules_listed(src_dir, order_names, exclude_names)
+    verify_all_modules_listed(file_paths, order_paths, exclude_paths)
 
     logger.debug("Checking module order consistency...")
-    suggest_order_mismatch(order_names, package_name, src_dir)
+    suggest_order_mismatch(order_paths, package_root, package_name, file_to_include)
 
     # --- Collection Phase ---
     logger.debug("Collecting module sources...")
-    module_sources, all_imports, parts = _collect_modules(
-        src_dir, order_names, package_name
+    module_sources, all_imports, parts, derived_module_names = _collect_modules(
+        order_paths, package_root, package_name, file_to_include
     )
 
     # --- Collision Detection ---
@@ -768,7 +921,7 @@ def stitch_modules(  # noqa: PLR0915
         package_name=package_name,
         all_imports=all_imports,
         parts=parts,
-        order_names=order_names,
+        order_names=derived_module_names,
         license_header=license_header,
         version=version,
         commit=commit,

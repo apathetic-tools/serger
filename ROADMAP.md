@@ -1,45 +1,34 @@
 <!-- Roadmap.md -->
 # 🧭 Roadmap
 
-## Stitching Refactoring (Current Focus)
+**Important Clarification**: Serger is **purely a Python module stitcher** - it combines multiple source files into a single executable script. File copying/building is pocket-build's responsibility, not serger's. We brought in a lot of pocket-build code because some of the functionality overlapped in how it accomplished things. Some remnanent can be removed, while some can be reused.
 
-**Important Clarification**: Serger is **purely a Python module stitcher** - it combines multiple source files into a single executable script. File copying/building is pocket-build's responsibility, not serger's.
 
-### Phases
-
-**Phase 4-7: CLI integration and cleanup** ⏳ PENDING
-- Remove copy-based `build.py` (belongs in pocket-build)
-
-### Key Points
-
+## Key Points
 - **One responsibility**: Stitching only, no file copying
 - **Config-driven**: Eliminate hardcoded module order
 - **Self-hosting**: Serger builds itself using its own config
-- **Backward compatible**: Existing utilities unchanged
 - **Well-tested**: Unit, integration, and E2E coverage
 
-### Future (Post-Phase 7)
+## Future considerations and ideas ( post-Refactoring)
+Some of these we just want to consider, and may not want to implement.
 
-- how does pyproject.toml factor into it?
+- Remove any leftover unused copy-based `build.py` and related tests
 - Auto-discovery of module order via topological sort
 - Module-level configuration (metadata, headers)
 - Multi-package stitching support
 - Incremental stitching with dependency caching
-
----
-
-# Once Stitch refactor into pocket-build CLI is complete:
-
-## TODO
-
-- have it's own configuration file
-- don't repeat files
 - allow you to specify a file for order, then include the rest of the dir
 - builds without a version should have timestamp
+- isort support
+- black support
+- custom formatter support
+- custom checker support
+- custom import formatter support
+- way to specify an import as being unmovable via comment
+- how can we keep internal imports in stich mode and avoid conflicts?
+- consolidate AI advice documents
 
----
-
-# Once the TODO are done:
 
 ## 🧰 CLI Parameters
 Planned command-line flags for future releases:

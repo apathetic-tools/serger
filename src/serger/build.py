@@ -2,10 +2,9 @@
 
 
 import contextlib
-import re
-import shutil
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import cast
 
 from .config_types import BuildConfigResolved, IncludeResolved, PathResolved
 from .constants import DEFAULT_DRY_RUN
@@ -15,45 +14,218 @@ from .utils import (
     has_glob_chars,
     is_excluded_raw,
 )
-from .utils_types import cast_hint, make_pathresolved
+from .utils_types import cast_hint
+
+
+# --------------------------------------------------------------------------- #
+# File collection functions (Phase 1)
+# --------------------------------------------------------------------------- #
+
+
+def expand_include_pattern(include: IncludeResolved) -> list[Path]:
+    """Expand a single include pattern to a list of matching Python files.
+
+    Args:
+        include: Resolved include pattern with root and path
+
+    Returns:
+        List of resolved absolute paths to matching .py files
+    """
+    logger = get_logger()
+    src_pattern = str(include["path"])
+    root = Path(include["root"]).resolve()
+    matches: list[Path] = []
+
+    if src_pattern.endswith("/") and not has_glob_chars(src_pattern):
+        logger.trace(
+            f"[MATCH] Treating as trailing-slash directory include → {src_pattern!r}",
+        )
+        root_dir = root / src_pattern.rstrip("/")
+        if root_dir.exists():
+            all_files = [p for p in root_dir.rglob("*") if p.is_file()]
+            matches = [p for p in all_files if p.suffix == ".py"]
+        else:
+            logger.trace(f"[MATCH] root_dir does not exist: {root_dir}")
+
+    elif src_pattern.endswith("/**"):
+        logger.trace(f"[MATCH] Treating as recursive include → {src_pattern!r}")
+        root_dir = root / src_pattern.removesuffix("/**")
+        if root_dir.exists():
+            all_files = [p for p in root_dir.rglob("*") if p.is_file()]
+            matches = [p for p in all_files if p.suffix == ".py"]
+        else:
+            logger.trace(f"[MATCH] root_dir does not exist: {root_dir}")
+
+    elif has_glob_chars(src_pattern):
+        logger.trace(f"[MATCH] Using glob() for pattern {src_pattern!r}")
+        # Make pattern relative to root if it's absolute
+        pattern_path = Path(src_pattern)
+        if pattern_path.is_absolute():
+            try:
+                # Try to make it relative to root
+                src_pattern = str(pattern_path.relative_to(root))
+            except ValueError:
+                # If pattern is not under root, use just the pattern name
+                src_pattern = pattern_path.name
+        all_matches = list(root.glob(src_pattern))
+        matches = [p for p in all_matches if p.is_file() and p.suffix == ".py"]
+        logger.trace(f"[MATCH] glob found {len(matches)} .py file(s)")
+
+    else:
+        logger.trace(f"[MATCH] Treating as literal include {root / src_pattern}")
+        candidate = root / src_pattern
+        if candidate.is_file() and candidate.suffix == ".py":
+            matches = [candidate]
+
+    # Resolve all paths to absolute
+    resolved_matches = [p.resolve() for p in matches]
+
+    for i, m in enumerate(resolved_matches):
+        logger.trace(f"[MATCH]   {i + 1:02d}. {m}")
+
+    return resolved_matches
+
+
+def collect_included_files(
+    includes: list[IncludeResolved],
+    excludes: list[PathResolved],
+) -> tuple[list[Path], dict[Path, IncludeResolved]]:
+    """Expand all include patterns and apply excludes.
+
+    Args:
+        includes: List of resolved include patterns
+        excludes: List of resolved exclude patterns
+
+    Returns:
+        Tuple of (filtered file paths, mapping of file to its include)
+    """
+    logger = get_logger()
+    all_files: set[Path] = set()
+    # Track which include produced each file (for dest parameter and exclude checking)
+    file_to_include: dict[Path, IncludeResolved] = {}
+
+    # Expand all includes
+    for inc in includes:
+        matches = expand_include_pattern(inc)
+        for match in matches:
+            all_files.add(match)
+            file_to_include[match] = inc  # Store the include for dest access
+
+    logger.trace(
+        f"[COLLECT] Found {len(all_files)} file(s) from {len(includes)} include(s)",
+    )
+
+    # Apply excludes - each exclude has its own root!
+    filtered: list[Path] = []
+    for file_path in all_files:
+        # Check file against all excludes, using each exclude's root
+        is_excluded = False
+        for exc in excludes:
+            exclude_root = Path(exc["root"]).resolve()
+            exclude_patterns = [str(exc["path"])]
+            if is_excluded_raw(file_path, exclude_patterns, exclude_root):
+                logger.trace(f"[COLLECT] Excluded {file_path} by pattern {exc['path']}")
+                is_excluded = True
+                break
+        if not is_excluded:
+            filtered.append(file_path)
+
+    logger.trace(f"[COLLECT] After excludes: {len(filtered)} file(s)")
+
+    return sorted(filtered), file_to_include
+
+
+def resolve_order_paths(
+    order: list[str],
+    included_files: list[Path],
+    config_root: Path,
+) -> list[Path]:
+    """Resolve order entries (paths) to actual file paths.
+
+    Args:
+        order: List of order entries (paths, relative or absolute)
+        included_files: List of included file paths to validate against
+        config_root: Root directory for resolving relative paths
+
+    Returns:
+        Ordered list of resolved file paths
+
+    Raises:
+        ValueError: If an order entry resolves to a path not in included files
+    """
+    logger = get_logger()
+    included_set = set(included_files)
+    resolved: list[Path] = []
+
+    for entry in order:
+        # Resolve path (absolute or relative to config_root)
+        if Path(entry).is_absolute():
+            path = Path(entry).resolve()
+        else:
+            path = (config_root / entry).resolve()
+
+        if path not in included_set:
+            xmsg = (
+                f"Order entry {entry!r} resolves to {path}, "
+                f"which is not in included files"
+            )
+            raise ValueError(xmsg)
+
+        resolved.append(path)
+        logger.trace(f"[ORDER] {entry!r} → {path}")
+
+    return resolved
+
+
+def find_package_root(file_paths: list[Path]) -> Path:
+    """Compute common root (lowest common ancestor) of all file paths.
+
+    Args:
+        file_paths: List of file paths
+
+    Returns:
+        Common root path (lowest common ancestor)
+
+    Raises:
+        ValueError: If no common root can be found or list is empty
+    """
+    if not file_paths:
+        xmsg = "Cannot find package root: no file paths provided"
+        raise ValueError(xmsg)
+
+    # Resolve all paths to absolute
+    resolved_paths = [p.resolve() for p in file_paths]
+
+    # Find common prefix by comparing path parts
+    first_parts = list(resolved_paths[0].parts)
+    common_parts: list[str] = []
+
+    # For single file, exclude the filename itself (return parent directory)
+    if len(resolved_paths) == 1:
+        # Remove the last part (filename) for single file case
+        common_parts = first_parts[:-1] if len(first_parts) > 1 else first_parts
+    else:
+        # For multiple files, find common prefix
+        for i, part in enumerate(first_parts):
+            # Check if all other paths have the same part at this position
+            if all(
+                i < len(list(p.parts)) and list(p.parts)[i] == part
+                for p in resolved_paths[1:]
+            ):
+                common_parts.append(part)
+            else:
+                break
+
+    if not common_parts:
+        # No common prefix - use filesystem root
+        return Path(resolved_paths[0].anchor)
+
+    return Path(*common_parts)
 
 
 # --------------------------------------------------------------------------- #
 # internal helper
 # --------------------------------------------------------------------------- #
-
-
-def _resolve_src_dir(
-    includes: list[IncludeResolved],
-) -> tuple[Path, Path]:
-    """Resolve source directory and root path from include patterns.
-
-    Args:
-        includes: List of include patterns
-
-    Returns:
-        Tuple of (src_dir, root_path)
-
-    Raises:
-        ValueError: If no includes provided
-    """
-    if not includes:
-        xmsg = "Stitch build requires at least one include pattern"
-        raise ValueError(xmsg)
-
-    # Get source directory from first include
-    src_entry = includes[0]
-    root_path = Path(src_entry["root"]).resolve()
-    include_pattern = str(src_entry["path"])
-
-    # Strip glob pattern to get directory (e.g., "src/serger/*.py" → "src/serger")
-    if has_glob_chars(include_pattern):
-        src_dir = root_path / str(_non_glob_prefix(include_pattern))
-    else:
-        # If no glob, assume it's a directory path
-        src_dir = root_path / include_pattern
-
-    return src_dir.resolve(), root_path
 
 
 def _extract_build_metadata(
@@ -81,381 +253,7 @@ def _extract_build_metadata(
     return version, commit, build_date
 
 
-def _compute_dest(  # noqa: PLR0911
-    src: Path,
-    root: Path,
-    *,
-    out_dir: Path,
-    src_pattern: str,
-    dest_name: Path | str | None,
-) -> Path:
-    """Compute destination path under out_dir for a matched source file/dir.
-
-    Rules:
-      - If dest_name is set → place inside out_dir/dest_name
-      - Else if pattern has globs → strip non-glob prefix before computing relative path
-      - Else → use src path relative to root
-      - If root is not an ancestor of src → fall back to filename only
-    """
-    logger = get_logger()
-    logger.trace(
-        f"[DEST] src={src}, root={root}, out_dir={out_dir},"
-        f" pattern={src_pattern!r}, dest_name={dest_name}",
-    )
-
-    if dest_name:
-        result = out_dir / dest_name
-        logger.trace(f"[DEST] dest_name override → {result}")
-        return result
-
-    # Treat trailing slashes as if they implied recursive includes
-    if src_pattern.endswith("/"):
-        src_pattern = src_pattern.rstrip("/")
-        # pretend it's a glob-like pattern for relative computation
-        try:
-            rel = src.relative_to(root / src_pattern)
-            result = out_dir / rel
-            logger.trace(f"[DEST] trailing-slash include → rel={rel}, result={result}")
-
-        except ValueError:
-            logger.trace("[DEST] trailing-slash fallback (ValueError)")
-            return out_dir / src.name
-
-        else:
-            return result
-
-    try:
-        if has_glob_chars(src_pattern):
-            # For glob patterns, strip non-glob prefix
-            prefix = _non_glob_prefix(src_pattern)
-            rel = src.relative_to(root / prefix)
-            result = out_dir / rel
-            logger.trace(
-                f"[DEST] glob include → prefix={prefix}, rel={rel}, result={result}",
-            )
-            return result
-        # For literal includes (like "src" or "file.txt"), preserve full structure
-        rel = src.relative_to(root)
-        result = out_dir / rel
-        logger.trace(f"[DEST] literal include → rel={rel}, result={result}")
-
-    except ValueError:
-        # Fallback when src isn't under root
-        logger.trace(f"[DEST] fallback (src not under root) → using name={src.name}")
-        return out_dir / src.name
-
-    else:
-        return result
-
-
-def _non_glob_prefix(pattern: str) -> Path:
-    """Return the non-glob leading portion of a pattern, as a Path."""
-    parts: list[str] = []
-    for part in Path(pattern).parts:
-        if re.search(r"[*?\[\]]", part):
-            break
-        parts.append(part)
-    return Path(*parts)
-
-
-def copy_file(
-    src: Path | str,
-    dest: Path | str,
-    *,
-    src_root: Path | str,
-    dry_run: bool,
-) -> None:
-    logger = get_logger()
-    src = Path(src)
-    dest = Path(dest)
-    src_root = Path(src_root)
-
-    logger.trace(f"[copy_file] {src} → {dest}")
-
-    try:
-        rel_src = src.relative_to(src_root)
-    except ValueError:
-        rel_src = src
-    try:
-        rel_dest = dest.relative_to(src_root)
-    except ValueError:
-        rel_dest = dest
-    logger.debug("📄 %s → %s", rel_src, rel_dest)
-
-    if not dry_run:
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dest)
-
-
-def copy_directory(
-    src: Path | str,
-    dest: Path | str,
-    exclude_patterns: list[str],
-    *,
-    src_root: Path | str,
-    dry_run: bool,
-) -> None:
-    """Recursively copy directory contents, skipping excluded files/dirs.
-
-    Both src and dest can be Path or str. Exclusion matching is done
-    relative to 'src_root', which should normally be the original include root.
-
-    Exclude patterns ending with '/' are treated as directory-wide excludes.
-    """
-    logger = get_logger()
-    src = Path(src)
-    src_root = Path(src_root).resolve()
-    src = (src_root / src).resolve() if not src.is_absolute() else src.resolve()
-    dest = Path(dest)  # relative, we resolve later
-
-    logger.trace(f"[copy_directory] Copying {src} to {dest}")
-
-    # Normalize excludes: 'name/' → also match '**/name' and '**/name/**'
-    normalized_excludes: list[str] = []
-    for p in exclude_patterns:
-        normalized_excludes.append(p)
-        if p.endswith("/"):
-            core = p.rstrip("/")
-            normalized_excludes.append(core)  # match the dir itself
-            normalized_excludes.append(f"**/{core}")  # dir at any depth
-            normalized_excludes.append(f"**/{core}/**")  # everything under it
-
-    # Ensure destination exists even if src is empty
-    if not dry_run:
-        dest.mkdir(parents=True, exist_ok=True)
-
-    for item in src.iterdir():
-        # Skip excluded directories and their contents early
-        if is_excluded_raw(item, normalized_excludes, src_root):
-            logger.debug("🚫  Skipped: %s", item.relative_to(src_root))
-            continue
-
-        target = dest / item.relative_to(src)
-        if item.is_dir():
-            logger.trace(f"📁 {item.relative_to(src_root)}")
-            if not dry_run:
-                target.mkdir(parents=True, exist_ok=True)
-            copy_directory(
-                item,
-                target,
-                normalized_excludes,
-                src_root=src_root,
-                dry_run=dry_run,
-            )
-        else:
-            logger.debug("📄 %s", item.relative_to(src_root))
-            if not dry_run:
-                # TODO: should this call copy_file? # noqa: TD002, TD003, FIX002
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(item, target)
-
-    logger.debug("📁 Copied directory: %s", src.relative_to(src_root))
-
-
-def copy_item(
-    src_entry: PathResolved,
-    dest_entry: PathResolved,
-    exclude_patterns: list[PathResolved],
-    *,
-    dry_run: bool,
-) -> None:
-    """Copy one file or directory entry, using built-in root info."""
-    logger = get_logger()
-    src = Path(src_entry["path"])
-    src_root = Path(src_entry["root"]).resolve()
-    src = (src_root / src).resolve() if not src.is_absolute() else src.resolve()
-    dest = Path(dest_entry["path"])
-    dest_root = (dest_entry["root"]).resolve()
-    dest = (dest_root / dest).resolve() if not dest.is_absolute() else dest.resolve()
-    origin = src_entry.get("origin", "?")
-
-    # Combine output directory with the precomputed dest (if relative)
-    dest = dest if dest.is_absolute() else (dest_root / dest)
-
-    exclude_patterns_raw = [str(e["path"]) for e in exclude_patterns]
-    pattern_str = str(src_entry.get("pattern", src_entry["path"]))
-
-    logger.trace(
-        f"[COPY_ITEM] {origin}: {src} → {dest} "
-        f"(pattern={pattern_str!r}, excludes={len(exclude_patterns_raw)})",
-    )
-
-    # Exclusion check relative to its root
-    if is_excluded_raw(src, exclude_patterns_raw, src_root):
-        logger.debug("🚫  Skipped (excluded): %s", src.relative_to(src_root))
-        return
-
-    # Detect shallow single-star pattern
-    is_shallow_star = (
-        bool(re.search(r"(?<!\*)\*(?!\*)", pattern_str)) and "**" not in pattern_str
-    )
-
-    # Shallow match: pattern like "src/*"
-    #  — copy only the directory itself, not its contents
-    if src.is_dir() and is_shallow_star:
-        logger.trace(
-            f"📁 (shallow from pattern={pattern_str!r}) {src.relative_to(src_root)}",
-        )
-        if not dry_run:
-            dest.mkdir(parents=True, exist_ok=True)
-        return
-
-    # Normal behavior
-    if src.is_dir():
-        copy_directory(
-            src,
-            dest,
-            exclude_patterns_raw,
-            src_root=src_root,
-            dry_run=dry_run,
-        )
-    else:
-        copy_file(
-            src,
-            dest,
-            src_root=src_root,
-            dry_run=dry_run,
-        )
-
-
-def _build_prepare_output_dir(  # pyright: ignore[reportUnusedFunction]
-    out_dir: Path, *, dry_run: bool
-) -> None:
-    """Create or clean the output directory as needed.
-
-    NOTE: This function is intentionally unused (kept for Phase 5 cleanup).
-    File copying functionality is handled by pocket-build, not serger.
-    """
-    logger = get_logger()
-    if out_dir.exists():
-        if dry_run:
-            logger.info("🧪 (dry-run) Would remove existing directory: %s", out_dir)
-        else:
-            shutil.rmtree(out_dir)
-    if dry_run:
-        logger.info("🧪 (dry-run) Would create: %s", out_dir)
-    else:
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-
-def _build_process_includes(  # pyright: ignore[reportUnusedFunction]
-    includes: list[IncludeResolved],
-    excludes: list[PathResolved],
-    out_entry: PathResolved,
-    *,
-    out_dir: Path,
-    dry_run: bool,
-) -> None:
-    """Process include patterns and copy matching files.
-
-    NOTE: This function is intentionally unused (kept for Phase 5 cleanup).
-    File copying functionality is handled by pocket-build, not serger.
-    """
-    logger = get_logger()
-    for inc in includes:
-        src_pattern = str(inc["path"])
-        root = Path(inc["root"]).resolve()
-
-        logger.trace(
-            f"[INCLUDE] start pattern={src_pattern!r},"
-            f" root={root}, origin={inc['origin']}",
-        )
-
-        if not src_pattern.strip():
-            logger.debug("⚠️ Skipping empty include pattern")
-            continue
-
-        matches = _build_expand_include_pattern(src_pattern, root)
-        if not matches:
-            logger.debug("⚠️ No matches for %s", src_pattern)
-            continue
-
-        _build_copy_matches(
-            matches,
-            inc,
-            excludes,
-            out_entry,
-            out_dir=out_dir,
-            dry_run=dry_run,
-        )
-
-
-def _build_expand_include_pattern(src_pattern: str, root: Path) -> list[Path]:
-    """Return all matching files for a given include pattern."""
-    logger = get_logger()
-    matches: list[Path] = []
-
-    if src_pattern.endswith("/") and not has_glob_chars(src_pattern):
-        logger.trace(
-            f"[MATCH] Treating as trailing-slash directory include → {src_pattern!r}",
-        )
-        root_dir = root / src_pattern.rstrip("/")
-        if root_dir.exists():
-            matches = [p for p in root_dir.rglob("*") if p.is_file()]
-        else:
-            logger.trace(f"[MATCH] root_dir does not exist: {root_dir}")
-
-    elif src_pattern.endswith("/**"):
-        logger.trace(f"[MATCH] Treating as recursive include → {src_pattern!r}")
-        root_dir = root / src_pattern.removesuffix("/**")
-        if root_dir.exists():
-            matches = [p for p in root_dir.rglob("*") if p.is_file()]
-        else:
-            logger.trace(f"[MATCH] root_dir does not exist: {root_dir}")
-
-    elif has_glob_chars(src_pattern):
-        logger.trace(f"[MATCH] Using glob() for pattern {src_pattern!r}")
-        matches = list(root.glob(src_pattern))
-        logger.trace(f"[MATCH] glob found {len(matches)} match(es)")
-
-    else:
-        logger.trace(f"[MATCH] Treating as literal include {root / src_pattern}")
-        matches = [root / src_pattern]
-
-    for i, m in enumerate(matches):
-        logger.trace(f"[MATCH]   {i + 1:02d}. {m}")
-
-    return matches
-
-
-def _build_copy_matches(
-    matches: list[Path],
-    inc: IncludeResolved,
-    excludes: list[PathResolved],
-    out_entry: PathResolved,
-    *,
-    out_dir: Path,
-    dry_run: bool,
-) -> None:
-    logger = get_logger()
-    for src in matches:
-        if not src.exists():
-            logger.debug("⚠️ Missing: %s", src)
-            continue
-
-        logger.trace(f"[COPY] Preparing to copy {src}")
-
-        dest_rel = _compute_dest(
-            src,
-            Path(inc["root"]).resolve(),
-            out_dir=out_dir,
-            src_pattern=str(inc["path"]),
-            dest_name=inc.get("dest"),
-        )
-        logger.trace(f"[COPY] dest_rel={dest_rel}")
-
-        src_resolved = make_pathresolved(
-            src,
-            inc["root"],
-            inc["origin"],
-            pattern=str(inc["path"]),
-        )
-        dest_resolved = make_pathresolved(dest_rel, out_dir, out_entry["origin"])
-
-        copy_item(src_resolved, dest_resolved, excludes, dry_run=dry_run)
-
-
-def run_build(
+def run_build(  # noqa: PLR0915
     build_cfg: BuildConfigResolved,
 ) -> None:
     """Execute a single build task using a fully resolved config.
@@ -499,12 +297,39 @@ def run_build(
         logger.info("🧪 (dry-run) Would stitch %s to: %s", package, out_path)
         return
 
-    # Resolve source directory from includes
+    # Collect included files using new collection functions
     includes = build_cfg.get("include", [])
-    src_dir, root_path = _resolve_src_dir(includes)
+    excludes = build_cfg.get("exclude", [])
+    included_files, file_to_include = collect_included_files(includes, excludes)
+
+    if not included_files:
+        xmsg = "No files found matching include patterns"
+        raise ValueError(xmsg)
+
+    # Get config root for resolving order paths
+    config_root = build_cfg["__meta__"]["config_root"]
+
+    # Resolve order paths (order is list[str] of paths)
+    order_paths = resolve_order_paths(order, included_files, config_root)
+
+    # Resolve exclude_names to paths (exclude_names is list[str] of paths)
+    exclude_names_raw = build_cfg.get("exclude_names", [])
+    exclude_paths: list[Path] = []
+    if exclude_names_raw:
+        included_set = set(included_files)
+        for exclude_name in cast("list[str]", exclude_names_raw):
+            # Resolve path (absolute or relative to config_root)
+            if Path(exclude_name).is_absolute():
+                exclude_path = Path(exclude_name).resolve()
+            else:
+                exclude_path = (config_root / exclude_name).resolve()
+            if exclude_path in included_set:
+                exclude_paths.append(exclude_path)
+
+    # Compute package root for module name derivation
+    package_root = find_package_root(included_files)
 
     # Prepare config dict for stitch_modules
-    exclude_names_raw = build_cfg.get("exclude_names", [])
     display_name_raw = build_cfg.get("display_name", "")
     description_raw = build_cfg.get("description", "")
     repo_raw = build_cfg.get("repo", "")
@@ -512,15 +337,15 @@ def run_build(
 
     stitch_config: dict[str, object] = {
         "package": package,
-        "order": order,
-        "exclude_names": exclude_names_raw,
+        "order": order_paths,  # Pass resolved paths
+        "exclude_names": exclude_paths,  # Pass resolved paths
         "display_name": display_name_raw,
         "description": description_raw,
         "repo": repo_raw,
     }
 
-    # Extract metadata for embedding
-    version, commit, build_date = _extract_build_metadata(build_cfg, root_path)
+    # Extract metadata for embedding (use package_root as root_path)
+    version, commit, build_date = _extract_build_metadata(build_cfg, package_root)
 
     # Create parent directory if needed
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -530,7 +355,9 @@ def run_build(
     try:
         stitch_modules(
             config=stitch_config,
-            src_dir=src_dir,
+            file_paths=included_files,
+            package_root=package_root,
+            file_to_include=file_to_include,
             out_path=out_path,
             license_header=license_header,
             version=version,
