@@ -9,7 +9,7 @@ from pathlib import Path
 from .build import collect_included_files
 from .config_types import BuildConfigResolved
 from .constants import DEFAULT_WATCH_INTERVAL
-from .logs import get_logger
+from .logs import get_app_logger
 from .meta import Metadata
 
 
@@ -45,7 +45,7 @@ def watch_for_changes(
     - Polling interval defaults to 1 second (tune 0.5–2.0 for balance).
     Stops on KeyboardInterrupt.
     """
-    logger = get_logger()
+    logger = get_app_logger()
     logger.info(
         "👀 Watching for changes (interval=%.2fs)... Press Ctrl+C to stop.", interval
     )
@@ -107,7 +107,7 @@ def _get_metadata_from_header(script_path: Path) -> tuple[str, str]:
     Prefers in-file constants (__version__, __commit__) if present;
     falls back to commented header tags.
     """
-    logger = get_logger()
+    logger = get_app_logger()
     version = "unknown"
     commit = "unknown"
 
@@ -142,7 +142,7 @@ def get_metadata() -> Metadata:
     - Source installed → read pyproject.toml + git
     """
     script_path = Path(__file__)
-    logger = get_logger()
+    logger = get_app_logger()
     logger.trace("get_metadata ran from:", Path(__file__).resolve())
 
     # --- Heuristic: standalone script lives outside `src/` ---

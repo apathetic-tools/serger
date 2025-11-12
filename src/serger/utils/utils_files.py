@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 from typing import Any, cast
 
-from serger.logs import get_logger
+from serger.utils.utils_logs import get_logger
 
 
 def _strip_jsonc_comments(text: str) -> str:  # noqa: PLR0912

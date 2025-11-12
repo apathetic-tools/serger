@@ -12,7 +12,7 @@ from .config_types import (
     RootConfig,
 )
 from .config_validate import validate_config
-from .logs import get_logger
+from .logs import get_app_logger
 from .meta import (
     PROGRAM_CONFIG,
 )
@@ -60,7 +60,7 @@ def find_config(
     Returns the first matching path, or None if no config was found.
     """
     # NOTE: We only have early no-config Log-Level
-    logger = get_logger()
+    logger = get_app_logger()
 
     level = logger.resolve_level_name(missing_level)
     if level is None:
@@ -120,7 +120,7 @@ def load_config(config_path: Path) -> dict[str, Any] | list[Any] | None:
 
     """
     # NOTE: We only have early no-config Log-Level
-    logger = get_logger()
+    logger = get_app_logger()
     logger.trace(f"[load_config] Loading from {config_path} ({config_path.suffix})")
 
     # --- Python config ---
@@ -215,7 +215,7 @@ def _parse_case_4_dict_multi_builds(
     build_val: Any,
 ) -> dict[str, Any]:
     # --- Case 4: dict with "build(s)" key → root with multi-builds ---
-    logger = get_logger()
+    logger = get_app_logger()
     root = dict(raw_config)  # preserve all user keys
 
     # we might have a "builds" key that is a list, then nothing to do
@@ -235,7 +235,7 @@ def _parse_case_5_dict_single_build(
     builds_val: Any,
 ) -> dict[str, Any]:
     # --- Case 5: dict with "build(s)" key → root with single-build ---
-    logger = get_logger()
+    logger = get_app_logger()
     root = dict(raw_config)  # preserve all user keys
 
     # If user used "builds" with a dict → coerce, warn
@@ -304,7 +304,7 @@ def parse_config(  # noqa: PLR0911
     # NOTE: This function only normalizes shape — it does NOT validate or restrict keys.
     #       Unknown keys are preserved for the validation phase.
 
-    logger = get_logger()
+    logger = get_app_logger()
     logger.trace(f"[parse_config] Parsing {type(raw_config).__name__}")
 
     # --- Case 1: empty config → one blank build ---
@@ -370,7 +370,7 @@ def _validation_summary(
     config_path: Path,
 ) -> None:
     """Pretty-print a validation summary using the standard log() interface."""
-    logger = get_logger()
+    logger = get_app_logger()
     mode = "strict mode" if summary.strict else "lenient mode"
 
     # --- Build concise counts line ---
@@ -431,7 +431,7 @@ def load_and_validate_config(
         if a config file was found and valid, or None if no config was found.
 
     """
-    logger = get_logger()
+    logger = get_app_logger()
     # warn if cwd doesn't exist, edge case. We might still be able to run
     cwd = Path.cwd().resolve()
     if not cwd.exists():

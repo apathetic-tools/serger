@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, cast
 from .actions import get_metadata
 from .build import run_build
 from .constants import DEFAULT_LOG_LEVEL, DEFAULT_STRICT_CONFIG
-from .logs import get_logger
+from .logs import get_app_logger
 from .meta import PROGRAM_DISPLAY, PROGRAM_SCRIPT
 from .utils import make_includeresolved, make_pathresolved
 
@@ -36,7 +36,7 @@ def _create_test_package(pkg_dir: Path) -> None:
         PermissionError: If unable to write files (environment issue)
         OSError: If directory operations fail (environment issue)
     """
-    logger = get_logger()
+    logger = get_app_logger()
     logger.trace("[SELFTEST] _create_test_package: pkg_dir=%s", pkg_dir)
 
     # base.py - simple module with a constant
@@ -95,7 +95,7 @@ def _create_build_config(
     Raises:
         RuntimeError: If config construction fails (program bug)
     """
-    logger = get_logger()
+    logger = get_app_logger()
     logger.trace(
         "[SELFTEST] _create_build_config: test_pkg_dir=%s, out_file=%s, tmp_dir=%s",
         test_pkg_dir,
@@ -154,7 +154,7 @@ def _execute_build(build_cfg: "BuildConfigResolved") -> None:
     Raises:
         RuntimeError: If build execution fails (program bug)
     """
-    logger = get_logger()
+    logger = get_app_logger()
     logger.trace("[SELFTEST] _execute_build: package=%s", build_cfg.get("package"))
 
     for dry_run in (True, False):
@@ -199,7 +199,7 @@ def _verify_compiles(stitched_file: Path) -> None:
     Raises:
         RuntimeError: If compilation fails (program bug - stitched output invalid)
     """
-    logger = get_logger()
+    logger = get_app_logger()
     file_size = stitched_file.stat().st_size
     logger.trace(
         "[SELFTEST] _verify_compiles: file=%s, size=%d bytes",
@@ -230,7 +230,7 @@ def _verify_executes(stitched_file: Path) -> None:
         RuntimeError: If execution fails or produces unexpected output (program bug)
         AssertionError: If output validation fails (program bug)
     """
-    logger = get_logger()
+    logger = get_app_logger()
     logger.trace("[SELFTEST] _verify_executes: file=%s", stitched_file)
 
     python_cmd = ["python3", str(stitched_file)]
@@ -317,7 +317,7 @@ def _verify_content(stitched_file: Path) -> None:
     Raises:
         AssertionError: If expected markers are not found (program bug)
     """
-    logger = get_logger()
+    logger = get_app_logger()
     logger.trace("[SELFTEST] _verify_content: file=%s", stitched_file)
 
     content = stitched_file.read_text(encoding="utf-8")
@@ -362,7 +362,7 @@ def run_selftest() -> bool:  # noqa: PLR0915
     Returns:
         True if selftest passes, False otherwise
     """
-    logger = get_logger()
+    logger = get_app_logger()
 
     # Always run selftest with at least DEBUG level, then revert
     with logger.use_level("DEBUG", minimum=True):

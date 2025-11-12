@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 
 from serger.config_types import IncludeResolved
-from serger.logs import get_logger
+from serger.utils.utils_logs import get_logger
 
 from .utils_paths import has_glob_chars
 

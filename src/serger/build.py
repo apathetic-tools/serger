@@ -8,7 +8,7 @@ from typing import cast
 
 from .config_types import BuildConfigResolved, IncludeResolved, PathResolved
 from .constants import DEFAULT_DRY_RUN
-from .logs import get_logger
+from .logs import get_app_logger
 from .stitch import (
     compute_module_order,
     extract_commit,
@@ -32,7 +32,7 @@ def expand_include_pattern(include: IncludeResolved) -> list[Path]:
     Returns:
         List of resolved absolute paths to matching .py files
     """
-    logger = get_logger()
+    logger = get_app_logger()
     src_pattern = str(include["path"])
     root = Path(include["root"]).resolve()
     matches: list[Path] = []
@@ -100,7 +100,7 @@ def collect_included_files(
     Returns:
         Tuple of (filtered file paths, mapping of file to its include)
     """
-    logger = get_logger()
+    logger = get_app_logger()
     all_files: set[Path] = set()
     # Track which include produced each file (for dest parameter and exclude checking)
     file_to_include: dict[Path, IncludeResolved] = {}
@@ -231,7 +231,7 @@ def _handle_literal_file_path(
     Returns:
         True if handled as literal file, False if should continue pattern matching
     """
-    logger = get_logger()
+    logger = get_app_logger()
     candidate = config_root / pattern_str
     if candidate.exists() and candidate.is_dir():
         # Directory without trailing slash - treat as recursive
@@ -290,7 +290,7 @@ def resolve_order_paths(
     Raises:
         ValueError: If an order entry resolves to a path not in included files
     """
-    logger = get_logger()
+    logger = get_app_logger()
     included_set = set(included_files)
     resolved: list[Path] = []
     explicitly_ordered: set[Path] = set()
@@ -452,7 +452,7 @@ def run_build(  # noqa: PLR0915, PLR0912
     a single executable script). File copying is the responsibility of
     pocket-build, not serger.
     """
-    logger = get_logger()
+    logger = get_app_logger()
     dry_run = build_cfg.get("dry_run", DEFAULT_DRY_RUN)
 
     # Extract stitching fields from config
@@ -580,7 +580,7 @@ def run_all_builds(
     *,
     dry_run: bool,
 ) -> None:
-    logger = get_logger()
+    logger = get_app_logger()
     root_level = logger.level_name
     logger.trace(f"[run_all_builds] Processing {len(resolved_builds)} build(s)")
 

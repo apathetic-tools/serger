@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 
 from .config_types import PostProcessingConfigResolved, ToolConfigResolved
-from .logs import get_logger
+from .logs import get_app_logger
 
 
 def verify_compiles(file_path: Path) -> bool:
@@ -24,7 +24,7 @@ def verify_compiles(file_path: Path) -> bool:
     Returns:
         True if file compiles successfully, False otherwise
     """
-    logger = get_logger()
+    logger = get_app_logger()
     try:
         py_compile.compile(str(file_path), doraise=True)
     except py_compile.PyCompileError as e:
@@ -112,7 +112,7 @@ def execute_post_processing(
         file_path: Path to the file to process
         config: Resolved post-processing configuration
     """
-    logger = get_logger()
+    logger = get_app_logger()
 
     if not config["enabled"]:
         logger.debug("Post-processing disabled, skipping")
@@ -210,7 +210,7 @@ def verify_executes(file_path: Path) -> bool:
     Returns:
         True if script executes without immediate errors, False otherwise
     """
-    logger = get_logger()
+    logger = get_app_logger()
 
     # Check if file exists first
     if not file_path.exists():
@@ -287,7 +287,7 @@ def post_stitch_processing(
     Raises:
         RuntimeError: If compilation fails and cannot be reverted
     """
-    logger = get_logger()
+    logger = get_app_logger()
     logger.debug("Starting post-stitch processing for %s", out_path)
 
     # Compile before post-processing
