@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 
 from serger.config_types import IncludeResolved
-from serger.utils.utils_logs import get_logger
+from serger.logs import get_app_logger
 
 from .utils_paths import has_glob_chars
 
@@ -40,7 +40,7 @@ def _interpret_dest_for_module_name(  # noqa: PLR0911
     Returns:
         Virtual destination path that should be used for module name derivation
     """
-    logger = get_logger()
+    logger = get_app_logger()
     dest_path = Path(dest)
     include_root_resolved = Path(include_root).resolve()
     file_path_resolved = file_path.resolve()
@@ -159,7 +159,7 @@ def derive_module_name(
     Raises:
         ValueError: If module name would be empty or invalid
     """
-    logger = get_logger()
+    logger = get_app_logger()
     file_path_resolved = file_path.resolve()
     package_root_resolved = package_root.resolve()
 

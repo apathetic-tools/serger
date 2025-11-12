@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
+import serger.apathetic_logs as mod_alogs
 import serger.config as mod_config
 import serger.meta as mod_meta
-import serger.utils.utils_logs as mod_logs
 
 
 def test_find_config_raises_for_missing_file(tmp_path: Path) -> None:
@@ -49,7 +49,7 @@ def test_find_config_logs_and_returns_none_when_missing(
     assert result is None
     # ensure an error was logged
     out = capsys.readouterr().err.lower()
-    assert mod_logs.TAG_STYLES["ERROR"][1].lower() in out
+    assert mod_alogs.TAG_STYLES["ERROR"][1].lower() in out
     assert "config" in out
 
 
@@ -75,7 +75,7 @@ def test_find_config_warns_for_multiple_candidates(
     assert result == py
     # confirm that at least one warning was logged
     out = capsys.readouterr().err.lower()
-    assert mod_logs.TAG_STYLES["WARNING"][1].lower() in out
+    assert mod_alogs.TAG_STYLES["WARNING"][1].lower() in out
     assert "multiple config" in out
 
 
@@ -102,4 +102,4 @@ def test_find_config_respects_missing_level(
 
     # --- verify ---
     out = capsys.readouterr().err.lower()
-    assert mod_logs.TAG_STYLES["WARNING"][1].lower() in out
+    assert mod_alogs.TAG_STYLES["WARNING"][1].lower() in out

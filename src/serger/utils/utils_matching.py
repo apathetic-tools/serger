@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from serger.config_types import PathResolved
-from serger.utils.utils_logs import get_logger
+from serger.logs import get_app_logger
 
 from .utils_system import get_sys_version_info
 
@@ -118,7 +118,7 @@ def is_excluded_raw(  # noqa: PLR0911
     The function does not require `root` to exist; if it does not,
     a debug message is logged and matching is purely path-based.
     """
-    logger = get_logger()
+    logger = get_app_logger()
     root = Path(root).resolve()
     path = Path(path)
 
@@ -182,7 +182,7 @@ def is_excluded(path_entry: PathResolved, exclude_patterns: list[PathResolved]) 
     """High-level helper for internal use.
     Accepts PathResolved entries and delegates to the smart matcher.
     """
-    logger = get_logger()
+    logger = get_app_logger()
     path = path_entry["path"]
     root = path_entry["root"]
     # Patterns are always normalized to PathResolved["path"] under config_resolve

@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
+import serger.apathetic_logs as mod_alogs
 import serger.logs as mod_logs
-import serger.utils.utils_logs as mod_utils_logs
 
 
 # ---------------------------------------------------------------------------
@@ -113,7 +113,7 @@ def test_formatter_includes_expected_tags(
     direct_logger.setLevel("trace")
 
     # --- execute, and verify ---
-    for level_name, (_, expected_tag) in mod_utils_logs.TAG_STYLES.items():
+    for level_name, (_, expected_tag) in mod_alogs.TAG_STYLES.items():
         method = getattr(direct_logger, level_name.lower(), None)
         if callable(method):
             method("sample")
@@ -202,7 +202,7 @@ def test_log_dynamic_accepts_numeric_level(
 ) -> None:
     """log_dynamic() should work with int levels too."""
     # --- execute ---
-    direct_logger.log_dynamic(mod_utils_logs.TRACE_LEVEL, "Numeric trace log works")
+    direct_logger.log_dynamic(mod_alogs.TRACE_LEVEL, "Numeric trace log works")
 
     # --- verify ---
     captured = capsys.readouterr()

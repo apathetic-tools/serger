@@ -8,6 +8,7 @@ from difflib import get_close_matches
 from pathlib import Path
 
 from .actions import get_metadata, watch_for_changes
+from .apathetic_logs import LEVEL_ORDER, safe_log
 from .build import run_all_builds
 from .config import (
     can_run_configless,
@@ -30,7 +31,7 @@ from .meta import (
     PROGRAM_SCRIPT,
 )
 from .selftest import run_selftest
-from .utils import LEVEL_ORDER, cast_hint, get_sys_version_info, safe_log
+from .utils import cast_hint, get_sys_version_info
 
 
 # --------------------------------------------------------------------------- #

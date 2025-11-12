@@ -6,7 +6,7 @@ import types
 
 import pytest
 
-import serger.utils.utils_logs as mod_utils_logs
+import serger.apathetic_logs as mod_alogs
 
 
 # ---------------------------------------------------------------------------
@@ -33,7 +33,7 @@ def test_no_color_disables(
     """NO_COLOR disables color regardless of FORCE_COLOR or TTY."""
     # --- patch, execute, and verify ---
     monkeypatch.setenv("NO_COLOR", "1")
-    assert mod_utils_logs.ApatheticCLILogger.determine_color_enabled() is False
+    assert mod_alogs.ApatheticCLILogger.determine_color_enabled() is False
 
 
 @pytest.mark.parametrize("value", ["1", "true", "TRUE", "yes", "Yes"])
@@ -44,7 +44,7 @@ def test_force_color_enables(
     """FORCE_COLOR enables color when set to a truthy value."""
     # --- patch, execute, and verify ---
     monkeypatch.setenv("FORCE_COLOR", value)
-    assert mod_utils_logs.ApatheticCLILogger.determine_color_enabled() is True
+    assert mod_alogs.ApatheticCLILogger.determine_color_enabled() is True
 
 
 def test_falls_back_to_tty_detection(
@@ -56,16 +56,16 @@ def test_falls_back_to_tty_detection(
     # Simulate TTY
     fake_stdout = types.SimpleNamespace(isatty=lambda: True)
     monkeypatch.setattr(sys, "stdout", fake_stdout)
-    assert mod_utils_logs.ApatheticCLILogger.determine_color_enabled() is True
+    assert mod_alogs.ApatheticCLILogger.determine_color_enabled() is True
 
     # Simulate non-TTY
     fake_stdout = types.SimpleNamespace(isatty=lambda: False)
     monkeypatch.setattr(sys, "stdout", fake_stdout)
-    assert mod_utils_logs.ApatheticCLILogger.determine_color_enabled() is False
+    assert mod_alogs.ApatheticCLILogger.determine_color_enabled() is False
 
 
 def test_no_color_overrides_force_color(monkeypatch: pytest.MonkeyPatch) -> None:
     # --- patch, execute and verify ---
     monkeypatch.setenv("NO_COLOR", "1")
     monkeypatch.setenv("FORCE_COLOR", "1")
-    assert mod_utils_logs.ApatheticCLILogger.determine_color_enabled() is False
+    assert mod_alogs.ApatheticCLILogger.determine_color_enabled() is False

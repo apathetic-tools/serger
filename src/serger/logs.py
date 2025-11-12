@@ -5,18 +5,13 @@ import logging
 import os
 from typing import cast
 
-# Import directly from utils_logs to avoid circular dependency:
-# utils/__init__.py doesn't import from modules that depend on logs.py,
-# so importing from .utils.utils_logs is safe (it only imports utils_logs,
-# utils_schema, utils_system, utils_text, utils_types which don't depend on logs)
-from .constants import DEFAULT_ENV_LOG_LEVEL, DEFAULT_LOG_LEVEL
-from .meta import PROGRAM_ENV, PROGRAM_PACKAGE
-from .utils.utils_logs import (
+from .apathetic_logs import (
     TEST_TRACE,
     ApatheticCLILogger,
     get_logger,
 )
-from .utils.utils_types import cast_hint
+from .constants import DEFAULT_ENV_LOG_LEVEL, DEFAULT_LOG_LEVEL
+from .meta import PROGRAM_ENV, PROGRAM_PACKAGE
 
 
 # --- Our application logger -----------------------------------------------------
@@ -33,7 +28,8 @@ class AppLogger(ApatheticCLILogger):
         """Resolve log level from CLI → env → root config → default."""
         args_level = getattr(args, "log_level", None)
         if args_level is not None and args_level:
-            return cast_hint(str, args_level).upper()
+            # cast_hint would cause circular dependency
+            return cast("str", args_level).upper()
 
         env_log_level = os.getenv(
             f"{PROGRAM_ENV}_{DEFAULT_ENV_LOG_LEVEL}"

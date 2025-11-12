@@ -5,9 +5,9 @@ import logging
 
 import pytest
 
+import serger.apathetic_logs as mod_alogs
 import serger.cli as mod_cli
 import serger.logs as mod_logs
-import serger.utils.utils_logs as mod_utils_logs
 from tests.utils import patch_everywhere
 
 
@@ -77,7 +77,7 @@ def test_main_fallbacks_to_safe_log(
 
     # --- patch and execute ---
     patch_everywhere(monkeypatch, mod_cli, "_setup_parser", fake_parser)
-    patch_everywhere(monkeypatch, mod_utils_logs, "safe_log", fake_safe_log)
+    patch_everywhere(monkeypatch, mod_alogs, "safe_log", fake_safe_log)
 
     # Backup logger state
     logger = mod_logs.get_app_logger()

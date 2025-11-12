@@ -3,8 +3,8 @@
 
 import pytest
 
+import serger.apathetic_logs as mod_alogs
 import serger.logs as mod_logs
-import serger.utils.utils_logs as mod_utils_logs
 
 
 # ---------------------------------------------------------------------------
@@ -32,12 +32,12 @@ def test_colorize_explicit_true_false(direct_logger: mod_logs.AppLogger) -> None
 
     # --- execute and verify ---
     assert (
-        direct_logger.colorize(text, mod_utils_logs.GREEN, enable_color=True)
-    ) == f"{mod_utils_logs.GREEN}{text}{mod_utils_logs.RESET}"
+        direct_logger.colorize(text, mod_alogs.GREEN, enable_color=True)
+    ) == f"{mod_alogs.GREEN}{text}{mod_alogs.RESET}"
     assert (
         direct_logger.colorize(
             text,
-            mod_utils_logs.GREEN,
+            mod_alogs.GREEN,
             enable_color=False,
         )
     ) == text
@@ -51,22 +51,22 @@ def test_colorize_respects_instance_flag(direct_logger: mod_logs.AppLogger) -> N
     # --- execute and verify ---
     direct_logger.enable_color = True
     assert (
-        direct_logger.colorize(text, mod_utils_logs.GREEN)
-        == f"{mod_utils_logs.GREEN}{text}{mod_utils_logs.RESET}"
+        direct_logger.colorize(text, mod_alogs.GREEN)
+        == f"{mod_alogs.GREEN}{text}{mod_alogs.RESET}"
     )
 
     direct_logger.enable_color = False
-    assert direct_logger.colorize(text, mod_utils_logs.GREEN) == text
+    assert direct_logger.colorize(text, mod_alogs.GREEN) == text
 
 
 def test_colorize_does_not_mutate_text(direct_logger: mod_logs.AppLogger) -> None:
     """colorize() should not alter text content aside from color codes."""
     text = "safe!"
     direct_logger.enable_color = True
-    result = direct_logger.colorize(text, mod_utils_logs.GREEN)
+    result = direct_logger.colorize(text, mod_alogs.GREEN)
     assert text in result
-    assert result.startswith(mod_utils_logs.GREEN)
-    assert result.endswith(mod_utils_logs.RESET)
+    assert result.startswith(mod_alogs.GREEN)
+    assert result.endswith(mod_alogs.RESET)
     # ensure text object itself wasn't modified
     assert text == "safe!"
 
@@ -75,8 +75,8 @@ def test_colorize_empty_text(direct_logger: mod_logs.AppLogger) -> None:
     """Empty strings should still produce proper output."""
     direct_logger.enable_color = True
     assert (
-        direct_logger.colorize("", mod_utils_logs.GREEN)
-        == f"{mod_utils_logs.GREEN}{mod_utils_logs.RESET}"
+        direct_logger.colorize("", mod_alogs.GREEN)
+        == f"{mod_alogs.GREEN}{mod_alogs.RESET}"
     )
     direct_logger.enable_color = False
-    assert direct_logger.colorize("", mod_utils_logs.GREEN) == ""
+    assert direct_logger.colorize("", mod_alogs.GREEN) == ""
