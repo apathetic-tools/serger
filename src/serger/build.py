@@ -507,6 +507,7 @@ def run_build(  # noqa: PLR0915, PLR0912
     package_root = find_package_root(included_files)
 
     # Resolve order paths (order is list[str] of paths, or None for auto-discovery)
+    topo_paths: list[Path] | None = None
     if order is not None:
         # Use explicit order from config
         order_paths = resolve_order_paths(order, included_files, config_root)
@@ -518,6 +519,8 @@ def run_build(  # noqa: PLR0915, PLR0912
             included_files, package_root, package, file_to_include
         )
         logger.debug("Auto-discovered order (%d modules)", len(order_paths))
+        # When auto-discovered, order_paths IS the topological order, so we can reuse it
+        topo_paths = order_paths
 
     # Resolve exclude_names to paths (exclude_names is list[str] of paths)
     exclude_names_raw = build_cfg.get("exclude_names", [])
@@ -546,6 +549,7 @@ def run_build(  # noqa: PLR0915, PLR0912
         "display_name": display_name_raw,
         "description": description_raw,
         "repo": repo_raw,
+        "topo_paths": topo_paths,  # Pre-computed topological order (if auto-discovered)
     }
 
     # Extract metadata for embedding (use package_root as root_path)
