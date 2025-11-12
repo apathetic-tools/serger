@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import builtins
 import importlib
+import inspect
 import logging
 import os
 import sys
@@ -397,26 +398,67 @@ class DualStreamHandler(logging.StreamHandler):  # type: ignore[type-arg]
 _registered_logger_name: str | None = None
 
 
-def register_logger_name(logger_name: str) -> None:
+def _extract_top_level_package(package_name: str | None) -> str | None:
+    """Extract the top-level package name from a full package path.
+
+    Args:
+        package_name: Full package name (e.g., "serger.utils.utils_logs")
+
+    Returns:
+        Top-level package name (e.g., "serger") or None if package_name is None
+    """
+    if package_name is None:
+        return None
+    if "." in package_name:
+        return package_name.split(".", 1)[0]
+    return package_name
+
+
+def register_logger_name(logger_name: str | None = None) -> None:
     """Register a logger name for use by get_logger().
 
     This allows applications to specify which logger name to use.
     The actual logger instance is stored by Python's logging module
     via logging.getLogger(), so we only need to store the name.
 
+    If logger_name is not provided, the top-level package is automatically
+    extracted from this module's __package__ attribute. For example, if
+    this module is in "serger.utils.utils_logs", it will default to "serger".
+
     Args:
-        logger_name: The name of the logger to retrieve (e.g., "serger")
+        logger_name: The name of the logger to retrieve (e.g., "serger").
+            If None, extracts the top-level package from __package__.
 
     Example:
+        >>> # Explicit registration
         >>> from serger.meta import PROGRAM_PACKAGE
         >>> from serger.utils.utils_logs import register_logger_name
         >>> register_logger_name(PROGRAM_PACKAGE)
+
+        >>> # Auto-infer from __package__
+        >>> register_logger_name()  # Uses top-level package from __package__
     """
     global _registered_logger_name  # noqa: PLW0603
+
+    auto_inferred = False
+    if logger_name is None:
+        # Extract top-level package from this module's __package__
+        package = globals().get("__package__")
+        if package:
+            logger_name = _extract_top_level_package(package)
+            auto_inferred = True
+        if logger_name is None:
+            _msg = (
+                "Cannot auto-infer logger name: __package__ is not set. "
+                "Please call register_logger_name() with an explicit logger name."
+            )
+            raise RuntimeError(_msg)
+
     _registered_logger_name = logger_name
     TEST_TRACE(
         "register_logger_name() called",
         f"name={logger_name}",
+        f"auto_inferred={auto_inferred}",
     )
 
 
@@ -424,23 +466,47 @@ def get_logger() -> ApatheticCLILogger:
     """Return the registered logger instance.
 
     Uses Python's built-in logging registry (logging.getLogger()) to retrieve
-    the logger. If no logger name has been registered, attempts to initialize
-    by importing the application's logs module (e.g., serger.logs).
+    the logger. If no logger name has been registered, attempts to auto-infer
+    the logger name from the calling module's top-level package.
 
     Returns:
         The logger instance from logging.getLogger() (as ApatheticCLILogger type)
 
     Raises:
-        RuntimeError: If called before a logger name has been registered.
+        RuntimeError: If called before a logger name has been registered and
+            auto-inference fails.
 
     Note:
         This function is used internally by utils_logs.py. Applications
         should use their app-specific getter (e.g., get_app_logger()) for
         better type hints.
     """
+    global _registered_logger_name  # noqa: PLW0603
+
+    if _registered_logger_name is None:
+        # Try to auto-infer from the calling module's package
+        frame = inspect.currentframe()
+        if frame is not None:
+            try:
+                # Get the calling frame (skip get_logger itself)
+                caller_frame = frame.f_back
+                if caller_frame is not None:
+                    caller_module = caller_frame.f_globals.get("__package__")
+                    if caller_module:
+                        inferred_name = _extract_top_level_package(caller_module)
+                        if inferred_name:
+                            _registered_logger_name = inferred_name
+                            TEST_TRACE(
+                                "get_logger() auto-inferred logger name",
+                                f"name={inferred_name}",
+                                f"from_module={caller_module}",
+                            )
+            finally:
+                del frame
+
     if _registered_logger_name is None:
         _msg = (
-            "Logger name not registered. "
+            "Logger name not registered and could not be auto-inferred. "
             "Call register_logger_name() or ensure your app's logs module is imported."
         )
         raise RuntimeError(_msg)

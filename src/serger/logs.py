@@ -15,7 +15,6 @@ from .utils.utils_logs import (
     TEST_TRACE,
     ApatheticCLILogger,
     get_logger,
-    register_logger_name,
 )
 from .utils.utils_types import cast_hint
 
@@ -64,8 +63,8 @@ AppLogger.extend_logging_module()
 # The logging module acts as the registry, so we just need to register the name.
 _APP_LOGGER = cast("AppLogger", logging.getLogger(PROGRAM_PACKAGE))
 
-# Register the logger name with utils_logs so get_logger() knows which name to use
-register_logger_name(PROGRAM_PACKAGE)
+
+# --- Convenience utils ---------------------------------------------------------
 
 
 def get_app_logger() -> AppLogger:
