@@ -11,7 +11,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .config_types import PostProcessingConfigResolved, ToolConfig
+from .config_types import PostProcessingConfigResolved, ToolConfigResolved
 from .logs import get_logger
 
 
@@ -65,8 +65,8 @@ def build_tool_command(
     tool_label: str,
     _category: str,
     file_path: Path,
-    _tool_override: ToolConfig | None = None,
-    tools_dict: dict[str, ToolConfig] | None = None,
+    _tool_override: ToolConfigResolved | None = None,
+    tools_dict: dict[str, ToolConfigResolved] | None = None,
 ) -> list[str] | None:
     """Build the full command to execute a tool.
 
@@ -76,7 +76,7 @@ def build_tool_command(
             unused, kept for API compatibility
         file_path: Path to the file to process
         _tool_override: Optional tool override config (deprecated, unused)
-        tools_dict: Dict of tool overrides keyed by label
+        tools_dict: Dict of resolved tool configs keyed by label
             (includes defaults from resolved config)
 
     Returns:
@@ -84,17 +84,11 @@ def build_tool_command(
     """
     # Look up tool in tools_dict (includes defaults from resolved config)
     if tools_dict and tool_label in tools_dict:
-        override = tools_dict[tool_label]
-        actual_tool_name = override.get("command", tool_label)  # default to key
-
-        # Args is required in tools dict (defaults are merged in during resolution)
-        if "args" not in override:
-            return None
-        base_args = override["args"]
-
-        # Append options (not replace)
-        extra = override.get("options", [])
-        custom_path = override.get("path")
+        tool_config = tools_dict[tool_label]
+        actual_tool_name = tool_config["command"]
+        base_args = tool_config["args"]
+        extra = tool_config["options"]
+        custom_path = tool_config["path"]
     else:
         # Tool not found in tools_dict - not supported
         # (All tools should be in tools dict, including defaults)
@@ -133,26 +127,25 @@ def execute_post_processing(
             continue
 
         category = config["categories"][category_name]
-        if not category.get("enabled", True):
+        if not category["enabled"]:
             logger.debug("Category %s is disabled, skipping", category_name)
             continue
 
-        priority = category.get("priority", [])
+        priority = category["priority"]
         if not priority:
             logger.debug("Category %s has empty priority, skipping", category_name)
             continue
 
         # Try tools in priority order
         tool_ran = False
-        tools_dict = category.get("tools", {})
+        tools_dict = category["tools"]
         for tool_label in priority:
-            # For backward compatibility, check if tool_label exists in tools dict
-            # If it does, it's a custom instance; if not, it's a simple tool name
-            tool_override = (
+            # Tool should be in tools dict (guaranteed by resolution)
+            tool_config = (
                 tools_dict.get(tool_label) if tool_label in tools_dict else None
             )
             command = build_tool_command(
-                tool_label, category_name, file_path, tool_override, tools_dict
+                tool_label, category_name, file_path, tool_config, tools_dict
             )
 
             if command is None:

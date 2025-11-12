@@ -44,7 +44,7 @@ def test_resolve_post_processing_build_level_override() -> None:
     assert resolved["enabled"] is False
     assert resolved["category_order"] == ["formatter"]
     formatter = resolved["categories"]["formatter"]
-    assert formatter.get("priority") == ["black"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert formatter["priority"] == ["black"]
 
 
 def test_resolve_post_processing_root_level_override() -> None:
@@ -123,7 +123,7 @@ def test_resolve_post_processing_empty_priority_disables_category() -> None:
     resolved = mod_resolve.resolve_post_processing(build_cfg, root_cfg)
 
     formatter = resolved["categories"]["formatter"]
-    assert formatter.get("enabled") is False  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert formatter["enabled"] is False
 
 
 def test_resolve_post_processing_merges_tool_overrides() -> None:
@@ -147,12 +147,10 @@ def test_resolve_post_processing_merges_tool_overrides() -> None:
     resolved = mod_resolve.resolve_post_processing(build_cfg, root_cfg)
 
     formatter = resolved["categories"]["formatter"]
-    assert "tools" in formatter
-    tools = formatter.get("tools")  # pyright: ignore[reportTypedDictNotRequiredAccess]
-    assert tools is not None
+    tools = formatter["tools"]
     assert "ruff" in tools
     ruff_tool = tools["ruff"]
-    assert ruff_tool.get("options") == ["--line-length", "100"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert ruff_tool["options"] == ["--line-length", "100"]
 
 
 def test_resolve_post_processing_includes_all_categories() -> None:
@@ -191,7 +189,7 @@ def test_resolve_post_processing_category_enabled_flag() -> None:
     resolved = mod_resolve.resolve_post_processing(build_cfg, root_cfg)
 
     formatter = resolved["categories"]["formatter"]
-    assert formatter.get("enabled") is False  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert formatter["enabled"] is False
 
 
 def test_resolve_post_processing_custom_tool_instances() -> None:
@@ -220,15 +218,14 @@ def test_resolve_post_processing_custom_tool_instances() -> None:
     resolved = mod_resolve.resolve_post_processing(build_cfg, root_cfg)
 
     formatter = resolved["categories"]["formatter"]
-    assert formatter.get("priority") == ["ruff-check", "ruff-format"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
-    tools = formatter.get("tools")  # pyright: ignore[reportTypedDictNotRequiredAccess]
-    assert tools is not None
+    assert formatter["priority"] == ["ruff-check", "ruff-format"]
+    tools = formatter["tools"]
     assert "ruff-check" in tools
     assert "ruff-format" in tools
     ruff_check = tools["ruff-check"]
     ruff_format = tools["ruff-format"]
-    assert ruff_check.get("args") == ["check", "--fix"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
-    assert ruff_format.get("args") == ["format"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert ruff_check["args"] == ["check", "--fix"]
+    assert ruff_format["args"] == ["format"]
 
 
 def test_resolve_post_processing_root_tool_override_merged_with_build() -> None:
@@ -265,16 +262,15 @@ def test_resolve_post_processing_root_tool_override_merged_with_build() -> None:
 
     # Build should override root
     formatter = resolved["categories"]["formatter"]
-    tools = formatter.get("tools")  # pyright: ignore[reportTypedDictNotRequiredAccess]
-    assert tools is not None
+    tools = formatter["tools"]
     assert "ruff" in tools
     ruff_tool = tools["ruff"]
     # Options from build should be present
-    assert ruff_tool.get("options") == ["--line-length", "120"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert ruff_tool["options"] == ["--line-length", "120"]
     # Path from root should be overridden (not merged, replaced)
     # Actually, looking at the merge logic, tools are replaced, not merged
     # So build's tools dict replaces root's
-    assert "path" not in ruff_tool
+    assert ruff_tool["path"] is None
 
 
 def test_resolve_post_processing_category_order_preserved() -> None:

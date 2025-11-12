@@ -13,6 +13,11 @@ import serger.config_resolve as mod_config_resolve
 import serger.config_types as mod_config_types
 import serger.constants as mod_constants
 import serger.verify_script as mod_verify
+from tests.utils import (
+    make_post_category_config_resolved,
+    make_post_processing_config_resolved,
+    make_tool_config_resolved,
+)
 
 
 RUFF_AVAILABLE = shutil.which("ruff") is not None
@@ -29,17 +34,22 @@ def test_execute_post_processing_with_ruff() -> None:
 
     try:
         # Create a minimal config that uses ruff for formatting
-        config = {
-            "enabled": True,
-            "category_order": ["formatter"],
-            "categories": {
-                "formatter": {
-                    "enabled": True,
-                    "priority": ["ruff"],
-                },
+        config = make_post_processing_config_resolved(
+            enabled=True,
+            category_order=["formatter"],
+            categories={
+                "formatter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["ruff"],
+                    tools={
+                        "ruff": make_tool_config_resolved(
+                            args=["format"], command="ruff"
+                        ),
+                    },
+                ),
             },
-        }
-        mod_verify.execute_post_processing(path, config)  # type: ignore[arg-type]
+        )
+        mod_verify.execute_post_processing(path, config)
         # Verify ruff formatted the file (or at least ran)
         content = path.read_text()
         assert content  # Should have content
@@ -55,18 +65,23 @@ def test_execute_post_processing_disabled() -> None:
         path = Path(f.name)
 
     try:
-        config = {
-            "enabled": False,
-            "category_order": ["formatter"],
-            "categories": {
-                "formatter": {
-                    "enabled": True,
-                    "priority": ["ruff"],
-                },
+        config = make_post_processing_config_resolved(
+            enabled=False,
+            category_order=["formatter"],
+            categories={
+                "formatter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["ruff"],
+                    tools={
+                        "ruff": make_tool_config_resolved(
+                            args=["format"], command="ruff"
+                        ),
+                    },
+                ),
             },
-        }
+        )
         # Should not raise an error even if ruff is not available
-        mod_verify.execute_post_processing(path, config)  # type: ignore[arg-type]
+        mod_verify.execute_post_processing(path, config)
     finally:
         path.unlink(missing_ok=True)
 
@@ -97,27 +112,25 @@ def test_execute_post_processing_multiple_instances_same_tool(
 
         monkeypatch.setattr(subprocess, "run", mock_run)
 
-        config = {
-            "enabled": True,
-            "category_order": ["formatter"],
-            "categories": {
-                "formatter": {
-                    "enabled": True,
-                    "priority": ["ruff-check", "ruff-imports"],
-                    "tools": {
-                        "ruff-check": {
-                            "command": "ruff",
-                            "args": ["check", "--fix"],
-                        },
-                        "ruff-imports": {
-                            "command": "ruff",
-                            "args": ["check", "--select", "I", "--fix"],
-                        },
+        config = make_post_processing_config_resolved(
+            enabled=True,
+            category_order=["formatter"],
+            categories={
+                "formatter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["ruff-check", "ruff-imports"],
+                    tools={
+                        "ruff-check": make_tool_config_resolved(
+                            args=["check", "--fix"], command="ruff"
+                        ),
+                        "ruff-imports": make_tool_config_resolved(
+                            args=["check", "--select", "I", "--fix"], command="ruff"
+                        ),
                     },
-                },
+                ),
             },
-        }
-        mod_verify.execute_post_processing(path, config)  # type: ignore[arg-type]
+        )
+        mod_verify.execute_post_processing(path, config)
 
         # Should have executed both commands
         assert len(executed_commands) >= 1  # At least one should succeed
@@ -154,23 +167,22 @@ def test_execute_post_processing_mixed_simple_and_custom(
 
         monkeypatch.setattr(subprocess, "run", mock_run)
 
-        config = {
-            "enabled": True,
-            "category_order": ["formatter"],
-            "categories": {
-                "formatter": {
-                    "enabled": True,
-                    "priority": ["ruff", "ruff-custom"],
-                    "tools": {
-                        "ruff-custom": {
-                            "command": "ruff",
-                            "args": ["check", "--select", "E", "--fix"],
-                        },
+        config = make_post_processing_config_resolved(
+            enabled=True,
+            category_order=["formatter"],
+            categories={
+                "formatter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["ruff", "ruff-custom"],
+                    tools={
+                        "ruff-custom": make_tool_config_resolved(
+                            args=["check", "--select", "E", "--fix"], command="ruff"
+                        ),
                     },
-                },
+                ),
             },
-        }
-        mod_verify.execute_post_processing(path, config)  # type: ignore[arg-type]
+        )
+        mod_verify.execute_post_processing(path, config)
 
         # Should have executed at least one command
         assert len(executed_commands) >= 1
@@ -204,27 +216,25 @@ def test_execute_post_processing_command_deduplication(
         monkeypatch.setattr(subprocess, "run", mock_run)
 
         # Both instances produce the same command
-        config = {
-            "enabled": True,
-            "category_order": ["formatter"],
-            "categories": {
-                "formatter": {
-                    "enabled": True,
-                    "priority": ["ruff-1", "ruff-2"],
-                    "tools": {
-                        "ruff-1": {
-                            "command": "ruff",
-                            "args": ["format"],
-                        },
-                        "ruff-2": {
-                            "command": "ruff",
-                            "args": ["format"],
-                        },
+        config = make_post_processing_config_resolved(
+            enabled=True,
+            category_order=["formatter"],
+            categories={
+                "formatter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["ruff-1", "ruff-2"],
+                    tools={
+                        "ruff-1": make_tool_config_resolved(
+                            args=["format"], command="ruff"
+                        ),
+                        "ruff-2": make_tool_config_resolved(
+                            args=["format"], command="ruff"
+                        ),
                     },
-                },
+                ),
             },
-        }
-        mod_verify.execute_post_processing(path, config)  # type: ignore[arg-type]
+        )
+        mod_verify.execute_post_processing(path, config)
 
         # Should only execute once due to deduplication
         assert len(executed_commands) == 1
@@ -268,10 +278,14 @@ def test_execute_post_processing_default_custom_instances(
                     "ruff:firstcheck": {
                         "command": "ruff",
                         "args": ["check", "--fix"],
+                        "path": None,
+                        "options": [],
                     },
                     "ruff:secondcheck": {
                         "command": "ruff",
                         "args": ["check", "--select", "E", "--fix"],
+                        "path": None,
+                        "options": [],
                     },
                 },
             },
@@ -336,27 +350,25 @@ def test_execute_post_processing_priority_fallback_on_failure(
         )
         monkeypatch.setattr(subprocess, "run", mock_run)
 
-        config = {
-            "enabled": True,
-            "category_order": ["formatter"],
-            "categories": {
-                "formatter": {
-                    "enabled": True,
-                    "priority": ["tool1", "tool2"],
-                    "tools": {
-                        "tool1": {
-                            "command": "ruff",
-                            "args": ["format"],
-                        },
-                        "tool2": {
-                            "command": "black",
-                            "args": ["format"],
-                        },
+        config = make_post_processing_config_resolved(
+            enabled=True,
+            category_order=["formatter"],
+            categories={
+                "formatter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["tool1", "tool2"],
+                    tools={
+                        "tool1": make_tool_config_resolved(
+                            args=["format"], command="ruff"
+                        ),
+                        "tool2": make_tool_config_resolved(
+                            args=["format"], command="black"
+                        ),
                     },
-                },
+                ),
             },
-        }
-        mod_verify.execute_post_processing(path, config)  # type: ignore[arg-type]
+        )
+        mod_verify.execute_post_processing(path, config)
 
         # Should have tried both tools (first fails, second succeeds)
         expected_command_count = 2
@@ -408,27 +420,25 @@ def test_execute_post_processing_priority_fallback_on_unavailable(
             mod_verify, "find_tool_executable", mock_find_tool_executable
         )
 
-        config = {
-            "enabled": True,
-            "category_order": ["formatter"],
-            "categories": {
-                "formatter": {
-                    "enabled": True,
-                    "priority": ["tool1", "tool2"],
-                    "tools": {
-                        "tool1": {
-                            "command": "nonexistent",
-                            "args": ["format"],
-                        },
-                        "tool2": {
-                            "command": "tool2",
-                            "args": ["format"],
-                        },
+        config = make_post_processing_config_resolved(
+            enabled=True,
+            category_order=["formatter"],
+            categories={
+                "formatter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["tool1", "tool2"],
+                    tools={
+                        "tool1": make_tool_config_resolved(
+                            args=["format"], command="nonexistent"
+                        ),
+                        "tool2": make_tool_config_resolved(
+                            args=["format"], command="tool2"
+                        ),
                     },
-                },
+                ),
             },
-        }
-        mod_verify.execute_post_processing(path, config)  # type: ignore[arg-type]
+        )
+        mod_verify.execute_post_processing(path, config)
 
         # Should have executed only the second tool
         assert len(executed_commands) == 1
@@ -472,28 +482,26 @@ def test_execute_post_processing_all_tools_fail(
         )
         monkeypatch.setattr(subprocess, "run", mock_run)
 
-        config = {
-            "enabled": True,
-            "category_order": ["formatter"],
-            "categories": {
-                "formatter": {
-                    "enabled": True,
-                    "priority": ["tool1", "tool2"],
-                    "tools": {
-                        "tool1": {
-                            "command": "ruff",
-                            "args": ["format"],
-                        },
-                        "tool2": {
-                            "command": "black",
-                            "args": ["format"],
-                        },
+        config = make_post_processing_config_resolved(
+            enabled=True,
+            category_order=["formatter"],
+            categories={
+                "formatter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["tool1", "tool2"],
+                    tools={
+                        "tool1": make_tool_config_resolved(
+                            args=["format"], command="ruff"
+                        ),
+                        "tool2": make_tool_config_resolved(
+                            args=["format"], command="black"
+                        ),
                     },
-                },
+                ),
             },
-        }
+        )
         # Should not raise, just log
-        mod_verify.execute_post_processing(path, config)  # type: ignore[arg-type]
+        mod_verify.execute_post_processing(path, config)
 
         # Should have tried both tools
         expected_command_count = 2
@@ -524,28 +532,26 @@ def test_execute_post_processing_all_tools_unavailable(
             mod_verify, "find_tool_executable", mock_find_tool_executable
         )
 
-        config = {
-            "enabled": True,
-            "category_order": ["formatter"],
-            "categories": {
-                "formatter": {
-                    "enabled": True,
-                    "priority": ["tool1", "tool2"],
-                    "tools": {
-                        "tool1": {
-                            "command": "nonexistent1",
-                            "args": ["format"],
-                        },
-                        "tool2": {
-                            "command": "nonexistent2",
-                            "args": ["format"],
-                        },
+        config = make_post_processing_config_resolved(
+            enabled=True,
+            category_order=["formatter"],
+            categories={
+                "formatter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["tool1", "tool2"],
+                    tools={
+                        "tool1": make_tool_config_resolved(
+                            args=["format"], command="nonexistent1"
+                        ),
+                        "tool2": make_tool_config_resolved(
+                            args=["format"], command="nonexistent2"
+                        ),
                     },
-                },
+                ),
             },
-        }
+        )
         # Should not raise, just skip
-        mod_verify.execute_post_processing(path, config)  # type: ignore[arg-type]
+        mod_verify.execute_post_processing(path, config)
     finally:
         path.unlink(missing_ok=True)
 
@@ -584,43 +590,40 @@ def test_execute_post_processing_categories_in_order(
 
         monkeypatch.setattr(subprocess, "run", mock_run)
 
-        config = {
-            "enabled": True,
-            "category_order": ["static_checker", "formatter", "import_sorter"],
-            "categories": {
-                "static_checker": {
-                    "enabled": True,
-                    "priority": ["ruff"],
-                    "tools": {
-                        "ruff": {
-                            "command": "ruff",
-                            "args": ["check", "--fix"],
-                        },
+        config = make_post_processing_config_resolved(
+            enabled=True,
+            category_order=["static_checker", "formatter", "import_sorter"],
+            categories={
+                "static_checker": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["ruff"],
+                    tools={
+                        "ruff": make_tool_config_resolved(
+                            args=["check", "--fix"], command="ruff"
+                        ),
                     },
-                },
-                "formatter": {
-                    "enabled": True,
-                    "priority": ["ruff"],
-                    "tools": {
-                        "ruff": {
-                            "command": "ruff",
-                            "args": ["format"],
-                        },
+                ),
+                "formatter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["ruff"],
+                    tools={
+                        "ruff": make_tool_config_resolved(
+                            args=["format"], command="ruff"
+                        ),
                     },
-                },
-                "import_sorter": {
-                    "enabled": True,
-                    "priority": ["ruff"],
-                    "tools": {
-                        "ruff": {
-                            "command": "ruff",
-                            "args": ["check", "--select", "I", "--fix"],
-                        },
+                ),
+                "import_sorter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["ruff"],
+                    tools={
+                        "ruff": make_tool_config_resolved(
+                            args=["check", "--select", "I", "--fix"], command="ruff"
+                        ),
                     },
-                },
+                ),
             },
-        }
-        mod_verify.execute_post_processing(path, config)  # type: ignore[arg-type]
+        )
+        mod_verify.execute_post_processing(path, config)
 
         # Should have executed all three categories in order
         expected_category_count = 3
@@ -660,33 +663,31 @@ def test_execute_post_processing_skips_disabled_category(
 
         monkeypatch.setattr(subprocess, "run", mock_run)
 
-        config = {
-            "enabled": True,
-            "category_order": ["static_checker", "formatter"],
-            "categories": {
-                "static_checker": {
-                    "enabled": False,  # Disabled
-                    "priority": ["ruff"],
-                    "tools": {
-                        "ruff": {
-                            "command": "ruff",
-                            "args": ["check", "--fix"],
-                        },
+        config = make_post_processing_config_resolved(
+            enabled=True,
+            category_order=["static_checker", "formatter"],
+            categories={
+                "static_checker": make_post_category_config_resolved(
+                    enabled=False,  # Disabled
+                    priority=["ruff"],
+                    tools={
+                        "ruff": make_tool_config_resolved(
+                            args=["check", "--fix"], command="ruff"
+                        ),
                     },
-                },
-                "formatter": {
-                    "enabled": True,
-                    "priority": ["ruff"],
-                    "tools": {
-                        "ruff": {
-                            "command": "ruff",
-                            "args": ["format"],
-                        },
+                ),
+                "formatter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["ruff"],
+                    tools={
+                        "ruff": make_tool_config_resolved(
+                            args=["format"], command="ruff"
+                        ),
                     },
-                },
+                ),
             },
-        }
-        mod_verify.execute_post_processing(path, config)  # type: ignore[arg-type]
+        )
+        mod_verify.execute_post_processing(path, config)
 
         # Should only execute formatter, not static_checker
         assert len(executed_categories) == 1
@@ -725,33 +726,31 @@ def test_execute_post_processing_skips_category_not_in_order(
 
         monkeypatch.setattr(subprocess, "run", mock_run)
 
-        config = {
-            "enabled": True,
-            "category_order": ["formatter"],  # Only formatter in order
-            "categories": {
-                "static_checker": {
-                    "enabled": True,
-                    "priority": ["ruff"],
-                    "tools": {
-                        "ruff": {
-                            "command": "ruff",
-                            "args": ["check", "--fix"],
-                        },
+        config = make_post_processing_config_resolved(
+            enabled=True,
+            category_order=["formatter"],  # Only formatter in order
+            categories={
+                "static_checker": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["ruff"],
+                    tools={
+                        "ruff": make_tool_config_resolved(
+                            args=["check", "--fix"], command="ruff"
+                        ),
                     },
-                },
-                "formatter": {
-                    "enabled": True,
-                    "priority": ["ruff"],
-                    "tools": {
-                        "ruff": {
-                            "command": "ruff",
-                            "args": ["format"],
-                        },
+                ),
+                "formatter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["ruff"],
+                    tools={
+                        "ruff": make_tool_config_resolved(
+                            args=["format"], command="ruff"
+                        ),
                     },
-                },
+                ),
             },
-        }
-        mod_verify.execute_post_processing(path, config)  # type: ignore[arg-type]
+        )
+        mod_verify.execute_post_processing(path, config)
 
         # Should only execute formatter, not static_checker
         assert len(executed_categories) == 1
@@ -794,33 +793,31 @@ def test_execute_post_processing_one_category_fails_others_continue(
 
         monkeypatch.setattr(subprocess, "run", mock_run)
 
-        config = {
-            "enabled": True,
-            "category_order": ["static_checker", "formatter"],
-            "categories": {
-                "static_checker": {
-                    "enabled": True,
-                    "priority": ["ruff"],
-                    "tools": {
-                        "ruff": {
-                            "command": "ruff",
-                            "args": ["check", "--fix"],
-                        },
+        config = make_post_processing_config_resolved(
+            enabled=True,
+            category_order=["static_checker", "formatter"],
+            categories={
+                "static_checker": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["ruff"],
+                    tools={
+                        "ruff": make_tool_config_resolved(
+                            args=["check", "--fix"], command="ruff"
+                        ),
                     },
-                },
-                "formatter": {
-                    "enabled": True,
-                    "priority": ["ruff"],
-                    "tools": {
-                        "ruff": {
-                            "command": "ruff",
-                            "args": ["format"],
-                        },
+                ),
+                "formatter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["ruff"],
+                    tools={
+                        "ruff": make_tool_config_resolved(
+                            args=["format"], command="ruff"
+                        ),
                     },
-                },
+                ),
             },
-        }
-        mod_verify.execute_post_processing(path, config)  # type: ignore[arg-type]
+        )
+        mod_verify.execute_post_processing(path, config)
 
         # Should have tried both categories
         expected_category_count = 2
@@ -851,23 +848,22 @@ def test_execute_post_processing_subprocess_exception(
 
         monkeypatch.setattr(subprocess, "run", mock_run)
 
-        config = {
-            "enabled": True,
-            "category_order": ["formatter"],
-            "categories": {
-                "formatter": {
-                    "enabled": True,
-                    "priority": ["ruff"],
-                    "tools": {
-                        "ruff": {
-                            "command": "ruff",
-                            "args": ["format"],
-                        },
+        config = make_post_processing_config_resolved(
+            enabled=True,
+            category_order=["formatter"],
+            categories={
+                "formatter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["ruff"],
+                    tools={
+                        "ruff": make_tool_config_resolved(
+                            args=["format"], command="ruff"
+                        ),
                     },
-                },
+                ),
             },
-        }
+        )
         # Should not raise, just log the error
-        mod_verify.execute_post_processing(path, config)  # type: ignore[arg-type]
+        mod_verify.execute_post_processing(path, config)
     finally:
         path.unlink(missing_ok=True)

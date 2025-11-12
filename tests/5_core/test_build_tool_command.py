@@ -25,7 +25,10 @@ def test_build_tool_command_with_available_tool() -> None:
     try:
         tools_dict: dict[str, Any] = {
             "ruff": {
+                "command": "ruff",
                 "args": ["format"],
+                "path": None,
+                "options": [],
             },
         }
         command = mod_verify.build_tool_command(
@@ -90,8 +93,10 @@ def test_build_tool_command_with_custom_path() -> None:
     try:
         tools_dict: dict[str, Any] = {
             "ruff": {
+                "command": "ruff",
                 "args": ["format"],
                 "path": custom_executable,
+                "options": [],
             },
         }
         command = mod_verify.build_tool_command(
@@ -135,6 +140,8 @@ def test_build_tool_command_custom_instance_with_explicit_tool(
             "ruff:imports": {
                 "command": "ruff",
                 "args": ["check", "--select", "I", "--fix"],
+                "path": None,
+                "options": [],
             },
         }
         command = mod_verify.build_tool_command(
@@ -175,6 +182,8 @@ def test_build_tool_command_custom_instance_inferred_tool(
             "my-ruff-check": {
                 "command": "ruff",  # explicit command
                 "args": ["check", "--fix", "--select", "E"],
+                "path": None,
+                "options": [],
             },
         }
         command = mod_verify.build_tool_command(
@@ -215,6 +224,8 @@ def test_build_tool_command_custom_instance_with_command(
             "ruff-check": {
                 "command": "ruff",
                 "args": ["check", "--fix"],
+                "path": None,
+                "options": [],
             },
         }
         command = mod_verify.build_tool_command(
@@ -254,6 +265,7 @@ def test_build_tool_command_custom_instance_options_appending(
             "ruff-check": {
                 "command": "ruff",
                 "args": ["check", "--fix"],
+                "path": None,
                 "options": ["--select", "E"],
             },
         }
@@ -298,6 +310,8 @@ def test_build_tool_command_custom_instance_fallback_to_defaults(
             "ruff-custom": {
                 "command": "ruff",
                 "args": ["format"],  # Args is now required
+                "path": None,
+                "options": [],
             },
         }
         command = mod_verify.build_tool_command(
@@ -322,7 +336,10 @@ def test_build_tool_command_simple_tool_name_backward_compatible() -> None:
         # Simple tool name with tools_dict (defaults are merged in during resolution)
         tools_dict: dict[str, Any] = {
             "ruff": {
+                "command": "ruff",
                 "args": ["format"],
+                "path": None,
+                "options": [],
             },
         }
         command = mod_verify.build_tool_command(

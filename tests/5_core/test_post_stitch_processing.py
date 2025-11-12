@@ -9,6 +9,11 @@ import pytest
 
 import serger.config_types as mod_types
 import serger.verify_script as mod_verify
+from tests.utils import (
+    make_post_category_config_resolved,
+    make_post_processing_config_resolved,
+    make_tool_config_resolved,
+)
 
 
 def test_post_stitch_processing_with_valid_file() -> None:
@@ -20,11 +25,14 @@ def test_post_stitch_processing_with_valid_file() -> None:
         path.chmod(0o755)
 
     try:
-        config: mod_types.PostProcessingConfigResolved = {
-            "enabled": False,  # Disabled to avoid needing tools
-            "category_order": [],
-            "categories": {},
-        }
+        config = make_post_processing_config_resolved(
+            enabled=False,  # Disabled to avoid needing tools
+            categories={
+                "formatter": make_post_category_config_resolved(
+                    enabled=False, priority=[], tools={}
+                ),
+            },
+        )
         # Should not raise
         mod_verify.post_stitch_processing(path, post_processing=config)
     finally:
@@ -65,16 +73,21 @@ def test_post_stitch_processing_skips_when_not_compiling_before(
 
         monkeypatch.setattr(mod_verify, "verify_executes", mock_verify_executes)
 
-        config: mod_types.PostProcessingConfigResolved = {
-            "enabled": True,
-            "category_order": ["formatter"],
-            "categories": {
-                "formatter": {
-                    "enabled": True,
-                    "priority": ["ruff"],
-                },
+        config = make_post_processing_config_resolved(
+            enabled=True,
+            category_order=["formatter"],
+            categories={
+                "formatter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["ruff"],
+                    tools={
+                        "ruff": make_tool_config_resolved(
+                            args=["format"], command="ruff"
+                        ),
+                    },
+                ),
             },
-        }
+        )
         # Should not raise, should skip post-processing
         mod_verify.post_stitch_processing(path, post_processing=config)
         # Should still try to verify execution
@@ -107,16 +120,21 @@ def test_post_stitch_processing_reverts_on_compilation_failure(
             mod_verify, "execute_post_processing", mock_execute_post_processing
         )
 
-        config: mod_types.PostProcessingConfigResolved = {
-            "enabled": True,
-            "category_order": ["formatter"],
-            "categories": {
-                "formatter": {
-                    "enabled": True,
-                    "priority": ["ruff"],
-                },
+        config = make_post_processing_config_resolved(
+            enabled=True,
+            category_order=["formatter"],
+            categories={
+                "formatter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["ruff"],
+                    tools={
+                        "ruff": make_tool_config_resolved(
+                            args=["format"], command="ruff"
+                        ),
+                    },
+                ),
             },
-        }
+        )
         # Should revert and not raise
         mod_verify.post_stitch_processing(path, post_processing=config)
         # File should be reverted to original
@@ -162,16 +180,21 @@ def test_post_stitch_processing_raises_on_revert_failure(
         )
         monkeypatch.setattr(mod_verify, "verify_compiles", mock_verify_compiles)
 
-        config: mod_types.PostProcessingConfigResolved = {
-            "enabled": True,
-            "category_order": ["formatter"],
-            "categories": {
-                "formatter": {
-                    "enabled": True,
-                    "priority": ["ruff"],
-                },
+        config = make_post_processing_config_resolved(
+            enabled=True,
+            category_order=["formatter"],
+            categories={
+                "formatter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["ruff"],
+                    tools={
+                        "ruff": make_tool_config_resolved(
+                            args=["format"], command="ruff"
+                        ),
+                    },
+                ),
             },
-        }
+        )
         # Should raise RuntimeError
         with pytest.raises(RuntimeError, match="does not compile after reverting"):
             mod_verify.post_stitch_processing(path, post_processing=config)
@@ -216,16 +239,21 @@ def test_post_stitch_processing_raises_when_not_compiling_after(
             mod_verify, "execute_post_processing", mock_execute_post_processing
         )
 
-        config: mod_types.PostProcessingConfigResolved = {
-            "enabled": True,
-            "category_order": ["formatter"],
-            "categories": {
-                "formatter": {
-                    "enabled": True,
-                    "priority": ["ruff"],
-                },
+        config = make_post_processing_config_resolved(
+            enabled=True,
+            category_order=["formatter"],
+            categories={
+                "formatter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["ruff"],
+                    tools={
+                        "ruff": make_tool_config_resolved(
+                            args=["format"], command="ruff"
+                        ),
+                    },
+                ),
             },
-        }
+        )
         # Should raise RuntimeError because revert fails to restore compilation
         with pytest.raises(RuntimeError, match="does not compile after reverting"):
             mod_verify.post_stitch_processing(path, post_processing=config)
@@ -250,11 +278,14 @@ def test_post_stitch_processing_runs_execution_check() -> None:
             return True
 
         with patch.object(mod_verify, "verify_executes", mock_verify_executes):
-            config: mod_types.PostProcessingConfigResolved = {
-                "enabled": False,  # Disabled to avoid needing tools
-                "category_order": [],
-                "categories": {},
-            }
+            config = make_post_processing_config_resolved(
+                enabled=False,  # Disabled to avoid needing tools
+                categories={
+                    "formatter": make_post_category_config_resolved(
+                        enabled=False, priority=[], tools={}
+                    ),
+                },
+            )
             mod_verify.post_stitch_processing(path, post_processing=config)
             assert verify_executes_called
     finally:
@@ -307,16 +338,21 @@ def test_post_stitch_processing_with_actual_post_processing(
             mod_verify, "execute_post_processing", mock_execute_post_processing
         )
 
-        config: mod_types.PostProcessingConfigResolved = {
-            "enabled": True,
-            "category_order": ["formatter"],
-            "categories": {
-                "formatter": {
-                    "enabled": True,
-                    "priority": ["ruff"],
-                },
+        config = make_post_processing_config_resolved(
+            enabled=True,
+            category_order=["formatter"],
+            categories={
+                "formatter": make_post_category_config_resolved(
+                    enabled=True,
+                    priority=["ruff"],
+                    tools={
+                        "ruff": make_tool_config_resolved(
+                            args=["format"], command="ruff"
+                        ),
+                    },
+                ),
             },
-        }
+        )
         mod_verify.post_stitch_processing(path, post_processing=config)
         assert execute_called
     finally:

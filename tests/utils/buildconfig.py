@@ -89,3 +89,80 @@ def make_build_input(
         cfg["out"] = out
     cfg.update(extra)
     return cast("mod_types.BuildConfig", cfg)
+
+
+# ---------------------------------------------------------------------------
+# Factories for post-processing configs
+# ---------------------------------------------------------------------------
+
+
+def make_tool_config_resolved(
+    args: list[str],
+    *,
+    command: str | None = None,
+    path: str | None = None,
+    options: list[str] | None = None,
+) -> mod_types.ToolConfigResolved:
+    """Create a ToolConfigResolved with required fields.
+
+    Args:
+        args: Command arguments (required)
+        command: Executable name (defaults to tool_label if not provided)
+        path: Custom executable path (defaults to None)
+        options: Additional CLI arguments (defaults to empty list)
+
+    Returns:
+        ToolConfigResolved with all fields populated
+    """
+    return {
+        "command": command or "tool",  # Default placeholder
+        "args": args,
+        "path": path,
+        "options": options or [],
+    }
+
+
+def make_post_category_config_resolved(
+    *,
+    enabled: bool = True,
+    priority: list[str] | None = None,
+    tools: dict[str, mod_types.ToolConfigResolved] | None = None,
+) -> mod_types.PostCategoryConfigResolved:
+    """Create a PostCategoryConfigResolved with required fields.
+
+    Args:
+        enabled: Whether category is enabled (defaults to True)
+        priority: Tool names in priority order (defaults to empty list)
+        tools: Dict of tool configs (defaults to empty dict)
+
+    Returns:
+        PostCategoryConfigResolved with all fields populated
+    """
+    return {
+        "enabled": enabled,
+        "priority": priority or [],
+        "tools": tools or {},
+    }
+
+
+def make_post_processing_config_resolved(
+    *,
+    enabled: bool = True,
+    category_order: list[str] | None = None,
+    categories: dict[str, mod_types.PostCategoryConfigResolved] | None = None,
+) -> mod_types.PostProcessingConfigResolved:
+    """Create a PostProcessingConfigResolved with required fields.
+
+    Args:
+        enabled: Master switch (defaults to True)
+        category_order: Order to run categories (defaults to empty list)
+        categories: Category definitions (defaults to empty dict)
+
+    Returns:
+        PostProcessingConfigResolved with all fields populated
+    """
+    return {
+        "enabled": enabled,
+        "category_order": category_order or [],
+        "categories": categories or {},
+    }
