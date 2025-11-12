@@ -30,9 +30,7 @@ from .meta import (
     PROGRAM_SCRIPT,
 )
 from .selftest import run_selftest
-from .utils import get_sys_version_info
-from .utils_logs import LEVEL_ORDER, safe_log
-from .utils_types import cast_hint
+from .utils import LEVEL_ORDER, cast_hint, get_sys_version_info, safe_log
 
 
 # --------------------------------------------------------------------------- #

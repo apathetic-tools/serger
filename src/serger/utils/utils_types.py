@@ -1,4 +1,4 @@
-# src/serger/utils_types.py
+# src/serger/utils/utils_types.py
 
 
 from pathlib import Path
@@ -16,7 +16,7 @@ from typing import (
 
 from typing_extensions import NotRequired
 
-from .config_types import IncludeResolved, OriginType, PathResolved
+from serger.config_types import IncludeResolved, OriginType, PathResolved
 
 
 T = TypeVar("T")

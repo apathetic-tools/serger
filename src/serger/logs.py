@@ -5,10 +5,14 @@ import logging
 import os
 from typing import cast
 
+# Import directly from utils_logs to avoid circular dependency:
+# utils/__init__.py doesn't import from modules that depend on logs.py,
+# so importing from .utils.utils_logs is safe (it only imports utils_logs,
+# utils_schema, utils_system, utils_text, utils_types which don't depend on logs)
 from .constants import DEFAULT_ENV_LOG_LEVEL, DEFAULT_LOG_LEVEL
 from .meta import PROGRAM_ENV, PROGRAM_PACKAGE
-from .utils_logs import TEST_TRACE, ApatheticCLILogger
-from .utils_types import cast_hint
+from .utils.utils_logs import TEST_TRACE, ApatheticCLILogger
+from .utils.utils_types import cast_hint
 
 
 # --- Our application logger -----------------------------------------------------

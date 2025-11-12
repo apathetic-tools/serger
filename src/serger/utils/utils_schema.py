@@ -1,4 +1,4 @@
-# src/serger/utils_schema.py
+# src/serger/utils/utils_schema.py
 
 
 from dataclasses import dataclass
@@ -7,8 +7,10 @@ from typing import Any, TypedDict, cast, get_args, get_origin
 
 from typing_extensions import NotRequired
 
-from .constants import DEFAULT_HINT_CUTOFF
-from .utils import fnmatchcase_portable, plural
+from serger.constants import DEFAULT_HINT_CUTOFF
+
+from .utils_matching import fnmatchcase_portable
+from .utils_text import plural
 from .utils_types import cast_hint, safe_isinstance, schema_from_typeddict
 
 

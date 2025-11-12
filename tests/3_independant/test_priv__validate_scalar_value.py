@@ -9,8 +9,8 @@ from typing import Any
 
 import pytest
 
-import serger.utils_schema as mod_utils_schema
-import serger.utils_types as mod_utils_types
+import serger.utils.utils_schema as mod_utils_schema
+import serger.utils.utils_types as mod_utils_types
 from tests.utils import make_summary, patch_everywhere
 
 

@@ -67,17 +67,13 @@ from .meta import (
 )
 from .selftest import run_selftest
 from .utils import (
+    LEVEL_ORDER,
+    RESET,
     get_glob_root,
     has_glob_chars,
     is_excluded,
     is_excluded_raw,
     load_jsonc,
-)
-from .utils_logs import (
-    LEVEL_ORDER,
-    RESET,
-)
-from .utils_types import (
     make_includeresolved,
     make_pathresolved,
     safe_isinstance,

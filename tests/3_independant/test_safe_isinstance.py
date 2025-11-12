@@ -5,7 +5,7 @@ from typing import Any, Literal, TypedDict, TypeVar
 
 from typing_extensions import NotRequired
 
-import serger.utils_types as mod_utils_types
+import serger.utils.utils_types as mod_utils_types
 
 
 def test_plain_types_work_normally() -> None:

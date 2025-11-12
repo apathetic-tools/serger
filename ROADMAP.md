@@ -43,6 +43,8 @@ Exploring bundling options for generating the single-file release:
 - Deploy action when I tag a release should create a release and attach it to the tagged release.
 
 ## 🔌 API
+- figure out a better way to import get_logger() for our application in our utils that doesn't generate a circular dependency and require nasty check in utils/__init__.py
+- as well our .serger.jsonc right now includes both the package and the utils, there should be a glob pattern that includes subdirectories, I'm not sure what it is but is it something like serger/**/*.py?
 - can config_* files be made into a submodule?
 - can we pull out utils/logs into a single toplevel module?
 - can we pull out utils/config into a single toplevel module?

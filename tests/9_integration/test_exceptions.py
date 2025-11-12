@@ -7,7 +7,7 @@ import pytest
 
 import serger.cli as mod_cli
 import serger.logs as mod_logs
-import serger.utils_logs as mod_utils_logs
+import serger.utils.utils_logs as mod_utils_logs
 from tests.utils import patch_everywhere
 
 

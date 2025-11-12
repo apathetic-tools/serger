@@ -1,7 +1,7 @@
 # tests/0_independant/test_make_includeresolved.py
 """Tests for package.utils (package and standalone versions)."""
 
-import serger.utils_types as mod_utils_types
+import serger.utils.utils_types as mod_utils_types
 
 
 def test_make_includeresolved_preserves_trailing_slash() -> None:

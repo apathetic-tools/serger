@@ -3,7 +3,7 @@
 
 from typing import Any, TypedDict
 
-import serger.utils_schema as mod_utils_schema
+import serger.utils.utils_schema as mod_utils_schema
 from tests.utils import make_summary
 
 

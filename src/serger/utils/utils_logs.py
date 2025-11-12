@@ -1,4 +1,4 @@
-# src/serger/utils_logs.py
+# src/serger/utils/utils_logs.py
 """Shared Apathetic CLI logger implementation."""
 
 from __future__ import annotations
@@ -13,8 +13,9 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager, suppress
 from typing import Any, TextIO, cast
 
-from .constants import DEFAULT_LOG_LEVEL
-from .meta import PROGRAM_ENV
+from serger.constants import DEFAULT_LOG_LEVEL
+from serger.meta import PROGRAM_ENV
+
 from .utils_types import cast_hint
 
 
