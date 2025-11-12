@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 import serger.logs as mod_logs
-import serger.utils_logs as mod_utils_logs
+import serger.utils.utils_logs as mod_utils_logs
 
 
 # ---------------------------------------------------------------------------

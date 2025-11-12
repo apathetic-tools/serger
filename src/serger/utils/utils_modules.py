@@ -6,7 +6,8 @@ from pathlib import Path
 
 from serger.config_types import IncludeResolved
 from serger.logs import get_logger
-from serger.utils.utils_paths import has_glob_chars
+
+from .utils_paths import has_glob_chars
 
 
 def _non_glob_prefix(pattern: str) -> Path:

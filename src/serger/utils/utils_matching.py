@@ -8,7 +8,8 @@ from pathlib import Path
 
 from serger.config_types import PathResolved
 from serger.logs import get_logger
-from serger.utils.utils_system import get_sys_version_info
+
+from .utils_system import get_sys_version_info
 
 
 @lru_cache(maxsize=512)

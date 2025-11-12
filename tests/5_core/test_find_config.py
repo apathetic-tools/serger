@@ -7,7 +7,7 @@ import pytest
 
 import serger.config as mod_config
 import serger.meta as mod_meta
-import serger.utils_logs as mod_logs
+import serger.utils.utils_logs as mod_logs
 
 
 def test_find_config_raises_for_missing_file(tmp_path: Path) -> None:

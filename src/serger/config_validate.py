@@ -6,15 +6,16 @@ from typing import Any
 from .config_types import BuildConfig, RootConfig
 from .constants import DEFAULT_STRICT_CONFIG
 from .logs import get_logger
-from .utils_schema import (
+from .utils import (
     SchemaErrorAggregator,
     ValidationSummary,
+    cast_hint,
     check_schema_conformance,
     collect_msg,
     flush_schema_aggregators,
+    schema_from_typeddict,
     warn_keys_once,
 )
-from .utils_types import cast_hint, schema_from_typeddict
 
 
 # --- constants ------------------------------------------------------

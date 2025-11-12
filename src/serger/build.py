@@ -15,11 +15,7 @@ from .stitch import (
     extract_version,
     stitch_modules,
 )
-from .utils import (
-    has_glob_chars,
-    is_excluded_raw,
-)
-from .utils_types import cast_hint
+from .utils import cast_hint, has_glob_chars, is_excluded_raw
 
 
 # --------------------------------------------------------------------------- #

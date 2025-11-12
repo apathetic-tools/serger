@@ -33,8 +33,7 @@ from .constants import (
 )
 from .logs import get_logger
 from .stitch import PyprojectMetadata, extract_pyproject_metadata
-from .utils import has_glob_chars
-from .utils_types import cast_hint, make_includeresolved, make_pathresolved
+from .utils import cast_hint, has_glob_chars, make_includeresolved, make_pathresolved
 
 
 # --------------------------------------------------------------------------- #

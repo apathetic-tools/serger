@@ -1,7 +1,7 @@
 # tests/utils/config_validate.py
 
 
-import serger.utils_schema as mod_utils_schema
+import serger.utils.utils_schema as mod_utils_schema
 
 
 def make_summary(

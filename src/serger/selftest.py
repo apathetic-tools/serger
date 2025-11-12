@@ -16,7 +16,7 @@ from .build import run_build
 from .constants import DEFAULT_LOG_LEVEL, DEFAULT_STRICT_CONFIG
 from .logs import get_logger
 from .meta import PROGRAM_DISPLAY, PROGRAM_SCRIPT
-from .utils_types import make_includeresolved, make_pathresolved
+from .utils import make_includeresolved, make_pathresolved
 
 
 if TYPE_CHECKING:
