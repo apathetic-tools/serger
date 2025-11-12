@@ -14,6 +14,42 @@ For formatting guidelines, see the [DECISIONS.md Style Guide](./DECISIONS_STYLE_
 
 ---
 
+## 🔧 Choose Post-Processing Tools: Ruff, Black, and isort
+<a id="dec13"></a>*DEC 13 — 2025-11-11*
+
+### Context
+
+After stitching source files into a single script, Serger needs to ensure the output meets quality standards — static checking, formatting, and import organization. The tool should support a flexible, priority-based system where users can configure which tools run in which order, with fallbacks when preferred tools aren't available.
+
+### Options Considered
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **Ruff only** | ✅ Single tool for all categories<br>✅ Extremely fast<br>✅ Unified configuration | ⚠️ Less flexibility for teams with existing tool preferences<br>⚠️ Newer tool, some teams prefer established alternatives |
+| **Ruff + Black + isort** | ✅ Ruff as primary (fast, modern)<br>✅ Black as formatting fallback (widely adopted)<br>✅ isort as import fallback (mature, configurable)<br>✅ Supports teams with existing toolchains | ⚠️ Multiple tools to potentially install<br>⚠️ Slight configuration complexity |
+| **Black + isort only** | ✅ Established, widely-used tools<br>✅ No newer dependencies | ❌ Slower than Ruff<br>❌ Two separate tools instead of one unified solution |
+| **No post-processing** | ✅ Simplest implementation<br>✅ No external dependencies | ❌ Users must manually format/check output<br>❌ Inconsistent output quality |
+
+### Decision
+
+Support **Ruff as the primary tool** for all three categories (static checking, formatting, and import sorting), with **Black** and **isort** as fallback options.
+
+The default configuration prioritizes Ruff for its speed and unified approach, but allows teams with existing Black or isort workflows to use those tools instead. This provides:
+
+- **Fast defaults** — Ruff handles all three categories efficiently
+- **Flexibility** — Users can override priorities to match their existing toolchains
+- **Graceful degradation** — If Ruff isn't available, Black and isort can step in
+
+The three categories (`static_checker`, `formatter`, `import_sorter`) run in order, and within each category, tools are tried in priority order until one succeeds. This ensures consistent output while respecting user preferences and tool availability.
+
+<br/><br/>
+
+---
+
+---
+
+<br/><br/>
+
 ## 📄 Only Support `pyproject.toml` for Project Metadata
 <a id="dec12"></a>*DEC 12 — 2025-11-11*
 

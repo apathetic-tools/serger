@@ -72,9 +72,7 @@ fix = ["generate:ai-rules", "fix:ruff:installed", "lint:compile", "fix:format:in
 "fix:format:dist" = { shell = "if [ -d dist ]; then ruff format dist; fi" }
 
 # 🧩 Build and license
-"build:script" = ["build:script:legacy", "build:script:self"]
-"build:script:self" = "python -m serger"
-"build:script:legacy" = "python dev/make_script.py"
+"build:script" = "python -m serger"
 "check:license" = "bash dev/check-license.sh"
 
 # 🧪 Internal verification
