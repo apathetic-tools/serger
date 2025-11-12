@@ -14,7 +14,6 @@ Some of these we just want to consider, and may not want to implement.
 ## 🎯 Core Features
 Major stitching capabilities and enhancements:
 
-- Incremental stitching with dependency caching
 
 ## 🧰 CLI Parameters
 Planned command-line flags for future releases:
@@ -34,7 +33,7 @@ Exploring bundling options for generating the single-file release:
 - zip file: zipapp / shiv / pyinstaller --onefile
 
 ## 🧪 Tests
-- How can we report what we ignore, in src and in tests?
+- How can we report what we comment tool ignore, in src and in tests?
 
 ## 🧑‍💻 Development
 - How can we keep internal imports in stitch mode and avoid conflicts? (see [docs/example_isolated_stiching.md](docs/example_isolated_stiching.md))
@@ -44,8 +43,10 @@ Exploring bundling options for generating the single-file release:
 - Deploy action when I tag a release should create a release and attach it to the tagged release.
 
 ## 🔌 API
-- Put utils into a submodule (as long as our stitcher can handle it)
-- Can utils/config be made into a single submodule? How does that play with the bundler?
+- can config_* files be made into a submodule?
+- can we pull out utils/logs into a single toplevel module?
+- can we pull out utils/config into a single toplevel module?
+- can we pull out common CLI elements with pocket-build into a single toplevel module?
 
 ## 📚 Documentation
 - Do we want a way to dump the schema for documentation purposes?

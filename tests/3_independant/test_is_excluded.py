@@ -14,7 +14,7 @@ Checklist:
 
 from pathlib import Path
 
-import serger.utils as mod_utils
+import serger.utils.utils_matching as mod_utils_matching
 import serger.utils_types as mod_utils_types
 
 
@@ -37,4 +37,4 @@ def test_is_excluded_wrapper_delegates(tmp_path: Path) -> None:
     excludes = [mod_utils_types.make_pathresolved("*.txt", root, "config")]
 
     # --- execute + verify ---
-    assert mod_utils.is_excluded(entry, excludes)
+    assert mod_utils_matching.is_excluded(entry, excludes)

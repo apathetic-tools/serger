@@ -1,9 +1,18 @@
 # tests/0_independant/test_pytest__runtime_mode_swap.py
-"""Ensures pytest is running against the intended runtime (installed vs singlefile)
-and that Python’s import cache (`sys.modules`) points to the correct sources.
+"""Verify runtime mode swap functionality in conftest.py.
 
-If RUNTIME_MODE=singlefile, all modules must resolve to the standalone file.
-Otherwise, they must resolve to the src tree.
+This test verifies that our unique runtime_mode swap functionality works
+correctly. Our conftest.py uses runtime_swap() to allow tests to run against
+either the installed package (src/serger) or the standalone single-file script
+(dist/serger.py) based on the RUNTIME_MODE environment variable.
+
+Verifies:
+  - When RUNTIME_MODE=singlefile: All modules resolve to dist/serger.py
+  - When RUNTIME_MODE is unset (installed): All modules resolve to src/serger/
+  - Python's import cache (sys.modules) points to the correct sources
+  - All submodules load from the expected location
+
+This ensures our dual-runtime testing infrastructure functions correctly.
 """
 
 import importlib
@@ -17,7 +26,7 @@ import pytest
 
 import serger as app_package
 import serger.meta as mod_meta
-import serger.utils as mod_utils
+import serger.utils.utils_system as mod_utils_system
 from tests.utils import PROJ_ROOT, make_test_trace
 
 
@@ -83,19 +92,28 @@ def dump_snapshot(*, include_full: bool = False) -> None:
 
 
 def test_pytest_runtime_cache_integrity() -> None:
-    """Tests top-of-file module imports in a test file to see if it has a stale cache"""
+    """Verify runtime mode swap correctly loads modules from expected locations.
+
+    Ensures that modules imported at the top of test files resolve to the
+    correct source based on RUNTIME_MODE:
+    - singlefile mode: All modules must load from dist/serger.py
+    - installed mode: All modules must load from src/serger/
+
+    Also verifies that Python's import cache (sys.modules) doesn't have stale
+    references pointing to the wrong runtime.
+    """
     # --- setup ---
     mode = os.getenv("RUNTIME_MODE", "unknown")
-    utils_file = str(inspect.getsourcefile(mod_utils))
+    utils_file = str(inspect.getsourcefile(mod_utils_system))
     expected_script = DIST_ROOT / f"{mod_meta.PROGRAM_SCRIPT}.py"
 
     # --- execute ---
     TEST_TRACE(f"RUNTIME_MODE={mode}")
-    TEST_TRACE(f"{mod_meta.PROGRAM_PACKAGE}.utils  → {utils_file}")
+    TEST_TRACE(f"{mod_meta.PROGRAM_PACKAGE}.utils.utils_system  → {utils_file}")
 
     if os.getenv("TRACE"):
         dump_snapshot()
-    runtime_mode = mod_utils.detect_runtime_mode()
+    runtime_mode = mod_utils_system.detect_runtime_mode()
 
     if mode == "singlefile":
         # --- verify singlefile ---
@@ -116,8 +134,8 @@ def test_pytest_runtime_cache_integrity() -> None:
             f" = {sys.modules.get(mod_meta.PROGRAM_PACKAGE)}",
         )
         TEST_TRACE(
-            f"sys.modules['{mod_meta.PROGRAM_PACKAGE}.utils']"
-            f" = {sys.modules.get(f'{mod_meta.PROGRAM_PACKAGE}.utils')}",
+            f"sys.modules['{mod_meta.PROGRAM_PACKAGE}.utils.utils_system']"
+            f" = {sys.modules.get(f'{mod_meta.PROGRAM_PACKAGE}.utils.utils_system')}",
         )
 
     else:
@@ -141,13 +159,15 @@ def test_pytest_runtime_cache_integrity() -> None:
 
 @pytest.mark.debug
 def test_debug_dump_all_module_origins() -> None:
-    """Optional forensic dump of all loaded modules.
+    """Debug helper: Dump all loaded module origins for forensic analysis.
 
-    Useful when debugging import leakage or stale sys.modules cache.
-    Always fails intentionally to force pytest to show TRACE output.
+    Useful when debugging import leakage, stale sys.modules cache, or runtime
+    mode swap issues. Always fails intentionally to force pytest to show TRACE
+    output.
 
-    TRACE=1 poetry run pytest -k debug -s
-    RUNTIME_MODE=singlefile TRACE=1 poetry run pytest -k debug -s
+    Usage:
+        TRACE=1 poetry run pytest -k debug -s
+        RUNTIME_MODE=singlefile TRACE=1 poetry run pytest -k debug -s
     """
     # --- verify ---
 
