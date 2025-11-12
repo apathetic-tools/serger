@@ -15,7 +15,6 @@ Some of these we just want to consider, and may not want to implement.
 Major stitching capabilities and enhancements:
 
 - Auto-discovery of module order via topological sort
-- Multi-package stitching support
 - Incremental stitching with dependency caching
 - Allow you to specify a file for order, then include the rest of the dir
 
@@ -40,7 +39,7 @@ Exploring bundling options for generating the single-file release:
 - How can we report what we ignore, in src and in tests?
 
 ## 🧑‍💻 Development
-- How can we keep internal imports in stitch mode and avoid conflicts?
+- How can we keep internal imports in stitch mode and avoid conflicts? (see [docs/example_isolated_stiching.md](docs/example_isolated_stiching.md))
 - Evaluate ignores and determine if we can fix them instead of ignore them
 
 ## 🚀 Deployment
@@ -49,9 +48,9 @@ Exploring bundling options for generating the single-file release:
 ## 🔌 API
 - Put utils into a submodule (as long as our stitcher can handle it)
 - Can utils/config be made into a single submodule? How does that play with the bundler?
-- Do we want a way to dump the schema for documentation purposes?
 
 ## 📚 Documentation
+- Do we want a way to dump the schema for documentation purposes?
 - Where do we document the structure of the project? What do we document inside it vs here?
 - Where do we do longer usage documentation? README can get a bit big
 - Logo? Images? Icon? README banner?
