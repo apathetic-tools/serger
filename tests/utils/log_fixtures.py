@@ -22,8 +22,8 @@ def direct_logger() -> mod_logs.AppLogger:
 
     Only for testing the logger itself.
 
-    This fixture does NOT affect get_logger() or global state —
-    it’s just a clean logger instance for isolated testing.
+    This fixture does NOT affect get_app_logger() or global state —
+    it's just a clean logger instance for isolated testing.
     """
     # Give each test’s logger a unique name for debug clarity
     name = f"test_logger{_suffix()}"
@@ -32,15 +32,15 @@ def direct_logger() -> mod_logs.AppLogger:
 
 @pytest.fixture
 def module_logger(monkeypatch: pytest.MonkeyPatch) -> mod_logs.AppLogger:
-    """Replace get_logger() everywhere with a new isolated instance.
+    """Replace get_app_logger() everywhere with a new isolated instance.
 
-    Ensures all modules (build, config, etc.) calling get_logger()
+    Ensures all modules (build, config, etc.) calling get_app_logger()
     will use this test logger for the duration of the test.
 
     Automatically reverts after test completion.
     """
     new_logger = mod_logs.AppLogger(f"isolated_logger{_suffix()}", enable_color=False)
-    patch_everywhere(monkeypatch, mod_logs, "get_logger", lambda: new_logger)
+    patch_everywhere(monkeypatch, mod_logs, "get_app_logger", lambda: new_logger)
     TEST_TRACE(
         "module_logger fixture",
         f"id={id(new_logger)}",

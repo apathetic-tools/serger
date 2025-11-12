@@ -80,7 +80,7 @@ def test_main_fallbacks_to_safe_log(
     patch_everywhere(monkeypatch, mod_utils_logs, "safe_log", fake_safe_log)
 
     # Backup logger state
-    logger = mod_logs.get_logger()
+    logger = mod_logs.get_app_logger()
     old_handlers = list(logger.handlers)
     old_level = logger.level
 

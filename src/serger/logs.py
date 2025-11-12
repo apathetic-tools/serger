@@ -11,7 +11,12 @@ from typing import cast
 # utils_schema, utils_system, utils_text, utils_types which don't depend on logs)
 from .constants import DEFAULT_ENV_LOG_LEVEL, DEFAULT_LOG_LEVEL
 from .meta import PROGRAM_ENV, PROGRAM_PACKAGE
-from .utils.utils_logs import TEST_TRACE, ApatheticCLILogger
+from .utils.utils_logs import (
+    TEST_TRACE,
+    ApatheticCLILogger,
+    get_logger,
+    register_logger_name,
+)
 from .utils.utils_types import cast_hint
 
 
@@ -46,22 +51,6 @@ class AppLogger(ApatheticCLILogger):
         return DEFAULT_LOG_LEVEL.upper()
 
 
-# --- Convenience utils ---------------------------------------------------------
-
-
-def get_logger() -> AppLogger:
-    """Return the configured app logger."""
-    logger = _APP_LOGGER
-    TEST_TRACE(
-        "get_logger() called",
-        f"id={id(logger)}",
-        f"name={logger.name}",
-        f"level={logger.level_name}",
-        f"handlers={[type(h).__name__ for h in logger.handlers]}",
-    )
-    return logger
-
-
 # --- Logger initialization ---------------------------------------------------
 
 # Force the logging module to use our subclass globally.
@@ -72,4 +61,26 @@ def get_logger() -> AppLogger:
 AppLogger.extend_logging_module()
 
 # Now this will actually return an AppLogger instance.
+# The logging module acts as the registry, so we just need to register the name.
 _APP_LOGGER = cast("AppLogger", logging.getLogger(PROGRAM_PACKAGE))
+
+# Register the logger name with utils_logs so get_logger() knows which name to use
+register_logger_name(PROGRAM_PACKAGE)
+
+
+def get_app_logger() -> AppLogger:
+    """Return the configured app logger.
+
+    This is the app-specific logger getter that returns AppLogger type.
+    Use this in application code instead of utils_logs.get_logger() for
+    better type hints.
+    """
+    logger = cast("AppLogger", get_logger())
+    TEST_TRACE(
+        "get_logger() called",
+        f"id={id(logger)}",
+        f"name={logger.name}",
+        f"level={logger.level_name}",
+        f"handlers={[type(h).__name__ for h in logger.handlers]}",
+    )
+    return logger

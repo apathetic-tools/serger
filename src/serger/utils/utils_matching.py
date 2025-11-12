@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from serger.config_types import PathResolved
-from serger.logs import get_logger
+from serger.utils.utils_logs import get_logger
 
 from .utils_system import get_sys_version_info
 

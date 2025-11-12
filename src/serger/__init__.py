@@ -15,6 +15,10 @@ Highlights:
     - get_metadata()      → Retrieve version / commit info
 """
 
+# Import logs early to ensure logger is registered
+# This must happen before any other imports that use get_app_logger()
+import serger.logs  # noqa: F401  # pyright: ignore[reportUnusedImport]
+
 from .actions import (
     get_metadata,
     watch_for_changes,
@@ -54,9 +58,7 @@ from .constants import (
     DEFAULT_STRICT_CONFIG,
     DEFAULT_WATCH_INTERVAL,
 )
-from .logs import (
-    get_logger,
-)
+from .logs import get_app_logger
 from .meta import (
     PROGRAM_CONFIG,
     PROGRAM_DISPLAY,
@@ -120,7 +122,7 @@ __all__ = [  # noqa: RUF022
     # --- logs ---
     "LEVEL_ORDER",
     "RESET",
-    "get_logger",
+    "get_app_logger",
     #
     # --- utils ---
     "get_glob_root",

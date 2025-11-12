@@ -79,7 +79,7 @@ def test_verbose_flag(
     assert "Build completed".lower() in out
     assert "All builds complete".lower() in out
 
-    level = mod_logs.get_logger().level_name.lower()
+    level = mod_logs.get_app_logger().level_name.lower()
     assert level == "debug"
 
 
@@ -134,7 +134,7 @@ def test_log_level_flag_sets_runtime(
     assert code == 0
     assert "Build completed".lower() in out
     # Verify that runtime log level is set correctly
-    level = mod_logs.get_logger().level_name.lower()
+    level = mod_logs.get_app_logger().level_name.lower()
     assert level == "debug"
 
 
@@ -155,7 +155,7 @@ def test_log_level_from_env_var(
     code = mod_cli.main([])
 
     assert code == 0
-    level = mod_logs.get_logger().level_name.lower()
+    level = mod_logs.get_app_logger().level_name.lower()
     assert level == "warning"
 
     # 2️⃣ Generic LOG_LEVEL fallback works
@@ -164,7 +164,7 @@ def test_log_level_from_env_var(
     code = mod_cli.main([])
 
     assert code == 0
-    level = mod_logs.get_logger().level_name.lower()
+    level = mod_logs.get_app_logger().level_name.lower()
     assert level == "error"
 
     monkeypatch.delenv("LOG_LEVEL", raising=False)
@@ -208,5 +208,5 @@ def test_per_build_log_level_override(
     assert "[DEBUG".lower() in out or "Overriding log level".lower() in out
 
     # After all builds complete, runtime should be restored to root level
-    level = mod_logs.get_logger().level_name.lower()
+    level = mod_logs.get_app_logger().level_name.lower()
     assert level == "info"

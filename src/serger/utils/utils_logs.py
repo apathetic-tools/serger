@@ -387,3 +387,72 @@ class DualStreamHandler(logging.StreamHandler):  # type: ignore[type-arg]
         record.enable_color = getattr(self, "enable_color", False)
 
         super().emit(record)
+
+
+# --- Logger registry ---------------------------------------------------------
+
+
+# Registry to store the registered logger name
+# The logging module itself acts as the registry via logging.getLogger()
+_registered_logger_name: str | None = None
+
+
+def register_logger_name(logger_name: str) -> None:
+    """Register a logger name for use by get_logger().
+
+    This allows applications to specify which logger name to use.
+    The actual logger instance is stored by Python's logging module
+    via logging.getLogger(), so we only need to store the name.
+
+    Args:
+        logger_name: The name of the logger to retrieve (e.g., "serger")
+
+    Example:
+        >>> from serger.meta import PROGRAM_PACKAGE
+        >>> from serger.utils.utils_logs import register_logger_name
+        >>> register_logger_name(PROGRAM_PACKAGE)
+    """
+    global _registered_logger_name  # noqa: PLW0603
+    _registered_logger_name = logger_name
+    TEST_TRACE(
+        "register_logger_name() called",
+        f"name={logger_name}",
+    )
+
+
+def get_logger() -> ApatheticCLILogger:
+    """Return the registered logger instance.
+
+    Uses Python's built-in logging registry (logging.getLogger()) to retrieve
+    the logger. If no logger name has been registered, attempts to initialize
+    by importing the application's logs module (e.g., serger.logs).
+
+    Returns:
+        The logger instance from logging.getLogger() (as ApatheticCLILogger type)
+
+    Raises:
+        RuntimeError: If called before a logger name has been registered.
+
+    Note:
+        This function is used internally by utils_logs.py. Applications
+        should use their app-specific getter (e.g., get_app_logger()) for
+        better type hints.
+    """
+    if _registered_logger_name is None:
+        _msg = (
+            "Logger name not registered. "
+            "Call register_logger_name() or ensure your app's logs module is imported."
+        )
+        raise RuntimeError(_msg)
+
+    logger = logging.getLogger(_registered_logger_name)
+    # Cast to ApatheticCLILogger - at runtime this will be AppLogger if registered
+    typed_logger = cast("ApatheticCLILogger", logger)
+    TEST_TRACE(
+        "get_logger() called",
+        f"name={typed_logger.name}",
+        f"id={id(typed_logger)}",
+        f"level={typed_logger.level_name}",
+        f"handlers={[type(h).__name__ for h in typed_logger.handlers]}",
+    )
+    return typed_logger

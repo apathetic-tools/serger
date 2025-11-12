@@ -31,7 +31,7 @@ from .constants import (
     DEFAULT_USE_PYPROJECT,
     DEFAULT_WATCH_INTERVAL,
 )
-from .logs import get_logger
+from .logs import get_app_logger
 from .stitch import PyprojectMetadata, extract_pyproject_metadata
 from .utils import cast_hint, has_glob_chars, make_includeresolved, make_pathresolved
 
@@ -154,7 +154,7 @@ def _extract_pyproject_metadata_safe(
     Raises:
         RuntimeError: If explicitly requested and TOML parsing unavailable
     """
-    logger = get_logger()
+    logger = get_app_logger()
 
     try:
         metadata = extract_pyproject_metadata(
@@ -197,7 +197,7 @@ def _apply_metadata_fields(
         metadata: Extracted metadata
         pyproject_path: Path to pyproject.toml (for logging)
     """
-    logger = get_logger()
+    logger = get_app_logger()
 
     # Fill in missing fields (only if not already set in config)
     if metadata.version and not resolved_cfg.get("version"):
@@ -385,7 +385,7 @@ def resolve_post_processing(  # noqa: PLR0912, C901
     Returns:
         Resolved post-processing configuration
     """
-    logger = get_logger()
+    logger = get_app_logger()
 
     # Extract configs
     build_post = build_cfg.get("post_processing")
@@ -554,7 +554,7 @@ def _normalize_path_with_root(
       * `/abs/path`    → root=/abs/path, rel="."   (treat as literal)
     - If relative → root = context_root, path = raw (preserve string form)
     """
-    logger = get_logger()
+    logger = get_app_logger()
     raw_path = Path(raw)
     rel: Path | str
 
@@ -592,7 +592,7 @@ def _resolve_includes(  # noqa: PLR0912
     config_dir: Path,
     cwd: Path,
 ) -> list[IncludeResolved]:
-    logger = get_logger()
+    logger = get_app_logger()
     logger.trace(
         f"[resolve_includes] Starting with"
         f" {len(resolved_cfg.get('include', []))} config includes"
@@ -673,7 +673,7 @@ def _resolve_excludes(
     cwd: Path,
     root_cfg: RootConfig | None,
 ) -> list[PathResolved]:
-    logger = get_logger()
+    logger = get_app_logger()
     logger.trace(
         f"[resolve_excludes] Starting with"
         f" {len(resolved_cfg.get('exclude', []))} config excludes"
@@ -742,7 +742,7 @@ def _resolve_output(
     config_dir: Path,
     cwd: Path,
 ) -> PathResolved:
-    logger = get_logger()
+    logger = get_app_logger()
     logger.trace("[resolve_output] Resolving output directory")
 
     if getattr(args, "out", None):
@@ -772,7 +772,7 @@ def resolve_build_config(
     Applies CLI overrides, normalizes paths, merges gitignore behavior,
     and attaches provenance metadata.
     """
-    logger = get_logger()
+    logger = get_app_logger()
     logger.trace("[resolve_build_config] Starting resolution for build config")
 
     # Make a mutable copy
@@ -877,7 +877,7 @@ def resolve_config(
 
     If invoked standalone, ensures the global logger reflects the resolved log level.
     If called after load_and_validate_config(), this is a harmless no-op re-sync."""
-    logger = get_logger()
+    logger = get_app_logger()
     root_cfg = cast_hint(RootConfig, dict(root_input))
 
     builds_input = root_cfg.get("builds", [])

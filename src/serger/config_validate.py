@@ -5,7 +5,7 @@ from typing import Any
 
 from .config_types import BuildConfig, RootConfig
 from .constants import DEFAULT_STRICT_CONFIG
-from .logs import get_logger
+from .logs import get_app_logger
 from .utils import (
     SchemaErrorAggregator,
     ValidationSummary,
@@ -68,7 +68,7 @@ def _validate_root(
     summary: ValidationSummary,  # modified
     agg: SchemaErrorAggregator,  # modified
 ) -> ValidationSummary | None:
-    logger = get_logger()
+    logger = get_app_logger()
     logger.trace(f"[validate_root] Validating root with {len(parsed_cfg)} keys")
 
     strict_config: bool = summary.strict
@@ -126,7 +126,7 @@ def _validate_builds(
     summary: ValidationSummary,  # modified
     agg: SchemaErrorAggregator,  # modified
 ) -> ValidationSummary | None:
-    logger = get_logger()
+    logger = get_app_logger()
     builds_raw: Any = parsed_cfg.get("builds", [])
     logger.trace("[validate_builds] Validating builds")
 
@@ -240,7 +240,7 @@ def validate_config(
 
     Returns a ValidationSummary object.
     """
-    logger = get_logger()
+    logger = get_app_logger()
     logger.trace(f"[validate_config] Starting validation (strict={strict})")
 
     summary = ValidationSummary(

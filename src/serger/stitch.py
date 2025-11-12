@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import cast
 
 from .config_types import IncludeResolved, PostProcessingConfigResolved
-from .logs import get_logger
+from .logs import get_app_logger
 from .meta import PROGRAM_PACKAGE
 from .utils import derive_module_name, load_toml
 from .verify_script import post_stitch_processing
@@ -125,7 +125,7 @@ def extract_commit(root_path: Path) -> str:
     Returns:
         Short commit hash, or "unknown (local build)" if not in CI
     """
-    logger = get_logger()
+    logger = get_app_logger()
     # Only embed commit hash if in CI or release tag context
     if not (os.getenv("CI") or os.getenv("GIT_TAG") or os.getenv("GITHUB_REF")):
         return "unknown (local build)"
@@ -167,7 +167,7 @@ def split_imports(  # noqa: C901, PLR0915
         list of import statement strings, and body_text is the source with
         all imports removed
     """
-    logger = get_logger()
+    logger = get_app_logger()
     try:
         tree = ast.parse(text)
     except SyntaxError:
@@ -418,7 +418,7 @@ def compute_module_order(  # noqa: C901, PLR0912, PLR0915
     Raises:
         RuntimeError: If circular imports are detected
     """
-    logger = get_logger()
+    logger = get_app_logger()
     # Map file paths to derived module names
     file_to_module: dict[Path, str] = {}
     module_to_file: dict[str, Path] = {}
@@ -605,7 +605,7 @@ def suggest_order_mismatch(
                     skips recomputing the order. If None, computes it via
                     compute_module_order.
     """
-    logger = get_logger()
+    logger = get_app_logger()
     if topo_paths is None:
         topo_paths = compute_module_order(
             order_paths, package_root, package_name, file_to_include
@@ -686,7 +686,7 @@ def _find_package_root_for_file(file_path: Path) -> Path | None:
     Returns:
         Path to the package root directory, or None if not found
     """
-    logger = get_logger()
+    logger = get_app_logger()
     current_dir = file_path.parent.resolve()
     last_package_dir: Path | None = None
 
@@ -783,7 +783,7 @@ def _collect_modules(
     Returns:
         Tuple of (module_sources, all_imports, parts, derived_module_names)
     """
-    logger = get_logger()
+    logger = get_app_logger()
     all_imports: OrderedDict[str, None] = OrderedDict()
     module_sources: dict[str, str] = {}
     parts: list[str] = []
@@ -913,7 +913,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     Returns:
         Final script text
     """
-    logger = get_logger()
+    logger = get_app_logger()
     logger.debug("Building final script...")
 
     # Separate __future__ imports
@@ -1318,7 +1318,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         RuntimeError: If any validation or stitching step fails
         AssertionError: If mtime advancing fails
     """
-    logger = get_logger()
+    logger = get_app_logger()
 
     package_name_raw = config.get("package", "unknown")
     order_paths_raw = config.get("order", [])

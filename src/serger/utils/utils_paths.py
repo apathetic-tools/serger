@@ -4,7 +4,7 @@
 import re
 from pathlib import Path
 
-from serger.logs import get_logger
+from serger.utils.utils_logs import get_logger
 
 
 def normalize_path_string(raw: str) -> str:

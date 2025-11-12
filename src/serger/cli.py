@@ -23,7 +23,7 @@ from .constants import (
     DEFAULT_DRY_RUN,
     DEFAULT_WATCH_INTERVAL,
 )
-from .logs import get_logger
+from .logs import get_app_logger
 from .meta import (
     PROGRAM_CONFIG,
     PROGRAM_DISPLAY,
@@ -203,7 +203,7 @@ def _normalize_positional_args(
     parser: argparse.ArgumentParser,
 ) -> None:
     """Normalize positional arguments into explicit include/out flags."""
-    logger = get_logger()
+    logger = get_app_logger()
     includes: list[str] = getattr(args, "positional_include", [])
     out_pos: str | None = getattr(args, "positional_out", None)
 
@@ -257,7 +257,7 @@ class _LoadedConfig:
 
 def _initialize_logger(args: argparse.Namespace) -> None:
     """Initialize logger with CLI args, env vars, and defaults."""
-    logger = get_logger()
+    logger = get_app_logger()
     logger.setLevel(logger.determine_log_level(args=args))
     logger.enable_color = getattr(
         args, "enable_color", logger.determine_color_enabled()
@@ -284,7 +284,7 @@ def _validate_includes(
     Returns True if validation passes, False if we should abort.
     Logs appropriate warnings/errors.
     """
-    logger = get_logger()
+    logger = get_app_logger()
 
     # Check for builds with missing includes. Respect per-build strict_config:
     # - If ANY build with no includes has strict_config=true → error (abort)
@@ -359,7 +359,7 @@ def _handle_early_exits(args: argparse.Namespace) -> int | None:
 
     Returns exit code if we should exit early, None otherwise.
     """
-    logger = get_logger()
+    logger = get_app_logger()
 
     # --- Version flag ---
     if getattr(args, "version", None):
@@ -387,7 +387,7 @@ def _load_and_resolve_config(
     parser: argparse.ArgumentParser,
 ) -> _LoadedConfig:
     """Load config, normalize args, and resolve final configuration."""
-    logger = get_logger()
+    logger = get_app_logger()
 
     # --- Load configuration ---
     config_path: Path | None = None
@@ -464,7 +464,7 @@ def _execute_builds(
 
 
 def main(argv: list[str] | None = None) -> int:
-    logger = get_logger()  # init (use env + defaults)
+    logger = get_app_logger()  # init (use env + defaults)
 
     try:
         parser = _setup_parser()
