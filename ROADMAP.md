@@ -20,7 +20,6 @@ Some of these we just want to consider, and may not want to implement.
 - allow you to specify a file for order, then include the rest of the dir
 - how can we keep internal imports in stich mode and avoid conflicts?
 - how can we report what we ignore, in src and in tests
-- a pytest that checks if we have a top level private function ignore and if so, the file should be called test_priv__
 - evaluate ignores and determine if we can fix them instead of ignore them
 
 

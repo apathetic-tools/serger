@@ -1,10 +1,6 @@
 # tests/0_independant/test_check_schema_conformance.py
 """Focused tests for serger.config_validate._check_schema_conformance."""
 
-# we import `_` private for testing purposes only
-# ruff: noqa: SLF001
-# pyright: reportPrivateUsage=false
-
 from typing import Any, TypedDict
 
 import serger.utils_schema as mod_utils_schema
@@ -36,7 +32,7 @@ def test_check_schema_conformance_matches_list_validator() -> None:
 
     # --- patch and execute ---
     summary1 = mod_utils_schema.ValidationSummary(True, [], [], [], True)
-    ok_list = mod_utils_schema._validate_list_value(
+    ok_list = mod_utils_schema._validate_list_value(  # pyright: ignore[reportPrivateUsage] # noqa: SLF001
         "ctx",
         "include",
         ["src", 42],
