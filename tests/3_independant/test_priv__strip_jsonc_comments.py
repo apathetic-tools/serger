@@ -9,8 +9,6 @@ from typing import Any
 
 import pytest
 
-# Import submodule - works in both installed and singlefile modes
-# (singlefile mode excludes __init__.py but includes submodules)
 import serger.utils.utils_files as mod_utils_files
 
 

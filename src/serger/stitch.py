@@ -1146,6 +1146,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         shim_blocks.append("# Create module object if executed as script")
         shim_blocks.append("if not _mod:")
         shim_blocks.append("    _mod = types.ModuleType(_pkg)")
+        shim_blocks.append("    _mod.__package__ = _pkg")
         shim_blocks.append("    sys.modules[_pkg] = _mod")
 
         # If this is a nested package, set it as an attribute on its parent
@@ -1263,6 +1264,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         f"__build_date__ = {json.dumps(build_date)}\n"
         f"__STANDALONE__ = True\n"
         f"__STITCH_SOURCE__ = {json.dumps(PROGRAM_PACKAGE)}\n"
+        f"__package__ = {json.dumps(package_name)}\n"
         "\n"
         "\n" + "\n".join(parts) + "\n"
         f"{shim_text}\n"
