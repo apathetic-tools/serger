@@ -49,14 +49,14 @@ def test_run_build_skips_non_stitch_build(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Should skip builds without package/order fields (file copying)."""
+    """Should skip builds without package field (file copying)."""
     # --- setup ---
     src = tmp_path / "src"
     src.mkdir()
     (src / "file.txt").write_text("content")
 
     cfg = make_build_cfg(tmp_path, [make_include_resolved("src", tmp_path)])
-    # No package/order - should be skipped
+    # No package - should be skipped
 
     # --- execute ---
     with module_logger.use_level("info"):
@@ -249,4 +249,51 @@ def test_run_build_uses_timestamp_when_no_version(
     assert version_const == version, (
         f"__version__ constant should match header version: "
         f"{version_const} != {version}"
+    )
+
+
+def test_run_build_auto_discovers_order(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Auto-discover module order via topological sort when order is not specified."""
+    # --- setup ---
+    src = tmp_path / "src"
+    src.mkdir()
+    # Create modules with dependencies: base -> derived -> main
+    # Use package name "src" to match directory structure for auto-discovery
+    (src / "base.py").write_text("BASE = 1\n")
+    (src / "derived.py").write_text("from src.base import BASE\n\nDERIVED = BASE + 1\n")
+    (src / "main.py").write_text(
+        "from src.derived import DERIVED\n\nMAIN = DERIVED + 1\n"
+    )
+
+    cfg = make_build_cfg(
+        tmp_path,
+        [make_include_resolved("src/*.py", tmp_path)],
+    )
+    cfg["package"] = "src"  # Package name matches directory for auto-discovery
+    # No order specified - should auto-discover
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        mod_build.run_build(cfg)
+
+    # --- verify ---
+    out_file = tmp_path / "dist" / "script.py"
+    assert out_file.exists()
+    content = out_file.read_text()
+
+    # Verify all modules are included
+    assert "BASE = 1" in content
+    assert "DERIVED = BASE + 1" in content
+    assert "MAIN = DERIVED + 1" in content
+
+    # Verify order is correct (base before derived before main)
+    base_pos = content.find("BASE = 1")
+    derived_pos = content.find("DERIVED = BASE + 1")
+    main_pos = content.find("MAIN = DERIVED + 1")
+    assert base_pos < derived_pos < main_pos, (
+        "Auto-discovered order should respect dependencies: "
+        f"base at {base_pos}, derived at {derived_pos}, main at {main_pos}"
     )

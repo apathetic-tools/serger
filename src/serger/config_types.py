@@ -94,7 +94,8 @@ class BuildConfig(TypedDict, total=False):
 
     # Stitching configuration
     package: str  # Package name for imports (e.g., "serger")
-    order: list[str]  # Explicit module order for stitching
+    # Explicit module order for stitching (optional; auto-discovered if not provided)
+    order: list[str]
     license_header: str  # License header text for stitched output
     display_name: str  # Display name for header (defaults to package)
     description: str  # Description for header (defaults to blank)

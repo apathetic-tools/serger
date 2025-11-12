@@ -325,3 +325,96 @@ def test_multi_package_stitching_three_packages(tmp_path: Path) -> None:
     assert func1() == "from pkg1"
     assert func2() == "from pkg2"
     assert func3() == "from pkg3"
+
+
+def test_multi_package_auto_discover_order_with_cross_package_imports(
+    tmp_path: Path,
+) -> None:
+    """Test auto-discovery of order when stitching multiple packages with cross-package imports."""  # noqa: E501
+    # --- Setup: Create two packages with cross-package dependencies ---
+    pkg1_dir = tmp_path / "pkg1"
+    pkg2_dir = tmp_path / "pkg2"
+    pkg1_dir.mkdir()
+    pkg2_dir.mkdir()
+
+    # Package 1: base module (no dependencies)
+    (pkg1_dir / "base.py").write_text("BASE = 1\n")
+
+    # Package 2: derived module that imports from pkg1
+    (pkg2_dir / "derived.py").write_text(
+        "from pkg1.base import BASE\n\nDERIVED = BASE + 1\n"
+    )
+
+    # Package 2: main module that imports from pkg2.derived
+    (pkg2_dir / "main.py").write_text(
+        "from pkg2.derived import DERIVED\n\nMAIN = DERIVED + 1\n"
+    )
+
+    # --- Create build config WITHOUT explicit order ---
+    out_file = tmp_path / "stitched.py"
+    includes = [
+        make_include_resolved("pkg1/**/*.py", tmp_path),
+        make_include_resolved("pkg2/**/*.py", tmp_path),
+    ]
+
+    build_cfg: mod_config_types.BuildConfigResolved = cast(
+        "mod_config_types.BuildConfigResolved",
+        {
+            "include": includes,
+            "package": "pkg1",  # Primary package name
+            # No order specified - should auto-discover
+            "out": {"root": tmp_path, "path": "stitched.py"},
+            "__meta__": {"config_root": tmp_path, "cli_root": tmp_path},
+        },
+    )
+
+    # --- Execute stitch ---
+    mod_build.run_build(build_cfg)
+
+    # --- Verify output file exists ---
+    assert out_file.exists(), "Stitched file should be created"
+
+    content = out_file.read_text()
+
+    # --- Verify all modules are included ---
+    assert "# === pkg1.base ===" in content
+    assert "# === pkg2.derived ===" in content
+    assert "# === pkg2.main ===" in content
+
+    # --- Verify order is correct (pkg1.base before pkg2.derived before pkg2.main) ---
+    base_pos = content.find("BASE = 1")
+    derived_pos = content.find("DERIVED = BASE + 1")
+    main_pos = content.find("MAIN = DERIVED + 1")
+
+    assert base_pos < derived_pos < main_pos, (
+        "Auto-discovered order should respect cross-package dependencies: "
+        f"pkg1.base at {base_pos}, pkg2.derived at {derived_pos}, "
+        f"pkg2.main at {main_pos}"
+    )
+
+    # --- Verify shims are created for both packages ---
+    normalized_content = content.replace("'", '"')
+    assert '"pkg1.base"' in normalized_content
+    assert '"pkg2.derived"' in normalized_content
+    assert '"pkg2.main"' in normalized_content
+
+    # --- Verify imports work correctly ---
+    spec = importlib.util.spec_from_file_location("stitched_test_auto", out_file)
+    assert spec is not None
+    assert spec.loader is not None
+
+    for name in list(sys.modules.keys()):
+        if name.startswith(("pkg1", "pkg2")):
+            del sys.modules[name]
+
+    stitched_mod = importlib.util.module_from_spec(spec)
+    sys.modules["stitched_test_auto"] = stitched_mod
+    spec.loader.exec_module(stitched_mod)
+
+    from pkg1.base import BASE  # type: ignore[import-not-found]  # noqa: PLC0415
+    from pkg2.derived import DERIVED  # type: ignore[import-not-found]  # noqa: PLC0415
+    from pkg2.main import MAIN  # type: ignore[import-not-found]  # noqa: PLC0415
+
+    assert BASE == 1
+    assert DERIVED == 2  # noqa: PLR2004
+    assert MAIN == 3  # noqa: PLR2004

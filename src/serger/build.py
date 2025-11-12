@@ -9,7 +9,12 @@ from typing import cast
 from .config_types import BuildConfigResolved, IncludeResolved, PathResolved
 from .constants import DEFAULT_DRY_RUN
 from .logs import get_logger
-from .stitch import extract_commit, extract_version, stitch_modules
+from .stitch import (
+    compute_module_order,
+    extract_commit,
+    extract_version,
+    stitch_modules,
+)
 from .utils import (
     has_glob_chars,
     is_excluded_raw,
@@ -442,7 +447,7 @@ def _extract_build_metadata(
     return version, commit, build_date
 
 
-def run_build(  # noqa: PLR0915
+def run_build(  # noqa: PLR0915, PLR0912
     build_cfg: BuildConfigResolved,
 ) -> None:
     """Execute a single build task using a fully resolved config.
@@ -460,20 +465,20 @@ def run_build(  # noqa: PLR0915
     license_header = build_cfg.get("license_header", "")
     out_entry = build_cfg["out"]
 
-    # Skip if stitching fields are not provided
-    if not package or not order:
+    # Skip if package is not provided (required for stitch builds)
+    if not package:
         logger.warning(
-            "Skipping build: 'package' and 'order' fields are required for "
-            "stitch builds. This build has neither. "
+            "Skipping build: 'package' field is required for "
+            "stitch builds. This build does not have it. "
             "(File copying is handled by pocket-build, not serger.)"
         )
         return
 
     # Type checking - ensure correct types after narrowing
-    if package and not isinstance(package, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+    if not isinstance(package, str):  # pyright: ignore[reportUnnecessaryIsInstance]
         xmsg = f"Invalid package name (expected str, got {type(package).__name__})"
         raise TypeError(xmsg)
-    if order and not isinstance(order, list):  # pyright: ignore[reportUnnecessaryIsInstance]
+    if order is not None and not isinstance(order, list):  # pyright: ignore[reportUnnecessaryIsInstance]
         xmsg = f"Invalid order (expected list, got {type(order).__name__})"
         raise TypeError(xmsg)
 
@@ -498,8 +503,21 @@ def run_build(  # noqa: PLR0915
     # Get config root for resolving order paths
     config_root = build_cfg["__meta__"]["config_root"]
 
-    # Resolve order paths (order is list[str] of paths)
-    order_paths = resolve_order_paths(order, included_files, config_root)
+    # Compute package root for module name derivation (needed for auto-discovery)
+    package_root = find_package_root(included_files)
+
+    # Resolve order paths (order is list[str] of paths, or None for auto-discovery)
+    if order is not None:
+        # Use explicit order from config
+        order_paths = resolve_order_paths(order, included_files, config_root)
+        logger.debug("Using explicit order from config (%d entries)", len(order_paths))
+    else:
+        # Auto-discover order via topological sort
+        logger.info("Auto-discovering module order via topological sort...")
+        order_paths = compute_module_order(
+            included_files, package_root, package, file_to_include
+        )
+        logger.debug("Auto-discovered order (%d modules)", len(order_paths))
 
     # Resolve exclude_names to paths (exclude_names is list[str] of paths)
     exclude_names_raw = build_cfg.get("exclude_names", [])
@@ -514,9 +532,6 @@ def run_build(  # noqa: PLR0915
                 exclude_path = (config_root / exclude_name).resolve()
             if exclude_path in included_set:
                 exclude_paths.append(exclude_path)
-
-    # Compute package root for module name derivation
-    package_root = find_package_root(included_files)
 
     # Prepare config dict for stitch_modules
     display_name_raw = build_cfg.get("display_name", "")

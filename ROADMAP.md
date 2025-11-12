@@ -14,7 +14,6 @@ Some of these we just want to consider, and may not want to implement.
 ## 🎯 Core Features
 Major stitching capabilities and enhancements:
 
-- Auto-discovery of module order via topological sort
 - Incremental stitching with dependency caching
 
 ## 🧰 CLI Parameters

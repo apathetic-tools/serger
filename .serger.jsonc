@@ -15,26 +15,7 @@
       "repo": "https://github.com/apathetic-tools/serger",
 
       // License header text for stitched output
-      "license_header": "License: MIT-aNOAI\nFull text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",
-
-      // Explicit module order for stitching
-      // This order is critical - modules must be ordered to satisfy their import dependencies
-      // You can use wildcard patterns (e.g., "src/serger/*") to include all remaining files
-      // that haven't been explicitly ordered yet. Example:
-      //   "order": [
-      //     "src/serger/utils.py",  // Must come first
-      //     "src/serger/*",         // Include all other files in alphabetical order
-      //   ]
-      "order": [
-        "src/serger/constants.py",       // Base constants (no dependencies)
-        "src/serger/meta.py",            // Metadata (no internal dependencies)
-        "src/serger/config_types.py",    // Type definitions (needed before utils_types.py)
-        "src/serger/utils_types.py",     // Utility types (needed before utils_logs.py)
-        "src/serger/utils_logs.py",      // Logging utilities (needed before logs.py)
-        "src/serger/logs.py",            // Logging setup (needed before utils.py)
-        "src/serger/utils.py",           // General utilities (needed before many modules)
-        "src/serger/*"                   // All remaining files in alphabetical order
-      ],
+      "license_header": "License: MIT-aNOAI\nFull text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",      
 
       // Source modules to include in the stitch
       // These are glob patterns relative to the source directory
