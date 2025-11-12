@@ -358,3 +358,86 @@ class TestCollectModulesSources:
             assert "A = 1" in part
             # Should be stripped of extra whitespace at start/end
             assert part.startswith("\n#")
+
+
+class TestCollectModulesMultiPackage:
+    """Test module collection with multiple packages."""
+
+    def test_collect_multi_package_detects_all_packages(self) -> None:
+        """Should detect all packages from module names."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            pkg1_dir = tmp_path / "pkg1"
+            pkg2_dir = tmp_path / "pkg2"
+            pkg1_dir.mkdir()
+            pkg2_dir.mkdir()
+
+            (pkg1_dir / "module1.py").write_text(
+                "from pkg2.module2 import func2\n\nA = 1\n"
+            )
+            (pkg2_dir / "module2.py").write_text("B = 2\n")
+
+            file_paths = [
+                (pkg1_dir / "module1.py").resolve(),
+                (pkg2_dir / "module2.py").resolve(),
+            ]
+            package_root = tmp_path
+            file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
+            include1 = make_include_resolved("pkg1/**/*.py", tmp_path)
+            include2 = make_include_resolved("pkg2/**/*.py", tmp_path)
+            file_to_include[file_paths[0]] = include1
+            file_to_include[file_paths[1]] = include2
+
+            _module_sources, all_imports, _parts, _derived_names = (
+                mod_stitch._collect_modules(
+                    file_paths, package_root, "pkg1", file_to_include
+                )
+            )
+
+            # Cross-package import should be removed (internal)
+            import_list = list(all_imports.keys())
+            assert not any("pkg2.module2" in imp for imp in import_list)
+            # sys and types should always be present
+            assert "import sys\n" in import_list
+            assert "import types\n" in import_list
+
+    def test_collect_multi_package_three_packages(self) -> None:
+        """Should handle three or more packages."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            pkg1_dir = tmp_path / "pkg1"
+            pkg2_dir = tmp_path / "pkg2"
+            pkg3_dir = tmp_path / "pkg3"
+            pkg1_dir.mkdir()
+            pkg2_dir.mkdir()
+            pkg3_dir.mkdir()
+
+            (pkg1_dir / "a.py").write_text("import json\n\nA = 1\n")
+            (pkg2_dir / "b.py").write_text("from pkg1.a import A\n\nB = 2\n")
+            (pkg3_dir / "c.py").write_text("from external import something\n\nC = 3\n")
+
+            file_paths = [
+                (pkg1_dir / "a.py").resolve(),
+                (pkg2_dir / "b.py").resolve(),
+                (pkg3_dir / "c.py").resolve(),
+            ]
+            package_root = tmp_path
+            file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
+            for file_path in file_paths:
+                include = make_include_resolved(
+                    f"{file_path.parent.name}/**/*.py", tmp_path
+                )
+                file_to_include[file_path] = include
+
+            _module_sources, all_imports, _parts, _derived_names = (
+                mod_stitch._collect_modules(
+                    file_paths, package_root, "pkg1", file_to_include
+                )
+            )
+
+            # External imports should be hoisted
+            import_list = list(all_imports.keys())
+            assert any("json" in imp for imp in import_list)
+            assert any("external" in imp for imp in import_list)
+            # Cross-package imports should be removed
+            assert not any("pkg1.a" in imp for imp in import_list)

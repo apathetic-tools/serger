@@ -534,16 +534,25 @@ class TestStitchModulesShims:
             content = out_path.read_text()
             # Shim block should exist
             assert "# --- import shims for single-file runtime ---" in content
-            # Check for f-string with curly braces {_pkg}
-            # Module names are derived from paths, so might be "public_a" or
-            # "public_a.py"
+            # Check for loop-based shim generation
+            # The shims are now generated as:
+            # for _name in [...]: sys.modules[_name] = _mod
+            assert "for _name in" in content
+            assert "sys.modules[_name] = _mod" in content
+            # Module names are derived from paths, so might be "public_a"
+            # or "public_a.py"
+            normalized_content = content.replace("'", '"')
             assert (
-                "sys.modules[f'{_pkg}.public_a']" in content
-                or "sys.modules[f'{_pkg}.public_a.py']" in content
+                '"testpkg.public_a"' in normalized_content
+                or '"public_a"' in normalized_content
+                or '"testpkg.public_a.py"' in normalized_content
+                or '"public_a.py"' in normalized_content
             )
             assert (
-                "sys.modules[f'{_pkg}.public_b']" in content
-                or "sys.modules[f'{_pkg}.public_b.py']" in content
+                '"testpkg.public_b"' in normalized_content
+                or '"public_b"' in normalized_content
+                or '"testpkg.public_b.py"' in normalized_content
+                or '"public_b.py"' in normalized_content
             )
 
     def test_private_modules_excluded_from_shims(self) -> None:
@@ -570,13 +579,20 @@ class TestStitchModulesShims:
             )
 
             content = out_path.read_text()
-            # Public should have shim (check for f-string with curly braces {_pkg})
+            # Check for loop-based shim generation
+            assert "for _name in" in content
+            assert "sys.modules[_name] = _mod" in content
+            # Public should have shim
+            normalized_content = content.replace("'", '"')
             assert (
-                "sys.modules[f'{_pkg}.public']" in content
-                or "sys.modules[f'{_pkg}.public.py']" in content
+                '"testpkg.public"' in normalized_content
+                or '"public"' in normalized_content
+                or '"testpkg.public.py"' in normalized_content
+                or '"public.py"' in normalized_content
             )
             # Private should not have shim
-            assert "sys.modules[f'{_pkg}._private']" not in content
+            assert '"testpkg._private"' not in normalized_content
+            assert '"_private"' not in normalized_content
 
 
 class TestStitchModulesOutput:

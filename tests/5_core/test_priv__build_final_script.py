@@ -255,9 +255,12 @@ class TestBuildFinalScriptShims:
             build_date="2025-01-01",
         )
 
-        # Check for f-string with curly braces {_pkg}
-        assert "sys.modules[f'{_pkg}.utils']" in result
-        assert "sys.modules[f'{_pkg}.core']" in result
+        # Check for loop-based shim generation (module names include package prefix)
+        # The shims are now generated as: for _name in [...]: sys.modules[_name] = _mod
+        assert "for _name in" in result
+        assert "sys.modules[_name] = _mod" in result
+        assert "'mylib.utils'" in result or '"mylib.utils"' in result
+        assert "'mylib.core'" in result or '"mylib.core"' in result
 
     def test_shim_excludes_private_modules(self) -> None:
         """Should not create shims for private modules."""
@@ -278,9 +281,13 @@ class TestBuildFinalScriptShims:
             build_date="2025-01-01",
         )
 
-        # Check for f-string with curly braces {_pkg}
-        assert "sys.modules[f'{_pkg}.public']" in result
-        assert "sys.modules[f'{_pkg}._private']" not in result
+        # Check for loop-based shim generation
+        # The shims are now generated as: for _name in [...]: sys.modules[_name] = _mod
+        assert "for _name in" in result
+        assert "sys.modules[_name] = _mod" in result
+        assert "'mylib.public'" in result or '"mylib.public"' in result
+        assert "'mylib._private'" not in result
+        assert '"_private"' not in result
 
     def test_shim_package_name(self) -> None:
         """Should use correct package name in shims."""

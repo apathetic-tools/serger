@@ -148,7 +148,7 @@ def extract_commit(root_path: Path) -> str:
 
 def split_imports(  # noqa: C901, PLR0915
     text: str,
-    package_name: str,
+    package_names: list[str],
 ) -> tuple[list[str], str]:
     """Extract external imports and body text using AST.
 
@@ -158,7 +158,8 @@ def split_imports(  # noqa: C901, PLR0915
 
     Args:
         text: Python source code
-        package_name: Root package name (e.g., "serger")
+        package_names: List of package names to treat as internal
+            (e.g., ["serger", "other"])
 
     Returns:
         Tuple of (external_imports, body_text) where external_imports is a
@@ -209,7 +210,7 @@ def split_imports(  # noqa: C901, PLR0915
         pattern = r"#\s*serger\s*:\s*no-move"
         return bool(re.search(pattern, snippet, re.IGNORECASE))
 
-    def collect_imports(node: ast.AST) -> None:
+    def collect_imports(node: ast.AST) -> None:  # noqa: PLR0912
         """Recursively collect all import nodes from the AST."""
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             start = node.lineno - 1
@@ -225,10 +226,20 @@ def split_imports(  # noqa: C901, PLR0915
             is_internal = False
             if isinstance(node, ast.ImportFrom):
                 mod = node.module or ""
-                if node.level > 0 or mod.startswith(package_name):
+                if node.level > 0:
                     is_internal = True
-            elif any(alias.name.startswith(package_name) for alias in node.names):
-                is_internal = True
+                else:
+                    # Check if module starts with any of the package names
+                    for pkg in package_names:
+                        if mod.startswith(pkg):
+                            is_internal = True
+                            break
+            else:
+                # Check if any alias starts with any of the package names
+                for pkg in package_names:
+                    if any(alias.name.startswith(pkg) for alias in node.names):
+                        is_internal = True
+                        break
 
             # Check if import is inside if TYPE_CHECKING block
             type_checking_block = find_parent(node, tree, ast.If)
@@ -624,8 +635,29 @@ def _collect_modules(
     parts: list[str] = []
     derived_module_names: list[str] = []
 
-    # Reserve import for shim system
-    all_imports.setdefault("import sys\n", None)
+    # Reserve imports for shim system and main entry point
+    all_imports.setdefault("import sys\n", None)  # For shim system and main()
+    all_imports.setdefault("import types\n", None)  # For shim system (ModuleType)
+
+    # First pass: collect all module names to detect packages
+    all_module_names: list[str] = []
+    for file_path in file_paths:
+        if not file_path.exists():
+            logger.warning("Skipping missing file: %s", file_path)
+            continue
+        include = file_to_include.get(file_path)
+        module_name = derive_module_name(file_path, package_root, include)
+        all_module_names.append(module_name)
+
+    # Detect all packages from module names
+    detected_packages: set[str] = {package_name}  # Always include configured package
+    for module_name in all_module_names:
+        if "." in module_name:
+            pkg = module_name.split(".", 1)[0]
+            detected_packages.add(pkg)
+
+    # Convert to sorted list for consistent behavior
+    package_names_list = sorted(detected_packages)
 
     for file_path in file_paths:
         if not file_path.exists():
@@ -641,8 +673,8 @@ def _collect_modules(
         module_text = strip_redundant_blocks(module_text)
         module_sources[f"{module_name}.py"] = module_text
 
-        # Extract imports
-        external_imports, module_body = split_imports(module_text, package_name)
+        # Extract imports - pass all detected package names
+        external_imports, module_body = split_imports(module_text, package_names_list)
         for imp in external_imports:
             all_imports.setdefault(imp, None)
 
@@ -735,17 +767,64 @@ def _build_final_script(  # noqa: PLR0913
     import_block = "".join(all_imports.keys())
 
     # Generate import shims
+    # Detect all packages from module names
+    packages: dict[str, list[str]] = {}  # package_name -> list of module names
     shim_names = [n for n in order_names if not n.startswith("_")]
-    shim_block = [
-        "# --- import shims for single-file runtime ---",
-        f"_pkg = {package_name!r}",
-        "_mod = sys.modules.get(f'{_pkg}_single') or sys.modules.get(_pkg)",
-        "if _mod:",
-        *[f"    sys.modules[f'{{_pkg}}.{name}'] = _mod" for name in shim_names],
-        "del _pkg, _mod",
-        "",
-    ]
-    shim_text = "\n".join(shim_block)
+
+    for module_name in shim_names:
+        # Extract package name (first part before dot, or full name if no dots)
+        pkg = module_name.split(".", 1)[0] if "." in module_name else package_name
+        if pkg not in packages:
+            packages[pkg] = []
+        packages[pkg].append(module_name)
+
+    # Generate shims for each package
+    # Each package gets its own module object to maintain proper isolation
+    shim_blocks: list[str] = []
+    shim_blocks.append("# --- import shims for single-file runtime ---")
+    # Note: types and sys are imported at the top level (see all_imports)
+
+    for pkg_name, module_names in sorted(packages.items()):
+        shim_blocks.append(f"_pkg = {pkg_name!r}")
+        shim_blocks.append("# Get existing module if we are imported as a module")
+        shim_blocks.append("_mod = sys.modules.get(_pkg)")
+        shim_blocks.append("# Create module object if executed as script")
+        shim_blocks.append("if not _mod:")
+        # When executed as script, create a separate module object for this package
+        # This ensures each package has its own module object for proper isolation
+        shim_blocks.append("    _mod = types.ModuleType(_pkg)")
+        shim_blocks.append("    sys.modules[_pkg] = _mod")
+        shim_blocks.append(
+            "    # Copy attributes from global namespace to package module"
+        )
+        shim_blocks.append("    _globals = globals()")
+        # Copy all attributes that might belong to modules in this package
+        # Create a list first to avoid dict size changes during iteration
+        shim_blocks.append(
+            "    _items = [(k, v) for k, v in _globals.items() "
+            "if not k.startswith('_')]"
+        )
+        shim_blocks.append("    for _key, _value in _items:")
+        shim_blocks.append("        setattr(_mod, _key, _value)")
+        shim_blocks.append("    del _globals, _items")
+        # Always create shims for all modules in this package
+        # This works both when imported as module and when executed as script
+        # When imported as module, _mod already exists and points to the module
+        # When executed as script, _mod was just created above
+        shim_blocks.append("# Create shims for all modules in this package")
+        # Collect module names with package prefix
+        full_module_names = [
+            name if name.startswith(f"{pkg_name}.") else f"{pkg_name}.{name}"
+            for name in module_names
+        ]
+        # Generate loop to assign all modules to _mod
+        module_names_str = ", ".join(repr(name) for name in full_module_names)
+        shim_blocks.append(f"for _name in [{module_names_str}]:")
+        shim_blocks.append("    sys.modules[_name] = _mod")
+        shim_blocks.append("del _pkg, _mod")
+        shim_blocks.append("")
+
+    shim_text = "\n".join(shim_blocks)
 
     # Generate formatted header line
     header_line = _format_header_line(
@@ -793,7 +872,6 @@ def _build_final_script(  # noqa: PLR0913
         "\n" + "\n".join(parts) + "\n"
         f"{shim_text}\n"
         "\nif __name__ == '__main__':\n"
-        "    import sys\n"
         "    sys.exit(main(sys.argv[1:]))\n"
     )
 
