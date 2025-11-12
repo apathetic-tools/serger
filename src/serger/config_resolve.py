@@ -13,12 +13,13 @@ from .config_types import (
     MetaBuildConfigResolved,
     OriginType,
     PathResolved,
-    PostCategoryConfig,
+    PostCategoryConfigResolved,
     PostProcessingConfig,
     PostProcessingConfigResolved,
     RootConfig,
     RootConfigResolved,
     ToolConfig,
+    ToolConfigResolved,
 )
 from .constants import (
     DEFAULT_CATEGORIES,
@@ -372,7 +373,7 @@ def _merge_post_processing(  # noqa: C901, PLR0912, PLR0915
     return merged
 
 
-def resolve_post_processing(  # noqa: C901, PLR0912, PLR0915
+def resolve_post_processing(  # noqa: PLR0912, C901
     build_cfg: BuildConfig,
     root_cfg: RootConfig | None,
 ) -> PostProcessingConfigResolved:
@@ -409,90 +410,88 @@ def resolve_post_processing(  # noqa: C901, PLR0912, PLR0915
             sorted(valid_categories),
         )
 
+    # Helper function to resolve a ToolConfig to ToolConfigResolved with all fields
+    def _resolve_tool_config(
+        tool_label: str, tool_config: ToolConfig | dict[str, Any]
+    ) -> ToolConfigResolved:
+        """Resolve a ToolConfig to ToolConfigResolved with all fields populated."""
+        # Ensure we have a dict (ToolConfig is a TypedDict, which is a dict)
+        tool_dict = cast("dict[str, Any]", tool_config)
+
+        # Args is required - if not present, this is an error
+        if "args" not in tool_dict:
+            xmsg = f"Tool config for {tool_label} is missing required 'args' field"
+            raise ValueError(xmsg)
+
+        resolved: ToolConfigResolved = {
+            "command": tool_dict.get("command", tool_label),
+            "args": list(tool_dict["args"]),
+            "path": tool_dict.get("path"),
+            "options": list(tool_dict.get("options", [])),
+        }
+        return resolved
+
     # Build resolved config with all categories (even if not in category_order)
-    resolved_categories: dict[str, PostCategoryConfig] = {}
+    resolved_categories: dict[str, PostCategoryConfigResolved] = {}
     for cat_name, default_cat in DEFAULT_CATEGORIES.items():
-        # Start with default
+        # Start with defaults
         enabled_val = default_cat.get("enabled", True)
         priority_val = default_cat.get("priority", [])
-        resolved_cat: PostCategoryConfig = {
-            "enabled": bool(enabled_val) if isinstance(enabled_val, bool) else True,
-            "priority": (
-                list(cast("list[str]", priority_val))
-                if isinstance(priority_val, list)
-                else []
-            ),
-        }
+        priority_list = (
+            list(cast("list[str]", priority_val))
+            if isinstance(priority_val, list)
+            else []
+        )
 
-        # Process tools from defaults if present
+        # Build tools dict from defaults
+        tools_dict: dict[str, ToolConfigResolved] = {}
         if "tools" in default_cat:
-            tools_dict: dict[str, ToolConfig] = {}
             for tool_name, tool_override in default_cat["tools"].items():
-                override_dict: dict[str, object] = {}
-                if "command" in tool_override:
-                    override_dict["command"] = tool_override["command"]
-                if "args" in tool_override:
-                    override_dict["args"] = list(tool_override["args"])
-                if "path" in tool_override:
-                    override_dict["path"] = tool_override["path"]
-                if "options" in tool_override:
-                    override_dict["options"] = list(tool_override["options"])
-                tools_dict[tool_name] = cast_hint(ToolConfig, override_dict)
-            resolved_cat["tools"] = tools_dict
+                tools_dict[tool_name] = _resolve_tool_config(tool_name, tool_override)
 
         # Apply merged config if present
         if "categories" in merged and cat_name in merged["categories"]:
             merged_cat = merged["categories"][cat_name]
             if "enabled" in merged_cat:
-                resolved_cat["enabled"] = merged_cat["enabled"]
+                enabled_val = merged_cat["enabled"]
             if "priority" in merged_cat:
-                resolved_cat["priority"] = list(merged_cat["priority"])
+                priority_list = list(merged_cat["priority"])
             if "tools" in merged_cat:
                 # Merge tools: user config overrides defaults
-                if "tools" not in resolved_cat:
-                    resolved_cat["tools"] = {}
-                merged_tools_dict = resolved_cat["tools"]
                 for tool_name, tool_override in merged_cat["tools"].items():
-                    merged_override_dict: dict[str, object] = {}
-                    if "command" in tool_override:
-                        merged_override_dict["command"] = tool_override["command"]
-                    if "args" in tool_override:
-                        merged_override_dict["args"] = list(tool_override["args"])
-                    if "path" in tool_override:
-                        merged_override_dict["path"] = tool_override["path"]
-                    if "options" in tool_override:
-                        merged_override_dict["options"] = list(tool_override["options"])
-                    merged_tools_dict[tool_name] = cast_hint(
-                        ToolConfig, merged_override_dict
+                    # Merge with existing tool config if present, otherwise use override
+                    existing_tool_raw: ToolConfigResolved | dict[str, Any] = (
+                        tools_dict.get(tool_name, {})
                     )
-                resolved_cat["tools"] = merged_tools_dict
+                    existing_tool: dict[str, Any] = cast(
+                        "dict[str, Any]", existing_tool_raw
+                    )
+                    merged_tool: dict[str, Any] = dict(existing_tool)
+                    # Update with user override (may be partial)
+                    if isinstance(tool_override, dict):  # pyright: ignore[reportUnnecessaryIsInstance]
+                        merged_tool.update(tool_override)
+                    tools_dict[tool_name] = _resolve_tool_config(tool_name, merged_tool)
 
         # Fallback: ensure all tools in priority are in tools dict
         # If a tool is in priority but not in tools, look it up from DEFAULT_CATEGORIES
-        if "priority" in resolved_cat:
-            if "tools" not in resolved_cat:
-                resolved_cat["tools"] = {}
-            tools_dict = resolved_cat["tools"]
-            default_tools = default_cat.get("tools", {})
-            for tool_label in resolved_cat["priority"]:
-                if tool_label not in tools_dict and tool_label in default_tools:
-                    # Copy from defaults as fallback
-                    default_override = default_tools[tool_label]
-                    fallback_dict: dict[str, object] = {}
-                    if "command" in default_override:
-                        fallback_dict["command"] = default_override["command"]
-                    if "args" in default_override:
-                        fallback_dict["args"] = list(default_override["args"])
-                    if "path" in default_override:
-                        fallback_dict["path"] = default_override["path"]
-                    if "options" in default_override:
-                        fallback_dict["options"] = list(default_override["options"])
-                    tools_dict[tool_label] = cast_hint(ToolConfig, fallback_dict)
-            resolved_cat["tools"] = tools_dict
+        default_tools = default_cat.get("tools", {})
+        for tool_label in priority_list:
+            if tool_label not in tools_dict and tool_label in default_tools:
+                # Copy from defaults as fallback
+                default_override = default_tools[tool_label]
+                tools_dict[tool_label] = _resolve_tool_config(
+                    tool_label, default_override
+                )
 
         # Empty priority = disabled
-        if not resolved_cat.get("priority"):
-            resolved_cat["enabled"] = False
+        if not priority_list:
+            enabled_val = False
+
+        resolved_cat: PostCategoryConfigResolved = {
+            "enabled": bool(enabled_val) if isinstance(enabled_val, bool) else True,
+            "priority": priority_list,
+            "tools": tools_dict,
+        }
 
         resolved_categories[cat_name] = resolved_cat
 

@@ -30,10 +30,24 @@ class PostProcessingConfig(TypedDict, total=False):
     categories: NotRequired[dict[str, PostCategoryConfig]]  # category definitions
 
 
+# Resolved types - all fields are guaranteed to be present with final values
+class ToolConfigResolved(TypedDict):
+    command: str  # executable name (defaults to tool_label if not specified)
+    args: list[str]  # command arguments (always present)
+    path: str | None  # custom executable path (None if not specified)
+    options: list[str]  # additional CLI arguments (empty list if not specified)
+
+
+class PostCategoryConfigResolved(TypedDict):
+    enabled: bool  # always present
+    priority: list[str]  # always present (may be empty)
+    tools: dict[str, ToolConfigResolved]  # always present (may be empty dict)
+
+
 class PostProcessingConfigResolved(TypedDict):
     enabled: bool
     category_order: list[str]
-    categories: dict[str, PostCategoryConfig]
+    categories: dict[str, PostCategoryConfigResolved]
 
 
 class PathResolved(TypedDict):

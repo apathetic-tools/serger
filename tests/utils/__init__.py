@@ -5,7 +5,10 @@ from .buildconfig import (
     make_build_input,
     make_include_resolved,
     make_meta,
+    make_post_category_config_resolved,
+    make_post_processing_config_resolved,
     make_resolved,
+    make_tool_config_resolved,
 )
 from .ci import is_ci
 from .config_validate import make_summary
@@ -26,9 +29,12 @@ __all__ = [
     "make_build_input",
     "make_include_resolved",
     "make_meta",
+    "make_post_category_config_resolved",
+    "make_post_processing_config_resolved",
     "make_resolved",
     "make_summary",
     "make_test_trace",
+    "make_tool_config_resolved",
     "patch_everywhere",
     "runtime_swap",
     "strip_common_prefix",

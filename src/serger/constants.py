@@ -30,8 +30,10 @@ DEFAULT_USE_PYPROJECT: bool = True
 # --- post-processing defaults ---
 DEFAULT_CATEGORY_ORDER: list[str] = ["static_checker", "formatter", "import_sorter"]
 
-# Type: dict[str, PostCategoryConfig] - matches PostCategoryConfig structure
+# Type: dict[str, dict[str, Any]] - matches PostCategoryConfig structure
 # All tool commands are defined in tools dict for consistency (supports custom labels)
+# Note: This is the raw default structure; it gets resolved to
+# PostCategoryConfigResolved
 DEFAULT_CATEGORIES: dict[str, dict[str, Any]] = {
     "static_checker": {
         "enabled": True,
