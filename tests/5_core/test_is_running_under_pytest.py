@@ -5,7 +5,9 @@ import os
 import sys
 from unittest.mock import patch
 
-import serger.utils as mod_utils
+# Import from submodule - works in both installed and singlefile modes
+# (singlefile mode excludes __init__.py but includes submodules)
+import serger.utils.utils_system as mod_utils_system
 
 
 class TestIsRunningUnderPytest:
@@ -14,19 +16,19 @@ class TestIsRunningUnderPytest:
     def test_detects_pytest_via_pytest_current_test_env(self) -> None:
         """Should detect pytest via PYTEST_CURRENT_TEST environment variable."""
         with patch.dict(os.environ, {"PYTEST_CURRENT_TEST": "test_file.py::test_func"}):
-            assert mod_utils.is_running_under_pytest() is True
+            assert mod_utils_system.is_running_under_pytest() is True
 
     def test_detects_pytest_via_underscore_env(self) -> None:
         """Should detect pytest via _ environment variable containing 'pytest'."""
         with patch.dict(os.environ, {"_": "/path/to/pytest"}):
-            assert mod_utils.is_running_under_pytest() is True
+            assert mod_utils_system.is_running_under_pytest() is True
 
     def test_detects_pytest_via_sys_argv(self) -> None:
         """Should detect pytest via sys.argv containing 'pytest'."""
         original_argv = sys.argv.copy()
         try:
             sys.argv = ["pytest", "tests/test_something.py"]
-            assert mod_utils.is_running_under_pytest() is True
+            assert mod_utils_system.is_running_under_pytest() is True
         finally:
             sys.argv = original_argv
 
@@ -45,7 +47,7 @@ class TestIsRunningUnderPytest:
             original_argv = sys.argv.copy()
             try:
                 sys.argv = ["python", "script.py"]
-                assert mod_utils.is_running_under_pytest() is False
+                assert mod_utils_system.is_running_under_pytest() is False
             finally:
                 sys.argv = original_argv
         finally:
@@ -62,6 +64,6 @@ class TestIsRunningUnderPytest:
         try:
             # In practice sys.argv is always strings, but test defensive code
             sys.argv = ["pytest", "test.py"]
-            assert mod_utils.is_running_under_pytest() is True
+            assert mod_utils_system.is_running_under_pytest() is True
         finally:
             sys.argv = original_argv

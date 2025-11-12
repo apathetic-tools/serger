@@ -17,7 +17,8 @@ from types import SimpleNamespace
 
 import pytest
 
-import serger.utils as mod_utils
+import serger.utils.utils_matching as mod_utils_matching
+import serger.utils.utils_system as mod_utils_system
 from tests.utils import patch_everywhere
 
 
@@ -39,8 +40,8 @@ def test_is_excluded_raw_matches_patterns(tmp_path: Path) -> None:
     file.touch()
 
     # --- execute + verify ---
-    assert mod_utils.is_excluded_raw(file, ["foo/*"], root)
-    assert not mod_utils.is_excluded_raw(file, ["baz/*"], root)
+    assert mod_utils_matching.is_excluded_raw(file, ["foo/*"], root)
+    assert not mod_utils_matching.is_excluded_raw(file, ["baz/*"], root)
 
 
 def test_is_excluded_raw_relative_path(tmp_path: Path) -> None:
@@ -62,8 +63,8 @@ def test_is_excluded_raw_relative_path(tmp_path: Path) -> None:
     rel_path = Path("src/file.txt")
 
     # --- execute + verify ---
-    assert mod_utils.is_excluded_raw(rel_path, ["src/*"], root)
-    assert not mod_utils.is_excluded_raw(rel_path, ["dist/*"], root)
+    assert mod_utils_matching.is_excluded_raw(rel_path, ["src/*"], root)
+    assert not mod_utils_matching.is_excluded_raw(rel_path, ["dist/*"], root)
 
 
 def test_is_excluded_raw_outside_root(tmp_path: Path) -> None:
@@ -84,7 +85,7 @@ def test_is_excluded_raw_outside_root(tmp_path: Path) -> None:
     outside.touch()
 
     # --- execute + verify ---
-    assert not mod_utils.is_excluded_raw(outside, ["*.txt"], root)
+    assert not mod_utils_matching.is_excluded_raw(outside, ["*.txt"], root)
 
 
 def test_is_excluded_raw_absolute_pattern(tmp_path: Path) -> None:
@@ -108,8 +109,8 @@ def test_is_excluded_raw_absolute_pattern(tmp_path: Path) -> None:
     abs_pattern = str(root / "a/b/*.txt")
 
     # --- execute + verify ---
-    assert mod_utils.is_excluded_raw(file, [abs_pattern], root)
-    assert not mod_utils.is_excluded_raw(file, [str(root / "x/*.txt")], root)
+    assert mod_utils_matching.is_excluded_raw(file, [abs_pattern], root)
+    assert not mod_utils_matching.is_excluded_raw(file, [str(root / "x/*.txt")], root)
 
 
 def test_is_excluded_raw_file_root_special_case(tmp_path: Path) -> None:
@@ -133,13 +134,13 @@ def test_is_excluded_raw_file_root_special_case(tmp_path: Path) -> None:
     abs_same = root_file
 
     # --- execute + verify ---
-    assert mod_utils.is_excluded_raw(rel_same, [], root_file)
-    assert mod_utils.is_excluded_raw(abs_same, [], root_file)
+    assert mod_utils_matching.is_excluded_raw(rel_same, [], root_file)
+    assert mod_utils_matching.is_excluded_raw(abs_same, [], root_file)
 
     # unrelated file should not match
     other = tmp_path / "other.csv"
     other.touch()
-    assert not mod_utils.is_excluded_raw(other, [], root_file)
+    assert not mod_utils_matching.is_excluded_raw(other, [], root_file)
 
 
 def test_is_excluded_raw_mixed_patterns(tmp_path: Path) -> None:
@@ -162,7 +163,7 @@ def test_is_excluded_raw_mixed_patterns(tmp_path: Path) -> None:
     patterns = ["*.py", "dir/*.tmp", "ignore/*"]
 
     # --- execute + verify ---
-    assert mod_utils.is_excluded_raw(file, patterns, root)
+    assert mod_utils_matching.is_excluded_raw(file, patterns, root)
 
 
 def test_is_excluded_raw_gitignore_double_star(tmp_path: Path) -> None:
@@ -185,7 +186,7 @@ def test_is_excluded_raw_gitignore_double_star(tmp_path: Path) -> None:
     nested.touch()
 
     # --- execute ---
-    result = mod_utils.is_excluded_raw(nested, ["dir/**/*.py"], root)
+    result = mod_utils_matching.is_excluded_raw(nested, ["dir/**/*.py"], root)
 
     # --- verify ---
     assert result, "Expected True on Python ≥3.11 where '**' is recursive"
@@ -204,9 +205,12 @@ def test_gitignore_double_star_backport_py310(
     # Force utils to think it's running on Python 3.10
     fake_sys = SimpleNamespace(version_info=(3, 10, 0))
     patch_everywhere(
-        monkeypatch, mod_utils, "get_sys_version_info", lambda: fake_sys.version_info
+        monkeypatch,
+        mod_utils_system,
+        "get_sys_version_info",
+        lambda: fake_sys.version_info,
     )
-    result = mod_utils.is_excluded_raw(nested, ["dir/**/*.py"], root)
+    result = mod_utils_matching.is_excluded_raw(nested, ["dir/**/*.py"], root)
 
     # --- verify ---
     # Assert: backport should match recursively on 3.10

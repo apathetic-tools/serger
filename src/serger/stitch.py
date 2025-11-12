@@ -16,6 +16,7 @@ import subprocess
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 from .config_types import IncludeResolved, PostProcessingConfigResolved
 from .logs import get_logger
@@ -417,6 +418,7 @@ def compute_module_order(  # noqa: C901, PLR0912, PLR0915
     Raises:
         RuntimeError: If circular imports are detected
     """
+    logger = get_logger()
     # Map file paths to derived module names
     file_to_module: dict[Path, str] = {}
     module_to_file: dict[str, Path] = {}
@@ -476,19 +478,43 @@ def compute_module_order(  # noqa: C901, PLR0912, PLR0915
                 is_relative_resolved = node.level > 0 and mod and "." not in mod
 
                 for pkg in detected_packages:
-                    if mod.startswith(pkg):
+                    # Match only if mod equals pkg or starts with pkg + "."
+                    # This prevents false matches where a module name happens to
+                    # start with a package name (e.g., "foo_bar" matching "foo")
+                    if mod == pkg or mod.startswith(pkg + "."):
                         matched_package = pkg
                         break
+
+                logger.trace(
+                    "[DEPS] %s imports %s: mod=%s, matched_package=%s, "
+                    "is_relative_resolved=%s",
+                    module_name,
+                    node.module or "",
+                    mod,
+                    matched_package,
+                    is_relative_resolved,
+                )
 
                 # If relative import resolved to a simple name (no dots), check if it
                 # matches any module name directly (for same-package imports)
                 if not matched_package and is_relative_resolved:
                     # Check if the resolved module name matches any module directly
+                    logger.trace(
+                        "[DEPS] Relative import in %s: resolved_mod=%s, checking deps",
+                        module_name,
+                        mod,
+                    )
                     for dep_module in deps:
                         # Match if dep_module equals mod or starts with mod.
                         if (
                             dep_module == mod or dep_module.startswith(mod + ".")
                         ) and dep_module != module_name:
+                            logger.trace(
+                                "[DEPS] Found dependency: %s -> %s (from %s)",
+                                module_name,
+                                dep_module,
+                                mod,
+                            )
                             deps[module_name].add(dep_module)
                     continue  # Skip the package-based matching below
 
@@ -575,8 +601,9 @@ def suggest_order_mismatch(
         package_root: Common root of all included files
         package_name: Root package name
         file_to_include: Mapping of file path to its include (for dest access)
-        topo_paths: Optional pre-computed topological order. If provided, skips
-                    recomputing the order. If None, computes it via compute_module_order.
+        topo_paths: Optional pre-computed topological order. If provided,
+                    skips recomputing the order. If None, computes it via
+                    compute_module_order.
     """
     logger = get_logger()
     if topo_paths is None:
@@ -644,6 +671,63 @@ def verify_no_broken_imports(final_text: str, package_name: str) -> None:
         broken_list = ", ".join(sorted(broken))
         msg = f"Unresolved internal imports: {broken_list}"
         raise RuntimeError(msg)
+
+
+def _find_package_root_for_file(file_path: Path) -> Path | None:
+    """Find the package root for a file by walking up looking for __init__.py.
+
+    Starting from the file's directory, walks up the directory tree while
+    we find __init__.py files. The topmost directory with __init__.py is
+    the package root.
+
+    Args:
+        file_path: Path to the Python file
+
+    Returns:
+        Path to the package root directory, or None if not found
+    """
+    logger = get_logger()
+    current_dir = file_path.parent.resolve()
+    last_package_dir: Path | None = None
+
+    logger.trace(
+        "[PKG_ROOT] Finding package root for %s, starting from %s",
+        file_path.name,
+        current_dir,
+    )
+
+    # Walk up from the file's directory
+    while True:
+        # Check if current directory has __init__.py
+        init_file = current_dir / "__init__.py"
+        if init_file.exists():
+            # This directory is part of a package
+            last_package_dir = current_dir
+            logger.trace(
+                "[PKG_ROOT] Found __init__.py at %s (package root so far: %s)",
+                current_dir,
+                last_package_dir,
+            )
+        else:
+            # This directory doesn't have __init__.py, so we've gone past the package
+            # Return the last directory that had __init__.py
+            logger.trace(
+                "[PKG_ROOT] No __init__.py at %s, package root: %s",
+                current_dir,
+                last_package_dir,
+            )
+            return last_package_dir
+
+        # Move up one level
+        parent = current_dir.parent
+        if parent == current_dir:
+            # Reached filesystem root
+            logger.trace(
+                "[PKG_ROOT] Reached filesystem root, package root: %s",
+                last_package_dir,
+            )
+            return last_package_dir
+        current_dir = parent
 
 
 def force_mtime_advance(path: Path, seconds: float = 1.0, max_tries: int = 50) -> None:
@@ -752,7 +836,7 @@ def _collect_modules(
         header = f"# === {module_name} ==="
         parts.append(f"\n{header}\n{module_body.strip()}\n\n")
 
-        logger.debug("Processed module: %s (from %s)", module_name, file_path)
+        logger.trace("Processed module: %s (from %s)", module_name, file_path)
 
     return module_sources, all_imports, parts, derived_module_names
 
@@ -791,12 +875,15 @@ def _format_header_line(
     return f"{package_name}"
 
 
-def _build_final_script(  # noqa: PLR0913
+def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     *,
     package_name: str,
     all_imports: OrderedDict[str, None],
     parts: list[str],
     order_names: list[str],
+    order_paths: list[Path] | None = None,
+    package_root: Path | None = None,
+    file_to_include: dict[Path, IncludeResolved] | None = None,
     license_header: str,
     version: str,
     commit: str,
@@ -812,6 +899,9 @@ def _build_final_script(  # noqa: PLR0913
         all_imports: Collected external imports
         parts: Module code sections
         order_names: List of module names (for shim generation)
+        order_paths: Optional list of file paths corresponding to order_names
+        package_root: Optional common root of all included files
+        file_to_include: Optional mapping of file path to its include
         license_header: License header text
         version: Version string
         commit: Commit hash
@@ -837,16 +927,209 @@ def _build_final_script(  # noqa: PLR0913
     import_block = "".join(all_imports.keys())
 
     # Generate import shims
-    # Detect all packages from module names
-    packages: dict[str, list[str]] = {}  # package_name -> list of module names
-    shim_names = [n for n in order_names if not n.startswith("_")]
+    # Group modules by their immediate parent package
+    # For "serger.utils.utils_text", the parent package is "serger.utils"
+    # For "serger.cli", the parent package is "serger"
+    # Include all modules (matching installed package behavior)
+    #
+    # IMPORTANT: Module names in order_names are relative to package_root
+    # (e.g., "utils.utils_text"), but shims need full paths
+    # (e.g., "serger.utils.utils_text").
+    # Prepend package_name to all module names for shim generation.
+    # Note: If specific modules should be excluded, use the 'exclude' config option
+    shim_names_raw = list(order_names)
+
+    # Detect packages by looking at file system structure (__init__.py files)
+    # This is more reliable than guessing from module names
+    # Map module names to their actual package roots
+    module_to_package_root: dict[str, Path | None] = {}
+    detected_packages: set[str] = {package_name}  # Always include configured package
+
+    if order_paths and package_root and file_to_include:
+        logger.trace(
+            "[PKG_DETECT] Detecting packages from file system structure "
+            "(__init__.py files)"
+        )
+        # Create mapping from module names to file paths
+        name_to_path: dict[str, Path] = {}
+        for file_path in order_paths:
+            include = file_to_include.get(file_path)
+            module_name = derive_module_name(file_path, package_root, include)
+            name_to_path[module_name] = file_path
+
+        # For each module, find its package root by walking up looking for __init__.py
+        for module_name in shim_names_raw:
+            if module_name in name_to_path:
+                file_path = name_to_path[module_name]
+                file_pkg_root = _find_package_root_for_file(file_path)
+                module_to_package_root[module_name] = file_pkg_root
+
+                # Determine if this file is from a different package
+                # A file is from a different package if its package root is:
+                # 1. Not the same as package_root, AND
+                # 2. Not a subdirectory of package_root
+                #    (i.e., it's a sibling or unrelated)
+                if file_pkg_root and file_pkg_root != package_root:
+                    try:
+                        # Check if file_pkg_root is a subdirectory of package_root
+                        rel_path = file_pkg_root.relative_to(package_root)
+                        # If it's a direct child (one level deep), it might be
+                        # a sibling package like pkg1/ and pkg2/ under a common root
+                        if len(rel_path.parts) == 1:
+                            # It's a direct child - check if it's a different package
+                            # by comparing the package root name to package_name
+                            pkg_name_from_path = file_pkg_root.name
+                            if (
+                                pkg_name_from_path
+                                and pkg_name_from_path != package_name
+                            ):
+                                logger.trace(
+                                    "[PKG_DETECT] Detected separate package %s "
+                                    "(sibling of %s) from file %s",
+                                    pkg_name_from_path,
+                                    package_name,
+                                    file_path,
+                                )
+                                detected_packages.add(pkg_name_from_path)
+                            else:
+                                logger.trace(
+                                    "[PKG_DETECT] %s is subpackage of %s "
+                                    "(file_pkg_root=%s, package_root=%s)",
+                                    module_name,
+                                    package_name,
+                                    file_pkg_root,
+                                    package_root,
+                                )
+                        # If it's deeper (len > 1), it's a subpackage
+                        else:
+                            logger.trace(
+                                "[PKG_DETECT] %s is nested subpackage of %s (depth=%d)",
+                                module_name,
+                                package_name,
+                                len(rel_path.parts),
+                            )
+                    except ValueError:
+                        # file_pkg_root is not under package_root,
+                        # so it's a different package
+                        # Extract package name from the file's package root
+                        pkg_name_from_path = file_pkg_root.name
+                        if pkg_name_from_path and pkg_name_from_path != package_name:
+                            logger.trace(
+                                "[PKG_DETECT] Detected separate package %s "
+                                "(unrelated to %s) from file %s",
+                                pkg_name_from_path,
+                                package_name,
+                                file_path,
+                            )
+                            detected_packages.add(pkg_name_from_path)
+                elif file_pkg_root == package_root:
+                    logger.trace(
+                        "[PKG_DETECT] %s is in main package %s",
+                        module_name,
+                        package_name,
+                    )
+                else:
+                    logger.trace(
+                        "[PKG_DETECT] %s: no package root found (file_pkg_root=None)",
+                        module_name,
+                    )
+
+    # Also detect packages from module names
+    # (as fallback when __init__.py detection fails)
+    # Only do this if we didn't successfully detect packages from file system
+    # (i.e., if module_to_package_root is empty or all values are None)
+    if not module_to_package_root or all(
+        v is None for v in module_to_package_root.values()
+    ):
+        logger.debug(
+            "Package detection: __init__.py files not found, "
+            "falling back to module name detection"
+        )
+        # Fallback: detect packages from module names
+        for module_name in shim_names_raw:
+            if "." in module_name:
+                pkg = module_name.split(".", 1)[0]
+                # Only add if it's clearly a different package (not a subpackage)
+                # We can't reliably distinguish, so be conservative and only add
+                # if it's different from package_name
+                if pkg != package_name:
+                    logger.trace(
+                        "[PKG_DETECT] Fallback: detected package %s "
+                        "from module name %s",
+                        pkg,
+                        module_name,
+                    )
+                    detected_packages.add(pkg)
+
+    # Prepend package_name to create full module paths
+    # Module names are relative to package_root, so we need to prepend package_name
+    # to get the full import path
+    # (e.g., "utils.utils_text" -> "serger.utils.utils_text")
+    # However, if module names already start with package_name or another package,
+    # don't double-prefix (for multi-package scenarios)
+    shim_names: list[str] = []
+    for name in shim_names_raw:
+        # If name already equals package_name, it's the root module itself
+        if name == package_name:
+            full_name = package_name
+        # If name already starts with package_name, use it as-is
+        elif name.startswith(f"{package_name}."):
+            full_name = name
+        # If name contains dots and starts with a different detected package,
+        # it's from another package (multi-package scenario) - use as-is
+        elif "." in name:
+            first_part = name.split(".", 1)[0]
+            # If first part is a detected package different from package_name,
+            # it's from another package - use as-is
+            if first_part in detected_packages and first_part != package_name:
+                full_name = name
+            else:
+                # Likely a subpackage - prepend package_name
+                full_name = f"{package_name}.{name}"
+        else:
+            # Top-level module under package: prepend package_name
+            full_name = f"{package_name}.{name}"
+        shim_names.append(full_name)
+
+    # Group modules by their parent package
+    # parent_package -> list of (module_name, is_direct_child)
+    # is_direct_child means the module is directly under this package
+    # (not nested deeper)
+    packages: dict[str, list[tuple[str, bool]]] = {}
+    # parent_pkg -> [(module_name, is_direct)]
 
     for module_name in shim_names:
-        # Extract package name (first part before dot, or full name if no dots)
-        pkg = module_name.split(".", 1)[0] if "." in module_name else package_name
-        if pkg not in packages:
-            packages[pkg] = []
-        packages[pkg].append(module_name)
+        if "." not in module_name:
+            # Top-level module, parent is the root package
+            parent = package_name
+            is_direct = True
+        else:
+            # Find the parent package (everything except the last component)
+            name_parts = module_name.split(".")
+            parent = ".".join(name_parts[:-1])
+            is_direct = True  # This module is directly under its parent
+
+        if parent not in packages:
+            packages[parent] = []
+        packages[parent].append((module_name, is_direct))
+
+    # Collect all package names (both intermediate and top-level)
+    all_packages: set[str] = set()
+    for module_name in shim_names:
+        name_parts = module_name.split(".")
+        # Add all package prefixes
+        # (e.g., for "serger.utils.utils_text" add "serger" and "serger.utils")
+        for i in range(1, len(name_parts)):
+            pkg = ".".join(name_parts[:i])
+            all_packages.add(pkg)
+        # Also add the top-level package if module has dots
+        if "." in module_name:
+            all_packages.add(name_parts[0])
+    # Add root package if not already present
+    all_packages.add(package_name)
+
+    # Sort packages by depth (shallowest first) to create parents before children
+    sorted_packages = sorted(all_packages, key=lambda p: p.count("."))
 
     # Generate shims for each package
     # Each package gets its own module object to maintain proper isolation
@@ -854,43 +1137,85 @@ def _build_final_script(  # noqa: PLR0913
     shim_blocks.append("# --- import shims for single-file runtime ---")
     # Note: types and sys are imported at the top level (see all_imports)
 
-    for pkg_name, module_names in sorted(packages.items()):
+    # First pass: Create all package modules and set up parent-child relationships
+    for pkg_name in sorted_packages:
+        # Get or create the package module
         shim_blocks.append(f"_pkg = {pkg_name!r}")
         shim_blocks.append("# Get existing module if we are imported as a module")
         shim_blocks.append("_mod = sys.modules.get(_pkg)")
         shim_blocks.append("# Create module object if executed as script")
         shim_blocks.append("if not _mod:")
-        # When executed as script, create a separate module object for this package
-        # This ensures each package has its own module object for proper isolation
         shim_blocks.append("    _mod = types.ModuleType(_pkg)")
         shim_blocks.append("    sys.modules[_pkg] = _mod")
-        shim_blocks.append(
-            "    # Copy attributes from global namespace to package module"
-        )
+
+        # If this is a nested package, set it as an attribute on its parent
+        if "." in pkg_name:
+            parent_pkg = ".".join(pkg_name.split(".")[:-1])
+            child_name = pkg_name.split(".")[-1]
+            shim_blocks.append(
+                f"# Set {pkg_name!r} as attribute on parent {parent_pkg!r}"
+            )
+            shim_blocks.append(f"_parent = sys.modules.get({parent_pkg!r})")
+            shim_blocks.append("if _parent:")
+            shim_blocks.append(f"    setattr(_parent, {child_name!r}, _mod)")
+            shim_blocks.append("del _parent")
+
+        shim_blocks.append("del _pkg, _mod")
+        shim_blocks.append("")
+
+    # Second pass: Copy attributes and register modules
+    # Process in any order since all modules are now created
+    for pkg_name in sorted_packages:
+        if pkg_name not in packages:
+            continue  # Skip packages that don't have any modules
+
+        shim_blocks.append(f"_pkg = {pkg_name!r}")
+        shim_blocks.append("_mod = sys.modules.get(_pkg)")
+        shim_blocks.append("if _mod:")
+        # Copy attributes from all modules that belong to this package
+        # All modules under a package share the same module object,
+        # so all their attributes should be on this module
+        # Include all attributes (matching installed package behavior)
+        shim_blocks.append("    # Copy attributes from all modules under this package")
         shim_blocks.append("    _globals = globals()")
-        # Copy all attributes that might belong to modules in this package
-        # Create a list first to avoid dict size changes during iteration
-        shim_blocks.append(
-            "    _items = [(k, v) for k, v in _globals.items() "
-            "if not k.startswith('_')]"
-        )
+        shim_blocks.append("    _items = [(k, v) for k, v in _globals.items()]")
         shim_blocks.append("    for _key, _value in _items:")
         shim_blocks.append("        setattr(_mod, _key, _value)")
         shim_blocks.append("    del _globals, _items")
-        # Always create shims for all modules in this package
-        # This works both when imported as module and when executed as script
-        # When imported as module, _mod already exists and points to the module
-        # When executed as script, _mod was just created above
-        shim_blocks.append("# Create shims for all modules in this package")
-        # Collect module names with package prefix
-        full_module_names = [
-            name if name.startswith(f"{pkg_name}.") else f"{pkg_name}.{name}"
-            for name in module_names
-        ]
-        # Generate loop to assign all modules to _mod
-        module_names_str = ", ".join(repr(name) for name in full_module_names)
-        shim_blocks.append(f"for _name in [{module_names_str}]:")
-        shim_blocks.append("    sys.modules[_name] = _mod")
+
+        # Register all modules that belong to this package
+        # All modules under a package share the same module object
+        module_names_for_pkg = [name for name, _ in packages[pkg_name]]
+        if module_names_for_pkg:
+            shim_blocks.append("    # Register all modules under this package")
+            # Module names already have full paths (with package_name prefix),
+            # but ensure they're correctly formatted for registration
+            # If name equals pkg_name, it's the root module itself
+            full_module_names = [
+                (
+                    name
+                    if (name == pkg_name or name.startswith(f"{pkg_name}."))
+                    else f"{pkg_name}.{name}"
+                )
+                for name in module_names_for_pkg
+            ]
+            module_names_str = ", ".join(repr(name) for name in full_module_names)
+            shim_blocks.append(f"    for _name in [{module_names_str}]:")
+            shim_blocks.append("        sys.modules[_name] = _mod")
+            shim_blocks.append("    # Set submodules as attributes on parent package")
+            shim_blocks.append("    # This allows 'import parent.submodule' to work")
+            shim_blocks.append(
+                "    # Only set if not already present (avoid overwriting functions)"
+            )
+            for full_name in full_module_names:
+                if full_name != pkg_name and full_name.startswith(f"{pkg_name}."):
+                    # Extract the submodule name (last component)
+                    submodule_name = full_name.split(".")[-1]
+                    shim_blocks.append(f"    if not hasattr(_mod, {submodule_name!r}):")
+                    shim_blocks.append(
+                        f"        setattr(_mod, {submodule_name!r}, _mod)"
+                    )
+
         shim_blocks.append("del _pkg, _mod")
         shim_blocks.append("")
 
@@ -946,7 +1271,7 @@ def _build_final_script(  # noqa: PLR0913
     )
 
 
-def stitch_modules(  # noqa: PLR0915, PLR0912
+def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     *,
     config: dict[str, object],
     file_paths: list[Path],
@@ -1050,13 +1375,17 @@ def stitch_modules(  # noqa: PLR0915, PLR0912
     # Use pre-computed topological order if available (from auto-discovery)
     topo_paths_raw = config.get("topo_paths")
     topo_paths: list[Path] | None = None
-    if topo_paths_raw is not None:
-        if isinstance(topo_paths_raw, list):
-            topo_paths = [
-                Path(item) if isinstance(item, str) else item
-                for item in topo_paths_raw
-            ]
-    suggest_order_mismatch(order_paths, package_root, package_name, file_to_include, topo_paths)
+    if topo_paths_raw is not None and isinstance(topo_paths_raw, list):
+        topo_paths = []
+        # Type narrowing: after isinstance check, cast to help type inference
+        for item in cast("list[str | Path]", topo_paths_raw):
+            if isinstance(item, str):
+                topo_paths.append(Path(item))
+            elif isinstance(item, Path):  # pyright: ignore[reportUnnecessaryIsInstance]
+                topo_paths.append(item)
+    suggest_order_mismatch(
+        order_paths, package_root, package_name, file_to_include, topo_paths
+    )
 
     # --- Collection Phase ---
     logger.debug("Collecting module sources...")
@@ -1087,6 +1416,9 @@ def stitch_modules(  # noqa: PLR0915, PLR0912
         all_imports=all_imports,
         parts=parts,
         order_names=derived_module_names,
+        order_paths=order_paths,
+        package_root=package_root,
+        file_to_include=file_to_include,
         license_header=license_header,
         version=version,
         commit=commit,

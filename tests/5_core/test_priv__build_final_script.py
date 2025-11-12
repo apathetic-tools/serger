@@ -262,8 +262,13 @@ class TestBuildFinalScriptShims:
         assert "'mylib.utils'" in result or '"mylib.utils"' in result
         assert "'mylib.core'" in result or '"mylib.core"' in result
 
-    def test_shim_excludes_private_modules(self) -> None:
-        """Should not create shims for private modules."""
+    def test_shim_includes_private_modules(self) -> None:
+        """Should create shims for all modules, including private ones.
+
+        This matches installed package behavior where private modules
+        are accessible. If specific modules should be excluded,
+        use the 'exclude' config option.
+        """
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
@@ -286,8 +291,8 @@ class TestBuildFinalScriptShims:
         assert "for _name in" in result
         assert "sys.modules[_name] = _mod" in result
         assert "'mylib.public'" in result or '"mylib.public"' in result
-        assert "'mylib._private'" not in result
-        assert '"_private"' not in result
+        # Private should also have shim (matching installed package behavior)
+        assert "'mylib._private'" in result or '"_private"' in result
 
     def test_shim_package_name(self) -> None:
         """Should use correct package name in shims."""

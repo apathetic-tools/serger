@@ -555,8 +555,13 @@ class TestStitchModulesShims:
                 or '"public_b.py"' in normalized_content
             )
 
-    def test_private_modules_excluded_from_shims(self) -> None:
-        """Should not create shims for modules starting with underscore."""
+    def test_private_modules_included_in_shims(self) -> None:
+        """Should create shims for all modules, including private ones.
+
+        This matches installed package behavior where private modules
+        are accessible. If specific modules should be excluded,
+        use the 'exclude' config option.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             src_dir = tmp_path / "src"
@@ -590,9 +595,11 @@ class TestStitchModulesShims:
                 or '"testpkg.public.py"' in normalized_content
                 or '"public.py"' in normalized_content
             )
-            # Private should not have shim
-            assert '"testpkg._private"' not in normalized_content
-            assert '"_private"' not in normalized_content
+            # Private should also have shim (matching installed package behavior)
+            assert (
+                '"testpkg._private"' in normalized_content
+                or '"_private"' in normalized_content
+            )
 
 
 class TestStitchModulesOutput:

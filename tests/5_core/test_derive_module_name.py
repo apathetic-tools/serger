@@ -6,7 +6,9 @@
 
 from pathlib import Path
 
-import serger.utils as mod_utils
+# Import from submodule - works in both installed and singlefile modes
+# (singlefile mode excludes __init__.py but includes submodules)
+import serger.utils.utils_modules as mod_utils_modules
 from tests.utils.buildconfig import make_include_resolved
 
 
@@ -21,7 +23,7 @@ def test_derive_preserves_directory_structure(tmp_path: Path) -> None:
     package_root = src
 
     # --- execute ---
-    result = mod_utils.derive_module_name(file_path, package_root)
+    result = mod_utils_modules.derive_module_name(file_path, package_root)
 
     # --- verify ---
     assert result == "core.base"
@@ -37,7 +39,7 @@ def test_derive_top_level_file(tmp_path: Path) -> None:
     package_root = src
 
     # --- execute ---
-    result = mod_utils.derive_module_name(file_path, package_root)
+    result = mod_utils_modules.derive_module_name(file_path, package_root)
 
     # --- verify ---
     assert result == "main"
@@ -57,7 +59,7 @@ def test_derive_with_dest_override(tmp_path: Path) -> None:
     )
 
     # --- execute ---
-    result = mod_utils.derive_module_name(file_path, package_root, include)
+    result = mod_utils_modules.derive_module_name(file_path, package_root, include)
 
     # --- verify ---
     # Module name should come from dest structure, not file path
@@ -72,7 +74,7 @@ def test_derive_file_not_under_root(tmp_path: Path) -> None:
     package_root = tmp_path / "src"  # Different root
 
     # --- execute ---
-    result = mod_utils.derive_module_name(file_path, package_root)
+    result = mod_utils_modules.derive_module_name(file_path, package_root)
 
     # --- verify ---
     assert result == "outside"
@@ -89,7 +91,7 @@ def test_derive_nested_structure(tmp_path: Path) -> None:
     package_root = src
 
     # --- execute ---
-    result = mod_utils.derive_module_name(file_path, package_root)
+    result = mod_utils_modules.derive_module_name(file_path, package_root)
 
     # --- verify ---
     assert result == "a.b.c.module"
@@ -108,7 +110,7 @@ def test_derive_with_dest_glob_pattern(tmp_path: Path) -> None:
     include = make_include_resolved("src/core/*.py", tmp_path, dest="custom")
 
     # --- execute ---
-    result = mod_utils.derive_module_name(file_path, package_root, include)
+    result = mod_utils_modules.derive_module_name(file_path, package_root, include)
 
     # --- verify ---
     # Should interpret dest relative to glob prefix

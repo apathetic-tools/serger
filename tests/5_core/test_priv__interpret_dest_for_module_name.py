@@ -10,8 +10,29 @@ for module name derivation rather than file copying.
 # pyright: reportPrivateUsage=false
 
 from pathlib import Path
+from typing import Any
 
-import serger.utils as mod_utils
+# Import submodule - works in both installed and singlefile modes
+# (singlefile mode excludes __init__.py but includes submodules)
+import serger.utils.utils_modules as mod_utils_modules
+
+
+class _MockUtils:
+    """Mock utils module for testing private functions."""
+
+    def _interpret_dest_for_module_name(
+        self,
+        file_path: Path,
+        include_root: Path,
+        include_pattern: str,
+        dest: Path | str,
+    ) -> Path:
+        return mod_utils_modules._interpret_dest_for_module_name(
+            file_path, include_root, include_pattern, dest
+        )
+
+
+mod_utils: Any = _MockUtils()
 
 
 def test_interpret_dest_explicit_dest(tmp_path: Path) -> None:

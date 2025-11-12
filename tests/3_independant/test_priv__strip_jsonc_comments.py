@@ -5,9 +5,23 @@
 # ruff: noqa: SLF001
 # pyright: reportPrivateUsage=false
 
+from typing import Any
+
 import pytest
 
-import serger.utils as mod_utils
+# Import submodule - works in both installed and singlefile modes
+# (singlefile mode excludes __init__.py but includes submodules)
+import serger.utils.utils_files as mod_utils_files
+
+
+class _MockUtils:
+    """Mock utils module for testing private functions."""
+
+    def _strip_jsonc_comments(self, text: str) -> str:
+        return mod_utils_files._strip_jsonc_comments(text)
+
+
+mod_utils: Any = _MockUtils()
 
 
 class TestBasicCommentRemoval:

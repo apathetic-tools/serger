@@ -25,8 +25,22 @@ Test Coverage:
 # pyright: reportPrivateUsage=false
 
 from functools import _lru_cache_wrapper
+from typing import Any
 
-import serger.utils as mod_utils
+# Import submodule - works in both installed and singlefile modes
+# (singlefile mode excludes __init__.py but includes submodules)
+import serger.utils.utils_matching as mod_utils_matching
+
+
+class _MockUtils:
+    """Mock utils module for testing private functions."""
+
+    def __init__(self) -> None:
+        # Expose the actual function so cache methods work
+        self._compile_glob_recursive = mod_utils_matching._compile_glob_recursive
+
+
+mod_utils: Any = _MockUtils()
 
 
 # Cache configuration constants

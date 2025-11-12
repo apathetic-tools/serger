@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-import serger.utils as mod_utils_core
+import serger.utils.utils_files as mod_utils_files
 
 
 def test_load_jsonc_empty_file(tmp_path: Path) -> None:
@@ -15,7 +15,7 @@ def test_load_jsonc_empty_file(tmp_path: Path) -> None:
     cfg.write_text("")
 
     # --- execute ---
-    result = mod_utils_core.load_jsonc(cfg)
+    result = mod_utils_files.load_jsonc(cfg)
 
     # --- verify ---
     assert result is None
@@ -28,7 +28,7 @@ def test_load_jsonc_only_comments(tmp_path: Path) -> None:
     cfg.write_text("// comment only\n/* another */")
 
     # --- execute ---
-    result = mod_utils_core.load_jsonc(cfg)
+    result = mod_utils_files.load_jsonc(cfg)
 
     # --- verify ---
     assert result is None
@@ -41,7 +41,7 @@ def test_load_jsonc_trailing_comma_in_list(tmp_path: Path) -> None:
     cfg.write_text('[ "a", "b", ]')
 
     # --- execute ---
-    result = mod_utils_core.load_jsonc(cfg)
+    result = mod_utils_files.load_jsonc(cfg)
 
     # --- verify ---
     assert result == ["a", "b"]
@@ -67,7 +67,7 @@ def test_load_jsonc_happy_path_with_comments_and_trailing_commas(
     )
 
     # --- execute ---
-    result = mod_utils_core.load_jsonc(cfg)
+    result = mod_utils_files.load_jsonc(cfg)
 
     # --- verify ---
     assert result == {
@@ -93,7 +93,7 @@ def test_load_jsonc_preserves_urls(tmp_path: Path) -> None:
     )
 
     # --- execute ---
-    result = mod_utils_core.load_jsonc(cfg)
+    result = mod_utils_files.load_jsonc(cfg)
 
     # --- verify ---
     assert result == {
@@ -110,7 +110,7 @@ def test_load_jsonc_invalid_json(tmp_path: Path) -> None:
 
     # --- execute and verify ---
     with pytest.raises(ValueError, match=r"Invalid JSONC syntax") as e:
-        mod_utils_core.load_jsonc(cfg)
+        mod_utils_files.load_jsonc(cfg)
 
     assert "bad.jsonc" in str(e.value)
 
@@ -122,7 +122,7 @@ def test_load_jsonc_rejects_scalar_root(tmp_path: Path) -> None:
 
     # --- execute and verify ---
     with pytest.raises(ValueError, match="Invalid JSONC root type"):
-        mod_utils_core.load_jsonc(cfg)
+        mod_utils_files.load_jsonc(cfg)
 
 
 def test_load_jsonc_missing_file_raises(tmp_path: Path) -> None:
@@ -132,7 +132,7 @@ def test_load_jsonc_missing_file_raises(tmp_path: Path) -> None:
 
     # --- execute and verify ---
     with pytest.raises(FileNotFoundError):
-        mod_utils_core.load_jsonc(cfg)
+        mod_utils_files.load_jsonc(cfg)
 
 
 def test_load_jsonc_directory_path_raises(tmp_path: Path) -> None:
@@ -143,4 +143,4 @@ def test_load_jsonc_directory_path_raises(tmp_path: Path) -> None:
 
     # --- execute and verify ---
     with pytest.raises(ValueError, match="Expected a file"):
-        mod_utils_core.load_jsonc(cfg_dir)
+        mod_utils_files.load_jsonc(cfg_dir)

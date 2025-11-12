@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-import serger.utils as mod_utils
+import serger.utils.utils_text as mod_utils_text
 
 
 @pytest.mark.parametrize(
@@ -72,7 +72,7 @@ def test_remove_path_in_error_message_normalizes_output(
     and normalize punctuation and whitespace cleanly.
     """
     # --- execute ---
-    result = mod_utils.remove_path_in_error_message(inner_msg, path)
+    result = mod_utils_text.remove_path_in_error_message(inner_msg, path)
 
     # --- verify ---
     assert result == expected, f"{inner_msg!r} → {result!r}, expected {expected!r}"
