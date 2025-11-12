@@ -16,7 +16,6 @@ Major stitching capabilities and enhancements:
 
 - Auto-discovery of module order via topological sort
 - Incremental stitching with dependency caching
-- Allow you to specify a file for order, then include the rest of the dir
 
 ## 🧰 CLI Parameters
 Planned command-line flags for future releases:

@@ -135,6 +135,132 @@ def collect_included_files(
     return sorted(filtered), file_to_include
 
 
+def _normalize_order_pattern(entry: str, config_root: Path) -> str:
+    """Normalize an order entry pattern relative to config_root.
+
+    Args:
+        entry: Order entry (path, relative or absolute)
+        config_root: Root directory for resolving relative paths
+
+    Returns:
+        Normalized pattern string relative to config_root
+    """
+    pattern_path = Path(entry)
+    if pattern_path.is_absolute():
+        try:
+            return str(pattern_path.relative_to(config_root))
+        except ValueError:
+            return pattern_path.name
+    return entry
+
+
+def _collect_recursive_files(
+    root_dir: Path,
+    included_set: set[Path],
+    explicitly_ordered: set[Path],
+) -> list[Path]:
+    """Collect Python files recursively from a directory.
+
+    Args:
+        root_dir: Directory to search recursively
+        included_set: Set of included file paths to filter by
+        explicitly_ordered: Set of already-ordered paths to exclude
+
+    Returns:
+        List of matching file paths
+    """
+    if not root_dir.exists():
+        return []
+    all_files = [p for p in root_dir.rglob("*") if p.is_file()]
+    return [
+        p.resolve()
+        for p in all_files
+        if p.suffix == ".py"
+        and p.resolve() in included_set
+        and p.resolve() not in explicitly_ordered
+    ]
+
+
+def _collect_glob_files(
+    pattern_str: str,
+    config_root: Path,
+    included_set: set[Path],
+    explicitly_ordered: set[Path],
+) -> list[Path]:
+    """Collect Python files matching a glob pattern.
+
+    Args:
+        pattern_str: Glob pattern string
+        config_root: Root directory for glob
+        included_set: Set of included file paths to filter by
+        explicitly_ordered: Set of already-ordered paths to exclude
+
+    Returns:
+        List of matching file paths
+    """
+    all_matches = list(config_root.glob(pattern_str))
+    return [
+        p.resolve()
+        for p in all_matches
+        if p.is_file()
+        and p.suffix == ".py"
+        and p.resolve() in included_set
+        and p.resolve() not in explicitly_ordered
+    ]
+
+
+def _handle_literal_file_path(
+    entry: str,
+    pattern_str: str,
+    config_root: Path,
+    included_set: set[Path],
+    explicitly_ordered: set[Path],
+    resolved: list[Path],
+) -> bool:
+    """Handle a literal file path entry.
+
+    Args:
+        entry: Original order entry string
+        pattern_str: Normalized pattern string
+        config_root: Root directory for resolving paths
+        included_set: Set of included file paths
+        explicitly_ordered: Set of already-ordered paths
+        resolved: List to append resolved paths to
+
+    Returns:
+        True if handled as literal file, False if should continue pattern matching
+    """
+    logger = get_logger()
+    candidate = config_root / pattern_str
+    if candidate.exists() and candidate.is_dir():
+        # Directory without trailing slash - treat as recursive
+        return False
+
+    # Treat as literal file path
+    if candidate.is_absolute():
+        path = candidate.resolve()
+    else:
+        path = (config_root / pattern_str).resolve()
+
+    if path not in included_set:
+        xmsg = (
+            f"Order entry {entry!r} resolves to {path}, which is not in included files"
+        )
+        raise ValueError(xmsg)
+
+    if path in explicitly_ordered:
+        logger.warning(
+            "Order entry %r (→ %s) appears multiple times in order list",
+            entry,
+            path,
+        )
+    else:
+        resolved.append(path)
+        explicitly_ordered.add(path)
+        logger.trace("[ORDER] %r → %s", entry, path)
+    return True
+
+
 def resolve_order_paths(
     order: list[str],
     included_files: list[Path],
@@ -142,8 +268,18 @@ def resolve_order_paths(
 ) -> list[Path]:
     """Resolve order entries (paths) to actual file paths.
 
+    Supports multiple pattern formats:
+    - Explicit file paths: "src/serger/utils.py"
+    - Non-recursive glob: "src/serger/*" (matches direct children only)
+    - Recursive directory: "src/serger/" (trailing slash = recursive)
+    - Recursive pattern: "src/serger/**" (explicit recursive)
+    - Directory without slash: "src/serger" (if directory exists, recursive)
+
+    Wildcard patterns are expanded to match all remaining files in included_files
+    that haven't been explicitly ordered yet. Matched files are sorted alphabetically.
+
     Args:
-        order: List of order entries (paths, relative or absolute)
+        order: List of order entries (paths, relative or absolute, or glob patterns)
         included_files: List of included file paths to validate against
         config_root: Root directory for resolving relative paths
 
@@ -156,23 +292,71 @@ def resolve_order_paths(
     logger = get_logger()
     included_set = set(included_files)
     resolved: list[Path] = []
+    explicitly_ordered: set[Path] = set()
 
     for entry in order:
-        # Resolve path (absolute or relative to config_root)
-        if Path(entry).is_absolute():
-            path = Path(entry).resolve()
-        else:
-            path = (config_root / entry).resolve()
+        pattern_str = _normalize_order_pattern(entry, config_root)
+        matching_files: list[Path] = []
 
-        if path not in included_set:
-            xmsg = (
-                f"Order entry {entry!r} resolves to {path}, "
-                f"which is not in included files"
+        # Handle different directory pattern formats
+        # (matching expand_include_pattern behavior)
+        if pattern_str.endswith("/") and not has_glob_chars(pattern_str):
+            # Trailing slash directory: "src/serger/" → recursive match
+            logger.trace("[ORDER] Treating as trailing-slash directory: %r", entry)
+            root_dir = config_root / pattern_str.rstrip("/")
+            matching_files = _collect_recursive_files(
+                root_dir, included_set, explicitly_ordered
             )
-            raise ValueError(xmsg)
+            if not matching_files:
+                logger.trace("[ORDER] Directory does not exist: %s", root_dir)
 
-        resolved.append(path)
-        logger.trace(f"[ORDER] {entry!r} → {path}")
+        elif pattern_str.endswith("/**"):
+            # Explicit recursive pattern: "src/serger/**" → recursive match
+            logger.trace("[ORDER] Treating as recursive pattern: %r", entry)
+            root_dir = config_root / pattern_str.removesuffix("/**")
+            matching_files = _collect_recursive_files(
+                root_dir, included_set, explicitly_ordered
+            )
+            if not matching_files:
+                logger.trace("[ORDER] Directory does not exist: %s", root_dir)
+
+        elif has_glob_chars(pattern_str):
+            # Glob pattern: "src/serger/*" → non-recursive glob
+            logger.trace("[ORDER] Expanding glob pattern: %r", entry)
+            matching_files = _collect_glob_files(
+                pattern_str, config_root, included_set, explicitly_ordered
+            )
+
+        else:
+            # Literal path (no glob chars, no trailing slash)
+            candidate = config_root / pattern_str
+            if candidate.exists() and candidate.is_dir():
+                # Directory without trailing slash: "src/serger" → recursive match
+                logger.trace("[ORDER] Treating as directory: %r", entry)
+                matching_files = _collect_recursive_files(
+                    candidate, included_set, explicitly_ordered
+                )
+            # Try to handle as literal file path
+            elif _handle_literal_file_path(
+                entry,
+                pattern_str,
+                config_root,
+                included_set,
+                explicitly_ordered,
+                resolved,
+            ):
+                continue  # Skip pattern expansion logic
+
+        # Sort matching files alphabetically for consistent ordering
+        matching_files.sort()
+
+        for path in matching_files:
+            resolved.append(path)
+            explicitly_ordered.add(path)
+            logger.trace("[ORDER] %r → %s (pattern match)", entry, path)
+
+        if not matching_files:
+            logger.trace("[ORDER] Pattern %r matched no files", entry)
 
     return resolved
 
