@@ -17,8 +17,6 @@ from typing import Any, TextIO, cast
 from serger.constants import DEFAULT_LOG_LEVEL
 from serger.meta import PROGRAM_ENV
 
-from .utils_types import cast_hint
-
 
 # --- Constants ---------------------------------------------------------------
 
@@ -232,7 +230,8 @@ class ApatheticCLILogger(logging.Logger):
         """Resolve log level from CLI → env → root config → default."""
         args_level = getattr(args, "log_level", None)
         if args_level is not None:
-            return cast_hint(str, args_level).upper()
+            # cast_hint would cause circular dependency
+            return cast("str", args_level).upper()
 
         env_log_level = os.getenv(f"{PROGRAM_ENV}_LOG_LEVEL") or os.getenv("LOG_LEVEL")
         if env_log_level:
@@ -402,7 +401,7 @@ def _extract_top_level_package(package_name: str | None) -> str | None:
     """Extract the top-level package name from a full package path.
 
     Args:
-        package_name: Full package name (e.g., "serger.utils.utils_logs")
+        package_name: Full package name (e.g., "serger.apathetic_logs")
 
     Returns:
         Top-level package name (e.g., "serger") or None if package_name is None
@@ -423,7 +422,7 @@ def register_logger_name(logger_name: str | None = None) -> None:
 
     If logger_name is not provided, the top-level package is automatically
     extracted from this module's __package__ attribute. For example, if
-    this module is in "serger.utils.utils_logs", it will default to "serger".
+    this module is in "serger.apathetic_logs", it will default to "serger".
 
     Args:
         logger_name: The name of the logger to retrieve (e.g., "serger").
@@ -432,7 +431,7 @@ def register_logger_name(logger_name: str | None = None) -> None:
     Example:
         >>> # Explicit registration
         >>> from serger.meta import PROGRAM_PACKAGE
-        >>> from serger.utils.utils_logs import register_logger_name
+        >>> from serger.apathetic_logs import register_logger_name
         >>> register_logger_name(PROGRAM_PACKAGE)
 
         >>> # Auto-infer from __package__

@@ -17,11 +17,15 @@ Highlights:
 
 # Import logs early to ensure logger is registered
 # This must happen before any other imports that use get_app_logger()
-import serger.logs  # noqa: F401  # pyright: ignore[reportUnusedImport]
+# import serger.logs  # pyright: ignore[reportUnusedImport]
 
 from .actions import (
     get_metadata,
     watch_for_changes,
+)
+from .apathetic_logs import (
+    LEVEL_ORDER,
+    RESET,
 )
 from .build import (
     run_all_builds,
@@ -69,8 +73,6 @@ from .meta import (
 )
 from .selftest import run_selftest
 from .utils import (
-    LEVEL_ORDER,
-    RESET,
     get_glob_root,
     has_glob_chars,
     is_excluded,

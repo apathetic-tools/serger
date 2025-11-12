@@ -3,14 +3,6 @@
 from .utils_files import load_jsonc, load_toml
 
 # Re-export all public utilities from submodules
-from .utils_logs import (
-    LEVEL_ORDER,
-    RESET,
-    TEST_TRACE,
-    ApatheticCLILogger,
-    get_logger,
-    safe_log,
-)
 from .utils_matching import (
     fnmatchcase_portable,
     is_excluded,
@@ -44,10 +36,6 @@ from .utils_types import (
 
 
 __all__ = [
-    "LEVEL_ORDER",
-    "RESET",
-    "TEST_TRACE",
-    "ApatheticCLILogger",
     "CapturedOutput",
     "SchemaErrorAggregator",
     "ValidationSummary",
@@ -60,7 +48,6 @@ __all__ = [
     "flush_schema_aggregators",
     "fnmatchcase_portable",
     "get_glob_root",
-    "get_logger",
     "get_sys_version_info",
     "has_glob_chars",
     "is_excluded",
@@ -74,7 +61,6 @@ __all__ = [
     "plural",
     "remove_path_in_error_message",
     "safe_isinstance",
-    "safe_log",
     "schema_from_typeddict",
     "warn_keys_once",
 ]
