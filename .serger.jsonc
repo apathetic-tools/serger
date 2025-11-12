@@ -28,21 +28,12 @@
       "order": [
         "src/serger/constants.py",       // Base constants (no dependencies)
         "src/serger/meta.py",            // Metadata (no internal dependencies)
-        "src/serger/config_types.py",    // Type definitions (needed before utils.py)
+        "src/serger/config_types.py",    // Type definitions (needed before utils_types.py)
+        "src/serger/utils_types.py",     // Utility types (needed before utils_logs.py)
         "src/serger/utils_logs.py",      // Logging utilities (needed before logs.py)
-        "src/serger/logs.py",            // Logging setup
-        "src/serger/utils.py",           // General utilities
-        "src/serger/utils_types.py",     // Utility types
-        "src/serger/utils_schema.py",    // Schema utilities
-        "src/serger/config.py",          // Config loading
-        "src/serger/config_resolve.py",  // Config resolution
-        "src/serger/config_validate.py", // Config validation
-        "src/serger/build.py",           // Build actions
-        "src/serger/actions.py",         // CLI actions
-        "src/serger/selftest.py",        // Self-test functionality (uses build)
-        "src/serger/verify_script.py",   // Script verification and post-processing
-        "src/serger/stitch.py",          // Stitching utilities (extracted from dev/make_script.py)
-        "src/serger/cli.py"              // Main CLI entry point
+        "src/serger/logs.py",            // Logging setup (needed before utils.py)
+        "src/serger/utils.py",           // General utilities (needed before many modules)
+        "src/serger/*"                   // All remaining files in alphabetical order
       ],
 
       // Source modules to include in the stitch
