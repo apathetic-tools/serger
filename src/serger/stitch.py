@@ -394,7 +394,7 @@ def verify_all_modules_listed(
         raise RuntimeError(msg)
 
 
-def compute_module_order(  # noqa: C901, PLR0912
+def compute_module_order(  # noqa: C901, PLR0912, PLR0915
     file_paths: list[Path],
     package_root: Path,
     package_name: str,
@@ -426,6 +426,13 @@ def compute_module_order(  # noqa: C901, PLR0912
         file_to_module[file_path] = module_name
         module_to_file[module_name] = file_path
 
+    # Detect all packages from module names (for multi-package support)
+    detected_packages: set[str] = {package_name}  # Always include configured package
+    for module_name in file_to_module.values():
+        if "." in module_name:
+            pkg = module_name.split(".", 1)[0]
+            detected_packages.add(pkg)
+
     # Build dependency graph using derived module names
     deps: dict[str, set[str]] = {file_to_module[fp]: set() for fp in file_paths}
 
@@ -441,44 +448,103 @@ def compute_module_order(  # noqa: C901, PLR0912
 
         for node in tree.body:
             if isinstance(node, ast.ImportFrom):
-                mod = node.module or ""
-                if mod.startswith(package_name):
+                # Handle relative imports (node.level > 0)
+                if node.level > 0:
+                    # Resolve relative import to absolute module name
+                    # e.g., from .constants in serger.actions -> serger.constants
+                    current_parts = module_name.split(".")
+                    # Go up 'level' levels from current module
+                    if node.level > len(current_parts):
+                        # Relative import goes beyond package root, skip
+                        continue
+                    base_parts = current_parts[: -node.level]
+                    if node.module:
+                        # Append the module name
+                        mod_parts = node.module.split(".")
+                        resolved_mod = ".".join(base_parts + mod_parts)
+                    else:
+                        # from . import something - use base only
+                        resolved_mod = ".".join(base_parts)
+                    mod = resolved_mod
+                else:
+                    # Absolute import
+                    mod = node.module or ""
+
+                # Check if import starts with any detected package, or if it's a
+                # relative import that resolved to a module name without package prefix
+                matched_package = None
+                is_relative_resolved = node.level > 0 and mod and "." not in mod
+
+                for pkg in detected_packages:
+                    if mod.startswith(pkg):
+                        matched_package = pkg
+                        break
+
+                # If relative import resolved to a simple name (no dots), check if it
+                # matches any module name directly (for same-package imports)
+                if not matched_package and is_relative_resolved:
+                    # Check if the resolved module name matches any module directly
+                    for dep_module in deps:
+                        # Match if dep_module equals mod or starts with mod.
+                        if (
+                            dep_module == mod or dep_module.startswith(mod + ".")
+                        ) and dep_module != module_name:
+                            deps[module_name].add(dep_module)
+                    continue  # Skip the package-based matching below
+
+                if matched_package:
                     # Handle nested imports: package.core.base -> core.base
                     # Remove package prefix and check if it matches any module
                     mod_suffix = (
-                        mod[len(package_name) + 1 :]
-                        if mod.startswith(package_name + ".")
-                        else mod[len(package_name) :]
-                        if mod == package_name
+                        mod[len(matched_package) + 1 :]
+                        if mod.startswith(matched_package + ".")
+                        else mod[len(matched_package) :]
+                        if mod == matched_package
                         else ""
                     )
                     if mod_suffix:
                         # Check if this matches any derived module name
+                        # Match both the suffix (for same-package imports)
+                        # and full module name (for cross-package imports)
                         for dep_module in deps:
-                            matches = dep_module == mod_suffix or dep_module.startswith(
-                                mod_suffix + "."
-                            )
+                            # Match if: dep_module equals mod_suffix or mod
+                            # or dep_module starts with mod_suffix or mod
+                            prefix_tuple = (mod_suffix + ".", mod + ".")
+                            matches = dep_module in (
+                                mod_suffix,
+                                mod,
+                            ) or dep_module.startswith(prefix_tuple)
                             if matches and dep_module != module_name:
                                 deps[module_name].add(dep_module)
             elif isinstance(node, ast.Import):
                 for alias in node.names:
                     mod = alias.name
-                    if mod.startswith(package_name):
+                    # Check if import starts with any detected package
+                    matched_package = None
+                    for pkg in detected_packages:
+                        if mod.startswith(pkg):
+                            matched_package = pkg
+                            break
+
+                    if matched_package:
                         # Handle nested imports
                         mod_suffix = (
-                            mod[len(package_name) + 1 :]
-                            if mod.startswith(package_name + ".")
-                            else mod[len(package_name) :]
-                            if mod == package_name
+                            mod[len(matched_package) + 1 :]
+                            if mod.startswith(matched_package + ".")
+                            else mod[len(matched_package) :]
+                            if mod == matched_package
                             else ""
                         )
                         if mod_suffix:
                             # Check if this matches any derived module name
+                            # Match both the suffix (for same-package imports)
+                            # and full module name (for cross-package imports)
                             for dep_module in deps:
-                                matches = (
-                                    dep_module == mod_suffix
-                                    or dep_module.startswith(mod_suffix + ".")
-                                )
+                                prefix_tuple = (mod_suffix + ".", mod + ".")
+                                matches = dep_module in (
+                                    mod_suffix,
+                                    mod,
+                                ) or dep_module.startswith(prefix_tuple)
                                 if matches and dep_module != module_name:
                                     deps[module_name].add(dep_module)
 
@@ -907,7 +973,8 @@ def stitch_modules(  # noqa: PLR0915, PLR0912
 
     Args:
         config: BuildConfigResolved with stitching fields (package, order).
-                Must include 'package' and 'order' fields for stitching.
+                Must include 'package' field for stitching. 'order' is optional
+                and will be auto-discovered via topological sort if not provided.
         file_paths: List of file paths to stitch (in order)
         package_root: Common root of all included files
         file_to_include: Mapping of file path to its include (for dest access)
@@ -963,7 +1030,10 @@ def stitch_modules(  # noqa: PLR0915, PLR0912
         raise RuntimeError(msg)
 
     if not order_paths:
-        msg = "Config must specify 'order' (file paths) for stitching"
+        msg = (
+            "No modules found for stitching. "
+            "Either specify 'order' in config or ensure 'include' patterns match files."
+        )
         raise RuntimeError(msg)
 
     logger.info("Starting stitch process for package: %s", package_name)

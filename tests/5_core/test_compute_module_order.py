@@ -91,3 +91,23 @@ def test_circular_import_error() -> None:
             mod_stitch.compute_module_order(
                 file_paths, package_root, "pkg", file_to_include
             )
+
+
+def test_relative_import_order() -> None:
+    """Should handle relative imports correctly."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        src_dir = Path(tmpdir)
+        (src_dir / "base.py").write_text("# base\n")
+        (src_dir / "derived.py").write_text("from .base import something\n")
+
+        file_paths, package_root, file_to_include = _setup_order_test(
+            src_dir, ["derived", "base"]
+        )
+
+        order = mod_stitch.compute_module_order(
+            file_paths, package_root, "pkg", file_to_include
+        )
+        # base must come before derived
+        base_path = next(p for p in file_paths if p.name == "base.py")
+        derived_path = next(p for p in file_paths if p.name == "derived.py")
+        assert order.index(base_path) < order.index(derived_path)
