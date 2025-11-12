@@ -1,6 +1,7 @@
 # tests/0_independant/test_priv__strip_jsonc_comments.py
 """Tests for serger.utils._strip_jsonc_comments (private helper)."""
 
+# we import `_` private for testing purposes only
 # ruff: noqa: SLF001
 # pyright: reportPrivateUsage=false
 
