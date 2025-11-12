@@ -566,6 +566,7 @@ def suggest_order_mismatch(
     package_root: Path,
     package_name: str,
     file_to_include: dict[Path, IncludeResolved],
+    topo_paths: list[Path] | None = None,
 ) -> None:
     """Warn if module order violates dependencies.
 
@@ -574,11 +575,14 @@ def suggest_order_mismatch(
         package_root: Common root of all included files
         package_name: Root package name
         file_to_include: Mapping of file path to its include (for dest access)
+        topo_paths: Optional pre-computed topological order. If provided, skips
+                    recomputing the order. If None, computes it via compute_module_order.
     """
     logger = get_logger()
-    topo_paths = compute_module_order(
-        order_paths, package_root, package_name, file_to_include
-    )
+    if topo_paths is None:
+        topo_paths = compute_module_order(
+            order_paths, package_root, package_name, file_to_include
+        )
 
     # compare order_paths to topological sort
     mismatched = [
@@ -1043,7 +1047,16 @@ def stitch_modules(  # noqa: PLR0915, PLR0912
     verify_all_modules_listed(file_paths, order_paths, exclude_paths)
 
     logger.debug("Checking module order consistency...")
-    suggest_order_mismatch(order_paths, package_root, package_name, file_to_include)
+    # Use pre-computed topological order if available (from auto-discovery)
+    topo_paths_raw = config.get("topo_paths")
+    topo_paths: list[Path] | None = None
+    if topo_paths_raw is not None:
+        if isinstance(topo_paths_raw, list):
+            topo_paths = [
+                Path(item) if isinstance(item, str) else item
+                for item in topo_paths_raw
+            ]
+    suggest_order_mismatch(order_paths, package_root, package_name, file_to_include, topo_paths)
 
     # --- Collection Phase ---
     logger.debug("Collecting module sources...")
