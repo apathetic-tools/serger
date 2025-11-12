@@ -40,10 +40,9 @@ def _mode() -> str:
 # ⚙️ Auto-build helper for standalone script
 # ------------------------------------------------------------
 def ensure_standalone_script_up_to_date(root: Path) -> Path:
-    """Rebuild `bin/script.py` if missing or outdated."""
+    """Rebuild `dist/serger.py` if missing or outdated."""
     bin_path = root / "dist" / f"{mod_meta.PROGRAM_SCRIPT}.py"
     src_dir = root / "src" / f"{mod_meta.PROGRAM_PACKAGE}"
-    builder = root / "dev" / "make_script.py"
 
     # If the output file doesn't exist or is older than any source file → rebuild.
     needs_rebuild = not bin_path.exists()
@@ -55,9 +54,8 @@ def ensure_standalone_script_up_to_date(root: Path) -> Path:
                 break
 
     if needs_rebuild:
-        print("⚙️  Rebuilding standalone bundle (make_script.py)...")
-        assert builder.is_file(), f"Expected builder script at {builder}"
-        subprocess.run([sys.executable, str(builder)], check=True)  # noqa: S603
+        print("⚙️  Rebuilding standalone bundle (python -m serger)...")
+        subprocess.run([sys.executable, "-m", "serger"], check=True, cwd=root)  # noqa: S603
         # force mtime update in case contents identical
         bin_path.touch()
         assert bin_path.exists(), "❌ Failed to generate standalone script."
@@ -83,7 +81,7 @@ def runtime_swap() -> bool:
     if not bin_path.exists():
         xmsg = (
             f"RUNTIME_MODE=singlefile but standalone script not found at {bin_path}.\n"
-            f"Hint: run the bundler (e.g. `python dev/make_script.py`)."
+            f"Hint: run the bundler (e.g. `python -m serger`)."
         )
         raise pytest.UsageError(xmsg)
 

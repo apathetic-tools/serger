@@ -1,7 +1,7 @@
-# tests/9_integration/test_make_script.py
-"""Integration tests for `dev/make_script.py`.
+# tests/9_integration/test_build_script.py
+"""Integration tests for building `dist/serger.py`.
 
-These verify that the  standalone script (`bin/script.py`)
+These verify that the standalone script (`dist/serger.py`)
 embeds the correct commit information depending on environment variables.
 """
 
@@ -27,14 +27,13 @@ __runtime_mode__ = "singlefile"
         ({"CI": "true"}, r"\([0-9a-f]{4,}\)"),  # simulated CI
     ],
 )
-def test_make_script_respects_ci_env(
+def test_build_script_respects_ci_env(
     tmp_path: Path,
     env_vars: dict[str, str],
     expected_pattern: str,
 ) -> None:
     """Should embed either '(unknown (local build))' or a real hash depending on env."""
     # --- setup ---
-    builder = PROJ_ROOT / "dev" / "make_script.py"
     tmp_script = tmp_path / "script-test.py"
 
     # Ensure a clean rebuild every time -
@@ -51,9 +50,9 @@ def test_make_script_respects_ci_env(
 
     # --- execute and verify ---
 
-    # 1) generate the bundle
+    # 1) generate the bundle using python -m serger
     proc = subprocess.run(  # noqa: S603
-        [sys.executable, str(builder), "--out", str(tmp_script)],
+        [sys.executable, "-m", "serger", "--out", str(tmp_script)],
         capture_output=True,
         text=True,
         check=True,
