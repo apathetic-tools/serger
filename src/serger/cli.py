@@ -7,8 +7,9 @@ from dataclasses import dataclass
 from difflib import get_close_matches
 from pathlib import Path
 
+from apathetic_logs import LEVEL_ORDER, safe_log
+
 from .actions import get_metadata, watch_for_changes
-from .apathetic_logs import LEVEL_ORDER, safe_log
 from .build import run_all_builds
 from .config import (
     BuildConfigResolved,

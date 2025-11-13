@@ -5,11 +5,12 @@ import logging
 import os
 from typing import cast
 
-from .apathetic_logs import (
+from apathetic_logs import (
     TEST_TRACE,
     ApatheticCLILogger,
     get_logger,
 )
+
 from .constants import DEFAULT_ENV_LOG_LEVEL, DEFAULT_LOG_LEVEL
 from .meta import PROGRAM_ENV, PROGRAM_PACKAGE
 
