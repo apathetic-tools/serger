@@ -557,41 +557,72 @@ def suggest_order_mismatch(
         logger.warning("Suggested order: %s", ", ".join(topo_modules))
 
 
-def verify_no_broken_imports(final_text: str, package_name: str) -> None:
+def verify_no_broken_imports(final_text: str, package_names: list[str]) -> None:
     """Verify all internal imports have been resolved in stitched script.
 
     Args:
         final_text: Final stitched script text
-        package_name: Root package name
+        package_names: List of all package names to check
+            (e.g., ["serger", "apathetic_logs"])
 
     Raises:
         RuntimeError: If unresolved imports remain
     """
-    # Pattern for nested imports: package.core.base or package.core
-    # Matches: import package.module or import package.sub.module
-    import_pattern = re.compile(rf"\bimport {re.escape(package_name)}\.([\w.]+)")
-    # Pattern for from imports: from package.core import base or
-    # from package.core.base import something
-    from_pattern = re.compile(rf"\bfrom {re.escape(package_name)}\.([\w.]+)\s+import")
-
     broken: set[str] = set()
 
-    # Check import statements
-    for m in import_pattern.finditer(final_text):
-        mod_suffix = m.group(1)
-        # Check if module is in the stitched output
-        # Header format: # === module_name === (may contain dots for nested modules)
-        header_pattern = re.compile(rf"# === {re.escape(mod_suffix)} ===")
-        if not header_pattern.search(final_text):
-            broken.add(f"{package_name}.{mod_suffix}")
+    for package_name in package_names:
+        # Pattern for nested imports: package.core.base or package.core
+        # Matches: import package.module or import package.sub.module
+        import_pattern = re.compile(rf"\bimport {re.escape(package_name)}\.([\w.]+)")
+        # Pattern for from imports: from package.core import base or
+        # from package.core.base import something
+        from_pattern = re.compile(
+            rf"\bfrom {re.escape(package_name)}\.([\w.]+)\s+import"
+        )
+        # Pattern for top-level package imports: from package import ...
+        top_level_pattern = re.compile(rf"\bfrom {re.escape(package_name)}\s+import")
 
-    # Check from ... import statements
-    for m in from_pattern.finditer(final_text):
-        mod_suffix = m.group(1)
-        # Check if module is in the stitched output
-        header_pattern = re.compile(rf"# === {re.escape(mod_suffix)} ===")
-        if not header_pattern.search(final_text):
-            broken.add(f"{package_name}.{mod_suffix}")
+        # Check import statements
+        for m in import_pattern.finditer(final_text):
+            mod_suffix = m.group(1)
+            full_module_name = f"{package_name}.{mod_suffix}"
+            # Check if module is in the stitched output
+            # Header format: # === module_name === (may contain dots)
+            # Try both full module name and just the suffix (for backward compat)
+            header_pattern_full = re.compile(
+                rf"# === {re.escape(full_module_name)} ==="
+            )
+            header_pattern_suffix = re.compile(rf"# === {re.escape(mod_suffix)} ===")
+            if not header_pattern_full.search(
+                final_text
+            ) and not header_pattern_suffix.search(final_text):
+                broken.add(full_module_name)
+
+        # Check from ... import statements
+        for m in from_pattern.finditer(final_text):
+            mod_suffix = m.group(1)
+            full_module_name = f"{package_name}.{mod_suffix}"
+            # Check if module is in the stitched output
+            # Try both full module name and just the suffix (for backward compat)
+            header_pattern_full = re.compile(
+                rf"# === {re.escape(full_module_name)} ==="
+            )
+            header_pattern_suffix = re.compile(rf"# === {re.escape(mod_suffix)} ===")
+            if not header_pattern_full.search(
+                final_text
+            ) and not header_pattern_suffix.search(final_text):
+                broken.add(full_module_name)
+
+        # Check top-level package imports: from package import ...
+        for _m in top_level_pattern.finditer(final_text):
+            # For top-level imports, check if the package itself exists
+            # This would be in a header like # === package === or
+            # # === package.__init__ ===
+            header_pattern = re.compile(
+                rf"# === {re.escape(package_name)}(?:\.__init__)? ==="
+            )
+            if not header_pattern.search(final_text):
+                broken.add(package_name)
 
     if broken:
         broken_list = ", ".join(sorted(broken))
@@ -817,7 +848,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     display_name: str = "",
     description: str = "",
     repo: str = "",
-) -> str:
+) -> tuple[str, list[str]]:
     """Build the final stitched script.
 
     Args:
@@ -1164,7 +1195,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         license_section = "\n".join(prefixed_lines) + "\n"
     repo_line = f"# Repo: {repo}\n" if repo else ""
 
-    return (
+    script_text = (
         "#!/usr/bin/env python3\n"
         f"# {header_line}\n"
         f"{license_section}"
@@ -1197,6 +1228,9 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         "\nif __name__ == '__main__':\n"
         "    sys.exit(main(sys.argv[1:]))\n"
     )
+
+    # Return script text and detected packages (sorted for consistency)
+    return script_text, sorted(detected_packages)
 
 
 def stitch_modules(  # noqa: PLR0915, PLR0912, C901
@@ -1339,7 +1373,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     if not isinstance(repo_raw, str):
         repo_raw = ""
 
-    final_script = _build_final_script(
+    final_script, detected_packages = _build_final_script(
         package_name=package_name,
         all_imports=all_imports,
         parts=parts,
@@ -1358,7 +1392,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
 
     # --- Verification ---
     logger.debug("Verifying assembled script...")
-    verify_no_broken_imports(final_script, package_name)
+    verify_no_broken_imports(final_script, detected_packages)
 
     # --- Output ---
     logger.debug("Writing output file: %s", out_path)

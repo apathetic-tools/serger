@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-import serger.apathetic_logs as mod_alogs
+import apathetic_logs.logs as mod_alogs
 import serger.config.config_loader as mod_config_loader
 import serger.meta as mod_meta
 

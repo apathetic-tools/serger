@@ -5,7 +5,7 @@ import logging
 
 import pytest
 
-import serger.apathetic_logs as mod_alogs
+import apathetic_logs.logs as mod_alogs
 import serger.cli as mod_cli
 import serger.logs as mod_logs
 from tests.utils import patch_everywhere

@@ -6,7 +6,7 @@ from io import StringIO
 
 import pytest
 
-import serger.apathetic_logs as mod_alogs
+import apathetic_logs.logs as mod_alogs
 
 
 def test_safe_log_writes_to_stderr(monkeypatch: pytest.MonkeyPatch) -> None:

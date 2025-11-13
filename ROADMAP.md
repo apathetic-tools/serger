@@ -44,8 +44,6 @@ Exploring bundling options for generating the single-file release:
 
 ## 🔌 API
 
-- as well our .serger.jsonc right now includes both the package and the utils, there should be a glob pattern that includes subdirectories, I'm not sure what it is but is it something like serger/**/*.py?
-- can we pull out utils/logs into a single toplevel module?
 - can we pull out utils/config into a single toplevel module?
 - can we pull out common CLI elements with pocket-build into a single toplevel module?
 - set up stitch modes
@@ -66,6 +64,11 @@ Potential quality-of-life features:
 - split out and depend on (dev-only) a list-project CLI
 - split out and depend on (dev-only) a pytest multi-target plugin
 - publish to PyPI, NPM, PACKAGIST, others?
+
+## apathetic_logs
+
+- {PROGRAM_ENV}_LOG_LEVEL needs to be registered
+- DEFAULT_LOG_LEVEL needs to be registered
 
 
 > See [REJECTED.md](REJECTED.md) for experiments and ideas that were explored but intentionally not pursued.

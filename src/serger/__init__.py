@@ -23,10 +23,6 @@ from .actions import (
     get_metadata,
     watch_for_changes,
 )
-from .apathetic_logs import (
-    LEVEL_ORDER,
-    RESET,
-)
 from .build import (
     run_all_builds,
     run_build,
@@ -121,8 +117,6 @@ __all__ = [  # noqa: RUF022
     "PROGRAM_CONFIG",
     #
     # --- logs ---
-    "LEVEL_ORDER",
-    "RESET",
     "get_app_logger",
     #
     # --- utils ---

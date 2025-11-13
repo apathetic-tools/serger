@@ -20,6 +20,7 @@
       // Source modules to include in the stitch
       // These are glob patterns relative to the source directory
       "include": [
+        "src/apathetic_logs/**/*.py",        
         "src/serger/**/*.py"        
       ],
 

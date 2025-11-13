@@ -18,11 +18,11 @@ def func_b():
     pass
 """
     # Should not raise
-    mod_stitch.verify_no_broken_imports(script, "serger")
+    mod_stitch.verify_no_broken_imports(script, ["serger"])
 
 
 def test_broken_import_detected() -> None:
     """Should raise RuntimeError for unresolved imports."""
     script = "import serger.missing_module"
     with pytest.raises(RuntimeError):
-        mod_stitch.verify_no_broken_imports(script, "serger")
+        mod_stitch.verify_no_broken_imports(script, ["serger"])

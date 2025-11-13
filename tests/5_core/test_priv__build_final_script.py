@@ -18,7 +18,7 @@ class TestBuildFinalScriptBasic:
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        result = mod_stitch._build_final_script(
+        result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
@@ -37,7 +37,7 @@ class TestBuildFinalScriptBasic:
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        result = mod_stitch._build_final_script(
+        result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
@@ -56,7 +56,7 @@ class TestBuildFinalScriptBasic:
         all_imports["import sys\n"] = None
 
         license_text = "License: MIT"
-        result = mod_stitch._build_final_script(
+        result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
@@ -74,7 +74,7 @@ class TestBuildFinalScriptBasic:
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        result = mod_stitch._build_final_script(
+        result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
@@ -98,7 +98,7 @@ class TestBuildFinalScriptMetadata:
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        result = mod_stitch._build_final_script(
+        result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
@@ -116,7 +116,7 @@ class TestBuildFinalScriptMetadata:
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        result = mod_stitch._build_final_script(
+        result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
@@ -134,7 +134,7 @@ class TestBuildFinalScriptMetadata:
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        result = mod_stitch._build_final_script(
+        result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
@@ -152,7 +152,7 @@ class TestBuildFinalScriptMetadata:
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        result = mod_stitch._build_final_script(
+        result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
@@ -176,7 +176,7 @@ class TestBuildFinalScriptImports:
         all_imports["from __future__ import annotations\n"] = None
         all_imports["import json\n"] = None
 
-        result = mod_stitch._build_final_script(
+        result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
@@ -199,7 +199,7 @@ class TestBuildFinalScriptImports:
         all_imports["import json\n"] = None
         all_imports["from typing import List\n"] = None
 
-        result = mod_stitch._build_final_script(
+        result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
@@ -223,7 +223,7 @@ class TestBuildFinalScriptShims:
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        result = mod_stitch._build_final_script(
+        result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
@@ -241,7 +241,7 @@ class TestBuildFinalScriptShims:
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        result = mod_stitch._build_final_script(
+        result, _ = mod_stitch._build_final_script(
             package_name="mylib",
             all_imports=all_imports,
             parts=[
@@ -272,7 +272,7 @@ class TestBuildFinalScriptShims:
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        result = mod_stitch._build_final_script(
+        result, _ = mod_stitch._build_final_script(
             package_name="mylib",
             all_imports=all_imports,
             parts=[
@@ -299,7 +299,7 @@ class TestBuildFinalScriptShims:
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        result = mod_stitch._build_final_script(
+        result, _ = mod_stitch._build_final_script(
             package_name="custompackage",
             all_imports=all_imports,
             parts=["# === mod.py ===\nMOD = 1\n"],
@@ -321,7 +321,7 @@ class TestBuildFinalScriptParts:
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        result = mod_stitch._build_final_script(
+        result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
             parts=[
@@ -348,7 +348,7 @@ class TestBuildFinalScriptParts:
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        result = mod_stitch._build_final_script(
+        result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
             parts=[
@@ -377,7 +377,7 @@ class TestBuildFinalScriptDocstring:
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        result = mod_stitch._build_final_script(
+        result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
@@ -396,7 +396,7 @@ class TestBuildFinalScriptDocstring:
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        result = mod_stitch._build_final_script(
+        result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
