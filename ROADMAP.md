@@ -34,7 +34,6 @@ Exploring bundling options for generating the single-file release:
 
 ## 🧪 Tests
 - How can we report what we comment tool ignore, in src and in tests?
-- look at the rest of pocket_build_compat tests
 
 ## 🧑‍💻 Development
 - How can we keep internal imports in stitch mode and avoid conflicts? (see [docs/example_isolated_stiching.md](docs/example_isolated_stiching.md))
