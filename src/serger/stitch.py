@@ -14,6 +14,7 @@ import os
 import re
 import subprocess
 from collections import OrderedDict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
@@ -240,14 +241,63 @@ def strip_redundant_blocks(text: str) -> str:
     return text.strip()
 
 
-def detect_name_collisions(sources: dict[str, str]) -> None:
+@dataclass
+class ModuleSymbols:
+    """Top-level symbols extracted from a Python module."""
+
+    functions: set[str]
+    classes: set[str]
+    assignments: set[str]
+
+
+def _extract_top_level_symbols(code: str) -> ModuleSymbols:
+    """Extract top-level symbols from Python source code.
+
+    Parses AST once and extracts functions, classes, and assignments.
+
+    Args:
+        code: Python source code to parse
+
+    Returns:
+        ModuleSymbols containing sets of function, class, and assignment names
+    """
+    functions: set[str] = set()
+    classes: set[str] = set()
+    assignments: set[str] = set()
+
+    try:
+        tree = ast.parse(code)
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                functions.add(node.name)
+            elif isinstance(node, ast.ClassDef):
+                classes.add(node.name)
+            elif isinstance(node, ast.Assign):
+                # only consider simple names like x = ...
+                targets = [t.id for t in node.targets if isinstance(t, ast.Name)]
+                for target in targets:
+                    assignments.add(target)
+    except (SyntaxError, ValueError):
+        # If code doesn't parse, return empty sets
+        pass
+
+    return ModuleSymbols(
+        functions=functions,
+        classes=classes,
+        assignments=assignments,
+    )
+
+
+def detect_name_collisions(
+    module_symbols: dict[str, ModuleSymbols],
+) -> None:
     """Detect top-level name collisions across modules.
 
     Checks for functions, classes, and simple assignments that would
     conflict when stitched together.
 
     Args:
-        sources: Dict mapping module names to their source code
+        module_symbols: Dict mapping module names to their extracted symbols
 
     Raises:
         RuntimeError: If collisions are detected
@@ -265,24 +315,13 @@ def detect_name_collisions(sources: dict[str, str]) -> None:
     symbols: dict[str, str] = {}  # name -> module
     collisions: list[tuple[str, str, str]] = []
 
-    for mod, text in sources.items():
-        try:
-            tree = ast.parse(text)
-        except SyntaxError:
-            continue
+    for mod, symbols_data in module_symbols.items():
+        # Check all symbol types (functions, classes, assignments)
+        all_names = (
+            symbols_data.functions | symbols_data.classes | symbols_data.assignments
+        )
 
-        for node in tree.body:
-            if isinstance(node, (ast.FunctionDef, ast.ClassDef, ast.AsyncFunctionDef)):
-                name = node.name
-            elif isinstance(node, ast.Assign):
-                # only consider simple names like x = ...
-                targets = [t.id for t in node.targets if isinstance(t, ast.Name)]
-                if not targets:
-                    continue
-                name = targets[0]
-            else:
-                continue
-
+        for name in all_names:
             # skip known harmless globals
             if name in ignore:
                 continue
@@ -859,6 +898,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     all_imports: OrderedDict[str, None],
     parts: list[str],
     order_names: list[str],
+    all_function_names: set[str],
     order_paths: list[Path] | None = None,
     package_root: Path | None = None,
     file_to_include: dict[Path, IncludeResolved] | None = None,
@@ -877,6 +917,8 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         all_imports: Collected external imports
         parts: Module code sections
         order_names: List of module names (for shim generation)
+        all_function_names: Set of all function names from all modules
+            (used to detect if main() function exists)
         order_paths: Optional list of file paths corresponding to order_names
         package_root: Optional common root of all included files
         file_to_include: Optional mapping of file path to its include
@@ -1212,6 +1254,15 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         license_section = "\n".join(prefixed_lines) + "\n"
     repo_line = f"# Repo: {repo}\n" if repo else ""
 
+    # Check if main() function exists in the stitched code
+    # Use the pre-collected function names to avoid parsing again
+    has_main = "main" in all_function_names
+
+    # Only add __main__ block if main() function exists
+    main_block = ""
+    if has_main:
+        main_block = "\nif __name__ == '__main__':\n    sys.exit(main(sys.argv[1:]))\n"
+
     script_text = (
         "#!/usr/bin/env python3\n"
         f"# {header_line}\n"
@@ -1242,8 +1293,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         "\n"
         "\n" + "\n".join(parts) + "\n"
         f"{shim_text}\n"
-        "\nif __name__ == '__main__':\n"
-        "    sys.exit(main(sys.argv[1:]))\n"
+        f"{main_block}"
     )
 
     # Return script text and detected packages (sorted for consistency)
@@ -1372,9 +1422,20 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         order_paths, package_root, package_name, file_to_include
     )
 
+    # --- Parse AST once for all modules ---
+    # Extract symbols (functions, classes, assignments) from all modules
+    # This avoids parsing AST multiple times
+    logger.debug("Extracting symbols from modules...")
+    module_symbols: dict[str, ModuleSymbols] = {}
+    all_function_names: set[str] = set()
+    for mod_name, source in module_sources.items():
+        symbols = _extract_top_level_symbols(source)
+        module_symbols[mod_name] = symbols
+        all_function_names.update(symbols.functions)
+
     # --- Collision Detection ---
     logger.debug("Detecting name collisions...")
-    detect_name_collisions(module_sources)
+    detect_name_collisions(module_symbols)
 
     # --- Final Assembly ---
     # Extract display configuration
@@ -1395,6 +1456,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         all_imports=all_imports,
         parts=parts,
         order_names=derived_module_names,
+        all_function_names=all_function_names,
         order_paths=order_paths,
         package_root=package_root,
         file_to_include=file_to_include,
