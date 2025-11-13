@@ -103,3 +103,57 @@ def test_find_config_respects_missing_level(
     # --- verify ---
     out = capsys.readouterr().err.lower()
     assert mod_alogs.TAG_STYLES["WARNING"][1].lower() in out
+
+
+def test_find_config_searches_parent_directories(tmp_path: Path) -> None:
+    """Should find config files in parent directories, preferring closest."""
+    # --- setup ---
+    # Create directory structure: root/parent/child
+    root = tmp_path / "root"
+    parent = root / "parent"
+    child = parent / "child"
+    child.mkdir(parents=True)
+
+    # Create config files at different levels with distinct values
+    root_config = root / f".{mod_meta.PROGRAM_CONFIG}.json"
+    root_config.write_text('{"builds": [{"out": "root_out"}]}')
+
+    parent_config = parent / f".{mod_meta.PROGRAM_CONFIG}.json"
+    parent_config.write_text('{"builds": [{"out": "parent_out"}]}')
+
+    args = Namespace(config=None)
+
+    # --- execute from child directory ---
+    result = mod_config_loader.find_config(args, child)
+
+    # --- verify ---
+    # Should find parent config (closest), not root config
+    assert result == parent_config.resolve()
+
+
+def test_find_config_closest_wins_over_parent(tmp_path: Path) -> None:
+    """Closest config file should win, not merge with parent configs."""
+    # --- setup ---
+    # Create directory structure: root/parent/child
+    root = tmp_path / "root"
+    parent = root / "parent"
+    child = parent / "child"
+    child.mkdir(parents=True)
+
+    # Create config files with different values
+    root_config = root / f".{mod_meta.PROGRAM_CONFIG}.json"
+    root_config.write_text('{"builds": [{"out": "root_dist"}]}')
+
+    parent_config = parent / f".{mod_meta.PROGRAM_CONFIG}.json"
+    parent_config.write_text('{"builds": [{"out": "parent_dist"}]}')
+
+    args = Namespace(config=None)
+
+    # --- execute from child directory ---
+    result = mod_config_loader.find_config(args, child)
+
+    # --- verify ---
+    # Should find parent config (closest), not root config
+    # This proves it doesn't merge - if it merged, we'd need to check both
+    assert result == parent_config.resolve()
+    assert result != root_config.resolve()

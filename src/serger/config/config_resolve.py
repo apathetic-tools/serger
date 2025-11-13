@@ -648,6 +648,24 @@ def _normalize_path_with_root(
         elif raw_str.endswith("/"):
             root = Path(raw_str[:-1]).resolve()
             rel = "**"  # treat directory as contents
+        elif has_glob_chars(raw_str):
+            # Extract root directory (part before first glob char)
+            # Find the last path separator before any glob character
+            glob_chars = ["*", "?", "[", "{"]
+            glob_pos = min(
+                (raw_str.find(c) for c in glob_chars if c in raw_str),
+                default=len(raw_str),
+            )
+            # Find the last / before the glob
+            path_before_glob = raw_str[:glob_pos]
+            last_slash = path_before_glob.rfind("/")
+            if last_slash >= 0:
+                root = Path(path_before_glob[:last_slash] or "/").resolve()
+                rel = raw_str[last_slash + 1 :]  # Pattern part after root
+            else:
+                # No slash found, treat entire path as root
+                root = Path("/").resolve()
+                rel = raw_str.removeprefix("/")
         else:
             root = raw_path.resolve()
             rel = "."

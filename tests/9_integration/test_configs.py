@@ -3,6 +3,7 @@
 
 import json
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -257,12 +258,9 @@ def test_missing_includes_behavior(
         # Check if any build has includes - if so, create package
         builds = config_content.get("builds", [])
         if isinstance(builds, list):
-            for build_item in builds:  # type: ignore[assignment]
-                if (
-                    isinstance(build_item, dict)
-                    and "include" in build_item
-                    and isinstance(build_item["include"], list)
-                ):
+            builds_list = cast("list[dict[str, object]]", builds)
+            for build_item in builds_list:
+                if "include" in build_item and isinstance(build_item["include"], list):
                     pkg_dir = tmp_path / "mypkg"
                     make_test_package(pkg_dir)
                     break
@@ -290,3 +288,67 @@ def test_missing_includes_behavior(
         assert "no include patterns found" not in combined, (
             f"Failed: {description} - unexpected warning"
         )
+
+
+def test_config_discovery_finds_closest_parent_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Config discovery should find closest config in parent directories."""
+    # --- setup ---
+    # Create directory structure: root/parent/child
+    root = tmp_path / "root"
+    parent = root / "parent"
+    child = parent / "child"
+    child.mkdir(parents=True)
+
+    # Create test packages
+    root_pkg = root / "root_pkg"
+    parent_pkg = parent / "parent_pkg"
+    make_test_package(root_pkg)
+    make_test_package(parent_pkg)
+
+    # Create config files with different package names and output paths
+    root_config = root / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        root_config,
+        package="root_pkg",
+        include=["root_pkg/**/*.py"],
+        out="root_dist/root_pkg.py",
+    )
+
+    parent_config = parent / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        parent_config,
+        package="parent_pkg",
+        include=["parent_pkg/**/*.py"],
+        out="parent_dist/parent_pkg.py",
+    )
+
+    # --- execute from child directory ---
+    monkeypatch.chdir(child)
+    code = mod_cli.main([])
+
+    # --- verify ---
+    assert code == 0
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
+
+    # Should use parent config (closest), not root config
+    # Verify parent config values are used
+    assert "parent_pkg" in out
+    assert "parent_dist" in out
+    # Verify root config values are NOT used (proves no merging)
+    # Both should be absent - if merging occurred, we'd see root values too
+    assert "root_pkg" not in out
+    assert "root_dist" not in out
+
+    # Verify the correct output file was created
+    parent_dist = parent / "parent_dist"
+    assert parent_dist.exists()
+    assert (parent_dist / "parent_pkg.py").exists()
+
+    # Verify root output was NOT created (proves closest config wins)
+    root_dist = root / "root_dist"
+    assert not root_dist.exists()

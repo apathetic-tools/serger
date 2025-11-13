@@ -81,26 +81,45 @@ def find_config(
             raise ValueError(xmsg)
         return config
 
-    # --- 2. Default candidate files ---
-    candidates: list[Path] = [
-        cwd / f".{PROGRAM_CONFIG}.py",
-        cwd / f".{PROGRAM_CONFIG}.jsonc",
-        cwd / f".{PROGRAM_CONFIG}.json",
+    # --- 2. Default candidate files (search current dir and parents) ---
+    # Search from cwd up to filesystem root, returning first match (closest to cwd)
+    current = cwd
+    candidate_names = [
+        f".{PROGRAM_CONFIG}.py",
+        f".{PROGRAM_CONFIG}.jsonc",
+        f".{PROGRAM_CONFIG}.json",
     ]
-    logger.trace(f"[find_config] Checking {len(candidates)} candidate files")
-    found = [p for p in candidates if p.exists()]
+    found: list[Path] = []
+    while True:
+        for name in candidate_names:
+            candidate = current / name
+            if candidate.exists():
+                found.append(candidate)
+        if found:
+            # Found at least one config file at this level
+            break
+        parent = current.parent
+        if parent == current:  # Reached filesystem root
+            break
+        current = parent
 
     if not found:
         # Expected absence — soft failure (continue)
-        logger.log_dynamic(missing_level, f"No config file found in {cwd}")
+        logger.log_dynamic(missing_level, f"No config file found in {cwd} or parents")
         return None
 
-    # --- 3. Handle multiple matches ---
+    # --- 3. Handle multiple matches at same level (prefer .py > .jsonc > .json) ---
     if len(found) > 1:
-        names = ", ".join(p.name for p in found)
+        # Prefer .py, then .jsonc, then .json
+        priority = {".py": 0, ".jsonc": 1, ".json": 2}
+        found_sorted = sorted(found, key=lambda p: priority.get(p.suffix, 99))
+        names = ", ".join(p.name for p in found_sorted)
         logger.warning(
-            "Multiple config files detected (%s); using %s.", names, found[0].name
+            "Multiple config files detected (%s); using %s.",
+            names,
+            found_sorted[0].name,
         )
+        return found_sorted[0]
     return found[0]
 
 
