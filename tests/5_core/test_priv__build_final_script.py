@@ -310,7 +310,7 @@ class TestBuildFinalScriptShims:
             build_date="2025-01-01",
         )
 
-        assert "_pkg = 'custompackage'" in result
+        assert "_create_pkg_module('custompackage')" in result
 
 
 class TestBuildFinalScriptParts:
