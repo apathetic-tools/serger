@@ -625,17 +625,23 @@ def verify_no_broken_imports(final_text: str, package_names: list[str]) -> None:
             header_pattern = re.compile(
                 rf"# === {re.escape(package_name)}(?:\.__init__)? ==="
             )
-            # Check for shim-created package: _pkg = 'package_name' or "package_name"
-            # followed by sys.modules[_pkg] = _mod (or sys.modules.get(_pkg))
+            # Check for shim-created package:
+            # Old pattern: _pkg = 'package_name' followed by sys.modules[_pkg] = _mod
+            # New pattern: _create_pkg_module('package_name')
             # Handle both single and double quotes (formatter may change them)
             escaped_name = re.escape(package_name)
-            shim_pattern = re.compile(
+            shim_pattern_old = re.compile(
                 rf"_pkg\s*=\s*(?:['\"]){escaped_name}(?:['\"]).*?"
                 rf"sys\.modules\[_pkg\]\s*=\s*_mod",
                 re.DOTALL,
             )
-            if not header_pattern.search(final_text) and not shim_pattern.search(
-                final_text
+            shim_pattern_new = re.compile(
+                rf"_create_pkg_module\s*\(\s*(?:['\"]){escaped_name}(?:['\"])"
+            )
+            if (
+                not header_pattern.search(final_text)
+                and not shim_pattern_old.search(final_text)
+                and not shim_pattern_new.search(final_text)
             ):
                 broken.add(package_name)
 
@@ -1109,32 +1115,63 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     shim_blocks.append("# --- import shims for single-file runtime ---")
     # Note: types and sys are imported at the top level (see all_imports)
 
+    # Helper function to create/register package modules
+    shim_blocks.append("def _create_pkg_module(pkg_name: str) -> types.ModuleType:")
+    shim_blocks.append(
+        '    """Create or get a package module and set up parent relationships."""'
+    )
+    shim_blocks.append("    _mod = sys.modules.get(pkg_name)")
+    shim_blocks.append("    if not _mod:")
+    shim_blocks.append("        _mod = types.ModuleType(pkg_name)")
+    shim_blocks.append("        _mod.__package__ = pkg_name")
+    shim_blocks.append("        sys.modules[pkg_name] = _mod")
+    shim_blocks.append("    # Set up parent-child relationships for nested packages")
+    shim_blocks.append("    if '.' in pkg_name:")
+    shim_blocks.append("        _parent_pkg = '.'.join(pkg_name.split('.')[:-1])")
+    shim_blocks.append("        _child_name = pkg_name.split('.')[-1]")
+    shim_blocks.append("        _parent = sys.modules.get(_parent_pkg)")
+    shim_blocks.append("        if _parent:")
+    shim_blocks.append("            setattr(_parent, _child_name, _mod)")
+    shim_blocks.append("    return _mod")
+    shim_blocks.append("")
+
+    shim_blocks.append(
+        "def _setup_pkg_modules(pkg_name: str, module_names: list[str]) -> None:"
+    )
+    shim_blocks.append(
+        '    """Set up package module attributes and register submodules."""'
+    )
+    shim_blocks.append("    _mod = sys.modules.get(pkg_name)")
+    shim_blocks.append("    if not _mod:")
+    shim_blocks.append("        return")
+    shim_blocks.append("    # Copy attributes from all modules under this package")
+    shim_blocks.append("    _globals = globals()")
+    shim_blocks.append("    for _key, _value in _globals.items():")
+    shim_blocks.append("        setattr(_mod, _key, _value)")
+    shim_blocks.append("    # Register all modules under this package")
+    shim_blocks.append("    for _name in module_names:")
+    shim_blocks.append("        sys.modules[_name] = _mod")
+    shim_blocks.append("    # Set submodules as attributes on parent package")
+    shim_blocks.append("    for _name in module_names:")
+    shim_blocks.append(
+        "        if _name != pkg_name and _name.startswith(pkg_name + '.'):"
+    )
+    shim_blocks.append("            _submodule_name = _name.split('.')[-1]")
+    shim_blocks.append("            if not hasattr(_mod, _submodule_name):")
+    shim_blocks.append("                setattr(_mod, _submodule_name, _mod)")
+    shim_blocks.append(
+        "            elif isinstance(getattr(_mod, _submodule_name, None), "
+        "types.ModuleType):"
+    )
+    shim_blocks.append("                setattr(_mod, _submodule_name, _mod)")
+    shim_blocks.append("")
+
     # First pass: Create all package modules and set up parent-child relationships
-    for pkg_name in sorted_packages:
-        # Get or create the package module
-        shim_blocks.append(f"_pkg = {pkg_name!r}")
-        shim_blocks.append("# Get existing module if we are imported as a module")
-        shim_blocks.append("_mod = sys.modules.get(_pkg)")
-        shim_blocks.append("# Create module object if executed as script")
-        shim_blocks.append("if not _mod:")
-        shim_blocks.append("    _mod = types.ModuleType(_pkg)")
-        shim_blocks.append("    _mod.__package__ = _pkg")
-        shim_blocks.append("    sys.modules[_pkg] = _mod")
+    shim_blocks.extend(
+        f"_create_pkg_module({pkg_name!r})" for pkg_name in sorted_packages
+    )
 
-        # If this is a nested package, set it as an attribute on its parent
-        if "." in pkg_name:
-            parent_pkg = ".".join(pkg_name.split(".")[:-1])
-            child_name = pkg_name.split(".")[-1]
-            shim_blocks.append(
-                f"# Set {pkg_name!r} as attribute on parent {parent_pkg!r}"
-            )
-            shim_blocks.append(f"_parent = sys.modules.get({parent_pkg!r})")
-            shim_blocks.append("if _parent:")
-            shim_blocks.append(f"    setattr(_parent, {child_name!r}, _mod)")
-            shim_blocks.append("del _parent")
-
-        shim_blocks.append("del _pkg, _mod")
-        shim_blocks.append("")
+    shim_blocks.append("")
 
     # Second pass: Copy attributes and register modules
     # Process in any order since all modules are now created
@@ -1142,71 +1179,20 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         if pkg_name not in packages:
             continue  # Skip packages that don't have any modules
 
-        shim_blocks.append(f"_pkg = {pkg_name!r}")
-        shim_blocks.append("_mod = sys.modules.get(_pkg)")
-        shim_blocks.append("if _mod:")
-        # Copy attributes from all modules that belong to this package
-        # All modules under a package share the same module object,
-        # so all their attributes should be on this module
-        # Include all attributes (matching installed package behavior)
-        shim_blocks.append("    # Copy attributes from all modules under this package")
-        shim_blocks.append("    _globals = globals()")
-        shim_blocks.append("    _items = [(k, v) for k, v in _globals.items()]")
-        shim_blocks.append("    for _key, _value in _items:")
-        shim_blocks.append("        setattr(_mod, _key, _value)")
-        shim_blocks.append("    del _globals, _items")
-
-        # Register all modules that belong to this package
-        # All modules under a package share the same module object,
-        # so all their attributes should be on this module
         module_names_for_pkg = [name for name, _ in packages[pkg_name]]
-        if module_names_for_pkg:
-            shim_blocks.append("    # Register all modules under this package")
-            # Module names already have full paths (with package_name prefix),
-            # but ensure they're correctly formatted for registration
-            # If name equals pkg_name, it's the root module itself
-            full_module_names = [
-                (
-                    name
-                    if (name == pkg_name or name.startswith(f"{pkg_name}."))
-                    else f"{pkg_name}.{name}"
-                )
-                for name in module_names_for_pkg
-            ]
-            module_names_str = ", ".join(repr(name) for name in full_module_names)
-            # Register package and all submodules in sys.modules
-            shim_blocks.append(f"    for _name in [{module_names_str}]:")
-            shim_blocks.append("        sys.modules[_name] = _mod")
-            # Set submodules as attributes on parent package
-            # IMPORTANT: Do this AFTER copying globals to avoid overwriting
-            # with stdlib modules (e.g., 'types' from 'import types')
-            # This allows 'import parent.submodule' to work
-            shim_blocks.append("    # Set submodules as attributes on parent package")
-            shim_blocks.append("    # This allows 'import parent.submodule' to work")
-            shim_blocks.append(
-                "    # Only set if not already present (avoid overwriting functions)"
+        # Module names already have full paths (with package_name prefix),
+        # but ensure they're correctly formatted for registration
+        # If name equals pkg_name, it's the root module itself
+        full_module_names = [
+            (
+                name
+                if (name == pkg_name or name.startswith(f"{pkg_name}."))
+                else f"{pkg_name}.{name}"
             )
-            for full_name in full_module_names:
-                if full_name != pkg_name and full_name.startswith(f"{pkg_name}."):
-                    # Extract the submodule name (last component)
-                    submodule_name = full_name.split(".")[-1]
-                    shim_blocks.append(f"    if not hasattr(_mod, {submodule_name!r}):")
-                    shim_blocks.append(
-                        f"        setattr(_mod, {submodule_name!r}, _mod)"
-                    )
-                    shim_blocks.append(
-                        "    elif isinstance(getattr(_mod, "
-                        f"{submodule_name!r}, None), types.ModuleType):"
-                    )
-                    shim_blocks.append(
-                        "        # Overwrite if module from globals (stdlib types)"
-                    )
-                    shim_blocks.append(
-                        f"        setattr(_mod, {submodule_name!r}, _mod)"
-                    )
-
-        shim_blocks.append("del _pkg, _mod")
-        shim_blocks.append("")
+            for name in module_names_for_pkg
+        ]
+        module_names_str = ", ".join(repr(name) for name in full_module_names)
+        shim_blocks.append(f"_setup_pkg_modules({pkg_name!r}, [{module_names_str}])")
 
     shim_text = "\n".join(shim_blocks)
 

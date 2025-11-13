@@ -44,7 +44,6 @@ Exploring bundling options for generating the single-file release:
 
 ## 🔌 API
 
-- can we pull out utils/config into a single toplevel module?
 - can we pull out common CLI elements with pocket-build into a single toplevel module?
 - set up stitch modes
 - set up comment stripper toggle
