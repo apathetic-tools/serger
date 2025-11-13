@@ -480,7 +480,13 @@ def run_build(  # noqa: PLR0915, PLR0912
 
     # Determine output file path
     out_path = (out_entry["root"] / out_entry["path"]).resolve()
-    if out_path.is_dir():
+    # Check if it's a directory (exists and is dir) or should be treated as one
+    # If path doesn't exist and has no .py extension, treat as directory
+    path_str = str(out_entry["path"])
+    is_directory = out_path.is_dir() or (
+        not out_path.exists() and not path_str.endswith(".py")
+    )
+    if is_directory:
         out_path = out_path / f"{package}.py"
 
     if dry_run:

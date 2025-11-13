@@ -580,8 +580,8 @@ def test_mixed_relative_and_absolute_includes(
     # --- setup ---
     rel_pkg = tmp_path / "rel_pkg"
     abs_pkg = tmp_path / "abs_pkg"
-    make_test_package(rel_pkg, module_content='def hello():\n    return "rel"\n')
-    make_test_package(abs_pkg, module_content='def hello():\n    return "abs"\n')
+    make_test_package(rel_pkg, module_content='def hello_rel():\n    return "rel"\n')
+    make_test_package(abs_pkg, module_content='def hello_abs():\n    return "abs"\n')
 
     abs_out = tmp_path / "mixed_out"
 

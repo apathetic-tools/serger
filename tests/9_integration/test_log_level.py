@@ -116,10 +116,7 @@ def test_verbose_and_quiet_mutually_exclusive(
     captured = capsys.readouterr()
     combined = (captured.out + captured.err).lower()
 
-    assert (
-        "not allowed with argument" in combined
-        or "mutually exclusive" in combined
-    )
+    assert "not allowed with argument" in combined or "mutually exclusive" in combined
     assert "--quiet" in combined
     assert "--verbose" in combined
 

@@ -82,7 +82,8 @@ def _setup_parser() -> argparse.ArgumentParser:
         metavar="OUT",
         help=(
             "Positional output file or directory (shorthand for --out). "
-            "Use trailing slash for directories (e.g., 'dist/'), otherwise treated as file."
+            "Use trailing slash for directories (e.g., 'dist/'), "
+            "otherwise treated as file."
         ),
     )
 
@@ -98,7 +99,8 @@ def _setup_parser() -> argparse.ArgumentParser:
         "--out",
         help=(
             "Override output file or directory. "
-            "Use trailing slash for directories (e.g., 'dist/'), otherwise treated as file. "
+            "Use trailing slash for directories (e.g., 'dist/'), "
+            "otherwise treated as file. "
             "Examples: 'dist/serger.py' (file) or 'bin/' (directory)."
         ),
     )
