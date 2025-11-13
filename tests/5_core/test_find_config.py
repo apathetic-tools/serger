@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 import serger.apathetic_logs as mod_alogs
-import serger.config.config as mod_config
+import serger.config.config_loader as mod_config_loader
 import serger.meta as mod_meta
 
 
@@ -17,7 +17,7 @@ def test_find_config_raises_for_missing_file(tmp_path: Path) -> None:
 
     # --- execute and verify ---
     with pytest.raises(FileNotFoundError, match="not found"):
-        mod_config.find_config(args, tmp_path)
+        mod_config_loader.find_config(args, tmp_path)
 
 
 def test_find_config_returns_explicit_file(tmp_path: Path) -> None:
@@ -28,7 +28,7 @@ def test_find_config_returns_explicit_file(tmp_path: Path) -> None:
     args = Namespace(config=str(cfg))
 
     # --- execute ---
-    result = mod_config.find_config(args, tmp_path)
+    result = mod_config_loader.find_config(args, tmp_path)
 
     # --- verify ---
     assert result == cfg.resolve()
@@ -43,7 +43,7 @@ def test_find_config_logs_and_returns_none_when_missing(
     args = Namespace(config=None)
 
     # --- execute ---
-    result = mod_config.find_config(args, tmp_path)
+    result = mod_config_loader.find_config(args, tmp_path)
 
     # --- verify ---
     assert result is None
@@ -69,7 +69,7 @@ def test_find_config_warns_for_multiple_candidates(
     args = Namespace(config=None)
 
     # --- execute ---
-    result = mod_config.find_config(args, tmp_path)
+    result = mod_config_loader.find_config(args, tmp_path)
 
     # --- verify ---
     assert result == py
@@ -86,7 +86,7 @@ def test_find_config_raises_for_directory(tmp_path: Path) -> None:
 
     # --- execute and verify ---
     with pytest.raises(ValueError, match="directory"):
-        mod_config.find_config(args, tmp_path)
+        mod_config_loader.find_config(args, tmp_path)
 
 
 def test_find_config_respects_missing_level(
@@ -98,7 +98,7 @@ def test_find_config_respects_missing_level(
     args = Namespace(config=None)
 
     # --- execute ---
-    mod_config.find_config(args, tmp_path, missing_level="warning")
+    mod_config_loader.find_config(args, tmp_path, missing_level="warning")
 
     # --- verify ---
     out = capsys.readouterr().err.lower()

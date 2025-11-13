@@ -1,4 +1,4 @@
-# src/serger/config/config.py
+# src/serger/config/config_loader.py
 
 
 import argparse

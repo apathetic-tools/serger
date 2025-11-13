@@ -13,7 +13,7 @@ from types import ModuleType
 from typing import cast
 
 import serger.build as mod_build
-import serger.config as mod_config
+import serger.config.config_loader as mod_config_loader
 import serger.config.config_resolve as mod_config_resolve
 import serger.config.config_types as mod_config_types
 from tests.utils.buildconfig import make_include_resolved
@@ -173,7 +173,7 @@ def test_multi_package_stitching_via_config_file(tmp_path: Path) -> None:
     # --- Execute via CLI simulation (using run_build directly) ---
     # Load config
     args = Namespace(config=str(config_file))
-    config_result = mod_config.load_and_validate_config(args)
+    config_result = mod_config_loader.load_and_validate_config(args)
     assert config_result is not None
     _, root_cfg, _ = config_result
 

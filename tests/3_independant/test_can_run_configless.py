@@ -2,7 +2,7 @@
 
 from argparse import Namespace
 
-import serger.config as mod_config
+import serger.config.config_loader as mod_config_loader
 
 
 def test_can_run_configless_with_include() -> None:
@@ -13,7 +13,7 @@ def test_can_run_configless_with_include() -> None:
         positional_include=None,
         positional_out=None,
     )
-    assert mod_config.can_run_configless(args) is True
+    assert mod_config_loader.can_run_configless(args) is True
 
 
 def test_can_run_configless_with_add_include() -> None:
@@ -24,7 +24,7 @@ def test_can_run_configless_with_add_include() -> None:
         positional_include=None,
         positional_out=None,
     )
-    assert mod_config.can_run_configless(args) is True
+    assert mod_config_loader.can_run_configless(args) is True
 
 
 def test_can_run_configless_with_positional_include() -> None:
@@ -35,7 +35,7 @@ def test_can_run_configless_with_positional_include() -> None:
         positional_include=["docs/**"],
         positional_out=None,
     )
-    assert mod_config.can_run_configless(args) is True
+    assert mod_config_loader.can_run_configless(args) is True
 
 
 def test_can_run_configless_with_positional_out() -> None:
@@ -46,7 +46,7 @@ def test_can_run_configless_with_positional_out() -> None:
         positional_include=None,
         positional_out="build/",
     )
-    assert mod_config.can_run_configless(args) is True
+    assert mod_config_loader.can_run_configless(args) is True
 
 
 def test_can_run_configless_with_multiple_options() -> None:
@@ -57,7 +57,7 @@ def test_can_run_configless_with_multiple_options() -> None:
         positional_include=None,
         positional_out=None,
     )
-    assert mod_config.can_run_configless(args) is True
+    assert mod_config_loader.can_run_configless(args) is True
 
 
 def test_can_run_configless_with_all_options() -> None:
@@ -68,7 +68,7 @@ def test_can_run_configless_with_all_options() -> None:
         positional_include=["docs/**"],
         positional_out="build/",
     )
-    assert mod_config.can_run_configless(args) is True
+    assert mod_config_loader.can_run_configless(args) is True
 
 
 def test_can_run_configless_with_no_options() -> None:
@@ -79,7 +79,7 @@ def test_can_run_configless_with_no_options() -> None:
         positional_include=None,
         positional_out=None,
     )
-    assert mod_config.can_run_configless(args) is False
+    assert mod_config_loader.can_run_configless(args) is False
 
 
 def test_can_run_configless_with_empty_include() -> None:
@@ -90,7 +90,7 @@ def test_can_run_configless_with_empty_include() -> None:
         positional_include=None,
         positional_out=None,
     )
-    assert mod_config.can_run_configless(args) is False
+    assert mod_config_loader.can_run_configless(args) is False
 
 
 def test_can_run_configless_with_empty_add_include() -> None:
@@ -101,7 +101,7 @@ def test_can_run_configless_with_empty_add_include() -> None:
         positional_include=None,
         positional_out=None,
     )
-    assert mod_config.can_run_configless(args) is False
+    assert mod_config_loader.can_run_configless(args) is False
 
 
 def test_can_run_configless_with_empty_positional_include() -> None:
@@ -112,7 +112,7 @@ def test_can_run_configless_with_empty_positional_include() -> None:
         positional_include=[],
         positional_out=None,
     )
-    assert mod_config.can_run_configless(args) is False
+    assert mod_config_loader.can_run_configless(args) is False
 
 
 def test_can_run_configless_with_empty_positional_out() -> None:
@@ -123,13 +123,13 @@ def test_can_run_configless_with_empty_positional_out() -> None:
         positional_include=None,
         positional_out="",
     )
-    assert mod_config.can_run_configless(args) is False
+    assert mod_config_loader.can_run_configless(args) is False
 
 
 def test_can_run_configless_missing_attributes() -> None:
     """Should return False when some attributes are missing from Namespace."""
     args = Namespace()
-    assert mod_config.can_run_configless(args) is False
+    assert mod_config_loader.can_run_configless(args) is False
 
 
 def test_can_run_configless_partial_missing_attributes() -> None:
@@ -137,7 +137,7 @@ def test_can_run_configless_partial_missing_attributes() -> None:
     one present attribute has a truthy value."""
     args = Namespace(include=["src/**"])
     # Only 'include' is set, others don't exist
-    assert mod_config.can_run_configless(args) is True
+    assert mod_config_loader.can_run_configless(args) is True
 
 
 def test_can_run_configless_with_zero() -> None:
@@ -148,7 +148,7 @@ def test_can_run_configless_with_zero() -> None:
         positional_include=None,
         positional_out=0,
     )
-    assert mod_config.can_run_configless(args) is False
+    assert mod_config_loader.can_run_configless(args) is False
 
 
 def test_can_run_configless_with_false() -> None:
@@ -159,4 +159,4 @@ def test_can_run_configless_with_false() -> None:
         positional_include=None,
         positional_out=False,
     )
-    assert mod_config.can_run_configless(args) is False
+    assert mod_config_loader.can_run_configless(args) is False

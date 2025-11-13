@@ -45,7 +45,6 @@ Exploring bundling options for generating the single-file release:
 ## 🔌 API
 
 - as well our .serger.jsonc right now includes both the package and the utils, there should be a glob pattern that includes subdirectories, I'm not sure what it is but is it something like serger/**/*.py?
-- can config_* files be made into a submodule?
 - can we pull out utils/logs into a single toplevel module?
 - can we pull out utils/config into a single toplevel module?
 - can we pull out common CLI elements with pocket-build into a single toplevel module?
