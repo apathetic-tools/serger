@@ -9,14 +9,14 @@ from typing import Any
 
 import pytest
 
-import serger.utils.utils_schema as mod_utils_schema
-import serger.utils.utils_types as mod_utils_types
+import apathetic_schema.schema as amod_schema
+import apathetic_utils.types as amod_utils_types
 from tests.utils import make_summary, patch_everywhere
 
 
 def test_validate_scalar_value_returns_bool() -> None:
     # --- execute ---
-    result = mod_utils_schema._validate_scalar_value(
+    result = amod_schema._validate_scalar_value(
         strict=True,
         context="ctx",
         key="x",
@@ -35,7 +35,7 @@ def test_validate_scalar_value_accepts_correct_type() -> None:
     summary = make_summary()
 
     # --- patch and execute ---
-    ok = mod_utils_schema._validate_scalar_value(
+    ok = amod_schema._validate_scalar_value(
         "ctx",
         "x",
         42,
@@ -57,7 +57,7 @@ def test_validate_scalar_value_rejects_wrong_type() -> None:
     summary = make_summary()
 
     # --- patch and execute ---
-    ok = mod_utils_schema._validate_scalar_value(
+    ok = amod_schema._validate_scalar_value(
         "ctx",
         "x",
         "abc",
@@ -85,11 +85,11 @@ def test_validate_scalar_value_handles_fallback_path(
     # --- patch and execute ---
     patch_everywhere(
         monkeypatch,
-        mod_utils_types,
+        amod_utils_types,
         "safe_isinstance",
         _fake_safe_isinstance,
     )
-    ok = mod_utils_schema._validate_scalar_value(
+    ok = amod_schema._validate_scalar_value(
         "ctx",
         "x",
         5,

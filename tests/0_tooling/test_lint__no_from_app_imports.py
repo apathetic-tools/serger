@@ -27,6 +27,17 @@ from pathlib import Path
 import serger.meta as mod_meta
 
 
+# Package names that are disallowed from `from ... import` statements in tests
+# All imports from these packages must use
+# `import <package>.<module> as mod_<module>` format
+DISALLOWED_PACKAGES = [
+    mod_meta.PROGRAM_PACKAGE,
+    "apathetic_utils",
+    "apathetic_schema",
+    "apathetic_logs",
+]
+
+
 def test_no_app_from_imports() -> None:
     """Enforce `import <mod> as mod_<mod>` pattern for all project imports in tests.
 
@@ -43,7 +54,7 @@ def test_no_app_from_imports() -> None:
             if (
                 isinstance(node, ast.ImportFrom)
                 and node.module
-                and node.module.startswith(mod_meta.PROGRAM_PACKAGE)
+                and any(node.module.startswith(pkg) for pkg in DISALLOWED_PACKAGES)
             ):
                 # NO EXCEPTIONS: All imports from our project must use
                 # module-level imports. This includes private functions -
@@ -52,17 +63,18 @@ def test_no_app_from_imports() -> None:
                 break  # only need one hit per file
 
     if bad_files:
+        packages_str = ", ".join(DISALLOWED_PACKAGES)
         print(
-            "\n❌ Disallowed `from "
-            + mod_meta.PROGRAM_PACKAGE
-            + ".<module> import ...` imports found in test files:"
+            "\n❌ Disallowed `from <package>.<module> import ...`"
+            " imports found in test files:",
         )
+        print(f"   Disallowed packages: {packages_str}")
         for path in bad_files:
             print(f"  - {path}")
         print(
             "\nAll test files MUST use module-level imports:"
-            f"\n  ❌ from {mod_meta.PROGRAM_PACKAGE}.module import function"
-            f"\n  ✅ import {mod_meta.PROGRAM_PACKAGE}.module as mod_module"
+            f"\n  ❌ from {DISALLOWED_PACKAGES[0]}.module import function"
+            f"\n  ✅ import {DISALLOWED_PACKAGES[0]}.module as mod_module"
             "\n"
             "\nThis pattern is required for:"
             "\n  - runtime_swap: Module objects needed for runtime mode switching"
@@ -74,8 +86,8 @@ def test_no_app_from_imports() -> None:
         )
         xmsg = (
             f"{len(bad_files)} test file(s) use disallowed"
-            f" `from {mod_meta.PROGRAM_PACKAGE}.*` imports."
-            " All test imports from our project must use"
-            f" `import {mod_meta.PROGRAM_PACKAGE}.<module> as mod_<module>` format."
+            f" `from {packages_str}.*` imports."
+            " All test imports from these packages must use"
+            f" `import <package>.<module> as mod_<module>` format."
         )
         raise AssertionError(xmsg)

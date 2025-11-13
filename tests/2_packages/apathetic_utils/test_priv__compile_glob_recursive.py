@@ -29,7 +29,7 @@ from typing import Any
 
 # Import submodule - works in both installed and singlefile modes
 # (singlefile mode excludes __init__.py but includes submodules)
-import serger.utils.utils_matching as mod_utils_matching
+import apathetic_utils.matching as amod_utils_matching
 
 
 class _MockUtils:
@@ -37,7 +37,7 @@ class _MockUtils:
 
     def __init__(self) -> None:
         # Expose the actual function so cache methods work
-        self._compile_glob_recursive = mod_utils_matching._compile_glob_recursive
+        self._compile_glob_recursive = amod_utils_matching._compile_glob_recursive
 
 
 mod_utils: Any = _MockUtils()

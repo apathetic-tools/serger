@@ -8,6 +8,7 @@ from difflib import get_close_matches
 from pathlib import Path
 
 from apathetic_logs import LEVEL_ORDER, safe_log
+from apathetic_utils import cast_hint, get_sys_version_info
 
 from .actions import get_metadata, watch_for_changes
 from .build import run_all_builds
@@ -30,7 +31,6 @@ from .meta import (
     PROGRAM_SCRIPT,
 )
 from .selftest import run_selftest
-from .utils import cast_hint, get_sys_version_info
 
 
 # --------------------------------------------------------------------------- #

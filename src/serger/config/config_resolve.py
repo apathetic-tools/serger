@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
+from apathetic_utils import cast_hint, has_glob_chars, load_toml
 from serger.constants import (
     DEFAULT_CATEGORIES,
     DEFAULT_CATEGORY_ORDER,
@@ -18,13 +19,7 @@ from serger.constants import (
     DEFAULT_WATCH_INTERVAL,
 )
 from serger.logs import get_app_logger
-from serger.utils import (
-    cast_hint,
-    has_glob_chars,
-    load_toml,
-    make_includeresolved,
-    make_pathresolved,
-)
+from serger.utils import make_includeresolved, make_pathresolved
 
 from .config_types import (
     BuildConfig,

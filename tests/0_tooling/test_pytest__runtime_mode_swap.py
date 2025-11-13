@@ -24,9 +24,9 @@ from pathlib import Path
 
 import pytest
 
+import apathetic_utils.system as amod_utils_system
 import serger as app_package
 import serger.meta as mod_meta
-import serger.utils.utils_system as mod_utils_system
 from tests.utils import PROJ_ROOT, make_test_trace
 
 
@@ -104,7 +104,7 @@ def test_pytest_runtime_cache_integrity() -> None:
     """
     # --- setup ---
     mode = os.getenv("RUNTIME_MODE", "unknown")
-    utils_file = str(inspect.getsourcefile(mod_utils_system))
+    utils_file = str(inspect.getsourcefile(amod_utils_system))
     expected_script = DIST_ROOT / f"{mod_meta.PROGRAM_SCRIPT}.py"
 
     # --- execute ---
@@ -113,7 +113,7 @@ def test_pytest_runtime_cache_integrity() -> None:
 
     if os.getenv("TRACE"):
         dump_snapshot()
-    runtime_mode = mod_utils_system.detect_runtime_mode()
+    runtime_mode = amod_utils_system.detect_runtime_mode()
 
     if mode == "singlefile":
         # --- verify singlefile ---

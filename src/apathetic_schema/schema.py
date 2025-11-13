@@ -7,11 +7,19 @@ from typing import Any, TypedDict, cast, get_args, get_origin
 
 from typing_extensions import NotRequired
 
-from serger.constants import DEFAULT_HINT_CUTOFF
+from apathetic_utils import (
+    cast_hint,
+    fnmatchcase_portable,
+    plural,
+    safe_isinstance,
+    schema_from_typeddict,
+)
 
-from .utils_matching import fnmatchcase_portable
-from .utils_text import plural
-from .utils_types import cast_hint, safe_isinstance, schema_from_typeddict
+
+# --- constants ----------------------------------------------------------
+
+
+DEFAULT_HINT_CUTOFF: float = 0.75
 
 
 # --- types ----------------------------------------------------------

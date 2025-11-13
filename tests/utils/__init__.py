@@ -23,11 +23,8 @@ from .strip_common_prefix import strip_common_prefix
 from .test_trace import TEST_TRACE, make_test_trace
 
 
-__all__ = [
-    "PROJ_ROOT",
-    "TEST_TRACE",
-    "force_mtime_advance",
-    "is_ci",
+__all__ = [  # noqa: RUF022
+    # buildconfig
     "make_build_cfg",
     "make_build_input",
     "make_config_content",
@@ -36,12 +33,25 @@ __all__ = [
     "make_post_category_config_resolved",
     "make_post_processing_config_resolved",
     "make_resolved",
-    "make_summary",
-    "make_test_package",
-    "make_test_trace",
     "make_tool_config_resolved",
-    "patch_everywhere",
-    "runtime_swap",
-    "strip_common_prefix",
     "write_config_file",
+    # ci
+    "is_ci",
+    # config_validate
+    "make_summary",
+    # force_mtime_advance
+    "force_mtime_advance",
+    # package
+    "make_test_package",
+    # patch_everywhere
+    "patch_everywhere",
+    # proj_root
+    "PROJ_ROOT",
+    # runtime_swap
+    "runtime_swap",
+    # strip_common_prefix
+    "strip_common_prefix",
+    # test_trace
+    "TEST_TRACE",
+    "make_test_trace",
 ]

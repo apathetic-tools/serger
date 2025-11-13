@@ -2,17 +2,17 @@
 
 from typing import cast
 
-import serger.utils.utils_schema as mod_utils_schema
+import apathetic_schema.schema as amod_schema
 from tests.utils import make_summary
 
 
 def test_flush_schema_aggregators_flushes_strict_bucket() -> None:
     # --- setup ---
     summary = make_summary(strict=True)
-    agg: mod_utils_schema.SchemaErrorAggregator = cast(
-        "mod_utils_schema.SchemaErrorAggregator",
+    agg: amod_schema.SchemaErrorAggregator = cast(
+        "amod_schema.SchemaErrorAggregator",
         {
-            mod_utils_schema.AGG_STRICT_WARN: {
+            amod_schema.AGG_STRICT_WARN: {
                 "dry-run": {
                     "msg": "Ignored config key(s) {keys} {ctx}",
                     "contexts": ["in build #1", "on build #2"],
@@ -22,10 +22,10 @@ def test_flush_schema_aggregators_flushes_strict_bucket() -> None:
     )
 
     # --- execute ---
-    mod_utils_schema.flush_schema_aggregators(summary=summary, agg=agg)
+    amod_schema.flush_schema_aggregators(summary=summary, agg=agg)
 
     # --- verify ---
-    assert not agg[mod_utils_schema.AGG_STRICT_WARN]  # bucket should be cleared
+    assert not agg[amod_schema.AGG_STRICT_WARN]  # bucket should be cleared
     assert summary.valid is False
     assert len(summary.strict_warnings) == 1
     msg = summary.strict_warnings[0]
@@ -38,10 +38,10 @@ def test_flush_schema_aggregators_flushes_strict_bucket() -> None:
 def test_flush_schema_aggregators_flushes_warning_bucket() -> None:
     # --- setup ---
     summary = make_summary(strict=False)
-    agg: mod_utils_schema.SchemaErrorAggregator = cast(
-        "mod_utils_schema.SchemaErrorAggregator",
+    agg: amod_schema.SchemaErrorAggregator = cast(
+        "amod_schema.SchemaErrorAggregator",
         {
-            mod_utils_schema.AGG_WARN: {
+            amod_schema.AGG_WARN: {
                 "root-only": {
                     "msg": "Ignored {keys} {ctx}",
                     "contexts": ["in top-level configuration"],
@@ -51,10 +51,10 @@ def test_flush_schema_aggregators_flushes_warning_bucket() -> None:
     )
 
     # --- execute ---
-    mod_utils_schema.flush_schema_aggregators(summary=summary, agg=agg)
+    amod_schema.flush_schema_aggregators(summary=summary, agg=agg)
 
     # --- verify ---
-    assert not agg[mod_utils_schema.AGG_WARN]
+    assert not agg[amod_schema.AGG_WARN]
     assert summary.valid is True
     assert summary.warnings == ["Ignored root-only in top-level configuration"]
     assert summary.strict_warnings == []
@@ -64,10 +64,10 @@ def test_flush_schema_aggregators_flushes_warning_bucket() -> None:
 def test_flush_schema_aggregators_cleans_context_prefixes() -> None:
     # --- setup ---
     summary = make_summary(strict=True)
-    agg: mod_utils_schema.SchemaErrorAggregator = cast(
-        "mod_utils_schema.SchemaErrorAggregator",
+    agg: amod_schema.SchemaErrorAggregator = cast(
+        "amod_schema.SchemaErrorAggregator",
         {
-            mod_utils_schema.AGG_STRICT_WARN: {
+            amod_schema.AGG_STRICT_WARN: {
                 "noop": {
                     "msg": "Ignored {keys} {ctx}",
                     "contexts": ["in build #3", "on build #4", "build #5"],
@@ -77,10 +77,10 @@ def test_flush_schema_aggregators_cleans_context_prefixes() -> None:
     )
 
     # --- execute ---
-    mod_utils_schema.flush_schema_aggregators(summary=summary, agg=agg)
+    amod_schema.flush_schema_aggregators(summary=summary, agg=agg)
 
     # --- verify ---
-    assert not agg[mod_utils_schema.AGG_STRICT_WARN]
+    assert not agg[amod_schema.AGG_STRICT_WARN]
     msg = summary.strict_warnings[0]
     # Context prefixes 'in' and 'on' should not be duplicated
     assert msg == "Ignored noop in build #3, build #4, build #5"

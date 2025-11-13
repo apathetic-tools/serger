@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 from typing import Any, cast
 
-from serger.logs import get_app_logger
+from apathetic_logs.logs import get_logger
 
 
 def _strip_jsonc_comments(text: str) -> str:  # noqa: PLR0912
@@ -143,7 +143,7 @@ def load_toml(path: Path, *, required: bool = False) -> dict[str, Any] | None:
 
 def load_jsonc(path: Path) -> dict[str, Any] | list[Any] | None:
     """Load JSONC (JSON with comments and trailing commas)."""
-    logger = get_app_logger()
+    logger = get_logger()
     logger.trace(f"[load_jsonc] Loading from {path}")
 
     if not path.exists():
