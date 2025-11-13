@@ -1,0 +1,16 @@
+---
+description: Important files and project structure
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+### Important Files
+- `dist/serger.py` is **generated** - never edit directly
+- Generate it using `poetry run poe build:script`
+- `dist/` contains build outputs - do not edit
+
+### Project Structure
+- `src/serger/` - Main source code
+- `tests/` - Test suite
+- `dev/` - Development scripts

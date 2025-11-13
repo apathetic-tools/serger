@@ -1,0 +1,10 @@
+---
+description: Git commit conventions
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+### Git Commit Conventions
+- NEVER include AI tool attribution or Co-Authored-By trailers in commit messages
+- Write clean, conventional commit messages

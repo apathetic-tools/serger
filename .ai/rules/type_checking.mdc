@@ -1,0 +1,37 @@
+---
+description: Type checking and linting best practices
+globs:
+  - "**/*.py"
+alwaysApply: true
+---
+
+### Type Checking and Linting Best Practices
+
+#### General Principle: Fix Over Ignore
+- **Always prioritize fixing errors over ignoring them** when possible
+- Only use ignore comments when:
+  - The error is a false positive that cannot be resolved by fixing the code
+  - Fixing would require a significant architectural change that doesn't improve readability
+  - The signature must match exactly (e.g., pytest hooks, interface implementations)
+  - The check is intentionally defensive and provides value despite the warning
+- When in doubt, attempt to fix the error first before resorting to ignore comments
+
+#### Ignore Comments
+- **Placement**: Warning/error ignore comments go at the end of lines and don't count towards line length limits
+- **Examples**: `# type: ignore[error-code]`, `# pyright: ignore[error-code]`, `# noqa: CODE`
+
+#### Common Patterns
+- **Unused arguments**: Prefix with `_` (e.g., `_unused_param`) unless signature must match exactly (pytest hooks, interfaces) - then use ignore comments
+- **Complexity/parameter warnings**: Consider refactoring only if it improves readability; otherwise add ignore comments
+- **Type inference**: Use `cast_hint()` from `serger.utils` or `typing.cast()` when possible (not in tests); mypy can often infer types better than pyright
+  - **`cast_hint()`**: Import from `serger.utils`. Use when:
+    - You want to silence mypy's redundant-cast warnings
+    - You want to signal "this narrowing is intentional"
+    - You need IDEs (like Pylance) to retain strong inference on a value
+    - **Do NOT use** for Union, Optional, or nested generics - use `cast()` for those
+    - **Example**: `from serger.utils import cast_hint; items = cast_hint(list[Any], value)`
+  - **`typing.cast()`**: Use for Union, Optional, or nested generics where type narrowing is meaningful
+    - **Example**: `from typing import cast; result = cast(PathResolved, dict_obj)`
+- **Defensive checks**: Runtime checks like `isinstance()` with ignore comments are only acceptable as defensive checks when data comes from external sources (function parameters, config files, user input). Do NOT use for constants or values that are known and can be typed properly within the function.
+  - **Acceptable**: `if not isinstance(package, str):  # pyright: ignore[reportUnnecessaryIsInstance]` when `package` comes from parsed config file
+  - **Not acceptable**: `if isinstance(CONSTANT_VALUE, str):` when `CONSTANT_VALUE` is a module-level constant that can be properly typed

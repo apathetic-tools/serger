@@ -1,0 +1,13 @@
+---
+description: Code quality standards and conventions
+globs:
+  - "**/*.py"
+alwaysApply: true
+---
+
+### Code Quality
+- **Line length**: Maximum 88 characters (enforced by Ruff) - **always fix violations, never ignore them**
+- **Python version**: Target Python 3.10+ compatibility
+- **Type checking**: Strict Pyright/Pylance + Mypy compliance required
+- **Linting**: All code must pass `poetry run poe check:fix`
+- **CI Requirements**: All linting and type checking errors must be resolved (CI fails otherwise). Either fix the error or add an appropriate ignore comment.

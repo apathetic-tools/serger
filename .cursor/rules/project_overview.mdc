@@ -1,0 +1,16 @@
+---
+description: Serger project overview and context
+globs:
+  - "**/*.py"
+  - "**/*.md"
+alwaysApply: true
+---
+
+## Serger Project Context
+
+### Project Overview
+Serger is a Python module stitcher that combines multiple source files into a single executable script.
+
+### See Also
+- `pyproject.toml` - All tool configurations and poe tasks
+- `ROADMAP.md` - Project roadmap and future plans
