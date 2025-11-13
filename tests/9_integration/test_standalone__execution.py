@@ -1,17 +1,14 @@
 # tests/9_integration/test_standalone__execution.py
-"""Verify that the standalone standalone version (`bin/script.py`)
+"""Verify that the standalone standalone version (`dist/serger.py`)
 was generated correctly — includes metadata, license header,
 and matches the declared version from pyproject.toml.
-
-NOTE: These tests are currently for file-copying (pocket-build responsibility).
-They will be adapted for stitch builds in Phase 5.
 """
 
+import json
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
-
-import pytest
 
 import serger.meta as mod_meta
 from tests.utils import PROJ_ROOT
@@ -20,11 +17,9 @@ from tests.utils import PROJ_ROOT
 # --- only for singlefile runs ---
 __runtime_mode__ = "singlefile"
 
-pytestmark = pytest.mark.pocket_build_compat
-
 
 def test_standalone_script_metadata_and_execution() -> None:
-    """Ensure the generated script.py script is complete and functional."""
+    """Ensure the generated standalone script is complete and functional."""
     # --- setup ---
     script = PROJ_ROOT / "dist" / f"{mod_meta.PROGRAM_SCRIPT}.py"
 
@@ -38,26 +33,45 @@ def test_standalone_script_metadata_and_execution() -> None:
     # - Execution check (isolated temp dir) -
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp = Path(tmpdir)
-        dummy = tmp / "dummy.txt"
-        dummy.write_text("hi", encoding="utf-8")
 
+        # Create a simple Python package structure for stitching
+        pkg_dir = tmp / "mypkg"
+        pkg_dir.mkdir()
+        (pkg_dir / "__init__.py").write_text("", encoding="utf-8")
+        (pkg_dir / "module.py").write_text(
+            'def hello():\n    return "world"\n',
+            encoding="utf-8",
+        )
+
+        # Create config using json.dumps (matching pattern from other tests)
         config = tmp / f".{mod_meta.PROGRAM_CONFIG}.json"
         config.write_text(
-            '{"builds":[{"include":["dummy.txt"],"out":"dist"}]}',
+            json.dumps(
+                {
+                    "builds": [
+                        {
+                            "package": "mypkg",
+                            "include": ["mypkg/**/*.py"],
+                            "out": "tmp-dist/mypkg.py",
+                        }
+                    ],
+                }
+            ),
             encoding="utf-8",
         )
 
         result = subprocess.run(  # noqa: S603
-            ["python3", str(script), "--out", "tmp-dist"],  # noqa: S607
+            [sys.executable, str(script)],
             check=False,
-            cwd=tmp,  # ✅ run in empty temp dir
+            cwd=tmp,  # ✅ run in temp dir
             capture_output=True,
             text=True,
             timeout=15,
         )
 
+    # --- verify ---
     assert result.returncode == 0, (
         f"Non-zero exit ({result.returncode}):\n{result.stderr}"
     )
-    assert "Build completed" in result.stdout
+    assert "Stitch completed" in result.stdout
     assert "🎉 All builds complete" in result.stdout
