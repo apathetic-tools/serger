@@ -8,7 +8,7 @@ import pytest
 
 import serger.cli as mod_cli
 import serger.meta as mod_meta
-from tests.utils import make_test_package
+from tests.utils import make_test_package, write_config_file
 
 
 def test_configless_run_with_include_flag_and_out_dir(
@@ -23,10 +23,7 @@ def test_configless_run_with_include_flag_and_out_dir(
 
     # Create minimal config with package field (required for stitching)
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    config.write_text(
-        json.dumps({"builds": [{"package": "mypkg", "include": [], "out": "dist"}]}),
-        encoding="utf-8",
-    )
+    write_config_file(config, package="mypkg", include=[], out="dist")
 
     # --- patch and execute ---
     monkeypatch.chdir(tmp_path)
@@ -398,10 +395,10 @@ def test_python_config_preferred_over_json(
     """A .serger.py config should take precedence over .jsonc/.json."""
     # --- setup ---
     pkg1_dir = tmp_path / "pkg1"
-    make_test_package(pkg1_dir, 'def hello():\n    return "from py"\n')
+    make_test_package(pkg1_dir, module_content='def hello():\n    return "from py"\n')
 
     pkg2_dir = tmp_path / "pkg2"
-    make_test_package(pkg2_dir, 'def hello():\n    return "from json"\n')
+    make_test_package(pkg2_dir, module_content='def hello():\n    return "from json"\n')
 
     # Create both config types — the Python one should win.
     py_cfg = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.py"
@@ -583,8 +580,8 @@ def test_mixed_relative_and_absolute_includes(
     # --- setup ---
     rel_pkg = tmp_path / "rel_pkg"
     abs_pkg = tmp_path / "abs_pkg"
-    make_test_package(rel_pkg, 'def hello():\n    return "rel"\n')
-    make_test_package(abs_pkg, 'def hello():\n    return "abs"\n')
+    make_test_package(rel_pkg, module_content='def hello():\n    return "rel"\n')
+    make_test_package(abs_pkg, module_content='def hello():\n    return "abs"\n')
 
     abs_out = tmp_path / "mixed_out"
 

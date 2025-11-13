@@ -4,14 +4,13 @@ was generated correctly — includes metadata, license header,
 and matches the declared version from pyproject.toml.
 """
 
-import json
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 import serger.meta as mod_meta
-from tests.utils import PROJ_ROOT, make_test_package
+from tests.utils import PROJ_ROOT, make_test_package, write_config_file
 
 
 # --- only for singlefile runs ---
@@ -38,21 +37,13 @@ def test_standalone_script_metadata_and_execution() -> None:
         pkg_dir = tmp / "mypkg"
         make_test_package(pkg_dir)
 
-        # Create config using json.dumps (matching pattern from other tests)
+        # Create config
         config = tmp / f".{mod_meta.PROGRAM_CONFIG}.json"
-        config.write_text(
-            json.dumps(
-                {
-                    "builds": [
-                        {
-                            "package": "mypkg",
-                            "include": ["mypkg/**/*.py"],
-                            "out": "tmp-dist/mypkg.py",
-                        }
-                    ],
-                }
-            ),
-            encoding="utf-8",
+        write_config_file(
+            config,
+            package="mypkg",
+            include=["mypkg/**/*.py"],
+            out="tmp-dist/mypkg.py",
         )
 
         result = subprocess.run(  # noqa: S603

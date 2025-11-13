@@ -1,8 +1,9 @@
 # tests/utils/buildconfig.py
 """Shared test helpers for constructing fake BuildConfigResolved and related types."""
 
+import json
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import serger.config.config_types as mod_types
 
@@ -166,3 +167,146 @@ def make_post_processing_config_resolved(
         "category_order": category_order or [],
         "categories": categories or {},
     }
+
+
+# ---------------------------------------------------------------------------
+# Factory for writing config files
+# ---------------------------------------------------------------------------
+
+
+def make_config_content(  # noqa: PLR0912
+    *,
+    package: str | None = None,
+    include: list[str] | None = None,
+    exclude: list[str] | None = None,
+    out: str | None = None,
+    builds: list[mod_types.BuildConfig] | mod_types.BuildConfig | None = None,
+    fmt: str = "json",
+    **root_options: Any,
+) -> str:
+    """Generate config file content (JSON, JSONC, or Python) with the given builds.
+
+    Args:
+        package: Package name for stitching (required if builds not provided)
+        include: Include patterns (defaults to [f"{package}/**/*.py"]
+            if package provided)
+        exclude: Exclude patterns (defaults to empty list)
+        out: Output path (defaults to "dist/{package}.py"
+            if package provided)
+        builds: Single build config dict or list of build config dicts (alternative to
+            individual params - if provided, other params are ignored)
+        fmt: Output format - "json", "jsonc", or "py" (default: "json")
+        **root_options: Additional root-level config options (e.g., log_level)
+
+    Returns:
+        String content of the config file
+
+    Examples:
+        >>> # Simple usage with package name
+        >>> content = make_config_content(package="mypkg")
+        >>> config_path.write_text(content, encoding="utf-8")
+        >>> # Override defaults
+        >>> content = make_config_content(
+        ...     package="mypkg",
+        ...     out="custom/dist.py",
+        ...     include=["mypkg/**/*.py", "other/**/*.py"],
+        ... )
+        >>> # Multiple builds
+        >>> content = make_config_content(
+        ...     builds=[
+        ...         {"package": "pkg1", "out": "dist1"},
+        ...         {"package": "pkg2", "out": "dist2"},
+        ...     ],
+        ...     fmt="py",
+        ...     log_level="debug",
+        ... )
+    """
+    # If builds provided, use them directly
+    if builds is not None:
+        builds_list = builds if isinstance(builds, list) else [builds]
+    else:
+        # Build from individual parameters
+        if package is None:
+            xmsg = "Either 'package' or 'builds' must be provided"
+            raise ValueError(xmsg)
+
+        build_cfg: dict[str, Any] = {"package": package}
+
+        # Set defaults based on package name
+        if include is None:
+            include = [f"{package}/**/*.py"]
+        if include:
+            build_cfg["include"] = include
+
+        if exclude is not None:
+            build_cfg["exclude"] = exclude
+
+        if out is None:
+            out = f"dist/{package}.py"
+        if out:
+            build_cfg["out"] = out
+
+        builds_list = [cast("mod_types.BuildConfig", build_cfg)]
+
+    # Construct root config
+    root_cfg: dict[str, Any] = {"builds": builds_list}
+    root_cfg.update(root_options)
+
+    # Generate content based on format
+    if fmt == "py":
+        # Python config file - write as Python code
+        builds_repr = repr(builds_list)
+        content = f"builds = {builds_repr}\n"
+        # Add root options if any
+        if root_options:
+            for key, value in root_options.items():
+                if key != "builds":
+                    value_repr = repr(value)
+                    content += f"{key} = {value_repr}\n"
+        return content
+    if fmt == "jsonc":
+        # JSONC (JSON with comments) - just write as JSON for simplicity
+        # Tests can add comments manually if needed
+        return json.dumps(root_cfg, indent=2)
+    # Default to JSON
+    return json.dumps(root_cfg, indent=2)
+
+
+def write_config_file(
+    config_path: Path,
+    *args: Any,
+    **kwargs: Any,
+) -> None:
+    """Write a config file (JSON, JSONC, or Python) with the given builds.
+
+    Convenience wrapper around make_config_content that writes to a file.
+    All arguments except config_path are passed through to make_config_content.
+
+    Args:
+        config_path: Path where the config file should be written
+        *args: Positional arguments passed to make_config_content
+        **kwargs: Keyword arguments passed to make_config_content
+            (package, include, exclude, out, builds, fmt, etc.)
+
+    Examples:
+        >>> # Simple usage with package name
+        >>> write_config_file(tmp_path / ".serger.json", package="mypkg")
+        >>> # Override defaults
+        >>> write_config_file(
+        ...     tmp_path / ".serger.json",
+        ...     package="mypkg",
+        ...     out="custom/dist.py",
+        ... )
+    """
+    # Determine format from file extension and override fmt in kwargs
+    ext = config_path.suffix.lower()
+    if ext == ".py":
+        fmt_str = "py"
+    elif ext == ".jsonc":
+        fmt_str = "jsonc"
+    else:
+        fmt_str = "json"
+
+    # Pass all args/kwargs to make_config_content, overriding fmt with detected format
+    content = make_config_content(*args, fmt=fmt_str, **kwargs)
+    config_path.write_text(content, encoding="utf-8")

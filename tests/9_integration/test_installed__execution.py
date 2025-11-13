@@ -1,14 +1,13 @@
 # tests/9_integration/test_installed__execution.py
 """Verify the installed package version works via `python -m serger`."""
 
-import json
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 import serger.meta as mod_meta
-from tests.utils import make_test_package
+from tests.utils import make_test_package, write_config_file
 
 
 # --- only for installed runs ---
@@ -27,21 +26,13 @@ def test_installed_module_execution() -> None:
         pkg_dir = tmp / "mypkg"
         make_test_package(pkg_dir)
 
-        # Create config using json.dumps (matching pattern from other tests)
+        # Create config
         config = tmp / f".{mod_meta.PROGRAM_CONFIG}.json"
-        config.write_text(
-            json.dumps(
-                {
-                    "builds": [
-                        {
-                            "package": "mypkg",
-                            "include": ["mypkg/**/*.py"],
-                            "out": "tmp-dist/mypkg.py",
-                        }
-                    ],
-                }
-            ),
-            encoding="utf-8",
+        write_config_file(
+            config,
+            package="mypkg",
+            include=["mypkg/**/*.py"],
+            out="tmp-dist/mypkg.py",
         )
 
         result = subprocess.run(  # noqa: S603

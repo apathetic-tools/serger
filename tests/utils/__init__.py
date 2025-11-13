@@ -3,12 +3,14 @@
 from .buildconfig import (
     make_build_cfg,
     make_build_input,
+    make_config_content,
     make_include_resolved,
     make_meta,
     make_post_category_config_resolved,
     make_post_processing_config_resolved,
     make_resolved,
     make_tool_config_resolved,
+    write_config_file,
 )
 from .ci import is_ci
 from .config_validate import make_summary
@@ -28,6 +30,7 @@ __all__ = [
     "is_ci",
     "make_build_cfg",
     "make_build_input",
+    "make_config_content",
     "make_include_resolved",
     "make_meta",
     "make_post_category_config_resolved",
@@ -40,4 +43,5 @@ __all__ = [
     "patch_everywhere",
     "runtime_swap",
     "strip_common_prefix",
+    "write_config_file",
 ]
