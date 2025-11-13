@@ -48,7 +48,7 @@ Exploring bundling options for generating the single-file release:
 - can we pull out common CLI elements with pocket-build into a single toplevel module?
 - set up stitch modes
 - set up comment stripper toggle
-- change rule format to match https://cursor.com/docs/context/rules
+- command to do common tasks based on reddit advice for dealing with AI.
 
 ## 📚 Documentation
 - Do we want a way to dump the schema for documentation purposes?

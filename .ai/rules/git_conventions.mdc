@@ -1,0 +1,21 @@
+---
+description: Git commit conventions
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+### Git Commit Conventions
+- NEVER include AI tool attribution or Co-Authored-By trailers in commit messages
+- Write clean, conventional commit messages following the format: `type(scope): subject`
+  - **type**: The type of change (feat, fix, docs, style, refactor, test, chore)
+  - **scope**: The feature or module being worked on (optional but recommended)
+  - **subject**: A concise description of what was done
+- Include the feature being worked on in the scope, and if appropriate, a concise description of what was done
+
+**Examples:**
+- `feat(build): add support for custom output paths`
+- `fix(config): resolve validation error for empty build configs`
+- `docs(readme): update installation instructions`
+- `refactor(utils): simplify path normalization logic`
+- `test(integration): add tests for log level handling`

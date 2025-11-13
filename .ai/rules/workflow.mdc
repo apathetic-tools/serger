@@ -1,0 +1,18 @@
+---
+description: Execution and workflow conventions
+globs:
+  - "**/*.py"
+  - "**/*.md"
+alwaysApply: true
+---
+
+### Execution and Workflow
+- Always use `poetry run python3` (not bare `python3`) to ensure execution in the project's virtual environment
+- **Use poe tasks** for all common operations:
+  - `poetry run poe check` - Run linting, type checking, and tests
+  - `poetry run poe fix` - Auto-format and fix linting issues
+  - `poetry run poe test` - Run test suite
+  - `poetry run poe coverage` - Generate code coverage report (dual runtime coverage)
+  - `poetry run poe check:fix` - Fix, type check, and test (run before committing)
+  - `poetry run poe build:script` - Generate the single-file dist/serger.py
+- **Before committing**: Run `poetry run poe check:fix` (this also regenerates `dist/serger.py` as needed)
