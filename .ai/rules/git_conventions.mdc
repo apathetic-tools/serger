@@ -12,10 +12,28 @@ alwaysApply: true
   - **scope**: The feature or module being worked on (optional but recommended)
   - **subject**: A concise description of what was done
 - Include the feature being worked on in the scope, and if appropriate, a concise description of what was done
+- **Commit message body**: After the first line, include a traditional bulleted list summarizing the key changes made in the commit
 
 **Examples:**
-- `feat(build): add support for custom output paths`
+
+Single-line (for simple changes):
+```
+feat(build): add support for custom output paths
+```
+
+Multi-line with bulleted list (for more complex changes):
+```
+docs(ai-rules): update code quality rules with comprehensive guidelines
+
+- Add detailed line length guidance with readability emphasis
+- Add examples for comments, strings, and inline statements
+- Add comprehensive Python version compatibility guidelines
+- Add detailed static checks, type checking, formatting, linting, and tests section
+- Add checkpoint commit guidance with prompt template
+- Reference git_conventions.mdc for commit messages
+```
+
+Other examples:
 - `fix(config): resolve validation error for empty build configs`
-- `docs(readme): update installation instructions`
 - `refactor(utils): simplify path normalization logic`
 - `test(integration): add tests for log level handling`
