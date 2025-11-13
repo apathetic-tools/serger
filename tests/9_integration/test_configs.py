@@ -1,9 +1,5 @@
 # tests/9_integration/test_configs.py
-"""Tests for package.cli (package and standalone versions).
-
-NOTE: These tests are currently for file-copying (pocket-build responsibility).
-They will be adapted for stitch builds in Phase 5.
-"""
+"""Tests for package.cli (package and standalone versions)."""
 
 import json
 from pathlib import Path
@@ -12,9 +8,7 @@ import pytest
 
 import serger.cli as mod_cli
 import serger.meta as mod_meta
-
-
-pytestmark = pytest.mark.pocket_build_compat
+from tests.utils import make_test_package, write_config_file
 
 
 def test_main_no_config(
@@ -31,7 +25,7 @@ def test_main_no_config(
     assert code == 1
     captured = capsys.readouterr()
     out = (captured.out + captured.err).lower()
-    assert "No build config".lower() in out
+    assert "no build config found" in out
 
 
 def test_main_with_config(
@@ -41,8 +35,16 @@ def test_main_with_config(
 ) -> None:
     """Should detect config, run one build, and exit cleanly."""
     # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    config.write_text(json.dumps({"builds": [{"include": [], "out": "dist"}]}))
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+    )
 
     # --- patch and execute ---
     monkeypatch.chdir(tmp_path)
@@ -51,17 +53,22 @@ def test_main_with_config(
     # --- verify ---
     out = capsys.readouterr().out.lower()
     assert code == 0
-    assert "Build completed".lower() in out
+    assert "stitch completed" in out
+    assert "🎉 all builds complete" in out
 
 
 def test_dry_run_creates_no_files(tmp_path: Path) -> None:
     # --- setup ---
-    src_dir = tmp_path / "src"
-    src_dir.mkdir()
-    (src_dir / "foo.txt").write_text("data")
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
 
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    config.write_text('{"builds": [{"include": ["src/**"], "out": "dist"}]}')
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+    )
 
     # --- execute ---
     code = mod_cli.main(["--config", str(config), "--dry-run"])
@@ -73,8 +80,16 @@ def test_dry_run_creates_no_files(tmp_path: Path) -> None:
 
 def test_main_with_custom_config(tmp_path: Path) -> None:
     # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    config.write_text('{"builds": [{"include": ["src"], "out": "dist"}]}')
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+    )
 
     # --- execute ---
     code = mod_cli.main(["--config", str(config)])
@@ -116,7 +131,7 @@ def test_main_invalid_config(tmp_path: Path) -> None:
             "[]",
             [],
             1,
-            "No build config",
+            "No build config found",
             "empty_list_shorthand",
         ),
         # Empty builds with strict_config=false - warn only
@@ -124,7 +139,7 @@ def test_main_invalid_config(tmp_path: Path) -> None:
             {"strict_config": False, "builds": []},
             [],
             0,
-            "No include patterns",
+            "No include patterns found",
             "empty_builds_strict_false",
         ),
         # Empty builds with strict_config=true - error
@@ -132,59 +147,59 @@ def test_main_invalid_config(tmp_path: Path) -> None:
             {"strict_config": True, "builds": []},
             [],
             1,
-            "No include patterns",
+            "No include patterns found",
             "empty_builds_strict_true",
         ),
         # Build missing include, strict_config=false - warn only
         (
-            {"strict_config": False, "builds": [{"out": "dist"}]},
+            {"strict_config": False, "builds": [{"out": "dist/mypkg.py"}]},
             [],
             0,
-            "No include patterns",
+            "No include patterns found",
             "missing_include_strict_false",
         ),
         # Build missing include, strict_config=true - error
         (
-            {"strict_config": True, "builds": [{"out": "dist"}]},
+            {"strict_config": True, "builds": [{"out": "dist/mypkg.py"}]},
             [],
             1,
-            "No include patterns",
+            "No include patterns found",
             "missing_include_strict_true",
         ),
         # Build overrides root strict=true to false - warn only
         (
             {
                 "strict_config": True,
-                "builds": [{"strict_config": False, "out": "dist"}],
+                "builds": [{"strict_config": False, "out": "dist/mypkg.py"}],
             },
             [],
             0,
-            "No include patterns",
+            "No include patterns found",
             "build_override_to_false",
         ),
         # Build overrides root strict=false to true - error
         (
             {
                 "strict_config": False,
-                "builds": [{"strict_config": True, "out": "dist"}],
+                "builds": [{"strict_config": True, "out": "dist/mypkg.py"}],
             },
             [],
             1,
-            "No include patterns",
+            "No include patterns found",
             "build_override_to_true",
         ),
         # Missing include but CLI provides --include - no warning
         (
-            {"builds": [{"out": "dist"}]},
-            ["--include", "src/**"],
+            {"builds": [{"out": "dist/mypkg.py"}]},
+            ["--include", "mypkg/**/*.py"],
             0,
             None,
             "cli_include_provided",
         ),
         # Missing include but CLI provides --add-include - no warning
         (
-            {"builds": [{"out": "dist"}]},
-            ["--add-include", "src/**"],
+            {"builds": [{"out": "dist/mypkg.py"}]},
+            ["--add-include", "mypkg/**/*.py"],
             0,
             None,
             "cli_add_include_provided",
@@ -194,7 +209,7 @@ def test_main_invalid_config(tmp_path: Path) -> None:
             "{}",
             [],
             1,
-            "No build config",
+            "No build config found",
             "empty_object_config",
         ),
         # Config with only log_level, no builds - error (default strict=true)
@@ -202,15 +217,16 @@ def test_main_invalid_config(tmp_path: Path) -> None:
             {"log_level": "debug"},
             [],
             1,
-            "No include patterns",
+            "No include patterns found",
             "only_log_level",
         ),
         # Multiple builds, one has includes - no warning
         (
             {
                 "builds": [
-                    {"include": ["src/**"], "out": "dist1"},
-                    {"out": "dist2"},  # This one missing, but first has includes
+                    {"include": ["mypkg/**/*.py"], "out": "dist1/mypkg.py"},
+                    # This one missing, but first has includes
+                    {"out": "dist2/mypkg.py"},
                 ]
             },
             [],
@@ -233,17 +249,29 @@ def test_missing_includes_behavior(
 ) -> None:
     """Test missing includes warning/error with various configurations."""
     # --- setup ---
+    # Create test package for tests that need actual files
+    if "--include" in cli_args or "--add-include" in cli_args:
+        pkg_dir = tmp_path / "mypkg"
+        make_test_package(pkg_dir)
+    elif isinstance(config_content, dict) and config_content.get("builds"):
+        # Check if any build has includes - if so, create package
+        builds = config_content.get("builds", [])
+        if isinstance(builds, list):
+            for build_item in builds:  # type: ignore[assignment]
+                if (
+                    isinstance(build_item, dict)
+                    and "include" in build_item
+                    and isinstance(build_item["include"], list)
+                ):
+                    pkg_dir = tmp_path / "mypkg"
+                    make_test_package(pkg_dir)
+                    break
+
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     if isinstance(config_content, str):
         config.write_text(config_content)
     else:
         config.write_text(json.dumps(config_content))
-
-    # Create dummy src directory for CLI include tests
-    if "--include" in cli_args or "--add-include" in cli_args:
-        src = tmp_path / "src"
-        src.mkdir()
-        (src / "test.txt").write_text("data")
 
     # --- execute ---
     monkeypatch.chdir(tmp_path)
@@ -259,6 +287,6 @@ def test_missing_includes_behavior(
             f"Failed: {description} - expected message not found"
         )
     else:
-        assert "No include patterns".lower() not in combined, (
+        assert "no include patterns found" not in combined, (
             f"Failed: {description} - unexpected warning"
         )
