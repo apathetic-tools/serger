@@ -1,8 +1,8 @@
 # tests/9_integration/test_watch.py
-"""Tests for package.cli (package and standalone versions).
+"""Tests for watch mode functionality in serger CLI.
 
-NOTE: These tests are currently for file-copying (pocket-build responsibility).
-They will be adapted for stitch builds in Phase 5.
+These tests verify that the --watch flag correctly triggers watch mode
+and that watch interval configuration is properly resolved.
 """
 
 from collections.abc import Callable
@@ -21,9 +21,6 @@ from tests.utils import (
 )
 
 
-pytestmark = pytest.mark.pocket_build_compat
-
-
 def test_watch_flag_invokes_watch_mode(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -32,11 +29,6 @@ def test_watch_flag_invokes_watch_mode(
 
     This test verifies that invoking the CLI with `--watch`
     causes `main()` to call `watch_for_changes()` exactly as expected.
-
-    The difficulty lies in how `main()` references `watch_for_changes`:
-    it doesn’t call `runtime_env.watch_for_changes` directly, but
-    resolves it as a global symbol within its own function body.
-    That means we must patch the *namespace of main()*, not the module itself.
     """
     # --- setup ---
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
@@ -127,5 +119,5 @@ def test_watch_falls_back_to_default_interval_when_no_config(
     assert code == 0
     assert "interval" in called, "watch_for_changes() was never invoked"
     assert called["interval"] == pytest.approx(mod_constants.DEFAULT_WATCH_INTERVAL), (  # pyright: ignore[reportUnknownMemberType]
-        f"Expected interval=0.42, got {called}"
+        f"Expected interval={mod_constants.DEFAULT_WATCH_INTERVAL}, got {called}"
     )
