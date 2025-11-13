@@ -23,6 +23,7 @@ class TestBuildFinalScriptBasic:
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
             order_names=["main"],
+            all_function_names=set(),
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -42,6 +43,7 @@ class TestBuildFinalScriptBasic:
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
             order_names=["main"],
+            all_function_names=set(),
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -61,6 +63,7 @@ class TestBuildFinalScriptBasic:
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
             order_names=["main"],
+            all_function_names=set(),
             license_header=license_text,
             version="1.0.0",
             commit="abc123",
@@ -79,6 +82,7 @@ class TestBuildFinalScriptBasic:
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
             order_names=["main"],
+            all_function_names=set(),
             license_header="",
             version="2.3.4",
             commit="def456",
@@ -103,6 +107,7 @@ class TestBuildFinalScriptMetadata:
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
             order_names=["main"],
+            all_function_names=set(),
             license_header="",
             version="3.2.1",
             commit="abc123",
@@ -121,6 +126,7 @@ class TestBuildFinalScriptMetadata:
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
             order_names=["main"],
+            all_function_names=set(),
             license_header="",
             version="1.0.0",
             commit="xyz789",
@@ -139,6 +145,7 @@ class TestBuildFinalScriptMetadata:
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
             order_names=["main"],
+            all_function_names=set(),
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -157,6 +164,7 @@ class TestBuildFinalScriptMetadata:
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
             order_names=["main"],
+            all_function_names=set(),
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -181,6 +189,7 @@ class TestBuildFinalScriptImports:
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
             order_names=["main"],
+            all_function_names=set(),
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -204,6 +213,7 @@ class TestBuildFinalScriptImports:
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
             order_names=["main"],
+            all_function_names=set(),
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -228,6 +238,7 @@ class TestBuildFinalScriptShims:
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
             order_names=["main"],
+            all_function_names=set(),
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -249,6 +260,7 @@ class TestBuildFinalScriptShims:
                 "# === core.py ===\nCORE = 2\n",
             ],
             order_names=["utils", "core"],
+            all_function_names=set(),
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -280,6 +292,7 @@ class TestBuildFinalScriptShims:
                 "# === _private.py ===\nPRIVATE = 2\n",
             ],
             order_names=["public", "_private"],
+            all_function_names=set(),
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -304,6 +317,7 @@ class TestBuildFinalScriptShims:
             all_imports=all_imports,
             parts=["# === mod.py ===\nMOD = 1\n"],
             order_names=["mod"],
+            all_function_names=set(),
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -330,6 +344,7 @@ class TestBuildFinalScriptParts:
                 "# === c.py ===\nC = 3\n",
             ],
             order_names=["a", "b", "c"],
+            all_function_names=set(),
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -357,6 +372,7 @@ class TestBuildFinalScriptParts:
                 "# === b.py ===\nB = 2\n",
             ],
             order_names=["c", "a", "b"],
+            all_function_names=set(),
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -382,6 +398,7 @@ class TestBuildFinalScriptDocstring:
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
             order_names=["main"],
+            all_function_names=set(),
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -401,6 +418,7 @@ class TestBuildFinalScriptDocstring:
             all_imports=all_imports,
             parts=["# === main.py ===\nMAIN = 1\n"],
             order_names=["main"],
+            all_function_names=set(),
             license_header="",
             version="5.6.7",
             commit="ghijkl",
@@ -411,3 +429,94 @@ class TestBuildFinalScriptDocstring:
         assert "5.6.7" in docstring
         assert "ghijkl" in docstring
         assert "2025-09-30" in docstring
+
+
+class TestBuildFinalScriptMainShim:
+    """Test main() shim generation."""
+
+    def test_main_shim_added_when_main_function_exists(self) -> None:
+        """Should add main() shim when main() function is present."""
+        all_imports: OrderedDict[str, None] = OrderedDict()
+        all_imports["import sys\n"] = None
+
+        result, _ = mod_stitch._build_final_script(
+            package_name="testpkg",
+            all_imports=all_imports,
+            parts=["# === main.py ===\ndef main():\n    return 0\n"],
+            order_names=["main"],
+            all_function_names={"main"},  # main() function exists
+            license_header="",
+            version="1.0.0",
+            commit="abc123",
+            build_date="2025-01-01",
+        )
+
+        # Should include the main() shim
+        assert "if __name__ == '__main__':" in result
+        assert "sys.exit(main(sys.argv[1:]))" in result
+
+    def test_main_shim_not_added_when_no_main_function(self) -> None:
+        """Should not add main() shim when main() function is absent."""
+        all_imports: OrderedDict[str, None] = OrderedDict()
+        all_imports["import sys\n"] = None
+
+        result, _ = mod_stitch._build_final_script(
+            package_name="testpkg",
+            all_imports=all_imports,
+            parts=["# === utils.py ===\ndef helper():\n    return 1\n"],
+            order_names=["utils"],
+            all_function_names=set(),  # No main() function
+            license_header="",
+            version="1.0.0",
+            commit="abc123",
+            build_date="2025-01-01",
+        )
+
+        # Should NOT include the main() shim
+        assert "if __name__ == '__main__':" not in result
+        assert "sys.exit(main(sys.argv[1:]))" not in result
+
+    def test_main_shim_not_added_when_main_is_not_function(self) -> None:
+        """Should not add main() shim when 'main' exists but is not a function."""
+        all_imports: OrderedDict[str, None] = OrderedDict()
+        all_imports["import sys\n"] = None
+
+        result, _ = mod_stitch._build_final_script(
+            package_name="testpkg",
+            all_imports=all_imports,
+            parts=["# === config.py ===\nmain = 'some value'\n"],
+            order_names=["config"],
+            all_function_names=set(),  # 'main' is a variable, not a function
+            license_header="",
+            version="1.0.0",
+            commit="abc123",
+            build_date="2025-01-01",
+        )
+
+        # Should NOT include the main() shim (main is a variable, not a function)
+        assert "if __name__ == '__main__':" not in result
+        assert "sys.exit(main(sys.argv[1:]))" not in result
+
+    def test_main_shim_added_when_main_function_in_multiple_modules(self) -> None:
+        """Should add main() shim when main() exists in any module."""
+        all_imports: OrderedDict[str, None] = OrderedDict()
+        all_imports["import sys\n"] = None
+
+        result, _ = mod_stitch._build_final_script(
+            package_name="testpkg",
+            all_imports=all_imports,
+            parts=[
+                "# === utils.py ===\ndef helper():\n    return 1\n",
+                "# === main.py ===\ndef main():\n    return 0\n",
+            ],
+            order_names=["utils", "main"],
+            all_function_names={"helper", "main"},  # main() function exists
+            license_header="",
+            version="1.0.0",
+            commit="abc123",
+            build_date="2025-01-01",
+        )
+
+        # Should include the main() shim
+        assert "if __name__ == '__main__':" in result
+        assert "sys.exit(main(sys.argv[1:]))" in result
