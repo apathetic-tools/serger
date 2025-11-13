@@ -34,6 +34,7 @@ Exploring bundling options for generating the single-file release:
 
 ## 🧪 Tests
 - How can we report what we comment tool ignore, in src and in tests?
+- look at the rest of pocket_build_compat tests
 
 ## 🧑‍💻 Development
 - How can we keep internal imports in stitch mode and avoid conflicts? (see [docs/example_isolated_stiching.md](docs/example_isolated_stiching.md))
@@ -64,12 +65,6 @@ Potential quality-of-life features:
 - split out and depend on (dev-only) a list-project CLI
 - split out and depend on (dev-only) a pytest multi-target plugin
 - publish to PyPI, NPM, PACKAGIST, others?
-
-## apathetic_logs
-
-- {PROGRAM_ENV}_LOG_LEVEL needs to be registered
-- DEFAULT_LOG_LEVEL needs to be registered
-
 
 > See [REJECTED.md](REJECTED.md) for experiments and ideas that were explored but intentionally not pursued.
 
