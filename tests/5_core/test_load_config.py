@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-import serger.config.config as mod_config
+import serger.config.config_loader as mod_config_loader
 import serger.meta as mod_meta
 
 
@@ -15,7 +15,7 @@ def test_load_config_accepts_valid_dict(tmp_path: Path) -> None:
     cfg.write_text("config = {'a': 1}", encoding="utf-8")
 
     # --- execute ---
-    result = mod_config.load_config(cfg)
+    result = mod_config_loader.load_config(cfg)
 
     # --- verify ---
     assert isinstance(result, dict)
@@ -29,7 +29,7 @@ def test_load_config_accepts_valid_list(tmp_path: Path) -> None:
     cfg.write_text("builds = [{'out': 'dist'}]", encoding="utf-8")
 
     # --- execute ---
-    result = mod_config.load_config(cfg)
+    result = mod_config_loader.load_config(cfg)
 
     # --- verify ---
     assert isinstance(result, list)
@@ -43,7 +43,7 @@ def test_load_config_returns_none_for_explicit_none(tmp_path: Path) -> None:
     cfg.write_text("config = None", encoding="utf-8")
 
     # --- execute ---
-    result = mod_config.load_config(cfg)
+    result = mod_config_loader.load_config(cfg)
 
     # --- verify ---
     assert result is None
@@ -57,7 +57,7 @@ def test_load_config_raises_if_no_expected_vars(tmp_path: Path) -> None:
 
     # --- execute and verify ---
     with pytest.raises(ValueError, match="did not define"):
-        mod_config.load_config(cfg)
+        mod_config_loader.load_config(cfg)
 
 
 def test_load_config_raises_runtimeerror_on_exec_failure(tmp_path: Path) -> None:
@@ -68,7 +68,7 @@ def test_load_config_raises_runtimeerror_on_exec_failure(tmp_path: Path) -> None
 
     # --- execute and verify ---
     with pytest.raises(RuntimeError, match="Error while executing Python config"):
-        mod_config.load_config(cfg)
+        mod_config_loader.load_config(cfg)
 
 
 def test_load_config_jsonc_success(tmp_path: Path) -> None:
@@ -78,7 +78,7 @@ def test_load_config_jsonc_success(tmp_path: Path) -> None:
     cfg.write_text("{ 'a': 1 }".replace("'", '"'), encoding="utf-8")
 
     # --- execute ---
-    result = mod_config.load_config(cfg)
+    result = mod_config_loader.load_config(cfg)
 
     # --- verify ---
     assert result == {"a": 1}
@@ -92,7 +92,7 @@ def test_load_config_jsonc_invalid(tmp_path: Path) -> None:
 
     # --- execute and verify ---
     with pytest.raises(ValueError, match="Error while loading configuration file"):
-        mod_config.load_config(cfg)
+        mod_config_loader.load_config(cfg)
 
 
 def test_load_config_cleans_error_message(tmp_path: Path) -> None:
@@ -106,7 +106,7 @@ def test_load_config_cleans_error_message(tmp_path: Path) -> None:
         ValueError,
         match=r"Error while loading configuration file",
     ) as exc_info:
-        mod_config.load_config(cfg)
+        mod_config_loader.load_config(cfg)
 
     msg = str(exc_info.value)
     assert msg.count(cfg.name) == 1
@@ -120,4 +120,4 @@ def test_load_config_rejects_invalid_config_type(tmp_path: Path) -> None:
 
     # --- execute and verify ---
     with pytest.raises(TypeError, match="must be a dict, list, or None"):
-        mod_config.load_config(config_file)
+        mod_config_loader.load_config(config_file)

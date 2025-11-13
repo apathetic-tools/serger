@@ -1,11 +1,11 @@
 # tests/5_core/test_parse_config.py
-"""Tests for package.config (package and standalone versions)."""
+"""Tests for config_loader (package and standalone versions)."""
 
 from typing import Any
 
 import pytest
 
-import serger.config.config as mod_config
+import serger.config.config_loader as mod_config_loader
 
 
 def test_parse_config_builds_accepts_list_and_single_object() -> None:
@@ -15,8 +15,8 @@ def test_parse_config_builds_accepts_list_and_single_object() -> None:
     data_single: dict[str, Any] = {"include": ["src"], "out": "dist"}
 
     # --- execute ---
-    parsed_list = mod_config.parse_config(data_list)
-    parsed_single = mod_config.parse_config(data_single)
+    parsed_list = mod_config_loader.parse_config(data_list)
+    parsed_single = mod_config_loader.parse_config(data_single)
 
     # --- verify ---
     # Expected canonical structure
@@ -29,23 +29,25 @@ def test_parse_config_builds_accepts_list_and_single_object() -> None:
 
 def test_parse_config_builds_handles_single_and_multiple() -> None:
     # --- execute and verify ---
-    assert mod_config.parse_config({"builds": [{"include": []}]}) == {
+    assert mod_config_loader.parse_config({"builds": [{"include": []}]}) == {
         "builds": [{"include": []}],
     }
-    assert mod_config.parse_config({"include": []}) == {"builds": [{"include": []}]}
+    assert mod_config_loader.parse_config({"include": []}) == {
+        "builds": [{"include": []}]
+    }
 
 
 def test_parse_config_returns_none_for_empty_values() -> None:
     # --- execute and verify ---
-    assert mod_config.parse_config(None) is None
-    assert mod_config.parse_config({}) is None
-    assert mod_config.parse_config([]) is None
+    assert mod_config_loader.parse_config(None) is None
+    assert mod_config_loader.parse_config({}) is None
+    assert mod_config_loader.parse_config([]) is None
 
 
 def test_parse_config_list_of_strings_single_build() -> None:
     """List of strings should normalize into one build with include list."""
     # --- execute ---
-    result = mod_config.parse_config(["src/**", "lib/**"])
+    result = mod_config_loader.parse_config(["src/**", "lib/**"])
 
     # --- verify ---
     assert result == {"builds": [{"include": ["src/**", "lib/**"]}]}
@@ -54,7 +56,9 @@ def test_parse_config_list_of_strings_single_build() -> None:
 def test_parse_config_dict_with_build_key() -> None:
     """Dict with a single 'build' key should lift it to builds=[...] form."""
     # --- execute ---
-    result = mod_config.parse_config({"build": {"include": ["src"], "out": "dist"}})
+    result = mod_config_loader.parse_config(
+        {"build": {"include": ["src"], "out": "dist"}}
+    )
 
     # --- verify ---
     assert result == {"builds": [{"include": ["src"], "out": "dist"}]}
@@ -65,7 +69,7 @@ def test_parse_config_watch_interval_hoisting() -> None:
     interval = 5.0
 
     # --- execute ---
-    result = mod_config.parse_config(
+    result = mod_config_loader.parse_config(
         [{"include": ["src"], "out": "dist", "watch_interval": interval}],
     )
 
@@ -84,7 +88,7 @@ def test_parse_config_coerces_build_list_to_builds(
 
     # --- patch and execute ---
     # Patch log() to capture warnings instead of printing
-    result = mod_config.parse_config(data)
+    result = mod_config_loader.parse_config(data)
 
     # --- verify ---
     assert result == {"builds": [{"include": ["src"]}, {"include": ["assets"]}]}
@@ -100,7 +104,7 @@ def test_parse_config_coerces_builds_dict_to_build(
     data: dict[str, Any] = {"builds": {"include": ["src"], "out": "dist"}}
 
     # --- patch and execute ---
-    result = mod_config.parse_config(data)
+    result = mod_config_loader.parse_config(data)
 
     # --- verify ---
     assert result == {"builds": [{"include": ["src"], "out": "dist"}]}
@@ -117,7 +121,7 @@ def test_parse_config_does_not_coerce_when_both_keys_present() -> None:
     }
 
     # --- execute ---
-    result = mod_config.parse_config(data)
+    result = mod_config_loader.parse_config(data)
 
     # --- verify ---
     # The parser should leave the structure unchanged for later validation
@@ -132,7 +136,7 @@ def test_parse_config_accepts_explicit_builds_list_no_warning(
     data: dict[str, Any] = {"builds": [{"include": ["src"]}, {"include": ["lib"]}]}
 
     # --- patch and execute ---
-    result = mod_config.parse_config(data)
+    result = mod_config_loader.parse_config(data)
 
     # --- verify ---
     assert result == data
@@ -144,7 +148,7 @@ def test_parse_config_rejects_invalid_root_type() -> None:
     """Non-dict or non-list root should raise a TypeError."""
     # --- execute and verify ---
     with pytest.raises(TypeError) as excinfo:
-        mod_config.parse_config("not_a_dict_or_list")  # type: ignore[arg-type]
+        mod_config_loader.parse_config("not_a_dict_or_list")  # type: ignore[arg-type]
 
     msg = str(excinfo.value)
     assert "Invalid top-level value" in msg
@@ -164,7 +168,7 @@ def test_parse_config_build_list_does_not_warn_when_builds_also_present(
     }
 
     # --- patch and execute ---
-    result = mod_config.parse_config(data)
+    result = mod_config_loader.parse_config(data)
 
     # --- verify ---
     assert result == data
@@ -184,7 +188,7 @@ def test_parse_config_build_dict_with_extra_root_fields() -> None:
     }
 
     # --- execute ---
-    result = mod_config.parse_config(data)
+    result = mod_config_loader.parse_config(data)
 
     # --- verify ---
     assert result is not None
@@ -202,7 +206,7 @@ def test_parse_config_empty_dict_inside_builds_list() -> None:
     data: dict[str, Any] = {"builds": [{}]}
 
     # --- execute ---
-    result = mod_config.parse_config(data)
+    result = mod_config_loader.parse_config(data)
 
     # --- verify ---
     assert result == {"builds": [{}]}
@@ -214,7 +218,7 @@ def test_parse_config_builds_empty_list_is_returned_as_is() -> None:
     data: dict[str, Any] = {"builds": []}
 
     # --- execute ---
-    result = mod_config.parse_config(data)
+    result = mod_config_loader.parse_config(data)
 
     # --- verify ---
     # Parser shouldn't add fake builds or coerce structure
@@ -233,7 +237,7 @@ def test_parse_config_list_of_dicts_hoists_first_watch_interval() -> None:
     ]
 
     # --- execute ---
-    result = mod_config.parse_config(data)
+    result = mod_config_loader.parse_config(data)
 
     # --- verify ---
     assert result is not None
@@ -254,7 +258,7 @@ def test_parse_config_prefers_builds_when_both_are_dicts(
     }
 
     # --- patch and execute ---
-    result = mod_config.parse_config(data)
+    result = mod_config_loader.parse_config(data)
 
     # --- verify ---
     assert result is not None
@@ -276,4 +280,4 @@ def test_parse_config_rejects_mixed_type_list() -> None:
 
     # --- execute & verify ---
     with pytest.raises(TypeError, match="Invalid mixed-type list"):
-        mod_config.parse_config(bad_config)
+        mod_config_loader.parse_config(bad_config)

@@ -5,7 +5,7 @@
 This module provides configuration loading, parsing, validation, and resolution.
 """
 
-from .config import (
+from .config_loader import (
     can_run_configless,
     find_config,
     load_and_validate_config,

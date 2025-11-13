@@ -19,7 +19,7 @@ from types import ModuleType
 import pytest
 
 import serger.build as mod_build
-import serger.config as mod_config
+import serger.config.config_loader as mod_config_loader
 import serger.config.config_resolve as mod_config_resolve
 
 
@@ -124,7 +124,7 @@ def test_subpackage_function_not_overwritten(tmp_path: Path) -> None:
     )
 
     args = Namespace(config=str(config_file))
-    config_result = mod_config.load_and_validate_config(args)
+    config_result = mod_config_loader.load_and_validate_config(args)
     assert config_result is not None
     _, root_cfg, _ = config_result
 
