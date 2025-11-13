@@ -1157,7 +1157,8 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         shim_blocks.append("    del _globals, _items")
 
         # Register all modules that belong to this package
-        # All modules under a package share the same module object
+        # All modules under a package share the same module object,
+        # so all their attributes should be on this module
         module_names_for_pkg = [name for name, _ in packages[pkg_name]]
         if module_names_for_pkg:
             shim_blocks.append("    # Register all modules under this package")
@@ -1173,8 +1174,13 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                 for name in module_names_for_pkg
             ]
             module_names_str = ", ".join(repr(name) for name in full_module_names)
+            # Register package and all submodules in sys.modules
             shim_blocks.append(f"    for _name in [{module_names_str}]:")
             shim_blocks.append("        sys.modules[_name] = _mod")
+            # Set submodules as attributes on parent package
+            # IMPORTANT: Do this AFTER copying globals to avoid overwriting
+            # with stdlib modules (e.g., 'types' from 'import types')
+            # This allows 'import parent.submodule' to work
             shim_blocks.append("    # Set submodules as attributes on parent package")
             shim_blocks.append("    # This allows 'import parent.submodule' to work")
             shim_blocks.append(
@@ -1185,6 +1191,16 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                     # Extract the submodule name (last component)
                     submodule_name = full_name.split(".")[-1]
                     shim_blocks.append(f"    if not hasattr(_mod, {submodule_name!r}):")
+                    shim_blocks.append(
+                        f"        setattr(_mod, {submodule_name!r}, _mod)"
+                    )
+                    shim_blocks.append(
+                        "    elif isinstance(getattr(_mod, "
+                        f"{submodule_name!r}, None), types.ModuleType):"
+                    )
+                    shim_blocks.append(
+                        "        # Overwrite if module from globals (stdlib types)"
+                    )
                     shim_blocks.append(
                         f"        setattr(_mod, {submodule_name!r}, _mod)"
                     )
