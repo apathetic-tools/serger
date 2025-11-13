@@ -80,7 +80,10 @@ def _setup_parser() -> argparse.ArgumentParser:
         "positional_out",
         nargs="?",
         metavar="OUT",
-        help="Positional output file or directory (shorthand for --out).",
+        help=(
+            "Positional output file or directory (shorthand for --out). "
+            "Use trailing slash for directories (e.g., 'dist/'), otherwise treated as file."
+        ),
     )
 
     # --- Standard flags ---
@@ -93,7 +96,11 @@ def _setup_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "-o",
         "--out",
-        help="Override output file or directory (e.g., 'dist/serger.py' or 'bin').",
+        help=(
+            "Override output file or directory. "
+            "Use trailing slash for directories (e.g., 'dist/'), otherwise treated as file. "
+            "Examples: 'dist/serger.py' (file) or 'bin/' (directory)."
+        ),
     )
     parser.add_argument(
         "--dry-run",
