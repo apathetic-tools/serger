@@ -18,6 +18,7 @@ from typing import Any, TextIO, cast
 # --- Constants ---------------------------------------------------------------
 
 DEFAULT_APATHETIC_LOG_LEVEL: str = "info"
+DEFAULT_APATHETIC_LOG_LEVEL_ENV_VARS: list[str] = ["LOG_LEVEL"]
 
 # Flag for quick runtime enable/disable
 TEST_TRACE_ENABLED = os.getenv("TEST_TRACE", "").lower() in {"1", "true", "yes"}
@@ -65,6 +66,12 @@ TAG_STYLES = {
 assert set(TAG_STYLES.keys()) <= {lvl.upper() for lvl in LEVEL_ORDER}, (  # noqa: S101
     "TAG_STYLES contains unknown levels"
 )
+
+# --- globals ---------------------------------------------------------------
+
+# Registry for configurable log level settings
+_registered_log_level_env_vars: list[str] | None = None
+_registered_default_log_level: str | None = None
 
 
 # --- Logging that bypasses streams -------------------------------------------------
@@ -232,14 +239,21 @@ class ApatheticCLILogger(logging.Logger):
             # cast_hint would cause circular dependency
             return cast("str", args_level).upper()
 
-        env_log_level = os.getenv("LOG_LEVEL")
-        if env_log_level:
-            return env_log_level.upper()
+        # Check registered environment variables, or fall back to "LOG_LEVEL"
+        env_vars_to_check = (
+            _registered_log_level_env_vars or DEFAULT_APATHETIC_LOG_LEVEL_ENV_VARS
+        )
+        for env_var in env_vars_to_check:
+            env_log_level = os.getenv(env_var)
+            if env_log_level:
+                return env_log_level.upper()
 
         if root_log_level:
             return root_log_level.upper()
 
-        return DEFAULT_APATHETIC_LOG_LEVEL.upper()
+        # Use registered default, or fall back to module default
+        default_level = _registered_default_log_level or DEFAULT_APATHETIC_LOG_LEVEL
+        return default_level.upper()
 
     @property
     def level_name(self) -> str:
@@ -410,6 +424,46 @@ def _extract_top_level_package(package_name: str | None) -> str | None:
     if "." in package_name:
         return package_name.split(".", 1)[0]
     return package_name
+
+
+def register_log_level_env_vars(env_vars: list[str]) -> None:
+    """Register environment variable names to check for log level.
+
+    The environment variables will be checked in order, and the first
+    non-empty value found will be used.
+
+    Args:
+        env_vars: List of environment variable names to check
+            (e.g., ["SERGER_LOG_LEVEL", "LOG_LEVEL"])
+
+    Example:
+        >>> from apathetic_logs import register_log_level_env_vars
+        >>> register_log_level_env_vars(["MYAPP_LOG_LEVEL", "LOG_LEVEL"])
+    """
+    global _registered_log_level_env_vars  # noqa: PLW0603
+    _registered_log_level_env_vars = env_vars
+    TEST_TRACE(
+        "register_log_level_env_vars() called",
+        f"env_vars={env_vars}",
+    )
+
+
+def register_default_log_level(default_level: str) -> None:
+    """Register the default log level to use when no other source is found.
+
+    Args:
+        default_level: Default log level name (e.g., "info", "warning")
+
+    Example:
+        >>> from apathetic_logs import register_default_log_level
+        >>> register_default_log_level("warning")
+    """
+    global _registered_default_log_level  # noqa: PLW0603
+    _registered_default_log_level = default_level
+    TEST_TRACE(
+        "register_default_log_level() called",
+        f"default_level={default_level}",
+    )
 
 
 def register_logger_name(logger_name: str | None = None) -> None:

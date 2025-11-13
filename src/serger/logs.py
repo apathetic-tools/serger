@@ -9,6 +9,8 @@ from apathetic_logs import (
     TEST_TRACE,
     ApatheticCLILogger,
     get_logger,
+    register_default_log_level,
+    register_log_level_env_vars,
 )
 
 from .constants import DEFAULT_ENV_LOG_LEVEL, DEFAULT_LOG_LEVEL
@@ -55,6 +57,13 @@ class AppLogger(ApatheticCLILogger):
 
 # Force registration of TRACE and SILENT levels
 AppLogger.extend_logging_module()
+
+# Register log level environment variables and default
+# This must happen before any loggers are created so they use the registered values
+register_log_level_env_vars(
+    [f"{PROGRAM_ENV}_{DEFAULT_ENV_LOG_LEVEL}", DEFAULT_ENV_LOG_LEVEL]
+)
+register_default_log_level(DEFAULT_LOG_LEVEL)
 
 # Now this will actually return an AppLogger instance.
 # The logging module acts as the registry, so we just need to register the name.

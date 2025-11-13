@@ -3,6 +3,7 @@
 from .logs import (
     CYAN,
     DEFAULT_APATHETIC_LOG_LEVEL,
+    DEFAULT_APATHETIC_LOG_LEVEL_ENV_VARS,
     GRAY,
     GREEN,
     LEVEL_ORDER,
@@ -19,6 +20,8 @@ from .logs import (
     TagFormatter,
     get_logger,
     make_test_trace,
+    register_default_log_level,
+    register_log_level_env_vars,
     register_logger_name,
     safe_log,
 )
@@ -27,6 +30,7 @@ from .logs import (
 __all__ = [
     "CYAN",
     "DEFAULT_APATHETIC_LOG_LEVEL",
+    "DEFAULT_APATHETIC_LOG_LEVEL_ENV_VARS",
     "GRAY",
     "GREEN",
     "LEVEL_ORDER",
@@ -43,6 +47,8 @@ __all__ = [
     "TagFormatter",
     "get_logger",
     "make_test_trace",
+    "register_default_log_level",
+    "register_log_level_env_vars",
     "register_logger_name",
     "safe_log",
 ]
