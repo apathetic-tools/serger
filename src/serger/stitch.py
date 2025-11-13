@@ -621,10 +621,22 @@ def verify_no_broken_imports(final_text: str, package_names: list[str]) -> None:
             # For top-level imports, check if the package itself exists
             # This would be in a header like # === package === or
             # # === package.__init__ ===
+            # OR it could be created via shims (when __init__.py is excluded)
             header_pattern = re.compile(
                 rf"# === {re.escape(package_name)}(?:\.__init__)? ==="
             )
-            if not header_pattern.search(final_text):
+            # Check for shim-created package: _pkg = 'package_name' or "package_name"
+            # followed by sys.modules[_pkg] = _mod (or sys.modules.get(_pkg))
+            # Handle both single and double quotes (formatter may change them)
+            escaped_name = re.escape(package_name)
+            shim_pattern = re.compile(
+                rf"_pkg\s*=\s*(?:['\"]){escaped_name}(?:['\"]).*?"
+                rf"sys\.modules\[_pkg\]\s*=\s*_mod",
+                re.DOTALL,
+            )
+            if not header_pattern.search(final_text) and not shim_pattern.search(
+                final_text
+            ):
                 broken.add(package_name)
 
     if broken:
