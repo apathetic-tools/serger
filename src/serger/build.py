@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
 
-from .config_types import BuildConfigResolved, IncludeResolved, PathResolved
+from .config import BuildConfigResolved, IncludeResolved, PathResolved
 from .constants import DEFAULT_DRY_RUN
 from .logs import get_app_logger
 from .stitch import (

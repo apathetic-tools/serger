@@ -35,13 +35,6 @@ from .cli import (
     main,
 )
 from .config import (
-    find_config,
-    load_and_validate_config,
-    load_config,
-    parse_config,
-)
-from .config_resolve import resolve_build_config, resolve_config
-from .config_types import (
     BuildConfig,
     BuildConfigResolved,
     IncludeResolved,
@@ -50,8 +43,14 @@ from .config_types import (
     PathResolved,
     RootConfig,
     RootConfigResolved,
+    find_config,
+    load_and_validate_config,
+    load_config,
+    parse_config,
+    resolve_build_config,
+    resolve_config,
+    validate_config,
 )
-from .config_validate import validate_config
 from .constants import (
     DEFAULT_ENV_LOG_LEVEL,
     DEFAULT_ENV_RESPECT_GITIGNORE,

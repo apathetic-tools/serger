@@ -1,12 +1,11 @@
-# src/serger/config_validate.py
+# src/serger/config/config_validate.py
 
 
 from typing import Any
 
-from .config_types import BuildConfig, RootConfig
-from .constants import DEFAULT_STRICT_CONFIG
-from .logs import get_app_logger
-from .utils import (
+from serger.constants import DEFAULT_STRICT_CONFIG
+from serger.logs import get_app_logger
+from serger.utils import (
     SchemaErrorAggregator,
     ValidationSummary,
     cast_hint,
@@ -16,6 +15,8 @@ from .utils import (
     schema_from_typeddict,
     warn_keys_once,
 )
+
+from .config_types import BuildConfig, RootConfig
 
 
 # --- constants ------------------------------------------------------

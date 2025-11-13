@@ -1,4 +1,4 @@
-# src/serger/config.py
+# src/serger/config/config.py
 
 
 import argparse
@@ -7,16 +7,11 @@ import traceback
 from pathlib import Path
 from typing import Any, cast
 
-from .config_types import (
-    BuildConfig,
-    RootConfig,
-)
-from .config_validate import validate_config
-from .logs import get_app_logger
-from .meta import (
+from serger.logs import get_app_logger
+from serger.meta import (
     PROGRAM_CONFIG,
 )
-from .utils import (
+from serger.utils import (
     ValidationSummary,
     cast_hint,
     load_jsonc,
@@ -24,6 +19,12 @@ from .utils import (
     remove_path_in_error_message,
     schema_from_typeddict,
 )
+
+from .config_types import (
+    BuildConfig,
+    RootConfig,
+)
+from .config_validate import validate_config
 
 
 def can_run_configless(args: argparse.Namespace) -> bool:

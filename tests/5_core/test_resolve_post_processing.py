@@ -3,8 +3,8 @@
 
 import pytest
 
-import serger.config_resolve as mod_resolve
-import serger.config_types as mod_types
+import serger.config.config_resolve as mod_resolve
+import serger.config.config_types as mod_types
 import serger.constants as mod_constants
 import serger.logs as mod_logs
 

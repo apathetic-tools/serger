@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-import serger.config_types as mod_types
+import serger.config.config_types as mod_types
 import serger.verify_script as mod_verify
 from tests.utils import (
     make_post_category_config_resolved,

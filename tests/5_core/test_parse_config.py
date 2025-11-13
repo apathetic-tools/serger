@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-import serger.config as mod_config
+import serger.config.config as mod_config
 
 
 def test_parse_config_builds_accepts_list_and_single_object() -> None:

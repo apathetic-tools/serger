@@ -7,7 +7,7 @@ from contextlib import suppress
 from pathlib import Path
 
 from .build import collect_included_files
-from .config_types import BuildConfigResolved
+from .config import BuildConfigResolved
 from .constants import DEFAULT_WATCH_INTERVAL
 from .logs import get_app_logger
 from .meta import Metadata

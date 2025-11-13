@@ -20,7 +20,7 @@ import pytest
 
 import serger.build as mod_build
 import serger.config as mod_config
-import serger.config_resolve as mod_config_resolve
+import serger.config.config_resolve as mod_config_resolve
 
 
 def test_serger_utils_subpackage_imports() -> None:

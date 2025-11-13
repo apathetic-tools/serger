@@ -14,8 +14,8 @@ from typing import cast
 
 import serger.build as mod_build
 import serger.config as mod_config
-import serger.config_resolve as mod_config_resolve
-import serger.config_types as mod_config_types
+import serger.config.config_resolve as mod_config_resolve
+import serger.config.config_types as mod_config_types
 from tests.utils.buildconfig import make_include_resolved
 
 
