@@ -9,14 +9,14 @@ from typing import Any
 
 import pytest
 
-import serger.utils.utils_files as mod_utils_files
+import apathetic_utils.files as amod_utils_files
 
 
 class _MockUtils:
     """Mock utils module for testing private functions."""
 
     def _strip_jsonc_comments(self, text: str) -> str:
-        return mod_utils_files._strip_jsonc_comments(text)
+        return amod_utils_files._strip_jsonc_comments(text)
 
 
 mod_utils: Any = _MockUtils()

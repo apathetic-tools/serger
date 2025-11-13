@@ -4,10 +4,9 @@
 import re
 from pathlib import Path
 
+from apathetic_utils import has_glob_chars
 from serger.config.config_types import IncludeResolved
 from serger.logs import get_app_logger
-
-from .utils_paths import has_glob_chars
 
 
 def _non_glob_prefix(pattern: str) -> Path:

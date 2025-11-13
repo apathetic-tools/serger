@@ -1,11 +1,11 @@
 # tests/9_integration/test_subpackage_imports.py
 """Integration tests for subpackage imports in stitched singlefile.
 
-Tests that verify subpackages (like serger.utils) work correctly in the
-stitched singlefile output, including:
-- Package imports (import serger.utils)
-- Submodule imports (import serger.utils.utils_text)
-- Submodule attribute access (serger.utils.utils_text)
+Tests that verify subpackages work correctly in the stitched singlefile output,
+including:
+- Package imports (import serger.utils, apathetic_utils)
+- Submodule imports (import serger.utils.utils_modules, apathetic_utils.text)
+- Submodule attribute access
 - Private functions in submodules
 - Functions with same name as submodules not being overwritten
 """
@@ -24,7 +24,7 @@ import serger.config.config_resolve as mod_config_resolve
 
 
 def test_serger_utils_subpackage_imports() -> None:
-    """Verify serger.utils subpackage works correctly in singlefile mode.
+    """Verify subpackages work correctly in singlefile mode.
 
     This test verifies the fix for the original issue where subpackages
     were not being recognized, causing ModuleNotFoundError.
@@ -42,35 +42,27 @@ def test_serger_utils_subpackage_imports() -> None:
     if not str(serger_file).endswith("dist/serger.py"):
         pytest.skip("Not running against stitched singlefile")
 
-    # --- Test 1: Package import works ---
+    # --- Test 1: serger.utils package import works ---
 
     assert "serger.utils" in sys.modules
     utils_pkg = sys.modules["serger.utils"]
     assert isinstance(utils_pkg, ModuleType)
 
-    # --- Test 2: Submodule import works ---
+    # --- Test 2: serger.utils submodule import works ---
 
-    assert "serger.utils.utils_text" in sys.modules
-    utils_text_mod = sys.modules["serger.utils.utils_text"]
-    assert isinstance(utils_text_mod, ModuleType)
+    assert "serger.utils.utils_modules" in sys.modules
+    utils_modules_mod = sys.modules["serger.utils.utils_modules"]
+    assert isinstance(utils_modules_mod, ModuleType)
 
     # --- Test 3: Submodule is accessible as attribute on package ---
-    assert hasattr(utils_pkg, "utils_text"), (
-        "serger.utils should have utils_text as an attribute"
+    assert hasattr(utils_pkg, "utils_modules"), (
+        "serger.utils should have utils_modules as an attribute"
     )
-    assert utils_pkg.utils_text is utils_text_mod, (
-        "serger.utils.utils_text attribute should point to the module"
-    )
-
-    # --- Test 4: Can import from submodule ---
-    import serger.utils.utils_text as mod_utils_text  # noqa: PLC0415
-
-    assert hasattr(mod_utils_text, "plural"), "Should have plural function"
-    assert callable(mod_utils_text.plural), (
-        "Should be able to access functions from submodule"
+    assert utils_pkg.utils_modules is utils_modules_mod, (
+        "serger.utils.utils_modules attribute should point to the module"
     )
 
-    # --- Test 5: Private functions in submodules are accessible ---
+    # --- Test 4: Private functions in serger.utils submodules are accessible ---
     import serger.utils.utils_modules as mod_utils_modules  # noqa: PLC0415
 
     assert hasattr(mod_utils_modules, "_interpret_dest_for_module_name"), (
@@ -88,6 +80,34 @@ def test_serger_utils_subpackage_imports() -> None:
         Path("dest"),
     )
     assert isinstance(result, Path), "Private function should work correctly"
+
+    # --- Test 5: apathetic_utils package import works ---
+
+    assert "apathetic_utils" in sys.modules
+    apathetic_utils_pkg = sys.modules["apathetic_utils"]
+    assert isinstance(apathetic_utils_pkg, ModuleType)
+
+    # --- Test 6: apathetic_utils.text submodule import works ---
+
+    assert "apathetic_utils.text" in sys.modules
+    apathetic_text_mod = sys.modules["apathetic_utils.text"]
+    assert isinstance(apathetic_text_mod, ModuleType)
+
+    # --- Test 7: Submodule is accessible as attribute on package ---
+    assert hasattr(apathetic_utils_pkg, "text"), (
+        "apathetic_utils should have text as an attribute"
+    )
+    assert apathetic_utils_pkg.text is apathetic_text_mod, (
+        "apathetic_utils.text attribute should point to the module"
+    )
+
+    # --- Test 8: Can import from apathetic_utils submodule ---
+    import apathetic_utils.text as amod_utils_text  # noqa: PLC0415
+
+    assert hasattr(amod_utils_text, "plural"), "Should have plural function"
+    assert callable(amod_utils_text.plural), (
+        "Should be able to access functions from submodule"
+    )
 
 
 def test_subpackage_function_not_overwritten(tmp_path: Path) -> None:

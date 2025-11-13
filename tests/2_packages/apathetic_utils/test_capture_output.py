@@ -7,7 +7,7 @@ from typing import cast
 
 import pytest
 
-import serger.utils.utils_system as mod_utils_system
+import apathetic_utils.system as amod_utils_system
 
 
 def test_capture_output_captures_stdout_and_stderr() -> None:
@@ -18,7 +18,7 @@ def test_capture_output_captures_stdout_and_stderr() -> None:
     old_out, old_err = sys.stdout, sys.stderr
 
     # --- execute ---
-    with mod_utils_system.capture_output() as cap:
+    with amod_utils_system.capture_output() as cap:
         print("hello stdout")
         print("oops stderr", file=sys.stderr)
 
@@ -44,7 +44,7 @@ def test_capture_output_restores_streams_after_exception() -> None:
     old_out, old_err = sys.stdout, sys.stderr
 
     # --- execute and verify ---
-    with mod_utils_system.capture_output():
+    with amod_utils_system.capture_output():
         print("before boom")
         with pytest.raises(RuntimeError, match="boom"):
             raise RuntimeError("boom")  # noqa: EM101
@@ -54,13 +54,13 @@ def test_capture_output_restores_streams_after_exception() -> None:
 
     # --- captured output attachment ---
     with pytest.raises(ValueError, match="expected fail") as exc_info:  # noqa: SIM117
-        with mod_utils_system.capture_output():
+        with amod_utils_system.capture_output():
             raise ValueError("expected fail")  # noqa: EM101, TRY003
 
     e = exc_info.value
     assert hasattr(e, "captured_output")
     captured = cast(
-        "mod_utils_system.CapturedOutput",
+        "amod_utils_system.CapturedOutput",
         getattr(e, "captured_output"),  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType]  # noqa: B009
     )
     assert isinstance(captured.stdout, StringIO)
@@ -71,7 +71,7 @@ def test_capture_output_restores_streams_after_exception() -> None:
 def test_capture_output_interleaved_writes_preserve_order() -> None:
     """Merged stream should record messages in chronological order."""
     # --- execute ---
-    with mod_utils_system.capture_output() as cap:
+    with amod_utils_system.capture_output() as cap:
         print("A1", end="")  # stdout
         print("B1", end="", file=sys.stderr)
         print("A2", end="")  # stdout
@@ -92,7 +92,7 @@ def test_capture_output_interleaved_writes_preserve_order() -> None:
 def test_capture_output_supports_str_method_and_as_dict() -> None:
     """CapturedOutput should stringify and export all buffers cleanly."""
     # --- execute ---
-    with mod_utils_system.capture_output() as cap:
+    with amod_utils_system.capture_output() as cap:
         print("hello")
         print("err", file=sys.stderr)
 

@@ -7,7 +7,7 @@
 
 from typing import Any, TypedDict
 
-import serger.utils.utils_schema as mod_utils_schema
+import apathetic_schema.schema as amod_schema
 from tests.utils import make_summary
 
 
@@ -25,7 +25,7 @@ class MiniBuild(TypedDict):
 
 def test_validate_typed_dict_accepts_dict() -> None:
     # --- execute ---
-    result = mod_utils_schema._validate_typed_dict(
+    result = amod_schema._validate_typed_dict(
         context="root",
         val={"include": ["src"], "out": "dist"},
         typedict_cls=MiniBuild,
@@ -44,7 +44,7 @@ def test_validate_typed_dict_rejects_non_dict() -> None:
     summary = make_summary()
 
     # --- patch and execute ---
-    ok = mod_utils_schema._validate_typed_dict(
+    ok = amod_schema._validate_typed_dict(
         "root",
         "notadict",
         MiniBuild,
@@ -64,7 +64,7 @@ def test_validate_typed_dict_detects_unknown_keys() -> None:
     summary = make_summary()
 
     # --- patch and execute ---
-    ok = mod_utils_schema._validate_typed_dict(
+    ok = amod_schema._validate_typed_dict(
         "root",
         {"include": ["x"], "out": "y", "weird": 1},
         MiniBuild,
@@ -87,7 +87,7 @@ def test_validate_typed_dict_allows_missing_field() -> None:
     val = {"out": "dist"}  # 'include' missing
 
     # --- execute ---
-    ok = mod_utils_schema._validate_typed_dict(
+    ok = amod_schema._validate_typed_dict(
         "ctx",
         val,
         MiniBuild,
@@ -112,8 +112,8 @@ def test_validate_typed_dict_nested_recursion() -> None:
     bad: Outer = {"inner": {"include": [123], "out": "dist"}}  # type: ignore[list-item]
 
     # --- patch, execute and verify ---
-    summary1 = mod_utils_schema.ValidationSummary(True, [], [], [], True)
-    assert mod_utils_schema._validate_typed_dict(
+    summary1 = amod_schema.ValidationSummary(True, [], [], [], True)
+    assert amod_schema._validate_typed_dict(
         "root",
         good,
         Outer,
@@ -123,8 +123,8 @@ def test_validate_typed_dict_nested_recursion() -> None:
         field_path="root",
     )
 
-    summary2 = mod_utils_schema.ValidationSummary(True, [], [], [], True)
-    assert not mod_utils_schema._validate_typed_dict(
+    summary2 = amod_schema.ValidationSummary(True, [], [], [], True)
+    assert not amod_schema._validate_typed_dict(
         "root",
         bad,
         Outer,
@@ -144,7 +144,7 @@ def test_validate_typed_dict_respects_prewarn() -> None:
     summary = make_summary()
 
     # --- execute ---
-    ok = mod_utils_schema._validate_typed_dict(
+    ok = amod_schema._validate_typed_dict(
         "ctx",
         cfg,
         MiniBuild,

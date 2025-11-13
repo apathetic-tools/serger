@@ -7,7 +7,7 @@
 
 from typing import Any, TypedDict
 
-import serger.utils.utils_schema as mod_utils_schema
+import apathetic_schema.schema as amod_schema
 from tests.utils import make_summary
 
 
@@ -25,7 +25,7 @@ class MiniBuild(TypedDict):
 
 def test_validate_list_value_accepts_list() -> None:
     # --- execute ---
-    result = mod_utils_schema._validate_list_value(
+    result = amod_schema._validate_list_value(
         context="root",
         key="nums",
         val=[1, 2, 3],
@@ -45,7 +45,7 @@ def test_validate_list_value_rejects_nonlist() -> None:
     summary = make_summary()
 
     # --- patch and execute ---
-    ok = mod_utils_schema._validate_list_value(
+    ok = amod_schema._validate_list_value(
         "ctx",
         "nums",
         "notalist",
@@ -66,7 +66,7 @@ def test_validate_list_value_rejects_wrong_element_type() -> None:
     summary = make_summary()
 
     # --- patch and execute ---
-    ok = mod_utils_schema._validate_list_value(
+    ok = amod_schema._validate_list_value(
         "ctx",
         "nums",
         [1, "two", 3],
@@ -91,7 +91,7 @@ def test_validate_list_value_handles_typed_dict_elements() -> None:
     summary = make_summary()
 
     # --- patch and execute ---
-    ok = mod_utils_schema._validate_list_value(
+    ok = amod_schema._validate_list_value(
         "ctx",
         "builds",
         val,
@@ -111,7 +111,7 @@ def test_validate_list_value_handles_typed_dict_elements() -> None:
 def test_validate_list_value_accepts_empty_list() -> None:
     # --- execute and verify ---
     assert (
-        mod_utils_schema._validate_list_value(
+        amod_schema._validate_list_value(
             "ctx",
             "empty",
             [],
@@ -131,7 +131,7 @@ def test_validate_list_value_rejects_nested_mixed_types() -> None:
     summary = make_summary()
 
     # --- patch and execute ---
-    ok = mod_utils_schema._validate_list_value(
+    ok = amod_schema._validate_list_value(
         "ctx",
         "nums",
         [[1, 2], ["a"]],
@@ -153,7 +153,7 @@ def test_validate_list_value_mixed_types_like_integration() -> None:
     summary = make_summary()
 
     # --- patch and execute ---
-    ok = mod_utils_schema._validate_list_value(
+    ok = amod_schema._validate_list_value(
         "ctx",
         "include",
         ["src", 42],
@@ -180,7 +180,7 @@ def test_validate_list_value_respects_prewarn() -> None:
     ]
 
     # --- execute ---
-    ok = mod_utils_schema._validate_list_value(
+    ok = amod_schema._validate_list_value(
         "ctx",
         "builds",
         val,
@@ -206,7 +206,7 @@ def test_validate_list_value_includes_examples_in_error() -> None:
     }
 
     # --- execute ---
-    ok = mod_utils_schema._validate_list_value(
+    ok = amod_schema._validate_list_value(
         "in build #1",
         "include",
         42,  # wrong type - should be list[str]

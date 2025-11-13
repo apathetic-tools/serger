@@ -43,7 +43,7 @@ def format_header(filename: str) -> str:
 
 
 def concatenate_mdc_files_for_claude(files: list[Path]) -> str:
-    """Concatenate .mdc files with headers, extracting content (removing frontmatter)."""
+    """Concatenate .mdc files with headers, extracting content."""
     result: list[str] = []
     for file_path in files:
         content = read_file_content(file_path)
@@ -98,7 +98,8 @@ def main() -> None:
         shutil.copy2(mdc_file, dest_file)
         print(
             f"Copied: {mdc_file.relative_to(project_root)}"
-            f" -> {dest_file.relative_to(project_root)}")
+            f" -> {dest_file.relative_to(project_root)}"
+        )
 
     # Get cursor-specific .mdc files (rules/cursor/*.mdc)
     cursor_specific_dir = ai_rules_dir / "cursor"

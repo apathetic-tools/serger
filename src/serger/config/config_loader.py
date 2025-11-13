@@ -7,17 +7,17 @@ import traceback
 from pathlib import Path
 from typing import Any, cast
 
-from serger.logs import get_app_logger
-from serger.meta import (
-    PROGRAM_CONFIG,
-)
-from serger.utils import (
-    ValidationSummary,
+from apathetic_schema import ValidationSummary
+from apathetic_utils import (
     cast_hint,
     load_jsonc,
     plural,
     remove_path_in_error_message,
     schema_from_typeddict,
+)
+from serger.logs import get_app_logger
+from serger.meta import (
+    PROGRAM_CONFIG,
 )
 
 from .config_types import (

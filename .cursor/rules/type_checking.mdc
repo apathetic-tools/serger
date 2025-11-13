@@ -23,5 +23,15 @@ alwaysApply: true
 #### Common Patterns
 - **Unused arguments**: Prefix with `_` (e.g., `_unused_param`) unless signature must match exactly (pytest hooks, interfaces) - then use ignore comments
 - **Complexity/parameter warnings**: Consider refactoring only if it improves readability; otherwise add ignore comments
-- **Type inference**: Use `cast_hint()` (from `utils`) or `cast()` when possible; mypy can often infer types better than pyright
-- **Defensive checks**: Keep runtime checks like `isinstance()` with ignore comments if they provide reasonable safety
+- **Type inference**: Use `cast_hint()` from `serger.utils` or `typing.cast()` when possible (not in tests); mypy can often infer types better than pyright
+  - **`cast_hint()`**: Import from `serger.utils`. Use when:
+    - You want to silence mypy's redundant-cast warnings
+    - You want to signal "this narrowing is intentional"
+    - You need IDEs (like Pylance) to retain strong inference on a value
+    - **Do NOT use** for Union, Optional, or nested generics - use `cast()` for those
+    - **Example**: `from serger.utils import cast_hint; items = cast_hint(list[Any], value)`
+  - **`typing.cast()`**: Use for Union, Optional, or nested generics where type narrowing is meaningful
+    - **Example**: `from typing import cast; result = cast(PathResolved, dict_obj)`
+- **Defensive checks**: Runtime checks like `isinstance()` with ignore comments are only acceptable as defensive checks when data comes from external sources (function parameters, config files, user input). Do NOT use for constants or values that are known and can be typed properly within the function.
+  - **Acceptable**: `if not isinstance(package, str):  # pyright: ignore[reportUnnecessaryIsInstance]` when `package` comes from parsed config file
+  - **Not acceptable**: `if isinstance(CONSTANT_VALUE, str):` when `CONSTANT_VALUE` is a module-level constant that can be properly typed

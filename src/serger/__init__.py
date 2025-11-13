@@ -15,21 +15,9 @@ Highlights:
     - get_metadata()      → Retrieve version / commit info
 """
 
-# Import logs early to ensure logger is registered
-# This must happen before any other imports that use get_app_logger()
-# import serger.logs  # pyright: ignore[reportUnusedImport]
-
-from .actions import (
-    get_metadata,
-    watch_for_changes,
-)
-from .build import (
-    run_all_builds,
-    run_build,
-)
-from .cli import (
-    main,
-)
+from .actions import get_metadata, watch_for_changes
+from .build import run_all_builds, run_build
+from .cli import main
 from .config import (
     BuildConfig,
     BuildConfigResolved,
@@ -68,39 +56,38 @@ from .meta import (
 )
 from .selftest import run_selftest
 from .utils import (
-    get_glob_root,
-    has_glob_chars,
     is_excluded,
-    is_excluded_raw,
-    load_jsonc,
     make_includeresolved,
     make_pathresolved,
-    safe_isinstance,
-    schema_from_typeddict,
 )
 
 
 __all__ = [  # noqa: RUF022
-    # --- CLI / Actions ---
-    "get_metadata",  # verison info
-    "main",
-    "run_selftest",
+    # actions
+    "get_metadata",
     "watch_for_changes",
-    #
-    # --- Build Engine ---
+    # build
     "run_all_builds",
     "run_build",
-    #
-    # --- Config Handling ---
+    # cli
+    "main",
+    # config
+    "BuildConfig",
+    "BuildConfigResolved",
     "find_config",
+    "IncludeResolved",
     "load_and_validate_config",
     "load_config",
+    "MetaBuildConfigResolved",
+    "OriginType",
     "parse_config",
+    "PathResolved",
     "resolve_build_config",
     "resolve_config",
+    "RootConfig",
+    "RootConfigResolved",
     "validate_config",
-    #
-    # --- Constants / Metadata / Runtime ---
+    # constants
     "DEFAULT_ENV_LOG_LEVEL",
     "DEFAULT_ENV_RESPECT_GITIGNORE",
     "DEFAULT_ENV_WATCH_INTERVAL",
@@ -109,34 +96,19 @@ __all__ = [  # noqa: RUF022
     "DEFAULT_RESPECT_GITIGNORE",
     "DEFAULT_STRICT_CONFIG",
     "DEFAULT_WATCH_INTERVAL",
+    # logs
+    "get_app_logger",
+    # meta
     "Metadata",
+    "PROGRAM_CONFIG",
     "PROGRAM_DISPLAY",
     "PROGRAM_ENV",
     "PROGRAM_PACKAGE",
     "PROGRAM_SCRIPT",
-    "PROGRAM_CONFIG",
-    #
-    # --- logs ---
-    "get_app_logger",
-    #
-    # --- utils ---
-    "get_glob_root",
-    "has_glob_chars",
-    "is_excluded_raw",
+    # selftest
+    "run_selftest",
+    # utils
     "is_excluded",
-    "load_jsonc",
     "make_includeresolved",
     "make_pathresolved",
-    "safe_isinstance",
-    "schema_from_typeddict",
-    #
-    # --- Types ---
-    "BuildConfig",
-    "BuildConfigResolved",
-    "IncludeResolved",
-    "MetaBuildConfigResolved",
-    "OriginType",
-    "PathResolved",
-    "RootConfig",
-    "RootConfigResolved",
 ]

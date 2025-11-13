@@ -3,18 +3,17 @@
 
 from typing import Any
 
-from serger.constants import DEFAULT_STRICT_CONFIG
-from serger.logs import get_app_logger
-from serger.utils import (
+from apathetic_schema import (
     SchemaErrorAggregator,
     ValidationSummary,
-    cast_hint,
     check_schema_conformance,
     collect_msg,
     flush_schema_aggregators,
-    schema_from_typeddict,
     warn_keys_once,
 )
+from apathetic_utils import cast_hint, schema_from_typeddict
+from serger.constants import DEFAULT_STRICT_CONFIG
+from serger.logs import get_app_logger
 
 from .config_types import BuildConfig, RootConfig
 

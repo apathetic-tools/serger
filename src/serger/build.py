@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
 
+from apathetic_utils import cast_hint, has_glob_chars, is_excluded_raw
+
 from .config import BuildConfigResolved, IncludeResolved, PathResolved
 from .constants import DEFAULT_DRY_RUN
 from .logs import get_app_logger
@@ -15,7 +17,6 @@ from .stitch import (
     extract_version,
     stitch_modules,
 )
-from .utils import cast_hint, has_glob_chars, is_excluded_raw
 
 
 # --------------------------------------------------------------------------- #

@@ -26,7 +26,7 @@ def test_is_excluded_wrapper_delegates(tmp_path: Path) -> None:
       root:     /tmp/.../
       pattern:  ["*.txt"]
       Result: True
-      Explanation: wrapper passes resolved args correctly to is_excluded_raw.
+      Explanation: wrapper passes args correctly to is_excluded_raw.
 
     """
     # --- setup ---

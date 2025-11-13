@@ -19,7 +19,6 @@ DEFAULT_ENV_WATCH_INTERVAL: str = "WATCH_INTERVAL"
 DEFAULT_LOG_LEVEL: str = "info"
 DEFAULT_WATCH_INTERVAL: float = 1.0  # seconds
 DEFAULT_RESPECT_GITIGNORE: bool = True
-DEFAULT_HINT_CUTOFF: float = 0.75
 
 # --- config defaults ---
 DEFAULT_STRICT_CONFIG: bool = True
