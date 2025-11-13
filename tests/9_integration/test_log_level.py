@@ -1,11 +1,6 @@
 # tests/9_integration/test_log_level.py
-"""Tests for package.cli (package and standalone versions).
+"""Tests for log level configuration and CLI flags."""
 
-NOTE: These tests are currently for file-copying (pocket-build responsibility).
-They will be adapted for stitch builds in Phase 5.
-"""
-
-import json
 from pathlib import Path
 
 import pytest
@@ -13,9 +8,7 @@ import pytest
 import serger.cli as mod_cli
 import serger.logs as mod_logs
 import serger.meta as mod_meta
-
-
-pytestmark = pytest.mark.pocket_build_compat
+from tests.utils import make_test_package, write_config_file
 
 
 # --- constants --------------------------------------------------------------------
@@ -32,8 +25,16 @@ def test_quiet_flag(
 ) -> None:
     """Should suppress most output but still succeed."""
     # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    config.write_text(json.dumps({"builds": [{"include": [], "out": "dist"}]}))
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+    )
 
     # --- patch and execute ---
     monkeypatch.chdir(tmp_path)
@@ -43,8 +44,8 @@ def test_quiet_flag(
     out = capsys.readouterr().out.lower()
     assert code == 0
     # should not contain normal messages
-    assert "Build completed".lower() not in out
-    assert "All builds complete".lower() not in out
+    assert "stitch completed" not in out
+    assert "all builds complete" not in out
 
 
 def test_verbose_flag(
@@ -54,14 +55,15 @@ def test_verbose_flag(
 ) -> None:
     """Should print detailed file-level logs when --verbose is used."""
     # --- setup ---
-    # create a tiny input directory with a file to copy
-    src_dir = tmp_path / "src"
-    src_dir.mkdir()
-    (src_dir / "foo.txt").write_text("hello")
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
 
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    config.write_text(
-        json.dumps({"builds": [{"include": ["src/**"], "exclude": [], "out": "dist"}]}),
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
     )
 
     # --- patch and execute ---
@@ -73,11 +75,11 @@ def test_verbose_flag(
     out = (captured.out + captured.err).lower()
 
     assert code == 0
-    # Verbose mode should show per-file details
-    assert "📄".lower() in out or "🚫".lower() in out
+    # Verbose mode should show debug-level details
+    assert "[debug" in out
     # It should still include summary
-    assert "Build completed".lower() in out
-    assert "All builds complete".lower() in out
+    assert "stitch completed" in out
+    assert "🎉 all builds complete" in out
 
     level = mod_logs.get_app_logger().level_name.lower()
     assert level == "debug"
@@ -90,8 +92,16 @@ def test_verbose_and_quiet_mutually_exclusive(
 ) -> None:
     """Should fail when both --verbose and --quiet are provided."""
     # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    config.write_text(json.dumps({"builds": [{"include": [], "out": "dist"}]}))
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+    )
 
     # --- patch, execute and verify ---
     monkeypatch.chdir(tmp_path)
@@ -107,11 +117,11 @@ def test_verbose_and_quiet_mutually_exclusive(
     combined = (captured.out + captured.err).lower()
 
     assert (
-        "not allowed with argument".lower() in combined
-        or "mutually exclusive".lower() in combined
+        "not allowed with argument" in combined
+        or "mutually exclusive" in combined
     )
-    assert "--quiet".lower() in combined
-    assert "--verbose".lower() in combined
+    assert "--quiet" in combined
+    assert "--verbose" in combined
 
 
 def test_log_level_flag_sets_runtime(
@@ -121,8 +131,16 @@ def test_log_level_flag_sets_runtime(
 ) -> None:
     """--log-level should override config and environment."""
     # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    config.write_text('{"builds": [{"include": [], "out": "dist"}]}')
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+    )
 
     # --- patch and execute ---
     monkeypatch.chdir(tmp_path)
@@ -132,7 +150,7 @@ def test_log_level_flag_sets_runtime(
     out = capsys.readouterr().out.lower()
 
     assert code == 0
-    assert "Build completed".lower() in out
+    assert "stitch completed" in out
     # Verify that runtime log level is set correctly
     level = mod_logs.get_app_logger().level_name.lower()
     assert level == "debug"
@@ -144,8 +162,16 @@ def test_log_level_from_env_var(
 ) -> None:
     """LOG_LEVEL and {PROGRAM_ENV}_LOG_LEVEL should be respected when flag not given."""
     # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    config.write_text('{"builds": [{"include": [], "out": "dist"}]}')
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+    )
 
     # --- patch, execute and verify ---
     monkeypatch.chdir(tmp_path)
@@ -177,18 +203,29 @@ def test_per_build_log_level_override(
 ) -> None:
     """A build's own log_level should temporarily override the runtime level."""
     # --- setup ---
-    # Root config sets info, but the build overrides to debug
+    pkg_dir1 = tmp_path / "mypkg1"
+    make_test_package(pkg_dir1)
+    pkg_dir2 = tmp_path / "mypkg2"
+    make_test_package(pkg_dir2)
+
+    # Root config sets info, but the second build overrides to debug
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    config.write_text(
-        json.dumps(
+    write_config_file(
+        config,
+        builds=[
             {
-                "log_level": "info",
-                "builds": [
-                    {"include": [], "out": "dist1"},
-                    {"include": [], "out": "dist2", "log_level": "debug"},
-                ],
+                "package": "mypkg1",
+                "include": ["mypkg1/**/*.py"],
+                "out": "dist1/mypkg1.py",
             },
-        ),
+            {
+                "package": "mypkg2",
+                "include": ["mypkg2/**/*.py"],
+                "out": "dist2/mypkg2.py",
+                "log_level": "debug",
+            },
+        ],
+        log_level="info",
     )
 
     # --- patch and execute ---
@@ -200,12 +237,12 @@ def test_per_build_log_level_override(
     out = (captured.out + captured.err).lower()
 
     assert code == 0
-    # It should have built both directories
-    assert (tmp_path / "dist1").exists()
-    assert (tmp_path / "dist2").exists()
+    # It should have built both output files
+    assert (tmp_path / "dist1" / "mypkg1.py").exists()
+    assert (tmp_path / "dist2" / "mypkg2.py").exists()
 
     # During the second build, debug logs should have appeared
-    assert "[DEBUG".lower() in out or "Overriding log level".lower() in out
+    assert "[debug" in out or "overriding log level" in out
 
     # After all builds complete, runtime should be restored to root level
     level = mod_logs.get_app_logger().level_name.lower()
