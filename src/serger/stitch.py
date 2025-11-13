@@ -156,15 +156,18 @@ def split_imports(  # noqa: C901, PLR0915
                 if node.level > 0:
                     is_internal = True
                 else:
-                    # Check if module starts with any of the package names
+                    # Check if module is exactly a package name or starts with one
                     for pkg in package_names:
-                        if mod.startswith(pkg):
+                        if mod == pkg or mod.startswith(f"{pkg}."):
                             is_internal = True
                             break
             else:
                 # Check if any alias starts with any of the package names
                 for pkg in package_names:
-                    if any(alias.name.startswith(pkg) for alias in node.names):
+                    if any(
+                        alias.name == pkg or alias.name.startswith(f"{pkg}.")
+                        for alias in node.names
+                    ):
                         is_internal = True
                         break
 
