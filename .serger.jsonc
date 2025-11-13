@@ -20,9 +20,7 @@
       // Source modules to include in the stitch
       // These are glob patterns relative to the source directory
       "include": [
-        "src/serger/*.py",
-        "src/serger/config/*.py",
-        "src/serger/utils/*.py"        
+        "src/serger/**/*.py"        
       ],
 
       // Files to exclude from stitching
