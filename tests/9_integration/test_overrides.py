@@ -1,20 +1,17 @@
 # tests/9_integration/test_overrides.py
-"""Tests for package.cli (package and standalone versions).
+"""Tests for CLI flag overrides of config file settings.
 
-NOTE: These tests are currently for file-copying (pocket-build responsibility).
-They will be adapted for stitch builds in Phase 5.
+Tests that --include, --exclude, --add-include, and --add-exclude
+properly override or extend config file patterns.
 """
 
-import json
 from pathlib import Path
 
 import pytest
 
 import serger.cli as mod_cli
 import serger.meta as mod_meta
-
-
-pytestmark = pytest.mark.pocket_build_compat
+from tests.utils import make_test_package, write_config_file
 
 
 def test_include_flag_overrides_config(
@@ -24,36 +21,43 @@ def test_include_flag_overrides_config(
 ) -> None:
     """--include should override config include patterns."""
     # --- setup ---
-    src_dir = tmp_path / "src"
-    src_dir.mkdir()
-    (src_dir / "foo.txt").write_text("ok")
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(
+        pkg_dir, module_name="foo", module_content='def foo():\n    return "ok"\n'
+    )
+    # Create a subdirectory with another module
+    sub_dir = pkg_dir / "sub"
+    sub_dir.mkdir()
+    (sub_dir / "__init__.py").write_text("")
+    (sub_dir / "bar.py").write_text('def bar():\n    return "nope"\n')
 
-    other_dir = tmp_path / "other"
-    other_dir.mkdir()
-    (other_dir / "bar.txt").write_text("nope")
-
-    # Config originally points to wrong folder
+    # Config originally points to subdirectory only
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    config.write_text(
-        json.dumps(
-            {"builds": [{"include": ["other/**"], "exclude": [], "out": "dist"}]},
-        ),
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/sub/**/*.py"],
+        out="dist/mypkg.py",
     )
 
     # --- patch and execute ---
     monkeypatch.chdir(tmp_path)
-    # Override include at CLI level
-    code = mod_cli.main(["--include", "src/**"])
+    # Override include at CLI level to include all of mypkg
+    code = mod_cli.main(["--include", "mypkg/**/*.py"])
 
     # --- verify ---
     out = capsys.readouterr().out.lower()
 
     assert code == 0
-    dist_dir = tmp_path / "dist"
-    # Should copy src contents (flattened), not 'other'
-    assert (dist_dir / "foo.txt").exists()
-    assert not (dist_dir / "other").exists()
-    assert "Build completed".lower() in out
+    # Should stitch all of mypkg, not just sub
+    stitched_file = tmp_path / "dist" / "mypkg.py"
+    assert stitched_file.exists()
+    content = stitched_file.read_text()
+    # Should include both foo and bar
+    assert "def foo" in content
+    assert "def bar" in content
+    assert "stitch completed" in out
+    assert "🎉 all builds complete" in out
 
 
 def test_exclude_flag_overrides_config(
@@ -63,29 +67,41 @@ def test_exclude_flag_overrides_config(
 ) -> None:
     """--exclude should override config exclude patterns."""
     # --- setup ---
-    src_dir = tmp_path / "src"
-    src_dir.mkdir()
-    (src_dir / "keep.txt").write_text("keep me")
-    (src_dir / "ignore.tmp").write_text("ignore me")
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(
+        pkg_dir,
+        module_name="keep",
+        module_content='def keep():\n    return "keep me"\n',
+    )
+    # Create a Python file that should be excluded
+    (pkg_dir / "ignore.py").write_text('def ignore():\n    return "ignore me"\n')
 
     # Config has no exclude rules
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    config.write_text(json.dumps({"builds": [{"include": ["src/**"], "out": "dist"}]}))
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+    )
 
     # --- patch and execute ---
     monkeypatch.chdir(tmp_path)
     # Pass exclude override on CLI
-    code = mod_cli.main(["--exclude", "*.tmp"])
+    code = mod_cli.main(["--exclude", "*ignore*.py"])
 
     # --- verify ---
     out = capsys.readouterr().out.lower()
 
     assert code == 0
-    dist_dir = tmp_path / "dist"
-    # The .tmp file should be excluded now
-    assert (dist_dir / "keep.txt").exists()
-    assert not (dist_dir / "ignore.tmp").exists()
-    assert "Build completed".lower() in out
+    stitched_file = tmp_path / "dist" / "mypkg.py"
+    assert stitched_file.exists()
+    # The ignore.py file should be excluded
+    content = stitched_file.read_text()
+    assert "def keep" in content
+    assert "def ignore" not in content
+    assert "stitch completed" in out
+    assert "🎉 all builds complete" in out
 
 
 def test_add_include_extends_config(
@@ -95,37 +111,45 @@ def test_add_include_extends_config(
 ) -> None:
     """--add-include should extend config include patterns, not override them."""
     # --- setup ---
-    src_dir = tmp_path / "src"
-    src_dir.mkdir()
-    (src_dir / "a.txt").write_text("A")
+    src_pkg = tmp_path / "srcpkg"
+    make_test_package(
+        src_pkg, module_name="a", module_content='def a():\n    return "A"\n'
+    )
 
-    extra_dir = tmp_path / "extra"
-    extra_dir.mkdir()
-    (extra_dir / "b.txt").write_text("B")
+    extra_pkg = tmp_path / "extrapkg"
+    make_test_package(
+        extra_pkg, module_name="b", module_content='def b():\n    return "B"\n'
+    )
 
-    # Config includes only src/**
+    # Config includes only srcpkg/**
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    config.write_text(
-        json.dumps({"builds": [{"include": ["src/**"], "exclude": [], "out": "dist"}]}),
+    write_config_file(
+        config,
+        package="srcpkg",
+        include=["srcpkg/**/*.py"],
+        out="dist/combined.py",
     )
 
     # --- patch and execute ---
-    # Run with --add-include extra/**
+    # Run with --add-include extrapkg/**
     monkeypatch.chdir(tmp_path)
-    code = mod_cli.main(["--add-include", "extra/**"])
+    code = mod_cli.main(["--add-include", "extrapkg/**/*.py"])
 
     # --- verify ---
     out = capsys.readouterr().out.lower()
 
     assert code == 0
-    dist = tmp_path / "dist"
+    stitched_file = tmp_path / "dist" / "combined.py"
+    assert stitched_file.exists()
 
-    # ✅ Both directories should be included
-    assert (dist / "a.txt").exists()
-    assert (dist / "b.txt").exists()
+    # ✅ Both packages should be included in the stitched output
+    content = stitched_file.read_text()
+    assert "def a" in content
+    assert "def b" in content
 
     # Output should confirm the build
-    assert "Build completed".lower() in out
+    assert "stitch completed" in out
+    assert "🎉 all builds complete" in out
 
 
 def test_add_exclude_extends_config(
@@ -135,35 +159,44 @@ def test_add_exclude_extends_config(
 ) -> None:
     """--add-exclude should extend config exclude patterns, not override them."""
     # --- setup ---
-    src_dir = tmp_path / "src"
-    src_dir.mkdir()
-    (src_dir / "keep.txt").write_text("keep")
-    (src_dir / "ignore.tmp").write_text("ignore")
-    (src_dir / "ignore.log").write_text("ignore2")
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(
+        pkg_dir,
+        module_name="keep",
+        module_content='def keep():\n    return "keep"\n',
+    )
+    # Create Python files that should be excluded
+    (pkg_dir / "ignore_tmp.py").write_text('def ignore_tmp():\n    return "ignore"\n')
+    (pkg_dir / "ignore_log.py").write_text('def ignore_log():\n    return "ignore2"\n')
 
-    # Config excludes *.log files
+    # Config excludes *ignore_log*.py files
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    config.write_text(
-        json.dumps(
-            {"builds": [{"include": ["src/**"], "exclude": ["*.log"], "out": "dist"}]},
-        ),
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        exclude=["*ignore_log*.py"],
+        out="dist/mypkg.py",
     )
 
     # --- patch and execute ---
     # Add an extra exclude via CLI
     monkeypatch.chdir(tmp_path)
-    code = mod_cli.main(["--add-exclude", "*.tmp"])
+    code = mod_cli.main(["--add-exclude", "*ignore_tmp*.py"])
 
     # --- verify ---
     out = capsys.readouterr().out.lower()
 
     assert code == 0
-    dist = tmp_path / "dist"
+    stitched_file = tmp_path / "dist" / "mypkg.py"
+    assert stitched_file.exists()
 
-    # ✅ keep.txt should survive
-    assert (dist / "keep.txt").exists()
+    content = stitched_file.read_text()
+    # ✅ keep module should survive
+    assert "def keep" in content
     # 🚫 both excluded files should be missing
-    assert not (dist / "ignore.tmp").exists()
-    assert not (dist / "ignore.log").exists()
+    assert "def ignore_tmp" not in content
+    assert "def ignore_log" not in content
 
-    assert "Build completed".lower() in out
+    assert "stitch completed" in out
+    assert "🎉 all builds complete" in out
