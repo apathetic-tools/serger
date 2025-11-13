@@ -1,11 +1,6 @@
 # tests/9_integration/test_gitignore.py
-"""Tests for .gitignore handling and precedence in module.cli.
+"""Tests for .gitignore handling and precedence in serger.cli."""
 
-NOTE: These tests are currently for file-copying (pocket-build responsibility).
-They will be adapted for stitch builds in Phase 5.
-"""
-
-import json
 import shutil
 from pathlib import Path
 
@@ -13,9 +8,7 @@ import pytest
 
 import serger.cli as mod_cli
 import serger.meta as mod_meta
-
-
-pytestmark = pytest.mark.pocket_build_compat
+from tests.utils import make_test_package, write_config_file
 
 
 # ---------------------------------------------------------------------------
@@ -23,14 +16,8 @@ pytestmark = pytest.mark.pocket_build_compat
 # ---------------------------------------------------------------------------
 
 
-def make_config(tmp_path: Path, builds: list[dict[str, object]]) -> Path:
-    """Helper to write a .script.json file."""
-    cfg = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    cfg.write_text(json.dumps({"builds": builds}))
-    return cfg
-
-
 def write_gitignore(tmp_path: Path, patterns: str) -> Path:
+    """Helper to write a .gitignore file."""
     path = tmp_path / ".gitignore"
     path.write_text(patterns)
     return path
@@ -48,13 +35,20 @@ def test_default_respects_gitignore(
 ) -> None:
     """By default, .gitignore patterns are respected."""
     # --- setup ---
-    src = tmp_path / "src"
-    src.mkdir()
-    (src / "keep.txt").write_text("ok")
-    (src / "skip.tmp").write_text("no")
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+    # Add files: one should be excluded by gitignore, one should be kept
+    (pkg_dir / "skip_tmp.py").write_text('def skip():\n    return "skip"\n')
+    (pkg_dir / "keep.py").write_text('def keep():\n    return "ok"\n')
 
-    write_gitignore(tmp_path, "*.tmp\n")
-    make_config(tmp_path, [{"include": ["src/**"], "out": "dist"}])
+    write_gitignore(tmp_path, "*_tmp.py\n")
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+    )
 
     # --- patch and execute ---
     monkeypatch.chdir(tmp_path)
@@ -62,12 +56,17 @@ def test_default_respects_gitignore(
 
     # --- verify ---
     out = capsys.readouterr().out.lower()
-    dist = tmp_path / "dist"
+    stitched = tmp_path / "dist" / "mypkg.py"
 
     assert code == 0
-    assert (dist / "keep.txt").exists()
-    assert not (dist / "skip.tmp").exists()
-    assert "Build completed".lower() in out
+    assert stitched.exists()
+    stitched_content = stitched.read_text()
+    # keep.py should be included
+    assert "def keep()" in stitched_content
+    # skip_tmp.py should be excluded by gitignore
+    assert "def skip()" not in stitched_content
+    assert "stitch completed" in out
+    assert "🎉 all builds complete" in out
 
 
 def test_config_disables_gitignore(
@@ -77,20 +76,20 @@ def test_config_disables_gitignore(
 ) -> None:
     """Root config can globally disable .gitignore."""
     # --- setup ---
-    src = tmp_path / "src"
-    src.mkdir()
-    (src / "file.tmp").write_text("ignored?")
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+    # Add a Python file that matches gitignore pattern
+    (pkg_dir / "test_tmp.py").write_text('def test():\n    return "test"\n')
 
-    write_gitignore(tmp_path, "*.tmp\n")
+    write_gitignore(tmp_path, "*_tmp.py\n")
 
-    cfg = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    cfg.write_text(
-        json.dumps(
-            {
-                "respect_gitignore": False,
-                "builds": [{"include": ["src/**"], "out": "dist"}],
-            },
-        ),
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+        respect_gitignore=False,
     )
 
     # --- patch and execute ---
@@ -99,12 +98,15 @@ def test_config_disables_gitignore(
 
     # --- verify ---
     out = capsys.readouterr().out.lower()
-    dist = tmp_path / "dist"
+    stitched = tmp_path / "dist" / "mypkg.py"
 
     assert code == 0
-    # file.tmp should NOT be excluded since gitignore disabled
-    assert (dist / "file.tmp").exists()
-    assert "Build completed".lower() in out
+    assert stitched.exists()
+    # test_tmp.py should be included since gitignore is disabled
+    stitched_content = stitched.read_text()
+    assert "def test()" in stitched_content or "test_tmp" in stitched_content
+    assert "stitch completed" in out
+    assert "🎉 all builds complete" in out
 
 
 def test_build_enables_gitignore_even_if_root_disabled(
@@ -114,23 +116,26 @@ def test_build_enables_gitignore_even_if_root_disabled(
 ) -> None:
     """A specific build can override root and re-enable .gitignore."""
     # --- setup ---
-    src = tmp_path / "src"
-    src.mkdir()
-    (src / "x.tmp").write_text("ignored?")
-    (src / "x.txt").write_text("keep")
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+    # Add files: one should be excluded, one should be kept
+    (pkg_dir / "skip_tmp.py").write_text('def skip():\n    return "skip"\n')
+    (pkg_dir / "keep.py").write_text('def keep():\n    return "keep"\n')
 
-    write_gitignore(tmp_path, "*.tmp\n")
+    write_gitignore(tmp_path, "*_tmp.py\n")
 
-    cfg = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    cfg.write_text(
-        json.dumps(
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        builds=[
             {
-                "respect_gitignore": False,
-                "builds": [
-                    {"include": ["src/**"], "out": "dist", "respect_gitignore": True},
-                ],
+                "package": "mypkg",
+                "include": ["mypkg/**/*.py"],
+                "out": "dist/mypkg.py",
+                "respect_gitignore": True,
             },
-        ),
+        ],
+        respect_gitignore=False,
     )
 
     # --- patch and execute ---
@@ -139,12 +144,17 @@ def test_build_enables_gitignore_even_if_root_disabled(
 
     # --- verify ---
     out = capsys.readouterr().out.lower()
-    dist = tmp_path / "dist"
+    stitched = tmp_path / "dist" / "mypkg.py"
 
     assert code == 0
-    assert (dist / "x.txt").exists()
-    assert not (dist / "x.tmp").exists()
-    assert "Build completed".lower() in out
+    assert stitched.exists()
+    stitched_content = stitched.read_text()
+    # keep.py should be included
+    assert "def keep()" in stitched_content
+    # skip_tmp.py should be excluded by gitignore (even though root disables it)
+    assert "def skip()" not in stitched_content
+    assert "stitch completed" in out
+    assert "🎉 all builds complete" in out
 
 
 def test_cli_disables_gitignore_even_if_enabled_in_config(
@@ -154,13 +164,20 @@ def test_cli_disables_gitignore_even_if_enabled_in_config(
 ) -> None:
     """--no-gitignore should always take precedence over config."""
     # --- setup ---
-    src = tmp_path / "src"
-    src.mkdir()
-    (src / "ignore.tmp").write_text("ignore")
-    (src / "keep.txt").write_text("keep")
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+    # Add a file that matches gitignore pattern
+    (pkg_dir / "ignore_tmp.py").write_text('def ignore():\n    return "ignore"\n')
+    (pkg_dir / "keep.py").write_text('def keep():\n    return "keep"\n')
 
-    write_gitignore(tmp_path, "*.tmp\n")
-    make_config(tmp_path, [{"include": ["src/**"], "out": "dist"}])
+    write_gitignore(tmp_path, "*_tmp.py\n")
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+    )
 
     # --- patch and execute ---
     monkeypatch.chdir(tmp_path)
@@ -168,13 +185,16 @@ def test_cli_disables_gitignore_even_if_enabled_in_config(
 
     # --- verify ---
     out = capsys.readouterr().out.lower()
-    dist = tmp_path / "dist"
+    stitched = tmp_path / "dist" / "mypkg.py"
 
     assert code == 0
-    # .gitignore ignored
-    assert (dist / "ignore.tmp").exists()
-    assert (dist / "keep.txt").exists()
-    assert "Build completed".lower() in out
+    assert stitched.exists()
+    stitched_content = stitched.read_text()
+    # Both files should be included since --no-gitignore was used
+    assert "def keep()" in stitched_content
+    assert "def ignore()" in stitched_content
+    assert "stitch completed" in out
+    assert "🎉 all builds complete" in out
 
 
 def test_cli_enables_gitignore_even_if_config_disables_it(
@@ -184,21 +204,21 @@ def test_cli_enables_gitignore_even_if_config_disables_it(
 ) -> None:
     """--gitignore should re-enable even if config disables it."""
     # --- setup ---
-    src = tmp_path / "src"
-    src.mkdir()
-    (src / "skip.tmp").write_text("ignored?")
-    (src / "keep.txt").write_text("keep")
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+    # Add files: one should be excluded, one should be kept
+    (pkg_dir / "skip_tmp.py").write_text('def skip():\n    return "skip"\n')
+    (pkg_dir / "keep.py").write_text('def keep():\n    return "keep"\n')
 
-    write_gitignore(tmp_path, "*.tmp\n")
+    write_gitignore(tmp_path, "*_tmp.py\n")
 
-    cfg = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    cfg.write_text(
-        json.dumps(
-            {
-                "respect_gitignore": False,
-                "builds": [{"include": ["src/**"], "out": "dist"}],
-            },
-        ),
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+        respect_gitignore=False,
     )
 
     # --- patch and execute ---
@@ -207,12 +227,17 @@ def test_cli_enables_gitignore_even_if_config_disables_it(
 
     # --- verify ---
     out = capsys.readouterr().out.lower()
-    dist = tmp_path / "dist"
+    stitched = tmp_path / "dist" / "mypkg.py"
 
     assert code == 0
-    assert (dist / "keep.txt").exists()
-    assert not (dist / "skip.tmp").exists()
-    assert "Build completed".lower() in out
+    assert stitched.exists()
+    stitched_content = stitched.read_text()
+    # keep.py should be included
+    assert "def keep()" in stitched_content
+    # skip_tmp.py should be excluded by gitignore (CLI overrides config)
+    assert "def skip()" not in stitched_content
+    assert "stitch completed" in out
+    assert "🎉 all builds complete" in out
 
 
 def test_gitignore_patterns_append_to_existing_excludes(
@@ -222,17 +247,22 @@ def test_gitignore_patterns_append_to_existing_excludes(
 ) -> None:
     """Patterns from .gitignore should merge with config exclude list."""
     # --- setup ---
-    src = tmp_path / "src"
-    src.mkdir()
-    (src / "foo.tmp").write_text("tmp")
-    (src / "bar.log").write_text("log")
-    (src / "baz.txt").write_text("ok")
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+    # Add files that should be excluded by different mechanisms
+    (pkg_dir / "foo_tmp.py").write_text('def foo():\n    return "tmp"\n')
+    (pkg_dir / "bar_log.py").write_text('def bar():\n    return "log"\n')
+    (pkg_dir / "baz.py").write_text('def baz():\n    return "ok"\n')
 
-    write_gitignore(tmp_path, "*.log\n")
+    write_gitignore(tmp_path, "*_log.py\n")
 
-    make_config(
-        tmp_path,
-        [{"include": ["src/**"], "exclude": ["*.tmp"], "out": "dist"}],
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        exclude=["*_tmp.py"],
+        out="dist/mypkg.py",
     )
 
     # --- patch and execute ---
@@ -241,31 +271,54 @@ def test_gitignore_patterns_append_to_existing_excludes(
 
     # --- verify ---
     out = capsys.readouterr().out.lower()
-    dist = tmp_path / "dist"
+    stitched = tmp_path / "dist" / "mypkg.py"
 
     assert code == 0
-    assert not (dist / "foo.tmp").exists()  # excluded by config
-    assert not (dist / "bar.log").exists()  # excluded by gitignore
-    assert (dist / "baz.txt").exists()  # should survive
-    assert "Build completed".lower() in out
+    assert stitched.exists()
+    stitched_content = stitched.read_text()
+    # foo_tmp.py excluded by config exclude
+    assert "def foo()" not in stitched_content
+    # bar_log.py excluded by gitignore
+    assert "def bar()" not in stitched_content
+    # baz.py should be included
+    assert "def baz()" in stitched_content
+    assert "stitch completed" in out
+    assert "🎉 all builds complete" in out
 
 
 def test_cli_gitignore_disable_then_enable(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Test that CLI flags can toggle gitignore behavior between runs."""
     # --- setup ---
-    src = tmp_path / "src"
-    src.mkdir()
-    (src / "a.tmp").write_text("x")
-    (src / "b.txt").write_text("y")
-    write_gitignore(tmp_path, "*.tmp\n")
-    make_config(tmp_path, [{"include": ["src/**"], "out": "dist"}])
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+    # Add a file that matches gitignore pattern
+    (pkg_dir / "a_tmp.py").write_text('def a():\n    return "x"\n')
+    (pkg_dir / "b.py").write_text('def b():\n    return "y"\n')
+    write_gitignore(tmp_path, "*_tmp.py\n")
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+    )
 
     # --- patch, execute and verify ---
     monkeypatch.chdir(tmp_path)
+    # First run with --no-gitignore: a_tmp.py should be included
     mod_cli.main(["--no-gitignore"])
-    assert (tmp_path / "dist/a.tmp").exists()
+    stitched1 = tmp_path / "dist" / "mypkg.py"
+    assert stitched1.exists()
+    content1 = stitched1.read_text()
+    assert "def a()" in content1
+
+    # Clean up and run again with --gitignore: a_tmp.py should be excluded
     shutil.rmtree(tmp_path / "dist")
     mod_cli.main(["--gitignore"])
-    assert not (tmp_path / "dist/a.tmp").exists()
+    stitched2 = tmp_path / "dist" / "mypkg.py"
+    assert stitched2.exists()
+    content2 = stitched2.read_text()
+    assert "def a()" not in content2
