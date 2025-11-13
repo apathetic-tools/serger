@@ -5,8 +5,6 @@ import os
 import sys
 from unittest.mock import patch
 
-# Import from submodule - works in both installed and singlefile modes
-# (singlefile mode excludes __init__.py but includes submodules)
 import serger.utils.utils_system as mod_utils_system
 
 

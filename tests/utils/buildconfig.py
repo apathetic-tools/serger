@@ -4,7 +4,7 @@
 from pathlib import Path
 from typing import cast
 
-import serger.config_types as mod_types
+import serger.config.config_types as mod_types
 
 
 # ---------------------------------------------------------------------------

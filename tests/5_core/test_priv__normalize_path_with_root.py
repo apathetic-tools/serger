@@ -8,7 +8,7 @@
 
 from pathlib import Path
 
-import serger.config_resolve as mod_resolve
+import serger.config.config_resolve as mod_resolve
 
 
 def test_relative_path_preserves_string(tmp_path: Path) -> None:

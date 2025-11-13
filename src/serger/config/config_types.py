@@ -1,4 +1,4 @@
-# src/serger/config_types.py
+# src/serger/config/config_types.py
 
 
 from pathlib import Path

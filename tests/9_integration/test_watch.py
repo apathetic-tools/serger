@@ -13,7 +13,7 @@ import pytest
 
 import serger.actions as mod_actions
 import serger.cli as mod_cli
-import serger.config_types as mod_types
+import serger.config.config_types as mod_types
 import serger.constants as mod_constants
 import serger.meta as mod_meta
 from tests.utils import (

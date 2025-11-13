@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 
 import serger.build as mod_build
-import serger.config_types as mod_config_types
+import serger.config.config_types as mod_config_types
 import serger.stitch as mod_stitch
 from tests.utils.buildconfig import make_include_resolved
 

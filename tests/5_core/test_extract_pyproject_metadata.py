@@ -4,7 +4,7 @@
 import tempfile
 from pathlib import Path
 
-import serger.stitch as mod_stitch
+import serger.config.config_resolve as mod_config_resolve
 
 
 def test_extract_pyproject_metadata_all_fields() -> None:
@@ -22,7 +22,7 @@ license = "MIT"
         path = Path(f.name)
 
     try:
-        metadata = mod_stitch.extract_pyproject_metadata(path)
+        metadata = mod_config_resolve.extract_pyproject_metadata(path)
         assert metadata is not None
         assert metadata.name == "test-package"
         assert metadata.version == "1.2.3"
@@ -46,7 +46,7 @@ license = { file = "LICENSE.txt" }
         path = Path(f.name)
 
     try:
-        metadata = mod_stitch.extract_pyproject_metadata(path)
+        metadata = mod_config_resolve.extract_pyproject_metadata(path)
         assert metadata is not None
         expected = "See LICENSE.txt if distributed alongside this script"
         assert metadata.license_text == expected
@@ -57,7 +57,7 @@ license = { file = "LICENSE.txt" }
 def test_extract_pyproject_metadata_missing_file() -> None:
     """Should return empty metadata if file doesn't exist."""
     path = Path("/nonexistent/pyproject.toml")
-    metadata = mod_stitch.extract_pyproject_metadata(path)
+    metadata = mod_config_resolve.extract_pyproject_metadata(path)
     assert metadata is not None
     assert metadata.name == ""
     assert metadata.version == ""
@@ -79,7 +79,7 @@ version = "1.0.0"
         path = Path(f.name)
 
     try:
-        metadata = mod_stitch.extract_pyproject_metadata(path)
+        metadata = mod_config_resolve.extract_pyproject_metadata(path)
         assert metadata is not None
         assert metadata.name == "test-package"
         assert metadata.version == "1.0.0"
@@ -98,7 +98,7 @@ def test_extract_pyproject_metadata_invalid_toml() -> None:
 
     try:
         # Should return empty metadata (not raise)
-        metadata = mod_stitch.extract_pyproject_metadata(path)
+        metadata = mod_config_resolve.extract_pyproject_metadata(path)
         assert metadata is not None
         assert not metadata.has_any()
     finally:
@@ -117,7 +117,7 @@ some_setting = "value"
         path = Path(f.name)
 
     try:
-        metadata = mod_stitch.extract_pyproject_metadata(path)
+        metadata = mod_config_resolve.extract_pyproject_metadata(path)
         assert metadata is not None
         assert not metadata.has_any()
     finally:

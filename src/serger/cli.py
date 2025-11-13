@@ -11,14 +11,12 @@ from .actions import get_metadata, watch_for_changes
 from .apathetic_logs import LEVEL_ORDER, safe_log
 from .build import run_all_builds
 from .config import (
-    can_run_configless,
-    load_and_validate_config,
-)
-from .config_resolve import resolve_config
-from .config_types import (
     BuildConfigResolved,
     RootConfig,
     RootConfigResolved,
+    can_run_configless,
+    load_and_validate_config,
+    resolve_config,
 )
 from .constants import (
     DEFAULT_DRY_RUN,

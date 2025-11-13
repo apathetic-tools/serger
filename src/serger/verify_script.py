@@ -11,7 +11,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .config_types import PostProcessingConfigResolved, ToolConfigResolved
+from .config import PostProcessingConfigResolved, ToolConfigResolved
 from .logs import get_app_logger
 
 

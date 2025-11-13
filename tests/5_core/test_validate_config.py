@@ -3,7 +3,7 @@
 
 from typing import Any
 
-import serger.config_validate as mod_validate
+import serger.config.config_validate as mod_validate
 
 
 # ---------------------------------------------------------------------------

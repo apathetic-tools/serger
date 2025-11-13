@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-import serger.config_resolve as mod_resolve
-import serger.config_types as mod_types
+import serger.config.config_resolve as mod_resolve
+import serger.config.config_types as mod_types
 import serger.constants as mod_constants
 import serger.constants as mod_mutate_const  # for monkeypatch
 import serger.logs as mod_logs

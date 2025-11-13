@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import cast
 
 import serger.build as mod_build
-import serger.config_types as mod_config_types
+import serger.config.config_types as mod_config_types
 
 
 # Allow up to 2 seconds difference for timestamp comparisons

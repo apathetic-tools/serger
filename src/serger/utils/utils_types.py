@@ -16,7 +16,7 @@ from typing import (
 
 from typing_extensions import NotRequired
 
-from serger.config_types import IncludeResolved, OriginType, PathResolved
+from serger.config.config_types import IncludeResolved, OriginType, PathResolved
 
 
 T = TypeVar("T")

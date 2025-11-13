@@ -1,10 +1,30 @@
-# src/serger/config_resolve.py
+# src/serger/config/config_resolve.py
 
 
 import argparse
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
+
+from serger.constants import (
+    DEFAULT_CATEGORIES,
+    DEFAULT_CATEGORY_ORDER,
+    DEFAULT_ENV_WATCH_INTERVAL,
+    DEFAULT_OUT_DIR,
+    DEFAULT_RESPECT_GITIGNORE,
+    DEFAULT_STRICT_CONFIG,
+    DEFAULT_USE_PYPROJECT,
+    DEFAULT_WATCH_INTERVAL,
+)
+from serger.logs import get_app_logger
+from serger.utils import (
+    cast_hint,
+    has_glob_chars,
+    load_toml,
+    make_includeresolved,
+    make_pathresolved,
+)
 
 from .config_types import (
     BuildConfig,
@@ -21,24 +41,84 @@ from .config_types import (
     ToolConfig,
     ToolConfigResolved,
 )
-from .constants import (
-    DEFAULT_CATEGORIES,
-    DEFAULT_CATEGORY_ORDER,
-    DEFAULT_ENV_WATCH_INTERVAL,
-    DEFAULT_OUT_DIR,
-    DEFAULT_RESPECT_GITIGNORE,
-    DEFAULT_STRICT_CONFIG,
-    DEFAULT_USE_PYPROJECT,
-    DEFAULT_WATCH_INTERVAL,
-)
-from .logs import get_app_logger
-from .stitch import PyprojectMetadata, extract_pyproject_metadata
-from .utils import cast_hint, has_glob_chars, make_includeresolved, make_pathresolved
 
 
 # --------------------------------------------------------------------------- #
 # helpers
 # --------------------------------------------------------------------------- #
+
+
+@dataclass
+class PyprojectMetadata:
+    """Metadata extracted from pyproject.toml."""
+
+    name: str = ""
+    version: str = ""
+    description: str = ""
+    license_text: str = ""
+
+    def has_any(self) -> bool:
+        """Check if any metadata was found."""
+        return bool(self.name or self.version or self.description or self.license_text)
+
+
+def extract_pyproject_metadata(
+    pyproject_path: Path, *, required: bool = False
+) -> PyprojectMetadata | None:
+    """Extract metadata from pyproject.toml file.
+
+    Extracts name, version, description, and license from the [project] section.
+    Uses load_toml() utility which supports Python 3.10 and 3.11+.
+
+    Args:
+        pyproject_path: Path to pyproject.toml file
+        required: If True, raise RuntimeError when tomli is missing on Python 3.10.
+                  If False, return None when unavailable.
+
+    Returns:
+        PyprojectMetadata with extracted fields (empty strings if not found),
+        or None if unavailable
+
+    Raises:
+        RuntimeError: If required=True and TOML parsing is unavailable
+    """
+    if not pyproject_path.exists():
+        return PyprojectMetadata()
+
+    try:
+        data = load_toml(pyproject_path, required=required)
+        if data is None:
+            # TOML parsing unavailable and not required
+            return None
+        project = data.get("project", {})
+    except (FileNotFoundError, ValueError):
+        # If parsing fails, return empty metadata
+        return PyprojectMetadata()
+
+    # Extract fields from parsed TOML
+    name = project.get("name", "")
+    version = project.get("version", "")
+    description = project.get("description", "")
+
+    # Handle license (can be string or dict with "file" key)
+    license_text = ""
+    license_val = project.get("license")
+    if isinstance(license_val, str):
+        license_text = license_val
+    elif isinstance(license_val, dict) and "file" in license_val:
+        file_val = license_val.get("file")  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
+        if isinstance(file_val, str):
+            filename = file_val
+        else:
+            filename = str(file_val) if file_val is not None else "LICENSE"  # pyright: ignore[reportUnknownArgumentType]
+        license_text = f"See {filename} if distributed alongside this script"
+
+    return PyprojectMetadata(
+        name=name if isinstance(name, str) else "",
+        version=version if isinstance(version, str) else "",
+        description=description if isinstance(description, str) else "",
+        license_text=license_text,
+    )
 
 
 def _should_use_pyproject(

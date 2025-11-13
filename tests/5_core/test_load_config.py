@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-import serger.config as mod_config
+import serger.config.config as mod_config
 import serger.meta as mod_meta
 
 

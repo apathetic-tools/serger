@@ -20,7 +20,7 @@ from .utils import make_includeresolved, make_pathresolved
 
 
 if TYPE_CHECKING:
-    from .config_types import BuildConfigResolved
+    from .config import BuildConfigResolved
 
 # Expected exit code from test script (42 * 2 = 84)
 EXPECTED_EXIT_CODE = 84
