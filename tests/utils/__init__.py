@@ -13,6 +13,7 @@ from .buildconfig import (
 from .ci import is_ci
 from .config_validate import make_summary
 from .force_mtime_advance import force_mtime_advance
+from .package import make_test_package
 from .patch_everywhere import patch_everywhere
 from .proj_root import PROJ_ROOT
 from .runtime_swap import runtime_swap
@@ -33,6 +34,7 @@ __all__ = [
     "make_post_processing_config_resolved",
     "make_resolved",
     "make_summary",
+    "make_test_package",
     "make_test_trace",
     "make_tool_config_resolved",
     "patch_everywhere",

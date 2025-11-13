@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 
 import serger.meta as mod_meta
-from tests.utils import PROJ_ROOT
+from tests.utils import PROJ_ROOT, make_test_package
 
 
 # --- only for singlefile runs ---
@@ -36,12 +36,7 @@ def test_standalone_script_metadata_and_execution() -> None:
 
         # Create a simple Python package structure for stitching
         pkg_dir = tmp / "mypkg"
-        pkg_dir.mkdir()
-        (pkg_dir / "__init__.py").write_text("", encoding="utf-8")
-        (pkg_dir / "module.py").write_text(
-            'def hello():\n    return "world"\n',
-            encoding="utf-8",
-        )
+        make_test_package(pkg_dir)
 
         # Create config using json.dumps (matching pattern from other tests)
         config = tmp / f".{mod_meta.PROGRAM_CONFIG}.json"
