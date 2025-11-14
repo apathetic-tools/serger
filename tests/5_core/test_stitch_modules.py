@@ -3,6 +3,8 @@
 
 import py_compile
 import stat
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -497,6 +499,554 @@ class TestStitchModulesCollisionDetection:
                 file_to_include=file_to_include,
                 out_path=out_path,
             )
+
+    def test_collision_detection_with_assign_mode(self) -> None:
+        """Should detect collisions when assign mode creates assignments."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            out_path = tmp_path / "output.py"
+
+            # Create modules in a package:
+            # testpkg/a.py: defines Config class
+            # testpkg/b.py: imports Config from testpkg.a
+            # (assign mode creates Config = ...)
+            # This should trigger a collision
+            (src_dir / "a.py").write_text("class Config:\n    pass\n")
+            (src_dir / "b.py").write_text("from testpkg.a import Config\n")
+
+            file_paths, package_root, file_to_include, config = _setup_stitch_test(
+                src_dir, ["a", "b"], package_name="testpkg"
+            )
+            # Use assign mode for internal imports
+            config["internal_imports"] = "assign"
+
+            with pytest.raises(RuntimeError, match="collision"):
+                mod_stitch.stitch_modules(
+                    config=config,
+                    file_paths=file_paths,
+                    package_root=package_root,
+                    file_to_include=file_to_include,
+                    out_path=out_path,
+                )
+
+
+class TestStitchModulesAssignMode:
+    """Integration tests for assign mode."""
+
+    def test_assign_mode_basic_import(self) -> None:
+        """Should transform imports to assignments and execute correctly."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            out_path = tmp_path / "output.py"
+
+            # Module A defines a class
+            (src_dir / "a.py").write_text("class AppConfig:\n    value = 42\n")
+            # Module B imports and uses it with alias to avoid collision
+            (src_dir / "b.py").write_text(
+                "from testpkg.a import AppConfig as Config\n\nresult = Config.value\n"
+            )
+
+            file_paths, package_root, file_to_include, config = _setup_stitch_test(
+                src_dir, ["a", "b"], package_name="testpkg"
+            )
+            config["internal_imports"] = "assign"
+
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+            )
+
+            # Verify output compiles
+            py_compile.compile(str(out_path), doraise=True)
+
+            # Verify content has assignment
+            content = out_path.read_text()
+            assert "Config = AppConfig" in content
+
+            # Verify it executes correctly
+            # If assignments used sys.modules (not available yet), this would fail
+            result = subprocess.run(  # noqa: S603
+                [sys.executable, str(out_path)],
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=tmp_path,
+            )
+            assert result.returncode == 0, (
+                f"Stitched file failed to execute:\n"
+                f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+            )
+
+    def test_assign_mode_direct_reference_works(self) -> None:
+        """Should work with direct references (would fail with sys.modules).
+
+        This test specifically verifies that direct references work correctly.
+        With sys.modules, this would fail because:
+        1. Module code runs before shims are created
+        2. sys.modules['testpkg.utils'] doesn't exist yet
+        3. Assignment would raise KeyError
+
+        With direct references, it works because all symbols are in the same
+        global namespace.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            out_path = tmp_path / "output.py"
+
+            # Module utils defines a function
+            (src_dir / "utils.py").write_text(
+                "def helper(x: int) -> int:\n    return x * 2\n"
+            )
+            # Module main imports and uses it with alias to avoid collision
+            (src_dir / "main.py").write_text(
+                "from testpkg.utils import helper as compute\n\nanswer = compute(21)\n"
+            )
+
+            file_paths, package_root, file_to_include, config = _setup_stitch_test(
+                src_dir, ["utils", "main"], package_name="testpkg"
+            )
+            config["internal_imports"] = "assign"
+
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+            )
+
+            # Verify output compiles
+            py_compile.compile(str(out_path), doraise=True)
+
+            # Verify content has assignment
+            content = out_path.read_text()
+            assert "compute = helper" in content
+
+            # Verify it executes correctly
+            # If assignments used sys.modules (not available yet), this would fail
+            result = subprocess.run(  # noqa: S603
+                [sys.executable, str(out_path)],
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=tmp_path,
+            )
+            assert result.returncode == 0, (
+                f"Stitched file failed to execute (would fail with sys.modules):\n"
+                f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+            )
+
+            # Verify the code actually ran (answer should be 42)
+            # We can't easily check this without modifying the code, but the
+            # fact that it executed without error is the key test
+
+    def test_assign_mode_with_alias(self) -> None:
+        """Should handle aliased imports correctly."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            out_path = tmp_path / "output.py"
+
+            (src_dir / "config.py").write_text("class MySettings:\n    pass\n")
+            (src_dir / "app.py").write_text(
+                "from testpkg.config import MySettings as MyConfig\n\n"
+                "my_config = MyConfig()\n"
+            )
+
+            file_paths, package_root, file_to_include, config = _setup_stitch_test(
+                src_dir, ["config", "app"], package_name="testpkg"
+            )
+            config["internal_imports"] = "assign"
+
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+            )
+
+            # Verify output compiles
+            py_compile.compile(str(out_path), doraise=True)
+
+            # Verify alias assignment
+            content = out_path.read_text()
+            assert "MyConfig = MySettings" in content
+            assert "my_config = MyConfig()" in content
+
+            # Verify it executes
+            result = subprocess.run(  # noqa: S603
+                [sys.executable, str(out_path)],
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=tmp_path,
+            )
+            assert result.returncode == 0, (
+                f"Stitched file failed to execute:\n"
+                f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+            )
+
+    def test_assign_mode_relative_import(self) -> None:
+        """Should handle relative imports correctly."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            out_path = tmp_path / "output.py"
+
+            (src_dir / "base.py").write_text("BASE_VALUE = 100\n")
+            (src_dir / "derived.py").write_text(
+                "from .base import BASE_VALUE as base_val\n\nDERIVED = base_val + 1\n"
+            )
+
+            file_paths, package_root, file_to_include, config = _setup_stitch_test(
+                src_dir, ["base", "derived"], package_name="testpkg"
+            )
+            config["internal_imports"] = "assign"
+
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+            )
+
+            # Verify output compiles
+            py_compile.compile(str(out_path), doraise=True)
+
+            # Verify relative import was transformed
+            content = out_path.read_text()
+            assert "base_val = BASE_VALUE" in content
+            assert "from .base import" not in content
+
+            # Verify it executes
+            result = subprocess.run(  # noqa: S603
+                [sys.executable, str(out_path)],
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=tmp_path,
+            )
+            assert result.returncode == 0, (
+                f"Stitched file failed to execute:\n"
+                f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+            )
+
+    def test_assign_mode_multiple_imports(self) -> None:
+        """Should handle multiple imports from same module."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            out_path = tmp_path / "output.py"
+
+            (src_dir / "types.py").write_text(
+                "class A:\n    pass\n\nclass B:\n    pass\n\nclass C:\n    pass\n"
+            )
+            (src_dir / "main.py").write_text(
+                "from testpkg.types import A as TypeA, B as TypeB, C as TypeC\n\n"
+                "items = [TypeA(), TypeB(), TypeC()]\n"
+            )
+
+            file_paths, package_root, file_to_include, config = _setup_stitch_test(
+                src_dir, ["types", "main"], package_name="testpkg"
+            )
+            config["internal_imports"] = "assign"
+
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+            )
+
+            # Verify output compiles
+            py_compile.compile(str(out_path), doraise=True)
+
+            # Verify all assignments are present
+            content = out_path.read_text()
+            assert "TypeA = A" in content
+            assert "TypeB = B" in content
+            assert "TypeC = C" in content
+
+            # Verify it executes
+            result = subprocess.run(  # noqa: S603
+                [sys.executable, str(out_path)],
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=tmp_path,
+            )
+            assert result.returncode == 0, (
+                f"Stitched file failed to execute:\n"
+                f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+            )
+
+    def test_assign_mode_function_local_import(self) -> None:
+        """Should handle function-local imports correctly."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            out_path = tmp_path / "output.py"
+
+            (src_dir / "utils.py").write_text(
+                "def compute(x: int) -> int:\n    return x * 3\n"
+            )
+            (src_dir / "main.py").write_text(
+                "def run():\n"
+                "    from testpkg.utils import compute as calc\n"
+                "    return calc(7)\n"
+            )
+
+            file_paths, package_root, file_to_include, config = _setup_stitch_test(
+                src_dir, ["utils", "main"], package_name="testpkg"
+            )
+            config["internal_imports"] = "assign"
+
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+            )
+
+            # Verify output compiles
+            py_compile.compile(str(out_path), doraise=True)
+
+            # Verify function-local assignment
+            content = out_path.read_text()
+            assert "calc = compute" in content
+            assert "def run():" in content
+
+            # Verify it executes
+            result = subprocess.run(  # noqa: S603
+                [sys.executable, str(out_path)],
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=tmp_path,
+            )
+            assert result.returncode == 0, (
+                f"Stitched file failed to execute:\n"
+                f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+            )
+
+    def test_assign_mode_end_to_end_execution(self) -> None:
+        """Should produce working stitched code that executes correctly.
+
+        Creates a multi-file project with actual functionality, stitches it
+        with assign mode, and verifies it executes and produces expected output.
+        This ensures assign mode assignments actually work at runtime.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            out_path = tmp_path / "output.py"
+
+            # File 1: Defines a utility function
+            (src_dir / "utils.py").write_text(
+                "def multiply(x: int, y: int) -> int:\n"
+                "    print(f'Multiplying {x} * {y}')\n"
+                "    return x * y\n"
+            )
+
+            # File 2: Defines a calculator class (uses alias to avoid collision)
+            (src_dir / "calculator.py").write_text(
+                "from testpkg.utils import multiply as mult\n\n"
+                "class Calculator:\n"
+                "    def __init__(self):\n"
+                "        print('Calculator initialized')\n"
+                "    \n"
+                "    def compute(self, a: int, b: int) -> int:\n"
+                "        result = mult(a, b)\n"
+                "        print(f'Result: {result}')\n"
+                "        return result\n"
+            )
+
+            # File 3: Main entry point that uses both (uses alias to avoid collision)
+            (src_dir / "main.py").write_text(
+                "from testpkg.calculator import Calculator as Calc\n\n"
+                "def main(_args=None):\n"
+                "    print('Starting application')\n"
+                "    calc = Calc()\n"
+                "    answer = calc.compute(6, 7)\n"
+                "    print(f'Final answer: {answer}')\n"
+                "    return 0\n"
+            )
+
+            file_paths, package_root, file_to_include, config = _setup_stitch_test(
+                src_dir, ["utils", "calculator", "main"], package_name="testpkg"
+            )
+            config["internal_imports"] = "assign"
+
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+            )
+
+            # Verify output compiles
+            py_compile.compile(str(out_path), doraise=True)
+
+            # Verify assignments are present
+            content = out_path.read_text()
+            assert "mult = multiply" in content
+            assert "Calc = Calculator" in content
+
+            # Execute and verify output
+            result = subprocess.run(  # noqa: S603
+                [sys.executable, str(out_path)],
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=tmp_path,
+            )
+
+            assert result.returncode == 0, (
+                f"Stitched file failed to execute:\n"
+                f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+            )
+
+            # Verify expected output appears in correct order
+            output = result.stdout
+            assert "Starting application" in output
+            assert "Calculator initialized" in output
+            assert "Multiplying 6 * 7" in output
+            assert "Result: 42" in output
+            assert "Final answer: 42" in output
+
+            # Verify output order is correct (rough check)
+            assert output.find("Starting application") < output.find(
+                "Calculator initialized"
+            )
+            assert output.find("Calculator initialized") < output.find(
+                "Multiplying 6 * 7"
+            )
+            assert output.find("Multiplying 6 * 7") < output.find("Result: 42")
+            assert output.find("Result: 42") < output.find("Final answer: 42")
+
+
+class TestStitchModulesOtherImportModes:
+    """Integration tests for other internal import modes (force_strip, strip, keep)."""
+
+    def test_force_strip_mode_end_to_end(self) -> None:
+        """Should remove internal imports and code still executes correctly."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            out_path = tmp_path / "output.py"
+
+            (src_dir / "utils.py").write_text(
+                "def add(x: int, y: int) -> int:\n    return x + y\n"
+            )
+            (src_dir / "main.py").write_text(
+                "from testpkg.utils import add\n\n"
+                "def main(_args=None):\n"
+                "    result = add(10, 20)\n"
+                "    print(f'Result: {result}')\n"
+                "    return 0\n"
+            )
+
+            file_paths, package_root, file_to_include, config = _setup_stitch_test(
+                src_dir, ["utils", "main"], package_name="testpkg"
+            )
+            config["internal_imports"] = "force_strip"
+
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+            )
+
+            # Verify output compiles
+            py_compile.compile(str(out_path), doraise=True)
+
+            # Verify import was removed
+            content = out_path.read_text()
+            assert "from testpkg.utils import add" not in content
+
+            # Execute and verify it works
+            result = subprocess.run(  # noqa: S603
+                [sys.executable, str(out_path)],
+                check=False,
+                capture_output=True,
+                text=True,
+                cwd=tmp_path,
+            )
+
+            assert result.returncode == 0, (
+                f"Stitched file failed to execute:\n"
+                f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+            )
+            assert "Result: 30" in result.stdout
+
+    def test_keep_mode_end_to_end(self) -> None:
+        """Should keep internal imports (may fail at runtime, but verifies structure).
+
+        Note: Internal imports in 'keep' mode may not work in stitched output
+        since the import system isn't set up. This test verifies the structure
+        is correct even if execution might fail.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            out_path = tmp_path / "output.py"
+
+            (src_dir / "utils.py").write_text(
+                "def subtract(x: int, y: int) -> int:\n    return x - y\n"
+            )
+            (src_dir / "main.py").write_text(
+                "from testpkg.utils import subtract\n\n"
+                "def main(_args=None):\n"
+                "    result = subtract(50, 20)\n"
+                "    print(f'Result: {result}')\n"
+                "    return 0\n"
+            )
+
+            file_paths, package_root, file_to_include, config = _setup_stitch_test(
+                src_dir, ["utils", "main"], package_name="testpkg"
+            )
+            config["internal_imports"] = "keep"
+
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+            )
+
+            # Verify output compiles
+            py_compile.compile(str(out_path), doraise=True)
+
+            # Verify import was kept
+            content = out_path.read_text()
+            assert "from testpkg.utils import subtract" in content
+
+            # Note: Execution may fail because internal imports don't work
+            # in stitched mode, but we verify the structure is correct
 
 
 class TestStitchModulesMetadata:
