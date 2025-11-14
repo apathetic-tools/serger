@@ -89,7 +89,7 @@ These options apply globally and can cascade into individual builds:
 | `use_pyproject` | `bool` | `true` | Whether to pull metadata from `pyproject.toml` |
 | `pyproject_path` | `str` | - | Path to `pyproject.toml` (fallback for single builds) |
 | `internal_imports` | `str` | `"force_strip"` | How to handle internal package imports (see [Import Handling](#import-handling)) |
-| `external_imports` | `str` | `"force_top"` | How to handle external imports (see [Import Handling](#import-handling)) |
+| `external_imports` | `str` | `"top"` | How to handle external imports (see [Import Handling](#import-handling)) |
 
 ## Build Configuration Options
 
@@ -185,8 +185,8 @@ External imports are imports from packages not being stitched (e.g., `import os`
 
 | Mode | Description |
 |------|-------------|
-| `force_top` | Move external imports to the top (default). Always moves imports, even inside conditional structures (if, try, etc.). Module-level imports are collected and deduplicated at the top. Empty structures (if, try, etc.) get a `pass` statement. Empty `if TYPE_CHECKING:` blocks (including those with only pass statements) are removed entirely. |
-| `top` | Move external imports to the top (not yet implemented). Moves imports to the top, but skips imports inside conditional structures (if, try, etc.), except `if TYPE_CHECKING` blocks which are always processed. |
+| `top` | Move external imports to the top (default). Moves imports to the top, but skips imports inside conditional structures (if, try, etc.), except `if TYPE_CHECKING` blocks which are always processed. |
+| `force_top` | Move external imports to the top. Always moves imports, even inside conditional structures (if, try, etc.). Module-level imports are collected and deduplicated at the top. Empty structures (if, try, etc.) get a `pass` statement. Empty `if TYPE_CHECKING:` blocks (including those with only pass statements) are removed entirely. |
 | `keep` | Keep external imports in their original locations within each module section. |
 | `force_strip` | Remove external imports. Always removes imports, even inside conditional structures (if, try, etc.). Empty structures (if, try, etc.) get a `pass` statement. Empty `if TYPE_CHECKING:` blocks (including those with only pass statements) are removed entirely. |
 | `strip` | Remove external imports (not yet implemented). Skips imports inside conditional structures (if, try, etc.), except `if TYPE_CHECKING` blocks which are always processed. Empty `if TYPE_CHECKING:` blocks (including those with only pass statements) are removed entirely. |
@@ -201,11 +201,11 @@ External imports are imports from packages not being stitched (e.g., `import os`
       "include": ["src/mypkg/**/*.py"],
       "out": "dist/mypkg.py",
       "internal_imports": "force_strip",
-      "external_imports": "force_top"
+      "external_imports": "top"
     }
   ],
   "internal_imports": "force_strip",  // Default for all builds
-  "external_imports": "force_top"     // Default for all builds
+  "external_imports": "top"            // Default for all builds
 }
 ```
 
