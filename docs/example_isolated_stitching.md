@@ -1,5 +1,7 @@
 # Example: Isolated Module Stitching
 
+> **Note**: This document describes the planned `exec` stitch mode. Currently, only the `raw` stitch mode is implemented. See [Configuration - Stitch Modes](/configuration#stitch-modes) for details on available modes.
+
 ## Original Source Files
 
 ### `src/mypkg/utils.py`
