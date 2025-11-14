@@ -13,6 +13,7 @@ OriginType = Literal["cli", "config", "plugin", "default", "code", "gitignore", 
 InternalImportMode = Literal["force_strip", "strip", "keep", "assign"]
 ExternalImportMode = Literal["force_top", "top", "keep", "force_strip", "strip"]
 StitchMode = Literal["raw", "class", "exec"]
+CommentsMode = Literal["keep", "ignores", "inline", "strip"]
 
 
 # Post-processing configuration types
@@ -113,6 +114,13 @@ class BuildConfig(TypedDict, total=False):
     # - "class": Namespace files within classes (not yet implemented)
     # - "exec": Namespace files within module shims using exec() (not yet implemented)
     stitch_mode: StitchMode
+    # Comments mode: how to handle comments in stitched output
+    # - "keep": Keep all comments (default)
+    # - "ignores": Only keep comments that specify ignore rules
+    #   (e.g., # noqa:, # type: ignore)
+    # - "inline": Only keep inline comments (comments on the same line as code)
+    # - "strip": Remove all comments
+    comments_mode: CommentsMode
 
 
 class RootConfig(TypedDict, total=False):
@@ -140,6 +148,13 @@ class RootConfig(TypedDict, total=False):
     # - "class": Namespace files within classes (not yet implemented)
     # - "exec": Namespace files within module shims using exec() (not yet implemented)
     stitch_mode: StitchMode
+    # Comments mode default (cascades into builds)
+    # - "keep": Keep all comments (default)
+    # - "ignores": Only keep comments that specify ignore rules
+    #   (e.g., # noqa:, # type: ignore)
+    # - "inline": Only keep inline comments (comments on the same line as code)
+    # - "strip": Remove all comments
+    comments_mode: CommentsMode
 
 
 class BuildConfigResolved(TypedDict):
@@ -169,6 +184,7 @@ class BuildConfigResolved(TypedDict):
     internal_imports: InternalImportMode  # How to handle internal imports
     external_imports: ExternalImportMode  # How to handle external imports
     stitch_mode: StitchMode  # How to combine modules into a single file
+    comments_mode: CommentsMode  # How to handle comments in stitched output
 
 
 class RootConfigResolved(TypedDict):

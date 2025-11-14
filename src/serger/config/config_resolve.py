@@ -11,6 +11,7 @@ from apathetic_utils import cast_hint, has_glob_chars, load_toml
 from serger.constants import (
     DEFAULT_CATEGORIES,
     DEFAULT_CATEGORY_ORDER,
+    DEFAULT_COMMENTS_MODE,
     DEFAULT_ENV_WATCH_INTERVAL,
     DEFAULT_EXTERNAL_IMPORTS,
     DEFAULT_INTERNAL_IMPORTS,
@@ -973,6 +974,19 @@ def resolve_build_config(  # noqa: PLR0912, PLR0915
         resolved_cfg["external_imports"] = root_external
     else:
         resolved_cfg["external_imports"] = DEFAULT_EXTERNAL_IMPORTS[stitch_mode]
+
+    # ------------------------------
+    # Comments mode
+    # ------------------------------
+    # Cascade: build-level → root-level → default
+    build_comments_mode = resolved_cfg.get("comments_mode")
+    root_comments_mode = (root_cfg or {}).get("comments_mode")
+    if build_comments_mode is not None:
+        resolved_cfg["comments_mode"] = build_comments_mode
+    elif root_comments_mode is not None:
+        resolved_cfg["comments_mode"] = root_comments_mode
+    else:
+        resolved_cfg["comments_mode"] = DEFAULT_COMMENTS_MODE
 
     # ------------------------------
     # Post-processing

@@ -61,6 +61,7 @@ def make_build_cfg(  # noqa: PLR0913
     stitch_mode: mod_types.StitchMode = "raw",
     internal_imports: mod_types.InternalImportMode = "force_strip",
     external_imports: mod_types.ExternalImportMode = "top",
+    comments_mode: mod_types.CommentsMode = "keep",
     post_processing: mod_types.PostProcessingConfigResolved | None = None,
 ) -> mod_types.BuildConfigResolved:
     """Return a fake, fully-populated BuildConfigResolved."""
@@ -78,6 +79,7 @@ def make_build_cfg(  # noqa: PLR0913
         "stitch_mode": stitch_mode,
         "internal_imports": internal_imports,
         "external_imports": external_imports,
+        "comments_mode": comments_mode,
         "post_processing": post_processing
         if post_processing is not None
         else make_post_processing_config_resolved(),

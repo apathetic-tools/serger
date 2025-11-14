@@ -48,11 +48,11 @@ Exploring bundling options for generating the single-file release:
 - is checking py_compiles overkill? should we also run it against the installed mode not just singlefile?
 
 ## 🧑‍💻 Development
-- How can we keep internal imports in stitch mode and avoid conflicts? (see [docs/example_isolated_stiching.md](docs/example_isolated_stiching.md))
+- implement stich mode: exec (see [docs/example_isolated_stiching.md](docs/example_isolated_stiching.md))
+- implement stich mode: class (requires working assign import mode)
 - Evaluate ignores and determine if we can fix them instead of ignore them
 - can we pull out common CLI elements with pocket-build into a single toplevel module?
-- set up stitch modes
-- set up comment stripper toggle
+- set up docstring mode
 - command to do common tasks based on reddit advice for dealing with AI.
 - quiet mode for the ai program
 - import options: implement documented modes
@@ -60,6 +60,7 @@ Exploring bundling options for generating the single-file release:
 - do we guarantee order (some for loops or data structures don't guarantee order)
 - same config same output? are we imdemponent (sp?)
 - if we moved the sys.modules shims as we went, would that allow us to do imports as long as the order was correct?
+- should more of our config settings be available to be set via ENV?
 
 ## 🚀 Deployment
 - Deploy action when I tag a release should create a release and attach it to the tagged release.
