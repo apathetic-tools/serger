@@ -510,14 +510,17 @@ class TestStitchModulesCollisionDetection:
 
             # Create modules in a package:
             # testpkg/a.py: defines Config class
-            # testpkg/b.py: imports Config from testpkg.a
-            # (assign mode creates Config = ...)
+            # testpkg/b.py: imports Config from testpkg.a with alias Cfg
+            # testpkg/c.py: also defines Cfg class
+            # (assign mode creates Cfg = Config in b.py, which conflicts with
+            # class Cfg in c.py)
             # This should trigger a collision
             (src_dir / "a.py").write_text("class Config:\n    pass\n")
-            (src_dir / "b.py").write_text("from testpkg.a import Config\n")
+            (src_dir / "b.py").write_text("from testpkg.a import Config as Cfg\n")
+            (src_dir / "c.py").write_text("class Cfg:\n    pass\n")
 
             file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["a", "b"], package_name="testpkg"
+                src_dir, ["a", "b", "c"], package_name="testpkg"
             )
             # Use assign mode for internal imports
             config["internal_imports"] = "assign"
@@ -566,7 +569,7 @@ class TestStitchModulesAssignMode:
             # Verify output compiles
             py_compile.compile(str(out_path), doraise=True)
 
-            # Verify content has assignment
+            # Verify content has assignment (non-no-op with alias)
             content = out_path.read_text()
             assert "Config = AppConfig" in content
 
@@ -906,7 +909,7 @@ class TestStitchModulesAssignMode:
             # Verify output compiles
             py_compile.compile(str(out_path), doraise=True)
 
-            # Verify assignments are present
+            # Verify assignments are present (non-no-op with aliases)
             content = out_path.read_text()
             assert "mult = multiply" in content
             assert "Calc = Calculator" in content

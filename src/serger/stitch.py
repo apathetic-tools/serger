@@ -252,11 +252,13 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
         code runs).
 
         Converts imports like:
-        - `from module import name` → `name = name` (direct reference)
+        - `from module import name` → (skipped, no-op: `name = name`)
         - `from module import name as alias` → `alias = name` (direct reference)
-        - `import module` → `module = module` (for simple imports, but this is
-          problematic for dotted imports - see below)
+        - `import module` → (skipped, no-op: `module = module`)
         - `import module as alias` → `alias = module` (direct reference)
+
+        Note: No-op assignments (where local_name == imported_name) are skipped
+        since they're redundant.
 
         Note: For `import a.b.c`, Python creates variable 'a' in the namespace,
         but in stitched mode, we can't easily reference 'a.b.c' directly.
@@ -278,9 +280,11 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
             for alias in node.names:
                 imported_name = alias.name
                 local_name = alias.asname if alias.asname else imported_name
-                # Direct reference: symbol is already in global namespace
-                assignment = f"{local_name} = {imported_name}"
-                assignments.append(assignment)
+                # Skip no-op assignments (name = name)
+                if local_name != imported_name:
+                    # Direct reference: symbol is already in global namespace
+                    assignment = f"{local_name} = {imported_name}"
+                    assignments.append(assignment)
 
         else:
             # Handle: import module [as alias]
@@ -295,7 +299,10 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
                     # For internal imports, this won't work - we'd need the
                     # module object, which doesn't exist in stitched mode.
                     # This is a limitation of assign mode for "import module".
-                    assignment = f"{local_name} = {module_name}"
+                    # Skip no-op (alias == module_name)
+                    if local_name != module_name:
+                        assignment = f"{local_name} = {module_name}"
+                        assignments.append(assignment)
                 else:
                     # import module or import a.b.c
                     # For dotted imports like "import a.b.c", Python creates
@@ -303,10 +310,10 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
                     # In stitched mode, we can't reference 'a.b.c' directly,
                     # so we just reference the first component.
                     # This may not work correctly for all cases.
-                    first_component = module_name.split(".", 1)[0]
-                    local_name = first_component
-                    assignment = f"{local_name} = {first_component}"
-                assignments.append(assignment)
+                    # Skip no-op assignments (module = module would be redundant)
+                    # Note: For non-aliased imports, we skip since it would be
+                    # a no-op (first_component = first_component)
+                    pass
 
         return "\n".join(assignments)
 

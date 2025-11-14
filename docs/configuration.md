@@ -190,7 +190,6 @@ External imports are imports from packages not being stitched (e.g., `import os`
 | `keep` | Keep external imports in their original locations within each module section. |
 | `force_strip` | Remove external imports. Always removes imports, even inside conditional structures (if, try, etc.). Empty structures (if, try, etc.) get a `pass` statement. Empty `if TYPE_CHECKING:` blocks (including those with only pass statements) are removed entirely. |
 | `strip` | Remove external imports (not yet implemented). Skips imports inside conditional structures (if, try, etc.), except `if TYPE_CHECKING` blocks which are always processed. Empty `if TYPE_CHECKING:` blocks (including those with only pass statements) are removed entirely. |
-| `assign` | **[EXPERIMENTAL/WIP]** Transform imports into assignments. For example, `from pathlib import Path` becomes `Path = Path` (direct reference), and `from os import path as ospath` becomes `ospath = path`. In stitched mode, all modules share the same global namespace, so symbols can be referenced directly. These assignments are included in collision detection. Note: `import module` statements may not work correctly for internal packages. |
 
 ### Example
 

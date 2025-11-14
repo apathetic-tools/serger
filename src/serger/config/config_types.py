@@ -14,10 +14,7 @@ OriginType = Literal["cli", "config", "plugin", "default", "code", "gitignore", 
 InternalImportMode = Literal["force_strip", "strip", "keep", "assign"]
 # default: force_top
 # Implemented: "force_top", "top", "keep", "force_strip", "strip"
-# Not yet implemented: "assign"
-ExternalImportMode = Literal[
-    "force_top", "top", "keep", "force_strip", "strip", "assign"
-]
+ExternalImportMode = Literal["force_top", "top", "keep", "force_strip", "strip"]
 
 
 # Post-processing configuration types
