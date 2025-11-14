@@ -9,9 +9,14 @@ from typing_extensions import NotRequired
 
 OriginType = Literal["cli", "config", "plugin", "default", "code", "gitignore", "test"]
 
+# default: force_strip (but we always just strip irrelevant of mode
+# all modes unimplemented
 InternalImportMode = Literal[
     "force_strip", "strip", "keep", "pass", "force_pass", "assign"
 ]
+# default: force_top
+# Implemented: "force_top", "top", "keep"
+# Not yet implemented: "force_strip", "strip", "pass", "force_pass", "assign"
 ExternalImportMode = Literal[
     "force_top", "top", "keep", "force_strip", "strip", "pass", "force_pass", "assign"
 ]
