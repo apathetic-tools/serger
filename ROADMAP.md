@@ -50,7 +50,7 @@ Exploring bundling options for generating the single-file release:
 - stitch modes: raw, class/def/mixins?, exec+docstring
 - do we guarantee order (some for loops or data structures don't guarantee order)
 - same config same output? are we imdemponent (sp?)
-- what do we do with if TYPING?
+- what do we do with `if TYPE_CHECKING:`? only if pure
 
 ## 🚀 Deployment
 - Deploy action when I tag a release should create a release and attach it to the tagged release.

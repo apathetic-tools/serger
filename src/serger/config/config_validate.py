@@ -38,13 +38,13 @@ FIELD_EXAMPLES: dict[str, str] = {
     "root.builds.*.display_name": '"MyProject"',
     "root.builds.*.description": '"A description of the project"',
     "root.builds.*.repo": '"https://github.com/user/project"',
-    "root.builds.*.internal_imports": '"strip"',
-    "root.builds.*.external_imports": '"top"',
+    "root.builds.*.internal_imports": '"force_strip"',
+    "root.builds.*.external_imports": '"force_top"',
     "root.watch_interval": "1.5",
     "root.log_level": '"debug"',
     "root.strict_config": "true",
-    "root.internal_imports": '"strip"',
-    "root.external_imports": '"top"',
+    "root.internal_imports": '"force_strip"',
+    "root.external_imports": '"force_top"',
 }
 
 
