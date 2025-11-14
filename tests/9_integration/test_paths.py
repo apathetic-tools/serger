@@ -572,6 +572,151 @@ def test_relative_include_with_parent_reference(
     assert stitched_file.exists()
 
 
+def test_config_include_with_parent_reference(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Include with ../ in config should resolve relative to config file directory."""
+    # --- setup ---
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    pkg_dir = shared / "mypkg"
+    make_test_package(pkg_dir)
+    project = tmp_path / "project"
+    project.mkdir()
+
+    # Create config with include that goes backwards from config location
+    config = project / f".{mod_meta.PROGRAM_CONFIG}.json"
+    config.write_text(
+        json.dumps(
+            {
+                "builds": [
+                    {
+                        "package": "mypkg",
+                        "include": ["../shared/mypkg/**/*.py"],
+                        "out": "dist",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    # --- patch and execute ---
+    # Run from a different cwd to ensure it uses config_dir, not cwd
+    cwd = tmp_path / "runner"
+    cwd.mkdir()
+    monkeypatch.chdir(cwd)
+    code = mod_cli.main(["--config", str(config)])
+
+    # --- verify ---
+    assert code == 0
+    dist = project / "dist"
+    stitched_file = dist / "mypkg.py"
+    assert stitched_file.exists()
+    # Ensure it didn't try to resolve from cwd
+    assert not (cwd / "dist").exists()
+
+
+def test_out_flag_with_parent_reference(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """--out with ../ should resolve relative to cwd, not config file location."""
+    # --- setup ---
+    project = tmp_path / "project"
+    project.mkdir()
+    pkg_dir = project / "mypkg"
+    make_test_package(pkg_dir)
+
+    config = project / f".{mod_meta.PROGRAM_CONFIG}.json"
+    config.write_text(
+        json.dumps(
+            {
+                "builds": [
+                    {
+                        "package": "mypkg",
+                        "include": ["mypkg/**/*.py"],
+                        "out": "ignored",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    # Create output directory one level up from cwd
+    output_parent = tmp_path / "outputs"
+    output_parent.mkdir()
+
+    # --- patch and execute ---
+    cwd = tmp_path / "runner"
+    cwd.mkdir()
+    monkeypatch.chdir(cwd)
+    code = mod_cli.main(["--config", str(config), "--out", "../outputs/dist"])
+
+    # --- verify ---
+    assert code == 0
+    # Output should be relative to cwd (runner), so ../outputs/dist from runner
+    output_dir = output_parent / "dist"
+    stitched_file = output_dir / "mypkg.py"
+    assert stitched_file.exists()
+    # Ensure it didn't build relative to config file location
+    assert not (project / "outputs").exists()
+    assert not (cwd / "dist").exists()
+
+
+def test_config_out_with_parent_reference(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Out path with ../ in config should resolve relative to config file directory."""
+    # --- setup ---
+    project = tmp_path / "project"
+    project.mkdir()
+    pkg_dir = project / "mypkg"
+    make_test_package(pkg_dir)
+
+    # Create output directory one level up from project
+    output_parent = tmp_path / "outputs"
+    output_parent.mkdir()
+
+    # Create config with out that goes backwards from config location
+    config = project / f".{mod_meta.PROGRAM_CONFIG}.json"
+    config.write_text(
+        json.dumps(
+            {
+                "builds": [
+                    {
+                        "package": "mypkg",
+                        "include": ["mypkg/**/*.py"],
+                        "out": "../outputs/dist",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    # --- patch and execute ---
+    # Run from a different cwd to ensure it uses config_dir, not cwd
+    cwd = tmp_path / "runner"
+    cwd.mkdir()
+    monkeypatch.chdir(cwd)
+    code = mod_cli.main(["--config", str(config)])
+
+    # --- verify ---
+    assert code == 0
+    # Output should be relative to config file (project),
+    # so ../outputs/dist from project
+    output_dir = output_parent / "dist"
+    stitched_file = output_dir / "mypkg.py"
+    assert stitched_file.exists()
+    # Ensure it didn't build relative to cwd
+    assert not (cwd / "outputs").exists()
+    assert not (project / "dist").exists()
+
+
 def test_mixed_relative_and_absolute_includes(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

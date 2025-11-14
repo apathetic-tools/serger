@@ -19,6 +19,7 @@ Major stitching capabilities and enhancements:
 Planned command-line flags for future releases:
 
 - `--check-config` or `--verify-config` or `--validate-config` command
+- should we have parity of the CLI with the config file features?
 - `--self-update` — update serger itself
 - `--no-update-check` — skip automatic update check
 

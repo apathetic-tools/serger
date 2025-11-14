@@ -105,3 +105,37 @@ def test_handles_absolute_file(tmp_path: Path) -> None:
     # --- verify ---
     assert b == f.resolve()
     assert p == "."
+
+
+def test_relative_path_with_parent_reference(tmp_path: Path) -> None:
+    """Relative path with ../ should preserve the pattern and use context_root."""
+    # --- setup ---
+    project = tmp_path / "project"
+    project.mkdir()
+    rel = "../shared/pkg/**"
+
+    # --- execute ---
+    b, p = mod_resolve._normalize_path_with_root(rel, project)
+
+    # --- verify ---
+    # Root should be the context_root (project), not resolved upwards
+    assert b == project.resolve()
+    # Path should preserve the ../ pattern as a string
+    assert isinstance(p, str)
+    assert p == "../shared/pkg/**"
+
+
+def test_relative_path_with_multiple_parent_references(tmp_path: Path) -> None:
+    """Multiple ../ in path should be preserved."""
+    # --- setup ---
+    deep = tmp_path / "a" / "b" / "c"
+    deep.mkdir(parents=True)
+    rel = "../../root/pkg/**"
+
+    # --- execute ---
+    b, p = mod_resolve._normalize_path_with_root(rel, deep)
+
+    # --- verify ---
+    assert b == deep.resolve()
+    assert isinstance(p, str)
+    assert p == "../../root/pkg/**"
