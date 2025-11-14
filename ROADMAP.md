@@ -29,6 +29,11 @@ Planned command-line flags for future releases:
 - Add key to disable update checks directly in config
 - Provide a JSON Schema for validation and autocomplete
 - Module-level configuration (metadata, headers)
+- config setting for the module shims at the end
+- config setting for the main
+- can package be removed?
+- can we make the main() detection smarter?
+- config setting for main
 
 ## 🧩 Joiner Scripts (Build System)
 Exploring bundling options for generating the single-file release:
@@ -37,6 +42,8 @@ Exploring bundling options for generating the single-file release:
 
 ## 🧪 Tests
 - How can we report what we comment tool ignore, in src and in tests?
+- Organize tests in classes? or separate files?
+- split large test files
 
 ## 🧑‍💻 Development
 - How can we keep internal imports in stitch mode and avoid conflicts? (see [docs/example_isolated_stiching.md](docs/example_isolated_stiching.md))

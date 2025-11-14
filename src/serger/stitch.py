@@ -21,6 +21,7 @@ from typing import cast
 from .config import (
     ExternalImportMode,
     IncludeResolved,
+    InternalImportMode,
     PostProcessingConfigResolved,
 )
 from .logs import get_app_logger
@@ -82,12 +83,13 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
     text: str,
     package_names: list[str],
     external_imports: ExternalImportMode = "force_top",
+    internal_imports: InternalImportMode = "force_strip",
 ) -> tuple[list[str], str]:
     """Extract external imports and body text using AST.
 
     Separates internal package imports from external imports, handling them
-    according to the external_imports mode. Recursively finds imports at all
-    levels, including inside functions.
+    according to the external_imports and internal_imports modes. Recursively
+    finds imports at all levels, including inside functions.
 
     Args:
         text: Python source code
@@ -114,6 +116,16 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
               are always processed (imports removed). Empty `if TYPE_CHECKING:`
               blocks (including those with only pass statements) are removed
               entirely.
+        internal_imports: How to handle internal imports. Supported modes:
+            - "force_strip": Remove all internal imports regardless of location
+              (default). Internal imports break in stitched mode, so they are
+              removed by default.
+            - "keep": Keep internal imports in their original locations within
+              each module section.
+            - "strip": Remove internal imports, but skip imports inside
+              conditional structures (if, try, etc.). `if TYPE_CHECKING:` blocks
+              are always processed (imports removed). Not yet implemented.
+            - "assign": Transform imports into assignments. Not yet implemented.
 
     Returns:
         Tuple of (external_imports, body_text) where external_imports is a
@@ -261,11 +273,36 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
                 and type_checking_block.test.id == "TYPE_CHECKING"
             )
 
-            # Always remove internal imports (they break in stitched mode)
+            # Handle internal imports according to mode
             if is_internal:
-                # For internal imports in TYPE_CHECKING blocks, just remove the import
-                # We'll check if the block is empty later
-                all_import_ranges.append((start, end))
+                if internal_imports == "keep":
+                    # Keep internal imports in place - don't add to ranges
+                    pass
+                elif internal_imports == "force_strip":
+                    # Remove all internal imports regardless of location
+                    all_import_ranges.append((start, end))
+                elif internal_imports == "strip":
+                    # Strip internal imports, but skip imports inside conditional
+                    # structures (if, try, etc.). TYPE_CHECKING blocks are always
+                    # processed (imports removed).
+                    if is_type_checking:
+                        # Always process TYPE_CHECKING blocks - remove imports
+                        all_import_ranges.append((start, end))
+                    elif is_in_conditional(node, tree):
+                        # In conditional (but not TYPE_CHECKING) - keep import
+                        # Don't add to ranges
+                        pass
+                    else:
+                        # Not in conditional - remove import
+                        all_import_ranges.append((start, end))
+                else:
+                    # Other modes (assign) not yet implemented
+                    msg = (
+                        f"internal_imports mode '{internal_imports}' is not yet "
+                        "implemented. Only 'force_strip' and 'keep' modes are "
+                        "currently supported."
+                    )
+                    raise ValueError(msg)
             # External: handle according to mode
             elif external_imports == "keep":
                 # Keep external imports in place - don't add to ranges or list
@@ -1018,6 +1055,7 @@ def _collect_modules(
     package_name: str,
     file_to_include: dict[Path, IncludeResolved],
     external_imports: ExternalImportMode = "force_top",
+    internal_imports: InternalImportMode = "force_strip",
 ) -> tuple[dict[str, str], OrderedDict[str, None], list[str], list[str]]:
     """Collect and process module sources from file paths.
 
@@ -1027,6 +1065,7 @@ def _collect_modules(
         package_name: Root package name
         file_to_include: Mapping of file path to its include (for dest access)
         external_imports: How to handle external imports
+        internal_imports: How to handle internal imports
 
     Returns:
         Tuple of (module_sources, all_imports, parts, derived_module_names)
@@ -1075,9 +1114,9 @@ def _collect_modules(
         module_text = strip_redundant_blocks(module_text)
         module_sources[f"{module_name}.py"] = module_text
 
-        # Extract imports - pass all detected package names and mode
+        # Extract imports - pass all detected package names and modes
         external_imports_list, module_body = split_imports(
-            module_text, package_names_list, external_imports
+            module_text, package_names_list, external_imports, internal_imports
         )
         for imp in external_imports_list:
             all_imports.setdefault(imp, None)
@@ -1658,8 +1697,20 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         raise TypeError(msg)
     external_imports = cast("ExternalImportMode", external_imports_raw)
 
+    # Extract internal_imports from config
+    internal_imports_raw = config.get("internal_imports", "force_strip")
+    if not isinstance(internal_imports_raw, str):
+        msg = "Config 'internal_imports' must be a string"
+        raise TypeError(msg)
+    internal_imports = cast("InternalImportMode", internal_imports_raw)
+
     module_sources, all_imports, parts, derived_module_names = _collect_modules(
-        order_paths, package_root, package_name, file_to_include, external_imports
+        order_paths,
+        package_root,
+        package_name,
+        file_to_include,
+        external_imports,
+        internal_imports,
     )
 
     # --- Parse AST once for all modules ---
