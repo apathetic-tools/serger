@@ -1446,3 +1446,521 @@ from pathlib import Path
     assert "import json  # serger: no-move" in body
     # Path should be removed
     assert "from pathlib import Path" not in body
+
+
+# ===== internal_imports keep mode tests =====
+
+
+def test_split_imports_keep_mode_internal_stays() -> None:
+    """In 'keep' mode for internal imports, they should stay in place."""
+    code = """import sys
+from serger.config import Config
+
+def foo():
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top", internal_imports="keep"
+    )
+    # External import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Internal import should remain in body
+    assert "from serger.config import Config" in body
+    assert "def foo():" in body
+
+
+def test_split_imports_keep_mode_internal_function_local_stays() -> None:
+    """In 'keep' mode, function-local internal imports should stay."""
+    code = """import sys
+
+def compute_order():
+    from .utils import derive_module_name
+    return derive_module_name(Path("test.py"), Path("."), None)
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top", internal_imports="keep"
+    )
+    # Module-level external import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Function-local internal import should stay
+    assert "from .utils import" in body
+    assert "derive_module_name" in body
+    assert "def compute_order():" in body
+
+
+def test_split_imports_keep_mode_internal_relative_import_stays() -> None:
+    """In 'keep' mode, relative internal imports should stay."""
+    code = """import sys
+from .config import Config
+from ..parent import Parent
+
+def foo():
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top", internal_imports="keep"
+    )
+    # External import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Relative internal imports should remain in body
+    assert "from .config import Config" in body
+    assert "from ..parent import Parent" in body
+    assert "def foo():" in body
+
+
+def test_split_imports_keep_mode_internal_mixed_with_external() -> None:
+    """In 'keep' mode, mixed internal and external imports are handled correctly."""
+    code = """import json
+from pathlib import Path
+from serger.config import Config
+from serger.utils import helper
+
+def func1():
+    from .internal import helper
+    return helper()
+
+def func2():
+    try:
+        import external_lib
+        return external_lib.do_something()
+    except ImportError:
+        pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top", internal_imports="keep"
+    )
+    # Module-level external imports should be hoisted
+    assert "import json" in "".join(imports)
+    assert "from pathlib import Path" in "".join(imports)
+    # Module-level internal imports should stay in body
+    assert "from serger.config import Config" in body
+    assert "from serger.utils import helper" in body
+    # Function-local internal import should stay
+    assert "from .internal import" in body
+    # Function-local external import should stay
+    assert "import external_lib" in body
+    assert "def func1():" in body
+    assert "def func2():" in body
+
+
+def test_split_imports_keep_mode_internal_in_conditional_stays() -> None:
+    """In 'keep' mode, internal imports in conditionals should stay."""
+    code = """import sys
+
+if some_condition:
+    from serger.config import Config
+    result = Config()
+
+try:
+    from .utils import helper
+    result = helper()
+except ImportError:
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top", internal_imports="keep"
+    )
+    # External import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Internal imports in conditionals should stay
+    assert "from serger.config import Config" in body
+    assert "from .utils import helper" in body
+    assert "if some_condition:" in body
+    assert "try:" in body
+
+
+def test_split_imports_keep_mode_internal_type_checking_stays() -> None:
+    """In 'keep' mode, internal imports in TYPE_CHECKING blocks should stay."""
+    code = """import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from serger.config import Config
+    from .utils import helper
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top", internal_imports="keep"
+    )
+    # External import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Internal imports in TYPE_CHECKING should stay
+    assert "from serger.config import Config" in body
+    assert "from .utils import helper" in body
+    assert "if TYPE_CHECKING:" in body
+
+
+def test_split_imports_keep_mode_internal_multi_package() -> None:
+    """In 'keep' mode, internal imports from multiple packages should stay."""
+    code = """import sys
+from pkg1.module1 import func1
+from pkg2.module2 import func2
+from external_lib import something
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["pkg1", "pkg2"], external_imports="force_top", internal_imports="keep"
+    )
+    # External imports should be hoisted
+    assert "import sys" in "".join(imports)
+    assert "from external_lib import something" in "".join(imports)
+    # Internal imports from both packages should stay
+    assert "from pkg1.module1 import func1" in body
+    assert "from pkg2.module2 import func2" in body
+
+
+def test_split_imports_keep_mode_internal_default_behavior() -> None:
+    """Default internal_imports mode should still remove internal imports."""
+    code = """import sys
+from serger.config import Config
+
+def foo():
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    # External import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Internal import should be removed (default is force_strip)
+    assert "from serger.config" not in body
+    assert "def foo():" in body
+
+
+def test_split_imports_keep_mode_both_internal_and_external() -> None:
+    """In 'keep' mode for both, all imports should stay in place."""
+    code = """import sys
+import json
+from serger.config import Config
+
+def foo():
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="keep", internal_imports="keep"
+    )
+    # No imports should be collected
+    assert len(imports) == 0
+    # All imports should remain in body
+    assert "import sys" in body
+    assert "import json" in body
+    assert "from serger.config import Config" in body
+    assert "def foo():" in body
+
+
+# ===== internal_imports force_strip mode tests =====
+
+
+def test_split_imports_force_strip_internal_module_level_removed() -> None:
+    """In 'force_strip' mode, module-level internal imports should be removed."""
+    code = """import sys
+from serger.config import Config
+from serger.utils import helper
+
+def foo():
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top", internal_imports="force_strip"
+    )
+    # External import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Internal imports should be removed from body
+    assert "from serger.config" not in body
+    assert "from serger.utils" not in body
+    assert "def foo():" in body
+
+
+def test_split_imports_force_strip_internal_function_local_removed() -> None:
+    """In 'force_strip' mode, function-local internal imports should be removed."""
+    code = """import sys
+
+def compute_order():
+    from .utils import derive_module_name
+    return derive_module_name(Path("test.py"), Path("."), None)
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top", internal_imports="force_strip"
+    )
+    # Module-level external import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Function-local internal import should be removed
+    assert "from .utils import" not in body
+    assert "derive_module_name" in body  # Usage should remain
+    assert "def compute_order():" in body
+
+
+def test_split_imports_force_strip_internal_relative_import_removed() -> None:
+    """In 'force_strip' mode, relative internal imports should be removed."""
+    code = """import sys
+from .config import Config
+from ..parent import Parent
+
+def foo():
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top", internal_imports="force_strip"
+    )
+    # External import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Relative internal imports should be removed
+    assert "from .config import Config" not in body
+    assert "from ..parent import Parent" not in body
+    assert "def foo():" in body
+
+
+def test_split_imports_force_strip_internal_try_block_removed() -> None:
+    """In 'force_strip' mode, internal imports inside try blocks should be removed."""
+    code = """import sys
+
+try:
+    from serger.config import Config
+    result = Config()
+except ImportError:
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top", internal_imports="force_strip"
+    )
+    # External import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Internal import should be removed
+    assert "from serger.config import Config" not in body
+    # Try block should remain but with pass added if empty
+    assert "try:" in body
+
+
+def test_split_imports_force_strip_internal_if_block_removed() -> None:
+    """In 'force_strip' mode, internal imports inside if blocks should be removed."""
+    code = """import sys
+
+if some_condition:
+    from serger.config import Config
+    result = Config()
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top", internal_imports="force_strip"
+    )
+    # External import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Internal import should be removed
+    assert "from serger.config import Config" not in body
+    # If block should remain
+    assert "if some_condition:" in body
+
+
+def test_split_imports_force_strip_internal_type_checking_removed() -> None:
+    """In 'force_strip' mode, TYPE_CHECKING internal imports should be removed."""
+    code = """import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from serger.config import Config
+    from .utils import helper
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top", internal_imports="force_strip"
+    )
+    # External import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Internal imports should be removed
+    assert "from serger.config import Config" not in body
+    assert "from .utils import helper" not in body
+    # Empty TYPE_CHECKING block should be removed entirely
+    assert "if TYPE_CHECKING:" not in body
+
+
+def test_split_imports_force_strip_internal_type_checking_multiple_pass_removed() -> (
+    None
+):
+    """Empty TYPE_CHECKING block with multiple pass should be removed."""
+    code = """import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from serger.config import Config
+    pass
+    pass
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top", internal_imports="force_strip"
+    )
+    # External import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Internal import should be removed
+    assert "from serger.config import Config" not in body
+    # Empty TYPE_CHECKING block (even with multiple pass) should be removed
+    assert "if TYPE_CHECKING:" not in body
+
+
+def test_split_imports_force_strip_internal_empty_try_gets_pass() -> None:
+    """Empty try blocks should get 'pass' added."""
+    code = """import sys
+
+try:
+    from serger.config import Config
+except ImportError:
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top", internal_imports="force_strip"
+    )
+    # External import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Internal import should be removed
+    assert "from serger.config import Config" not in body
+    # Empty try should have 'pass' added
+    assert "try:" in body
+    assert "pass" in body
+    # Check that pass is in the try block
+    body_lines = body.splitlines()
+    try_line_idx = None
+    for i, line in enumerate(body_lines):
+        if line.strip() == "try:":
+            try_line_idx = i
+            break
+    assert try_line_idx is not None
+    # Next non-empty line should be indented pass
+    for i in range(try_line_idx + 1, len(body_lines)):
+        line = body_lines[i]
+        if line.strip() and not line.strip().startswith("except"):
+            assert line.startswith("    ")  # Indented
+            assert "pass" in line
+            break
+
+
+def test_split_imports_force_strip_internal_empty_if_gets_pass() -> None:
+    """Empty if blocks should get 'pass' added."""
+    code = """import sys
+
+if some_condition:
+    from serger.config import Config
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top", internal_imports="force_strip"
+    )
+    # External import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Internal import should be removed
+    assert "from serger.config import Config" not in body
+    # Empty if should have 'pass' added
+    assert "if some_condition:" in body
+    assert "pass" in body
+    # Check that pass is indented inside the if block
+    body_lines = body.splitlines()
+    if_line_idx = None
+    for i, line in enumerate(body_lines):
+        if "if some_condition:" in line:
+            if_line_idx = i
+            break
+    assert if_line_idx is not None
+    # Next non-empty line should be indented pass
+    for i in range(if_line_idx + 1, len(body_lines)):
+        line = body_lines[i]
+        if line.strip():
+            assert line.startswith("    ")  # Indented
+            assert "pass" in line
+            break
+
+
+def test_split_imports_force_strip_internal_type_checking_with_content_kept() -> None:
+    """TYPE_CHECKING block with non-import content should be kept."""
+    code = """import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from serger.config import Config
+    SOME_CONSTANT = 42
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top", internal_imports="force_strip"
+    )
+    # External import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Internal import should be removed
+    assert "from serger.config import Config" not in body
+    # TYPE_CHECKING block should remain with constant
+    assert "if TYPE_CHECKING:" in body
+    assert "SOME_CONSTANT = 42" in body
+
+
+def test_split_imports_force_strip_internal_type_checking_with_other_condition_kept() -> (  # noqa: E501
+    None
+):
+    """TYPE_CHECKING block with other conditions should be kept."""
+    code = """import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING and some_flag:
+    from serger.config import Config
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top", internal_imports="force_strip"
+    )
+    # External import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Internal import should be removed
+    assert "from serger.config import Config" not in body
+    # Block should remain with pass added
+    assert "if TYPE_CHECKING and some_flag:" in body
+    assert "pass" in body
+
+
+def test_split_imports_force_strip_internal_nested_conditionals() -> None:
+    """In 'force_strip' mode, nested conditional internal imports should be removed."""
+    code = """import sys
+
+if condition1:
+    if condition2:
+        from serger.config import Config
+        result = Config()
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top", internal_imports="force_strip"
+    )
+    # External import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Internal import should be removed
+    assert "from serger.config import Config" not in body
+    # Nested conditionals should remain
+    assert "if condition1:" in body
+    assert "if condition2:" in body
+
+
+def test_split_imports_force_strip_internal_multi_package() -> None:
+    """In 'force_strip' mode, multi-package internal imports should be removed."""
+    code = """import sys
+from pkg1.module1 import func1
+from pkg2.module2 import func2
+from external_lib import something
+"""
+    imports, body = mod_stitch.split_imports(
+        code,
+        ["pkg1", "pkg2"],
+        external_imports="force_top",
+        internal_imports="force_strip",
+    )
+    # External imports should be hoisted
+    assert "import sys" in "".join(imports)
+    assert "from external_lib import something" in "".join(imports)
+    # Internal imports from both packages should be removed
+    assert "from pkg1.module1 import func1" not in body
+    assert "from pkg2.module2 import func2" not in body
+
+
+def test_split_imports_force_strip_internal_default_behavior() -> None:
+    """Default internal_imports mode should be force_strip."""
+    code = """import sys
+from serger.config import Config
+
+def foo():
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    # External import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Internal import should be removed (default is force_strip)
+    assert "from serger.config" not in body
+    assert "def foo():" in body
