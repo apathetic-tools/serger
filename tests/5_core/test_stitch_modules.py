@@ -245,6 +245,66 @@ class TestStitchModulesBasic:
             assert "import sys" in import_section
             assert "from typing import Any" in import_section
 
+    def test_stitch_with_external_imports_keep_mode(self) -> None:
+        """Should keep external imports in their original locations."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            out_path = tmp_path / "output.py"
+
+            # Create modules with external imports
+            (src_dir / "base.py").write_text("import json\n\nBASE = 1\n")
+            (src_dir / "main.py").write_text(
+                "import sys\nfrom typing import Any\n\nMAIN = 2\n"
+            )
+
+            file_paths, package_root, file_to_include, config = _setup_stitch_test(
+                src_dir, ["base", "main"]
+            )
+            config["external_imports"] = "keep"
+
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+            )
+
+            content = out_path.read_text()
+            # External imports should be in their module sections, not at top
+            # Find module sections
+            base_section_start = content.find("# === base")
+            if base_section_start == -1:
+                base_section_start = content.find("# === base.py ===")
+            main_section_start = content.find("# === main")
+            if main_section_start == -1:
+                main_section_start = content.find("# === main.py ===")
+
+            # Extract module sections
+            base_section = content[base_section_start:main_section_start]
+            main_section = content[main_section_start:]
+
+            # Imports should be in their respective module sections
+            assert "import json" in base_section
+            assert "BASE = 1" in base_section
+            assert "import sys" in main_section
+            assert "from typing import Any" in main_section
+            assert "MAIN = 2" in main_section
+
+            # Imports should NOT be in the top import section
+            # (only sys and types should be there for shim system)
+            import_section = content[:base_section_start]
+            # Module-specific imports should NOT be hoisted
+            assert "import json" not in import_section
+            assert "from typing import Any" not in import_section
+            # But sys and types should still be there for shim system
+            assert "import sys\n" in import_section or "import sys" in import_section
+            assert (
+                "import types\n" in import_section or "import types" in import_section
+            )
+
     def test_stitch_removes_shebangs(self) -> None:
         """Should remove shebangs from module sources."""
         with tempfile.TemporaryDirectory() as tmpdir:

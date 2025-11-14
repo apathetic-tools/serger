@@ -85,33 +85,23 @@ def split_imports(  # noqa: C901, PLR0915
 ) -> tuple[list[str], str]:
     """Extract external imports and body text using AST.
 
-    Separates internal package imports from external imports, removing all
-    imports from the function body (they'll be collected and deduplicated).
-    Recursively finds imports at all levels, including inside functions.
+    Separates internal package imports from external imports, handling them
+    according to the external_imports mode. Recursively finds imports at all
+    levels, including inside functions.
 
     Args:
         text: Python source code
         package_names: List of package names to treat as internal
             (e.g., ["serger", "other"])
-        external_imports: How to handle external imports. Currently only
-            "top" is implemented (hoist to top of file).
+        external_imports: How to handle external imports. Supported modes:
+            - "top": Hoist module-level external imports to top of file
+            - "keep": Leave external imports in their original locations
 
     Returns:
         Tuple of (external_imports, body_text) where external_imports is a
-        list of import statement strings, and body_text is the source with
-        all imports removed
-
-    Raises:
-        ValueError: If external_imports is not "top" (other modes not
-            yet implemented)
+        list of import statement strings (empty for "keep" mode), and body_text
+        is the source with imports removed according to the mode
     """
-    # Validate external_imports
-    if external_imports != "top":
-        msg = (
-            f"external_imports mode '{external_imports}' is not yet "
-            "implemented. Only 'top' mode is currently supported."
-        )
-        raise ValueError(msg)
     logger = get_app_logger()
     try:
         tree = ast.parse(text)
@@ -156,7 +146,7 @@ def split_imports(  # noqa: C901, PLR0915
         pattern = r"#\s*serger\s*:\s*no-move"
         return bool(re.search(pattern, snippet, re.IGNORECASE))
 
-    def collect_imports(node: ast.AST) -> None:  # noqa: PLR0912
+    def collect_imports(node: ast.AST) -> None:  # noqa: C901, PLR0912
         """Recursively collect all import nodes from the AST."""
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             start = node.lineno - 1
@@ -210,8 +200,12 @@ def split_imports(  # noqa: C901, PLR0915
             # Always remove internal imports (they break in stitched mode)
             if is_internal:
                 all_import_ranges.append((start, end))
-            else:
-                # External: hoist module-level to top, keep function-local in place
+            # External: handle according to mode
+            elif external_imports == "keep":
+                # Keep external imports in place - don't add to ranges or list
+                pass
+            elif external_imports == "top":
+                # Hoist module-level to top, keep function-local in place
                 is_module_level = not find_parent(
                     node, tree, (ast.FunctionDef, ast.AsyncFunctionDef)
                 )
@@ -224,6 +218,14 @@ def split_imports(  # noqa: C901, PLR0915
                         external_imports_list.append(import_text)
                         all_import_ranges.append((start, end))
                 # Function-local external imports stay in place (not added to ranges)
+            else:
+                # Other modes (strip, pass, smart_pass, assign) not yet implemented
+                msg = (
+                    f"external_imports mode '{external_imports}' is not yet "
+                    "implemented. Only 'top' and 'keep' modes are currently "
+                    "supported."
+                )
+                raise ValueError(msg)
 
         # Recursively visit child nodes
         for child in ast.iter_child_nodes(node):

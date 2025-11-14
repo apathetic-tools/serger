@@ -254,3 +254,91 @@ from external import something
     assert "from pkg2.module2" not in body
     assert "from pkg3.module3" not in "".join(imports)
     assert "from pkg3.module3" not in body
+
+
+def test_split_imports_keep_mode_external_stays() -> None:
+    """In 'keep' mode, external imports should stay in place."""
+    code = """import sys
+import json
+
+def foo():
+    pass
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="keep")
+    # External imports should NOT be collected
+    assert len(imports) == 0
+    # External imports should remain in body
+    assert "import sys" in body
+    assert "import json" in body
+    assert "def foo():" in body
+
+
+def test_split_imports_keep_mode_internal_removed() -> None:
+    """In 'keep' mode, internal imports should still be removed."""
+    code = """import sys
+from serger.config import Config
+
+def foo():
+    pass
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="keep")
+    # External imports should NOT be collected
+    assert len(imports) == 0
+    # External import should remain in body
+    assert "import sys" in body
+    # Internal import should be removed
+    assert "from serger.config" not in body
+    assert "def foo():" in body
+
+
+def test_split_imports_keep_mode_function_local() -> None:
+    """In 'keep' mode, function-local external imports stay in place."""
+    code = """import sys
+
+def load_toml():
+    try:
+        import tomllib
+        return tomllib.load
+    except ImportError:
+        import tomli
+        return tomli.load
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="keep")
+    # No imports should be collected
+    assert len(imports) == 0
+    # Module-level import should stay in body
+    assert "import sys" in body
+    # Function-local imports should stay in body
+    assert "import tomllib" in body
+    assert "import tomli" in body
+    assert "def load_toml():" in body
+
+
+def test_split_imports_keep_mode_mixed() -> None:
+    """In 'keep' mode, mixed imports are handled correctly."""
+    code = """import json
+from pathlib import Path
+
+def func1():
+    from .internal import helper
+    return helper()
+
+def func2():
+    try:
+        import external_lib
+        return external_lib.do_something()
+    except ImportError:
+        pass
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="keep")
+    # No imports should be collected
+    assert len(imports) == 0
+    # Module-level externals stay in body
+    assert "import json" in body
+    assert "from pathlib import Path" in body
+    # Function-local internal removed
+    assert "from .internal import" not in body
+    # Function-local external stays
+    assert "import external_lib" in body
+    assert "def func1():" in body
+    assert "def func2():" in body
