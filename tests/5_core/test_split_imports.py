@@ -973,3 +973,289 @@ if TYPE_CHECKING:
     # Empty TYPE_CHECKING block should be removed (not have pass added)
     assert "if TYPE_CHECKING:" not in body
     assert "pass" not in body or ("pass" in body and "if TYPE_CHECKING:" not in body)
+
+
+# ===== force_strip mode tests =====
+
+
+def test_split_imports_force_strip_module_level_removed() -> None:
+    """In 'force_strip' mode, module-level external imports should be removed."""
+    code = """import sys
+import json
+from pathlib import Path
+
+def foo():
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_strip"
+    )
+    # No imports should be collected
+    assert len(imports) == 0
+    # External imports should be removed from body
+    assert "import sys" not in body
+    assert "import json" not in body
+    assert "from pathlib import Path" not in body
+    assert "def foo():" in body
+
+
+def test_split_imports_force_strip_function_local_removed() -> None:
+    """In 'force_strip' mode, function-local external imports should be removed."""
+    code = """def load_toml():
+    try:
+        import tomllib
+        return tomllib.load
+    except ImportError:
+        import tomli
+        return tomli.load
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_strip"
+    )
+    # No imports should be collected
+    assert len(imports) == 0
+    # Function-local imports should be removed
+    assert "import tomllib" not in body
+    assert "import tomli" not in body
+    assert "def load_toml():" in body
+    assert "try:" in body
+
+
+def test_split_imports_force_strip_try_block_removed() -> None:
+    """In 'force_strip' mode, imports inside try blocks should be removed."""
+    code = """try:
+    import json
+    result = json.loads('{}')
+except ImportError:
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_strip"
+    )
+    # No imports should be collected
+    assert len(imports) == 0
+    # Import should be removed
+    assert "import json" not in body
+    # Try block should remain but with pass added if empty
+    assert "try:" in body
+
+
+def test_split_imports_force_strip_if_block_removed() -> None:
+    """In 'force_strip' mode, imports inside if blocks should be removed."""
+    code = """if some_condition:
+    import json
+    result = json.loads('{}')
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_strip"
+    )
+    # No imports should be collected
+    assert len(imports) == 0
+    # Import should be removed
+    assert "import json" not in body
+    # If block should remain
+    assert "if some_condition:" in body
+
+
+def test_split_imports_force_strip_type_checking_removed() -> None:
+    """In 'force_strip' mode, imports inside TYPE_CHECKING blocks should be removed."""
+    code = """from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+    from typing import Optional
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_strip"
+    )
+    # No imports should be collected
+    assert len(imports) == 0
+    # Imports should be removed
+    assert "from pathlib import Path" not in body
+    assert "from typing import Optional" not in body
+    # Empty TYPE_CHECKING block should be removed entirely
+    assert "if TYPE_CHECKING:" not in body
+
+
+def test_split_imports_force_strip_type_checking_multiple_pass_removed() -> None:
+    """Empty TYPE_CHECKING block with multiple pass statements should be removed."""
+    code = """from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+    pass
+    pass
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_strip"
+    )
+    # No imports should be collected
+    assert len(imports) == 0
+    # Import should be removed
+    assert "from pathlib import Path" not in body
+    # Empty TYPE_CHECKING block (even with multiple pass) should be removed
+    assert "if TYPE_CHECKING:" not in body
+
+
+def test_split_imports_force_strip_empty_try_gets_pass() -> None:
+    """Empty try blocks should get 'pass' added."""
+    code = """try:
+    import json
+except ImportError:
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_strip"
+    )
+    # No imports should be collected
+    assert len(imports) == 0
+    # Import should be removed
+    assert "import json" not in body
+    # Empty try should have 'pass' added
+    assert "try:" in body
+    assert "pass" in body
+    # Check that pass is in the try block
+    body_lines = body.splitlines()
+    try_line_idx = None
+    for i, line in enumerate(body_lines):
+        if line.strip() == "try:":
+            try_line_idx = i
+            break
+    assert try_line_idx is not None
+    # Next non-empty line should be indented pass
+    for i in range(try_line_idx + 1, len(body_lines)):
+        line = body_lines[i]
+        if line.strip() and not line.strip().startswith("except"):
+            assert line.startswith("    ")  # Indented
+            assert "pass" in line
+            break
+
+
+def test_split_imports_force_strip_empty_if_gets_pass() -> None:
+    """Empty if blocks should get 'pass' added."""
+    code = """if some_condition:
+    import json
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_strip"
+    )
+    # No imports should be collected
+    assert len(imports) == 0
+    # Import should be removed
+    assert "import json" not in body
+    # Empty if should have 'pass' added
+    assert "if some_condition:" in body
+    assert "pass" in body
+    # Check that pass is indented inside the if block
+    body_lines = body.splitlines()
+    if_line_idx = None
+    for i, line in enumerate(body_lines):
+        if "if some_condition:" in line:
+            if_line_idx = i
+            break
+    assert if_line_idx is not None
+    # Next non-empty line should be indented pass
+    for i in range(if_line_idx + 1, len(body_lines)):
+        line = body_lines[i]
+        if line.strip():
+            assert line.startswith("    ")  # Indented
+            assert "pass" in line
+            break
+
+
+def test_split_imports_force_strip_type_checking_with_content_kept() -> None:
+    """TYPE_CHECKING block with non-import content should be kept."""
+    code = """from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+    SOME_CONSTANT = 42
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_strip"
+    )
+    # No imports should be collected
+    assert len(imports) == 0
+    # Import should be removed
+    assert "from pathlib import Path" not in body
+    # TYPE_CHECKING block should remain with constant
+    assert "if TYPE_CHECKING:" in body
+    assert "SOME_CONSTANT = 42" in body
+
+
+def test_split_imports_force_strip_type_checking_with_other_condition_kept() -> None:
+    """TYPE_CHECKING block with other conditions should be kept."""
+    code = """from typing import TYPE_CHECKING
+
+if TYPE_CHECKING and some_flag:
+    from pathlib import Path
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_strip"
+    )
+    # No imports should be collected
+    assert len(imports) == 0
+    # Import should be removed
+    assert "from pathlib import Path" not in body
+    # Block should remain with pass added
+    assert "if TYPE_CHECKING and some_flag:" in body
+    assert "pass" in body
+
+
+def test_split_imports_force_strip_mixed_internal_external() -> None:
+    """In 'force_strip' mode, only external imports should be removed."""
+    code = """import sys
+from serger.config import Config
+
+def foo():
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_strip"
+    )
+    # No imports should be collected
+    assert len(imports) == 0
+    # External import should be removed
+    assert "import sys" not in body
+    # Internal import should also be removed (always removed)
+    assert "from serger.config" not in body
+    assert "def foo():" in body
+
+
+def test_split_imports_force_strip_nested_conditionals() -> None:
+    """In 'force_strip' mode, imports in nested conditionals should be removed."""
+    code = """if condition1:
+    if condition2:
+        import json
+        result = json.loads('{}')
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_strip"
+    )
+    # No imports should be collected
+    assert len(imports) == 0
+    # Import should be removed
+    assert "import json" not in body
+    # Nested conditionals should remain
+    assert "if condition1:" in body
+    assert "if condition2:" in body
+
+
+def test_split_imports_force_strip_no_move_comment_respected() -> None:
+    """In 'force_strip' mode, no-move comments should still be respected."""
+    code = """import sys
+import json  # serger: no-move
+from pathlib import Path
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_strip"
+    )
+    # No imports should be collected
+    assert len(imports) == 0
+    # sys should be removed
+    assert "import sys" not in body
+    # json should stay (has no-move comment)
+    assert "import json  # serger: no-move" in body
+    # Path should be removed
+    assert "from pathlib import Path" not in body
