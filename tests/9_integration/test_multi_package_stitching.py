@@ -68,8 +68,12 @@ def test_multi_package_stitching_with_shims(tmp_path: Path) -> None:
             "dry_run": False,
             "__meta__": {"config_root": tmp_path, "cli_root": tmp_path},
             "stitch_mode": mod_constants.DEFAULT_STITCH_MODE,
-            "internal_imports": mod_constants.DEFAULT_INTERNAL_IMPORTS,
-            "external_imports": mod_constants.DEFAULT_EXTERNAL_IMPORTS,
+            "internal_imports": mod_constants.DEFAULT_INTERNAL_IMPORTS[
+                mod_constants.DEFAULT_STITCH_MODE
+            ],
+            "external_imports": mod_constants.DEFAULT_EXTERNAL_IMPORTS[
+                mod_constants.DEFAULT_STITCH_MODE
+            ],
             "post_processing": {
                 "enabled": True,
                 "category_order": [],
@@ -293,8 +297,12 @@ def test_multi_package_stitching_three_packages(tmp_path: Path) -> None:
             "dry_run": False,
             "__meta__": {"config_root": tmp_path, "cli_root": tmp_path},
             "stitch_mode": mod_constants.DEFAULT_STITCH_MODE,
-            "internal_imports": mod_constants.DEFAULT_INTERNAL_IMPORTS,
-            "external_imports": mod_constants.DEFAULT_EXTERNAL_IMPORTS,
+            "internal_imports": mod_constants.DEFAULT_INTERNAL_IMPORTS[
+                mod_constants.DEFAULT_STITCH_MODE
+            ],
+            "external_imports": mod_constants.DEFAULT_EXTERNAL_IMPORTS[
+                mod_constants.DEFAULT_STITCH_MODE
+            ],
             "post_processing": {
                 "enabled": True,
                 "category_order": [],
@@ -398,8 +406,12 @@ def test_multi_package_auto_discover_order_with_cross_package_imports(
             "dry_run": False,
             "__meta__": {"config_root": tmp_path, "cli_root": tmp_path},
             "stitch_mode": mod_constants.DEFAULT_STITCH_MODE,
-            "internal_imports": mod_constants.DEFAULT_INTERNAL_IMPORTS,
-            "external_imports": mod_constants.DEFAULT_EXTERNAL_IMPORTS,
+            "internal_imports": mod_constants.DEFAULT_INTERNAL_IMPORTS[
+                mod_constants.DEFAULT_STITCH_MODE
+            ],
+            "external_imports": mod_constants.DEFAULT_EXTERNAL_IMPORTS[
+                mod_constants.DEFAULT_STITCH_MODE
+            ],
             "post_processing": {
                 "enabled": True,
                 "category_order": [],

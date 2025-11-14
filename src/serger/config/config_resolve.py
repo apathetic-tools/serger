@@ -856,7 +856,7 @@ def _resolve_output(
     return out_wrapped
 
 
-def resolve_build_config(
+def resolve_build_config(  # noqa: PLR0912, PLR0915
     build_cfg: BuildConfig,
     args: argparse.Namespace,
     config_dir: Path,
@@ -934,29 +934,7 @@ def resolve_build_config(
         resolved_cfg["strict_config"] = DEFAULT_STRICT_CONFIG
 
     # ------------------------------
-    # Import handling
-    # ------------------------------
-    # Cascade: build-level → root-level → default
-    build_internal = resolved_cfg.get("internal_imports")
-    root_internal = (root_cfg or {}).get("internal_imports")
-    if build_internal is not None:
-        resolved_cfg["internal_imports"] = build_internal
-    elif root_internal is not None:
-        resolved_cfg["internal_imports"] = root_internal
-    else:
-        resolved_cfg["internal_imports"] = DEFAULT_INTERNAL_IMPORTS
-
-    build_external = resolved_cfg.get("external_imports")
-    root_external = (root_cfg or {}).get("external_imports")
-    if build_external is not None:
-        resolved_cfg["external_imports"] = build_external
-    elif root_external is not None:
-        resolved_cfg["external_imports"] = root_external
-    else:
-        resolved_cfg["external_imports"] = DEFAULT_EXTERNAL_IMPORTS
-
-    # ------------------------------
-    # Stitch mode
+    # Stitch mode (resolved first, used for import defaults)
     # ------------------------------
     # Cascade: build-level → root-level → default
     build_stitch_mode = resolved_cfg.get("stitch_mode")
@@ -967,6 +945,34 @@ def resolve_build_config(
         resolved_cfg["stitch_mode"] = root_stitch_mode
     else:
         resolved_cfg["stitch_mode"] = DEFAULT_STITCH_MODE
+
+    # Get the resolved stitch_mode for use in import defaults
+    stitch_mode = resolved_cfg["stitch_mode"]
+    if not isinstance(stitch_mode, str):
+        msg = "stitch_mode must be a string"
+        raise TypeError(msg)
+
+    # ------------------------------
+    # Import handling
+    # ------------------------------
+    # Cascade: build-level → root-level → default (mode-dependent)
+    build_internal = resolved_cfg.get("internal_imports")
+    root_internal = (root_cfg or {}).get("internal_imports")
+    if build_internal is not None:
+        resolved_cfg["internal_imports"] = build_internal
+    elif root_internal is not None:
+        resolved_cfg["internal_imports"] = root_internal
+    else:
+        resolved_cfg["internal_imports"] = DEFAULT_INTERNAL_IMPORTS[stitch_mode]
+
+    build_external = resolved_cfg.get("external_imports")
+    root_external = (root_cfg or {}).get("external_imports")
+    if build_external is not None:
+        resolved_cfg["external_imports"] = build_external
+    elif root_external is not None:
+        resolved_cfg["external_imports"] = root_external
+    else:
+        resolved_cfg["external_imports"] = DEFAULT_EXTERNAL_IMPORTS[stitch_mode]
 
     # ------------------------------
     # Post-processing

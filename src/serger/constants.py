@@ -25,9 +25,38 @@ DEFAULT_STRICT_CONFIG: bool = True
 DEFAULT_OUT_DIR: str = "dist"
 DEFAULT_DRY_RUN: bool = False
 DEFAULT_USE_PYPROJECT: bool = True
-# Remove internal imports (current behavior)
-DEFAULT_INTERNAL_IMPORTS: str = "force_strip"
-DEFAULT_EXTERNAL_IMPORTS: str = "top"  # Hoist external imports to top
+
+# Import handling defaults keyed by stitch mode
+# These defaults are chosen based on how each stitching mode works:
+
+# INTERNAL_IMPORTS:
+#   - "raw": "force_strip" - Raw mode concatenates all files into a single namespace.
+#     Internal imports (e.g., "from .utils import helper") are stripped because all
+#     code is in the same namespace and can reference each other directly.
+#   - "class": "assign" - Class mode wraps each module in a class namespace.
+#     Internal imports must be transformed to class attribute access (e.g.,
+#     "from .utils import helper" becomes "helper = _Module_utils.helper").
+#     The "assign" mode handles this transformation automatically.
+#   - "exec": "keep" - Exec mode uses exec() with separate module objects in
+#     sys.modules, each with proper __package__ attributes. Relative imports work
+#     correctly in this setup, so they should be kept as-is.
+DEFAULT_INTERNAL_IMPORTS: dict[str, str] = {
+    "raw": "force_strip",
+    "class": "assign",
+    "exec": "keep",
+}
+
+# EXTERNAL_IMPORTS:
+#   - All modes use "top" - External imports (e.g., "import os", "from pathlib
+#     import Path") must be available at module level for all stitching modes.
+#     Hoisting them to the top ensures they're accessible throughout the stitched
+#     file, whether code is concatenated (raw), wrapped in classes (class), or
+#     executed in separate namespaces (exec).
+DEFAULT_EXTERNAL_IMPORTS: dict[str, str] = {
+    "raw": "top",
+    "class": "top",
+    "exec": "top",
+}
 DEFAULT_STITCH_MODE: str = "raw"  # Raw concatenation (default stitching mode)
 
 # --- post-processing defaults ---

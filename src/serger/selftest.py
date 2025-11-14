@@ -139,8 +139,8 @@ def _create_build_config(
             "dry_run": False,
             "__meta__": {"cli_root": tmp_dir, "config_root": tmp_dir},
             # Required fields with defaults
-            "internal_imports": DEFAULT_INTERNAL_IMPORTS,
-            "external_imports": DEFAULT_EXTERNAL_IMPORTS,
+            "internal_imports": DEFAULT_INTERNAL_IMPORTS[DEFAULT_STITCH_MODE],
+            "external_imports": DEFAULT_EXTERNAL_IMPORTS[DEFAULT_STITCH_MODE],
             "stitch_mode": DEFAULT_STITCH_MODE,
             "post_processing": cast(
                 "Any",
