@@ -4,12 +4,18 @@
 Checklist:
 - matches_patterns — simple include/exclude match using relative glob patterns.
 - relative_path — confirms relative path resolution against root.
-- outside_root — verifies paths outside root never match.
+- outside_root — verifies paths outside root never match (non-**/ patterns).
 - absolute_pattern — ensures absolute patterns under the same root are matched.
 - file_root_special_case — handles case where root itself is a file, not a directory.
 - mixed_patterns — validates mixed matching and non-matching patterns.
 - wrapper_delegates — checks that the wrapper forwards args correctly.
 - gitignore_double_star_diff — '**' not recursive unlike gitignore in ≤Py3.10.
+- double_star_outside_root_simple — **/ patterns match files outside root (simple).
+- double_star_outside_root_complex — **/ patterns match files outside root (complex).
+- double_star_inside_root — **/ patterns still work for files inside root.
+- double_star_nested_pattern — nested **/ patterns work correctly.
+- double_star_outside_root_negative — **/ patterns don't match when they shouldn't.
+- double_star_mixed_patterns — mix of **/ and non-**/ patterns work correctly.
 """
 
 from pathlib import Path
@@ -215,3 +221,154 @@ def test_gitignore_double_star_backport_py310(
     # --- verify ---
     # Assert: backport should match recursively on 3.10
     assert result is True
+
+
+def test_is_excluded_raw_double_star_outside_root_simple(tmp_path: Path) -> None:
+    """**/ patterns should match files outside root (matching rsync/ruff behavior).
+
+    Example:
+      path:     /tmp/external/pkg/__init__.py
+      root:     /tmp/project/
+      pattern:  ["**/__init__.py"]
+      Result: True
+      Explanation: **/ patterns match against filename and absolute path,
+                   even when file is outside the exclude root.
+    """
+    # --- setup ---
+    root = tmp_path / "project"
+    root.mkdir()
+    outside_file = tmp_path / "external" / "pkg" / "__init__.py"
+    outside_file.parent.mkdir(parents=True)
+    outside_file.touch()
+
+    # --- execute + verify ---
+    assert amod_utils_matching.is_excluded_raw(outside_file, ["**/__init__.py"], root)
+    # Non-matching filename should not match
+    other_file = tmp_path / "external" / "pkg" / "module.py"
+    other_file.touch()
+    assert not amod_utils_matching.is_excluded_raw(other_file, ["**/__init__.py"], root)
+
+
+def test_is_excluded_raw_double_star_outside_root_complex(tmp_path: Path) -> None:
+    """**/ patterns with subdirectories should match files outside root.
+
+    Example:
+      path:     /tmp/external/pkg/subdir/__init__.py
+      root:     /tmp/project/
+      pattern:  ["**/subdir/__init__.py"]
+      Result: True
+      Explanation: Complex **/ patterns match against absolute path.
+    """
+    # --- setup ---
+    root = tmp_path / "project"
+    root.mkdir()
+    outside_file = tmp_path / "external" / "pkg" / "subdir" / "__init__.py"
+    outside_file.parent.mkdir(parents=True)
+    outside_file.touch()
+
+    # --- execute + verify ---
+    assert amod_utils_matching.is_excluded_raw(
+        outside_file, ["**/subdir/__init__.py"], root
+    )
+    # File in different subdirectory should not match
+    other_file = tmp_path / "external" / "pkg" / "other" / "__init__.py"
+    other_file.parent.mkdir(parents=True)
+    other_file.touch()
+    assert not amod_utils_matching.is_excluded_raw(
+        other_file, ["**/subdir/__init__.py"], root
+    )
+
+
+def test_is_excluded_raw_double_star_inside_root(tmp_path: Path) -> None:
+    """**/ patterns should still work for files inside root.
+
+    Example:
+      path:     /tmp/project/pkg/__init__.py
+      root:     /tmp/project/
+      pattern:  ["**/__init__.py"]
+      Result: True
+      Explanation: **/ patterns work for files both inside and outside root.
+    """
+    # --- setup ---
+    root = tmp_path / "project"
+    root.mkdir()
+    inside_file = root / "pkg" / "__init__.py"
+    inside_file.parent.mkdir(parents=True)
+    inside_file.touch()
+
+    # --- execute + verify ---
+    assert amod_utils_matching.is_excluded_raw(inside_file, ["**/__init__.py"], root)
+    # Nested file should also match
+    nested_file = root / "pkg" / "subdir" / "__init__.py"
+    nested_file.parent.mkdir(parents=True)
+    nested_file.touch()
+    assert amod_utils_matching.is_excluded_raw(nested_file, ["**/__init__.py"], root)
+
+
+def test_is_excluded_raw_double_star_nested_pattern(tmp_path: Path) -> None:
+    """Nested **/ patterns should work correctly.
+
+    Example:
+      path:     /tmp/project/pkg/subdir/file.py
+      root:     /tmp/project/
+      pattern:  ["**/subdir/**/*.py"]
+      Result: True
+      Explanation: Nested ** patterns should match recursively.
+    """
+    # --- setup ---
+    root = tmp_path / "project"
+    root.mkdir()
+    nested_file = root / "pkg" / "subdir" / "deep" / "file.py"
+    nested_file.parent.mkdir(parents=True)
+    nested_file.touch()
+
+    # --- execute + verify ---
+    assert amod_utils_matching.is_excluded_raw(nested_file, ["**/subdir/**/*.py"], root)
+
+
+def test_is_excluded_raw_double_star_outside_root_negative(tmp_path: Path) -> None:
+    """**/ patterns should not match when pattern doesn't match.
+
+    Example:
+      path:     /tmp/external/pkg/module.py
+      root:     /tmp/project/
+      pattern:  ["**/__init__.py"]
+      Result: False
+      Explanation: **/ patterns only match when the pattern actually matches.
+    """
+    # --- setup ---
+    root = tmp_path / "project"
+    root.mkdir()
+    outside_file = tmp_path / "external" / "pkg" / "module.py"
+    outside_file.parent.mkdir(parents=True)
+    outside_file.touch()
+
+    # --- execute + verify ---
+    assert not amod_utils_matching.is_excluded_raw(
+        outside_file, ["**/__init__.py"], root
+    )
+    assert not amod_utils_matching.is_excluded_raw(
+        outside_file, ["**/subdir/__init__.py"], root
+    )
+
+
+def test_is_excluded_raw_double_star_mixed_patterns(tmp_path: Path) -> None:
+    """Mix of **/ and non-**/ patterns should work correctly.
+
+    Example:
+      path:     /tmp/external/pkg/__init__.py
+      root:     /tmp/project/
+      pattern:  ["*.py", "**/__init__.py", "ignore/*"]
+      Result: True
+      Explanation: **/ pattern should match even when other patterns don't.
+    """
+    # --- setup ---
+    root = tmp_path / "project"
+    root.mkdir()
+    outside_file = tmp_path / "external" / "pkg" / "__init__.py"
+    outside_file.parent.mkdir(parents=True)
+    outside_file.touch()
+
+    # --- execute + verify ---
+    patterns = ["*.py", "**/__init__.py", "ignore/*"]
+    assert amod_utils_matching.is_excluded_raw(outside_file, patterns, root)
