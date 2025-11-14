@@ -631,3 +631,345 @@ def load_toml():
     assert "import tomllib" in body
     assert "import tomli" in body
     assert "def load_toml():" in body
+
+
+def test_split_imports_type_checking_wrapped_when_hoisted() -> None:
+    """Imports from 'if TYPE_CHECKING:' should be wrapped in TYPE_CHECKING at top."""
+    code = """from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+    from typing import Optional
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    # Imports should be wrapped in if TYPE_CHECKING: block
+    imports_text = "".join(imports)
+    assert "if TYPE_CHECKING:" in imports_text
+    assert "from pathlib import Path" in imports_text
+    assert "from typing import Optional" in imports_text
+    # Body should not have the TYPE_CHECKING block (it's empty)
+    assert "if TYPE_CHECKING:" not in body
+    assert "from pathlib import Path" not in body
+
+
+def test_split_imports_type_checking_grouped_together() -> None:
+    """Multiple TYPE_CHECKING imports should be grouped in single block."""
+    code = """from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+if TYPE_CHECKING:
+    from typing import Optional
+"""
+    imports, _body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    # All TYPE_CHECKING imports should be in a single block
+    imports_text = "".join(imports)
+    # Should have only one if TYPE_CHECKING: block
+    assert imports_text.count("if TYPE_CHECKING:") == 1
+    assert "from pathlib import Path" in imports_text
+    assert "from typing import Optional" in imports_text
+    # Both should be inside the same TYPE_CHECKING block
+    type_checking_start = imports_text.find("if TYPE_CHECKING:")
+    pathlib_pos = imports_text.find("from pathlib import Path")
+    optional_pos = imports_text.find("from typing import Optional")
+    assert pathlib_pos > type_checking_start
+    assert optional_pos > type_checking_start
+
+
+def test_split_imports_type_checking_with_other_conditions_not_special() -> None:
+    """'if TYPE_CHECKING and something:' should be treated as regular conditional."""
+    code = """import sys
+
+if TYPE_CHECKING and some_flag:
+    import json
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    # sys should be hoisted
+    assert "import sys" in "".join(imports)
+    # json should be hoisted (force_top hoists from conditionals)
+    assert "import json" in "".join(imports)
+    # But it should NOT be wrapped in TYPE_CHECKING (it's a regular conditional)
+    imports_text = "".join(imports)
+    assert "if TYPE_CHECKING:" not in imports_text
+    # Body should have the conditional block with pass (not removed)
+    assert "if TYPE_CHECKING and some_flag:" in body
+    assert "pass" in body
+
+
+def test_split_imports_type_checking_partial_block_kept() -> None:
+    """If TYPE_CHECKING block has other code, keep the block."""
+    code = """from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+    SOME_CONSTANT = 42
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    # Import should be hoisted and wrapped in TYPE_CHECKING
+    imports_text = "".join(imports)
+    assert "if TYPE_CHECKING:" in imports_text
+    assert "from pathlib import Path" in imports_text
+    # Body should still have the TYPE_CHECKING block with the constant
+    assert "if TYPE_CHECKING:" in body
+    assert "SOME_CONSTANT = 42" in body
+    assert "from pathlib import Path" not in body
+
+
+def test_split_imports_type_checking_empty_block_removed() -> None:
+    """If TYPE_CHECKING block is empty after removing imports, remove it."""
+    code = """from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+"""
+    imports, _body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    # Import should be hoisted
+    assert "from pathlib import Path" in "".join(imports)
+    # Empty TYPE_CHECKING block should be removed from body
+    assert "if TYPE_CHECKING:" not in _body
+
+
+def test_split_imports_type_checking_multiple_imports_one_block() -> None:
+    """Multiple imports in one TYPE_CHECKING block should stay together."""
+    code = """from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+    from typing import Optional
+    from collections.abc import Iterator
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    # All imports should be in a single TYPE_CHECKING block
+    imports_text = "".join(imports)
+    assert imports_text.count("if TYPE_CHECKING:") == 1
+    assert "from pathlib import Path" in imports_text
+    assert "from typing import Optional" in imports_text
+    assert "from collections.abc import Iterator" in imports_text
+    # Body should not have the block
+    assert "if TYPE_CHECKING:" not in body
+
+
+def test_split_imports_type_checking_top_mode() -> None:
+    """TYPE_CHECKING imports should be hoisted in 'top' mode too."""
+    code = """from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+"""
+    imports, _body = mod_stitch.split_imports(code, ["serger"], external_imports="top")
+    # Import should be hoisted and wrapped in TYPE_CHECKING
+    imports_text = "".join(imports)
+    assert "if TYPE_CHECKING:" in imports_text
+    assert "from pathlib import Path" in imports_text
+    # Body should not have the block
+    assert "if TYPE_CHECKING:" not in _body
+
+
+def test_split_imports_type_checking_mixed_with_regular() -> None:
+    """TYPE_CHECKING imports should be separate from regular imports."""
+    code = """import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+"""
+    imports, _body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    imports_text = "".join(imports)
+    # Regular import should be at top level
+    assert "import sys" in imports_text
+    # TYPE_CHECKING import should be in its own block
+    assert "if TYPE_CHECKING:" in imports_text
+    assert "from pathlib import Path" in imports_text
+    # Regular import should come before TYPE_CHECKING block
+    sys_pos = imports_text.find("import sys")
+    type_checking_pos = imports_text.find("if TYPE_CHECKING:")
+    assert sys_pos < type_checking_pos
+
+
+def test_split_imports_type_checking_nested_not_special() -> None:
+    """Nested TYPE_CHECKING (like 'if TYPE_CHECKING or False:') not special."""
+    code = """import sys
+
+if TYPE_CHECKING or False:
+    import json
+"""
+    imports, _body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    # sys should be hoisted
+    assert "import sys" in "".join(imports)
+    # json should be hoisted (force_top)
+    assert "import json" in "".join(imports)
+    # But NOT wrapped in TYPE_CHECKING (it's not exactly 'if TYPE_CHECKING:')
+    imports_text = "".join(imports)
+    assert "if TYPE_CHECKING:" not in imports_text
+
+
+def test_split_imports_empty_conditional_gets_pass() -> None:
+    """Empty conditional blocks (not TYPE_CHECKING) should get 'pass' not removed."""
+    code = """import sys
+
+if TYPE_CHECKING and some_flag:
+    import json
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    # Import should be hoisted
+    assert "import json" in "".join(imports)
+    # Empty conditional should have 'pass' added, not removed
+    assert "if TYPE_CHECKING and some_flag:" in body
+    assert "pass" in body
+    # Check that pass is indented inside the if block
+    body_lines = body.splitlines()
+    if_line_idx = None
+    for i, line in enumerate(body_lines):
+        if "if TYPE_CHECKING and some_flag:" in line:
+            if_line_idx = i
+            break
+    assert if_line_idx is not None
+    # Next non-empty line should be indented pass
+    for i in range(if_line_idx + 1, len(body_lines)):
+        line = body_lines[i]
+        if line.strip():
+            assert line.startswith("    ")  # Indented
+            assert "pass" in line
+            break
+
+
+def test_split_imports_empty_try_gets_pass() -> None:
+    """Empty try blocks should get 'pass' not removed."""
+    code = """import sys
+
+try:
+    import json
+except ImportError:
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    # Import should be hoisted
+    assert "import json" in "".join(imports)
+    # Empty try should have 'pass' added, not removed
+    assert "try:" in body
+    assert "pass" in body
+    # Check that pass is in the try block
+    body_lines = body.splitlines()
+    try_line_idx = None
+    for i, line in enumerate(body_lines):
+        if line.strip() == "try:":
+            try_line_idx = i
+            break
+    assert try_line_idx is not None
+    # Next non-empty line should be indented pass
+    for i in range(try_line_idx + 1, len(body_lines)):
+        line = body_lines[i]
+        if line.strip() and not line.strip().startswith("except"):
+            assert line.startswith("    ")  # Indented
+            assert "pass" in line
+            break
+
+
+def test_split_imports_empty_try_with_finally_gets_pass() -> None:
+    """Empty try blocks with finally should get 'pass' not removed."""
+    code = """import sys
+
+try:
+    import json
+finally:
+    cleanup()
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    # Import should be hoisted
+    assert "import json" in "".join(imports)
+    # Empty try with finally should have 'pass' added, not removed
+    assert "try:" in body
+    assert "finally:" in body
+    assert "cleanup()" in body
+    # Check that pass is in the try block (between try: and finally:)
+    body_lines = body.splitlines()
+    try_line_idx = None
+    finally_line_idx = None
+    for i, line in enumerate(body_lines):
+        if line.strip() == "try:":
+            try_line_idx = i
+        elif line.strip() == "finally:":
+            finally_line_idx = i
+    assert try_line_idx is not None
+    assert finally_line_idx is not None
+    # Check that pass is between try and finally
+    found_pass = False
+    for i in range(try_line_idx + 1, finally_line_idx):
+        line = body_lines[i]
+        if line.strip() == "pass":
+            assert line.startswith("    ")  # Indented
+            found_pass = True
+            break
+    assert found_pass, "pass should be added to empty try block"
+
+
+def test_split_imports_empty_if_gets_pass() -> None:
+    """Empty if blocks (not TYPE_CHECKING) should get 'pass' not removed."""
+    code = """import sys
+
+if some_condition:
+    import json
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    # Import should be hoisted
+    assert "import json" in "".join(imports)
+    # Empty if should have 'pass' added, not removed
+    assert "if some_condition:" in body
+    assert "pass" in body
+    # Check that pass is indented inside the if block
+    body_lines = body.splitlines()
+    if_line_idx = None
+    for i, line in enumerate(body_lines):
+        if "if some_condition:" in line:
+            if_line_idx = i
+            break
+    assert if_line_idx is not None
+    # Next non-empty line should be indented pass
+    for i in range(if_line_idx + 1, len(body_lines)):
+        line = body_lines[i]
+        if line.strip():
+            assert line.startswith("    ")  # Indented
+            assert "pass" in line
+            break
+
+
+def test_split_imports_type_checking_still_removed() -> None:
+    """Empty TYPE_CHECKING blocks should still be removed (not get pass)."""
+    code = """from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    # Import should be hoisted
+    assert "from pathlib import Path" in "".join(imports)
+    # Empty TYPE_CHECKING block should be removed (not have pass added)
+    assert "if TYPE_CHECKING:" not in body
+    assert "pass" not in body or ("pass" in body and "if TYPE_CHECKING:" not in body)
