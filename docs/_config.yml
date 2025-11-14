@@ -1,0 +1,57 @@
+# Jekyll Configuration for Serger Documentation
+# GitHub Pages compatible configuration
+
+title: Serger
+description: Stitch your module into a single file
+url: https://apathetic-tools.github.io
+baseurl: /serger
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+theme: minima
+
+# GitHub Pages plugins (automatically enabled on GitHub Pages)
+# These are listed for local development compatibility
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+
+# Exclude from processing
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/
+  - .sass-cache/
+  - .jekyll-cache/
+  - .jekyll-metadata
+
+# Navigation
+navigation:
+  - title: Home
+    url: /
+  - title: Getting Started
+    url: /getting-started
+  - title: Configuration
+    url: /configuration
+  - title: CLI Reference
+    url: /cli-reference
+  - title: API
+    url: /api
+  - title: Examples
+    url: /examples
+
+# Author information
+author:
+  name: Apathetic Tools
+  url: https://apathetic-tools.github.io
+
+# Social links
+github:
+  username: apathetic-tools
+  repository: serger
+

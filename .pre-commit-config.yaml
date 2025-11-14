@@ -4,7 +4,8 @@ repos:
       # Prevent commits with AI attribution
       - id: check-commit-message
         name: Check commit message for AI attribution
-        entry: bash -c 'msg=$(cat "$1"); if echo "$msg" | grep -qE "(Claude Code|Co-Authored-By:)"; then echo "❌ Commit rejected: Cannot include Claude Code attribution or Co-Authored-By trailers"; echo ""; echo "Per project conventions (.claude/CLAUDE.md), commit messages must not"; echo "include AI tool attribution or Co-Authored-By trailers."; echo ""; echo "Please edit your commit message and try again."; exit 1; fi'
+        entry: |
+          bash -c 'msg=$(cat "$1"); if echo "$msg" | grep -qE "(Claude Code|Co-Authored-By:)"; then echo "❌ Commit rejected: Cannot include Claude Code attribution or Co-Authored-By trailers"; echo ""; echo "Per project conventions (.claude/CLAUDE.md), commit messages must not"; echo "include AI tool attribution or Co-Authored-By trailers."; echo ""; echo "Please edit your commit message and try again."; exit 1; fi'
         language: system
         stages: [commit-msg]
         pass_filenames: true
@@ -12,7 +13,8 @@ repos:
       # Run fixers automatically before each commit
       - id: poe-fix
         name: Run Poe 'fix'
-        entry: bash -c 'export PATH="$HOME/.local/bin:$PATH"; poetry run poe fix'
+        entry: |
+          bash -c 'export PATH="$HOME/.local/bin:$PATH"; poetry run poe fix'
         language: system
         pass_filenames: false
         stages: [pre-commit]
@@ -20,7 +22,8 @@ repos:
       # Run checks (no auto-fixing) before pushing
       - id: poe-check
         name: Run Poe 'check'
-        entry: bash -c 'export PATH="$HOME/.local/bin:$PATH"; poetry run poe check'
+        entry: |
+          bash -c 'export PATH="$HOME/.local/bin:$PATH"; poetry run poe check'
         language: system
         pass_filenames: false
         stages: [pre-push]

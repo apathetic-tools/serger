@@ -1,7 +1,7 @@
 # pyproject.toml
 
 [project]
-name = "Serger"
+name = "serger"
 version = "0.1.0"
 description = "Stitch your module into a single file"
 authors = [
@@ -16,7 +16,7 @@ dependencies = [
 # --- Development tasks ---
 [tool.poe.tasks]
 # 🧩 All-in-one
-"check:fix" = ["fix", "typecheck", "test"]
+"check:fix" = ["pre-commit:install", "fix", "typecheck", "test"]
 
 # 🔍 Linting and static checks
 check = ["lint", "typecheck",  "test"]
@@ -74,6 +74,9 @@ fix = ["generate:ai-rules", "fix:ruff:installed", "lint:compile", "fix:format:in
 "generate:ai-rules" = "python dev/generate_ai_rules.py"
 "build:script" = "python -m serger"
 "check:license" = "bash dev/check-license.sh"
+
+# 🔧 Setup and installation
+"pre-commit:install" = { shell = "if [ ! -f .git/hooks/pre-commit ] || ! grep -q 'pre-commit' .git/hooks/pre-commit 2>/dev/null; then poetry run pre-commit install --install-hooks && poetry run pre-commit install --hook-type pre-push; fi" }
 
 # 🧪 Internal verification
 [tool.poe.tasks."verify:pytest"]

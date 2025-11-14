@@ -18,8 +18,11 @@ Major stitching capabilities and enhancements:
 ## 🧰 CLI Parameters
 Planned command-line flags for future releases:
 
+- `--check-config` or `--verify-config` or `--validate-config` command
 - `--self-update` — update serger itself
 - `--no-update-check` — skip automatic update check
+
+
 
 ## ⚙️ Config File Enhancements
 
@@ -38,16 +41,16 @@ Exploring bundling options for generating the single-file release:
 ## 🧑‍💻 Development
 - How can we keep internal imports in stitch mode and avoid conflicts? (see [docs/example_isolated_stiching.md](docs/example_isolated_stiching.md))
 - Evaluate ignores and determine if we can fix them instead of ignore them
+- can we pull out common CLI elements with pocket-build into a single toplevel module?
+- set up stitch modes
+- set up comment stripper toggle
+- command to do common tasks based on reddit advice for dealing with AI.
+- quiet mode for the ai program
 
 ## 🚀 Deployment
 - Deploy action when I tag a release should create a release and attach it to the tagged release.
 
 ## 🔌 API
-
-- can we pull out common CLI elements with pocket-build into a single toplevel module?
-- set up stitch modes
-- set up comment stripper toggle
-- command to do common tasks based on reddit advice for dealing with AI.
 
 ## 📚 Documentation
 - Do we want a way to dump the schema for documentation purposes?
