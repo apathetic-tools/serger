@@ -13,6 +13,8 @@ from pathlib import Path
 
 import pytest
 
+import serger.meta as mod_meta
+
 
 @pytest.fixture
 def test_package_structure(tmp_path: Path) -> Path:
@@ -113,7 +115,7 @@ def test_init_ordering_stitched_file_compiles(
     """Test that stitched file compiles without syntax errors."""
     # Run serger
     result = subprocess.run(  # noqa: S603
-        [sys.executable, "-m", "serger"],
+        [sys.executable, "-m", mod_meta.PROGRAM_PACKAGE],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -151,7 +153,7 @@ def test_init_ordering_module_order_correct(
     """Test that module_b appears before __init__.py in stitched output."""
     # Run serger
     result = subprocess.run(  # noqa: S603
-        [sys.executable, "-m", "serger"],
+        [sys.executable, "-m", mod_meta.PROGRAM_PACKAGE],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -194,7 +196,7 @@ def test_init_ordering_runtime_works(
     """Test that the stitched file can be imported and used without errors."""
     # Run serger
     result = subprocess.run(  # noqa: S603
-        [sys.executable, "-m", "serger"],
+        [sys.executable, "-m", mod_meta.PROGRAM_PACKAGE],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -254,7 +256,7 @@ def test_init_ordering_with_standalone_marker(
     """
     # Run serger
     result = subprocess.run(  # noqa: S603
-        [sys.executable, "-m", "serger"],
+        [sys.executable, "-m", mod_meta.PROGRAM_PACKAGE],
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -389,7 +391,7 @@ EXPORTED_VALUE = _apathetic_logging_ns.get_value()
 
     # Run serger
     result = subprocess.run(  # noqa: S603
-        [sys.executable, "-m", "serger"],
+        [sys.executable, "-m", mod_meta.PROGRAM_PACKAGE],
         cwd=tmp_path,
         capture_output=True,
         text=True,

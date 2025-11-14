@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import cast
 
 from .config import (
+    CommentsMode,
     ExternalImportMode,
     IncludeResolved,
     InternalImportMode,
@@ -638,6 +639,121 @@ def strip_redundant_blocks(text: str) -> str:
     return text.strip()
 
 
+def process_comments(text: str, mode: CommentsMode) -> str:  # noqa: C901, PLR0912, PLR0915
+    """Process comments in source code according to the specified mode.
+
+    Args:
+        text: Python source code
+        mode: Comments processing mode:
+            - "keep": Keep all comments
+            - "ignores": Only keep comments that specify ignore rules
+            - "inline": Only keep inline comments (on same line as code)
+            - "strip": Remove all comments
+
+    Returns:
+        Source code with comments processed according to mode
+    """
+    if mode == "keep":
+        return text
+
+    if mode == "strip":
+        # Remove all comments, but preserve docstrings
+        # Use a simple approach: split by # and check if we're in a string
+        lines = text.splitlines(keepends=True)
+        result: list[str] = []
+
+        for line in lines:
+            # Simple check: if line has #, check if it's in a string
+            if "#" not in line:
+                result.append(line)
+                continue
+
+            # Check if # is inside a string literal
+            in_string = False
+            string_char = None
+            escape_next = False
+            comment_pos = -1
+
+            for i, char in enumerate(line):
+                if escape_next:
+                    escape_next = False
+                    continue
+
+                if char == "\\":
+                    escape_next = True
+                    continue
+
+                if not in_string:
+                    if char in ('"', "'"):
+                        in_string = True
+                        string_char = char
+                    elif char == "#":
+                        comment_pos = i
+                        break
+                elif char == string_char:
+                    in_string = False
+                    string_char = None
+
+            if comment_pos >= 0 and not in_string:
+                # Found comment outside string - remove it
+                code_part = line[:comment_pos].rstrip()
+                if code_part:
+                    # Has code before comment - keep code part
+                    result.append(code_part + ("\n" if line.endswith("\n") else ""))
+                # If no code part, this is a standalone comment - remove entirely
+            else:
+                # No comment found or comment is in string - keep line
+                result.append(line)
+
+        return "".join(result)
+
+    # Pattern for ignore comments (case-insensitive)
+    # Matches: # noqa, # type: ignore, # pyright: ignore, # mypy: ignore,
+    # # ruff: noqa, # serger: no-move, etc.
+    # Note: This pattern matches the comment part AFTER the #
+    ignore_pattern = re.compile(
+        r"^\s*(noqa|type:\s*ignore|pyright:\s*ignore|mypy:\s*ignore|ruff:\s*noqa|serger:\s*no-move)",
+        re.IGNORECASE,
+    )
+
+    lines = text.splitlines(keepends=True)
+    output_lines: list[str] = []
+
+    for line in lines:
+        # Check if line has code before comment
+        if "#" in line:
+            # Split at first # to get code and comment parts
+            parts = line.split("#", 1)
+            code_part = parts[0].rstrip()
+            comment_part = parts[1] if len(parts) > 1 else ""
+            has_code = bool(code_part)
+        else:
+            # No comment - keep the line as-is
+            output_lines.append(line)
+            continue
+
+        if mode == "inline":
+            # Keep only inline comments (comments on same line as code)
+            if has_code:
+                # Has code, so any comment is inline - keep the whole line
+                output_lines.append(line)
+            # If no code, this is a standalone comment - remove entirely
+        elif mode == "ignores":
+            # Keep only ignore comments
+            if ignore_pattern.match(comment_part):
+                # This is an ignore comment - keep it
+                output_lines.append(line)
+            elif has_code:
+                # Has code but comment is not an ignore - keep code, remove comment
+                output_lines.append(code_part + ("\n" if line.endswith("\n") else ""))
+            # If no code and not an ignore comment, remove entirely
+        else:
+            # Unknown mode - keep as-is
+            output_lines.append(line)
+
+    return "".join(output_lines)
+
+
 @dataclass
 class ModuleSymbols:
     """Top-level symbols extracted from a Python module."""
@@ -1191,6 +1307,7 @@ def _collect_modules(
     file_to_include: dict[Path, IncludeResolved],
     external_imports: ExternalImportMode = "top",
     internal_imports: InternalImportMode = "force_strip",
+    comments_mode: CommentsMode = "keep",
 ) -> tuple[dict[str, str], OrderedDict[str, None], list[str], list[str]]:
     """Collect and process module sources from file paths.
 
@@ -1201,6 +1318,7 @@ def _collect_modules(
         file_to_include: Mapping of file path to its include (for dest access)
         external_imports: How to handle external imports
         internal_imports: How to handle internal imports
+        comments_mode: How to handle comments in stitched output
 
     Returns:
         Tuple of (module_sources, all_imports, parts, derived_module_names)
@@ -1247,6 +1365,9 @@ def _collect_modules(
 
         module_text = file_path.read_text(encoding="utf-8")
         module_text = strip_redundant_blocks(module_text)
+
+        # Process comments according to mode
+        module_text = process_comments(module_text, comments_mode)
 
         # Extract imports - pass all detected package names and modes
         external_imports_list, module_body = split_imports(
@@ -1863,6 +1984,13 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         raise TypeError(msg)
     internal_imports = cast("InternalImportMode", internal_imports_raw)
 
+    # Extract comments_mode from config
+    comments_mode_raw = config.get("comments_mode", "keep")
+    if not isinstance(comments_mode_raw, str):
+        msg = "Config 'comments_mode' must be a string"
+        raise TypeError(msg)
+    comments_mode = cast("CommentsMode", comments_mode_raw)
+
     module_sources, all_imports, parts, derived_module_names = _collect_modules(
         order_paths,
         package_root,
@@ -1870,6 +1998,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         file_to_include,
         external_imports,
         internal_imports,
+        comments_mode,
     )
 
     # --- Parse AST once for all modules ---

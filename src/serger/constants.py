@@ -58,6 +58,7 @@ DEFAULT_EXTERNAL_IMPORTS: dict[str, str] = {
     "exec": "top",
 }
 DEFAULT_STITCH_MODE: str = "raw"  # Raw concatenation (default stitching mode)
+DEFAULT_COMMENTS_MODE: str = "keep"  # Keep all comments (default comments mode)
 
 # --- post-processing defaults ---
 DEFAULT_CATEGORY_ORDER: list[str] = ["static_checker", "formatter", "import_sorter"]

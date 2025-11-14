@@ -91,6 +91,7 @@ These options apply globally and can cascade into individual builds:
 | `internal_imports` | `str` | `"force_strip"` | How to handle internal package imports (see [Import Handling](#import-handling)) |
 | `external_imports` | `str` | `"top"` | How to handle external imports (see [Import Handling](#import-handling)) |
 | `stitch_mode` | `str` | `"raw"` | How to combine modules into a single file (see [Stitch Modes](#stitch-modes)) |
+| `comments_mode` | `str` | `"keep"` | How to handle comments in stitched output (see [Comment Handling](#comment-handling)) |
 
 ## Build Configuration Options
 
@@ -110,6 +111,7 @@ Each build in the `builds` array can specify:
 | `internal_imports` | `str` | No | Override root-level `internal_imports` for this build |
 | `external_imports` | `str` | No | Override root-level `external_imports` for this build |
 | `stitch_mode` | `str` | No | Override root-level `stitch_mode` for this build (see [Stitch Modes](#stitch-modes)) |
+| `comments_mode` | `str` | No | Override root-level `comments_mode` for this build (see [Comment Handling](#comment-handling)) |
 
 \* Required unless provided via CLI arguments
 
@@ -201,6 +203,35 @@ Serger supports different modes for combining multiple Python modules into a sin
 ```
 
 > **Note**: Currently, only `raw` mode is implemented. Attempting to use `class` or `exec` will raise a `NotImplementedError`. The default import handling modes are automatically selected based on the stitch mode, but you can override them if needed.
+
+## Comment Handling
+
+Serger provides control over how comments are handled in the stitched output. You can choose to keep all comments, remove them, or selectively preserve only certain types of comments.
+
+> **Note**: Comment handling does not affect docstrings (triple-quoted strings). Docstrings are preserved regardless of the `comments_mode` setting. A future `docstring_mode` setting will provide separate control over docstrings.
+
+| Mode | Description |
+|------|-------------|
+| `keep` | Keep all comments (default). Preserves all comments in their original locations, including standalone comments and inline comments. |
+| `strip` | Remove all comments. Removes all comments from the stitched output while preserving docstrings. This produces cleaner, more compact output. |
+| `ignores` | Only keep comments that specify ignore rules. Preserves comments that are used by linters and type checkers, such as `# noqa`, `# type: ignore`, `# pyright: ignore`, `# mypy: ignore`, `# ruff: noqa`, and `# serger: no-move`. All other comments are removed. |
+| `inline` | Only keep inline comments. Preserves comments that appear on the same line as code (e.g., `x = 1  # comment`), but removes standalone comment lines (e.g., `# This is a comment` on its own line). |
+
+### Example
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/mypkg/**/*.py"],
+      "out": "dist/mypkg.py",
+      "comments_mode": "ignores"  // Only keep linter/type checker ignore comments
+    }
+  ],
+  "comments_mode": "keep"  // Default for all builds
+}
+```
 
 ## Import Handling
 
