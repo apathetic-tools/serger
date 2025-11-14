@@ -61,6 +61,7 @@ def test_multi_package_stitching_with_shims(tmp_path: Path) -> None:
             ],
             "out": {"root": tmp_path, "path": "stitched.py"},
             "__meta__": {"config_root": tmp_path, "cli_root": tmp_path},
+            "stitch_mode": "raw",
         },
     )
 
@@ -273,6 +274,7 @@ def test_multi_package_stitching_three_packages(tmp_path: Path) -> None:
             ],
             "out": {"root": tmp_path, "path": "stitched.py"},
             "__meta__": {"config_root": tmp_path, "cli_root": tmp_path},
+            "stitch_mode": "raw",
         },
     )
 
@@ -365,6 +367,7 @@ def test_multi_package_auto_discover_order_with_cross_package_imports(
             # No order specified - should auto-discover
             "out": {"root": tmp_path, "path": "stitched.py"},
             "__meta__": {"config_root": tmp_path, "cli_root": tmp_path},
+            "stitch_mode": "raw",
         },
     )
 

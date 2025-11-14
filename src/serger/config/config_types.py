@@ -12,6 +12,7 @@ OriginType = Literal["cli", "config", "plugin", "default", "code", "gitignore", 
 
 InternalImportMode = Literal["force_strip", "strip", "keep", "assign"]
 ExternalImportMode = Literal["force_top", "top", "keep", "force_strip", "strip"]
+StitchMode = Literal["raw", "class", "exec"]
 
 
 # Post-processing configuration types
@@ -107,6 +108,11 @@ class BuildConfig(TypedDict, total=False):
     # Import handling configuration
     internal_imports: InternalImportMode  # How to handle internal package imports
     external_imports: ExternalImportMode  # How to handle external imports
+    # Stitching mode: how to combine modules into a single file
+    # - "raw": Concatenate all files together (default)
+    # - "class": Namespace files within classes (not yet implemented)
+    # - "exec": Namespace files within module shims using exec() (not yet implemented)
+    stitch_mode: StitchMode
 
 
 class RootConfig(TypedDict, total=False):
@@ -129,6 +135,11 @@ class RootConfig(TypedDict, total=False):
     # Import handling defaults (cascade into builds)
     internal_imports: InternalImportMode  # How to handle internal package imports
     external_imports: ExternalImportMode  # How to handle external imports
+    # Stitching mode default (cascades into builds)
+    # - "raw": Concatenate all files together (default)
+    # - "class": Namespace files within classes (not yet implemented)
+    # - "exec": Namespace files within module shims using exec() (not yet implemented)
+    stitch_mode: StitchMode
 
 
 class BuildConfigResolved(TypedDict):
@@ -159,6 +170,7 @@ class BuildConfigResolved(TypedDict):
     ]  # Post-processing configuration
     internal_imports: NotRequired[InternalImportMode]  # How to handle internal imports
     external_imports: NotRequired[ExternalImportMode]  # How to handle external imports
+    stitch_mode: NotRequired[StitchMode]  # How to combine modules into a single file
 
 
 class RootConfigResolved(TypedDict):

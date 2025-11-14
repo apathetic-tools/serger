@@ -35,6 +35,7 @@ from .config_types import (
     PostProcessingConfigResolved,
     RootConfig,
     RootConfigResolved,
+    StitchMode,
     ToolConfig,
     ToolConfigResolved,
 )
@@ -70,6 +71,7 @@ __all__ = [  # noqa: RUF022
     "PostProcessingConfigResolved",
     "RootConfig",
     "RootConfigResolved",
+    "StitchMode",
     "ToolConfig",
     "ToolConfigResolved",
     # config_validate

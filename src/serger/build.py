@@ -547,6 +547,7 @@ def run_build(  # noqa: PLR0915, PLR0912
     repo_raw = build_cfg.get("repo", "")
     post_processing = build_cfg.get("post_processing")
     external_imports = build_cfg.get("external_imports", "top")
+    stitch_mode = build_cfg.get("stitch_mode", "raw")
 
     stitch_config: dict[str, object] = {
         "package": package,
@@ -557,6 +558,7 @@ def run_build(  # noqa: PLR0915, PLR0912
         "repo": repo_raw,
         "topo_paths": topo_paths,  # Pre-computed topological order (if auto-discovered)
         "external_imports": external_imports,
+        "stitch_mode": stitch_mode,
     }
 
     # Extract metadata for embedding (use package_root as root_path)

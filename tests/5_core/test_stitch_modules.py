@@ -52,6 +52,7 @@ def _setup_stitch_test(
         "package": package_name,
         "order": file_paths,  # Order as Path objects
         "exclude_names": [],  # Exclude names as Path objects
+        "stitch_mode": "raw",
     }
 
     return file_paths, package_root, file_to_include, config
@@ -64,6 +65,7 @@ class TestStitchModulesValidation:
         """Should raise RuntimeError when package is not specified."""
         config: dict[str, Any] = {
             "order": [Path("module_a.py"), Path("module_b.py")],
+            "stitch_mode": "raw",
         }
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
@@ -93,6 +95,7 @@ class TestStitchModulesValidation:
         """Should raise RuntimeError when order is not specified."""
         config: dict[str, Any] = {
             "package": "testpkg",
+            "stitch_mode": "raw",
         }
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
@@ -130,6 +133,7 @@ class TestStitchModulesValidation:
             config: dict[str, Any] = {
                 "package": 123,  # Not a string
                 "order": file_paths,
+                "stitch_mode": "raw",
             }
 
             with pytest.raises(TypeError, match="package"):
@@ -157,9 +161,94 @@ class TestStitchModulesValidation:
             config: dict[str, Any] = {
                 "package": "testpkg",
                 "order": "module_a",  # Not a list
+                "stitch_mode": "raw",
             }
 
             with pytest.raises(TypeError, match="order"):
+                mod_stitch.stitch_modules(
+                    config=config,
+                    file_paths=file_paths,
+                    package_root=package_root,
+                    file_to_include=file_to_include,
+                    out_path=out_path,
+                )
+
+    def test_invalid_stitch_mode(self) -> None:
+        """Should raise ValueError when stitch_mode is invalid."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            (src_dir / "module_a.py").write_text("A = 1\n")
+
+            file_paths = [(src_dir / "module_a.py").resolve()]
+            package_root = mod_build.find_package_root(file_paths)
+            file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
+            out_path = tmp_path / "output.py"
+
+            config: dict[str, Any] = {
+                "package": "testpkg",
+                "order": file_paths,
+                "stitch_mode": "invalid_mode",
+            }
+
+            with pytest.raises(ValueError, match="Invalid stitch_mode"):
+                mod_stitch.stitch_modules(
+                    config=config,
+                    file_paths=file_paths,
+                    package_root=package_root,
+                    file_to_include=file_to_include,
+                    out_path=out_path,
+                )
+
+    def test_unimplemented_stitch_mode_class(self) -> None:
+        """Should raise NotImplementedError when stitch_mode is 'class'."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            (src_dir / "module_a.py").write_text("A = 1\n")
+
+            file_paths = [(src_dir / "module_a.py").resolve()]
+            package_root = mod_build.find_package_root(file_paths)
+            file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
+            out_path = tmp_path / "output.py"
+
+            config: dict[str, Any] = {
+                "package": "testpkg",
+                "order": file_paths,
+                "stitch_mode": "class",
+            }
+
+            with pytest.raises(NotImplementedError, match="not yet implemented"):
+                mod_stitch.stitch_modules(
+                    config=config,
+                    file_paths=file_paths,
+                    package_root=package_root,
+                    file_to_include=file_to_include,
+                    out_path=out_path,
+                )
+
+    def test_unimplemented_stitch_mode_exec(self) -> None:
+        """Should raise NotImplementedError when stitch_mode is 'exec'."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            (src_dir / "module_a.py").write_text("A = 1\n")
+
+            file_paths = [(src_dir / "module_a.py").resolve()]
+            package_root = mod_build.find_package_root(file_paths)
+            file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
+            out_path = tmp_path / "output.py"
+
+            config: dict[str, Any] = {
+                "package": "testpkg",
+                "order": file_paths,
+                "stitch_mode": "exec",
+            }
+
+            with pytest.raises(NotImplementedError, match="not yet implemented"):
                 mod_stitch.stitch_modules(
                     config=config,
                     file_paths=file_paths,

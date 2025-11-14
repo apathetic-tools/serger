@@ -16,6 +16,7 @@ from serger.constants import (
     DEFAULT_INTERNAL_IMPORTS,
     DEFAULT_OUT_DIR,
     DEFAULT_RESPECT_GITIGNORE,
+    DEFAULT_STITCH_MODE,
     DEFAULT_STRICT_CONFIG,
     DEFAULT_USE_PYPROJECT,
     DEFAULT_WATCH_INTERVAL,
@@ -953,6 +954,19 @@ def resolve_build_config(
         resolved_cfg["external_imports"] = root_external
     else:
         resolved_cfg["external_imports"] = DEFAULT_EXTERNAL_IMPORTS
+
+    # ------------------------------
+    # Stitch mode
+    # ------------------------------
+    # Cascade: build-level → root-level → default
+    build_stitch_mode = resolved_cfg.get("stitch_mode")
+    root_stitch_mode = (root_cfg or {}).get("stitch_mode")
+    if build_stitch_mode is not None:
+        resolved_cfg["stitch_mode"] = build_stitch_mode
+    elif root_stitch_mode is not None:
+        resolved_cfg["stitch_mode"] = root_stitch_mode
+    else:
+        resolved_cfg["stitch_mode"] = DEFAULT_STITCH_MODE
 
     # ------------------------------
     # Post-processing
