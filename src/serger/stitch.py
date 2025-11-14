@@ -124,7 +124,9 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
               each module section.
             - "strip": Remove internal imports, but skip imports inside
               conditional structures (if, try, etc.). `if TYPE_CHECKING:` blocks
-              are always processed (imports removed). Not yet implemented.
+              are always processed (imports removed). Empty `if TYPE_CHECKING:`
+              blocks (including those with only pass statements) are removed
+              entirely.
             - "assign": Transform imports into assignments. Not yet implemented.
 
     Returns:
@@ -299,8 +301,8 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
                     # Other modes (assign) not yet implemented
                     msg = (
                         f"internal_imports mode '{internal_imports}' is not yet "
-                        "implemented. Only 'force_strip' and 'keep' modes are "
-                        "currently supported."
+                        "implemented. Only 'force_strip', 'keep', and 'strip' "
+                        "modes are currently supported."
                     )
                     raise ValueError(msg)
             # External: handle according to mode
