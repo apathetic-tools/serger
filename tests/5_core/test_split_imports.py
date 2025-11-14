@@ -2275,7 +2275,7 @@ def foo():
 
 
 def test_split_imports_assign_internal_module_level() -> None:
-    """In 'assign' mode, module-level internal imports should become assignments."""
+    """In 'assign' mode, module-level internal imports should be skipped if no-op."""
     code = """import sys
 from serger.config import Config
 
@@ -2287,14 +2287,14 @@ def foo():
     )
     # External import should be hoisted
     assert "import sys" in "".join(imports)
-    # Internal import should be transformed to direct reference
+    # Internal import should be removed (no-op assignment skipped)
     assert "from serger.config import Config" not in body
-    assert "Config = Config" in body
+    assert "Config = Config" not in body  # No-op assignment is skipped
     assert "def foo():" in body
 
 
 def test_split_imports_assign_internal_multiple_names() -> None:
-    """In 'assign' mode, multiple names should be assigned."""
+    """In 'assign' mode, multiple names should be skipped if no-op."""
     code = """import sys
 from serger.config import Config, Other, Third
 
@@ -2306,11 +2306,11 @@ def foo():
     )
     # External import should be hoisted
     assert "import sys" in "".join(imports)
-    # Internal import should be transformed to direct references
+    # Internal import should be removed (all no-op assignments skipped)
     assert "from serger.config import" not in body
-    assert "Config = Config" in body
-    assert "Other = Other" in body
-    assert "Third = Third" in body
+    assert "Config = Config" not in body  # No-op skipped
+    assert "Other = Other" not in body  # No-op skipped
+    assert "Third = Third" not in body  # No-op skipped
     assert "def foo():" in body
 
 
@@ -2334,7 +2334,7 @@ def foo():
 
 
 def test_split_imports_assign_internal_relative_import() -> None:
-    """In 'assign' mode, relative imports should be resolved and assigned."""
+    """In 'assign' mode, relative imports should be skipped if no-op."""
     code = """import sys
 from .config import Config
 
@@ -2346,14 +2346,14 @@ def foo():
     )
     # External import should be hoisted
     assert "import sys" in "".join(imports)
-    # Relative import should be transformed to direct reference
+    # Relative import should be removed (no-op assignment skipped)
     assert "from .config import Config" not in body
-    assert "Config = Config" in body
+    assert "Config = Config" not in body  # No-op skipped
     assert "def foo():" in body
 
 
 def test_split_imports_assign_internal_import_module() -> None:
-    """In 'assign' mode, 'import module' should become module assignment."""
+    """In 'assign' mode, 'import module' should be skipped (no-op)."""
     code = """import sys
 import serger.config
 
@@ -2365,10 +2365,10 @@ def foo():
     )
     # External import should be hoisted
     assert "import sys" in "".join(imports)
-    # Internal import should be transformed to direct reference
-    # For 'import serger.config', Python creates 'serger' in namespace
+    # Internal import should be removed (no-op assignment skipped)
+    # For 'import serger.config', it would be 'serger = serger' which is a no-op
     assert "import serger.config" not in body
-    assert "serger = serger" in body
+    assert "serger = serger" not in body  # No-op skipped
     assert "def foo():" in body
 
 
@@ -2411,7 +2411,7 @@ def foo():
 
 
 def test_split_imports_assign_internal_function_local() -> None:
-    """In 'assign' mode, function-local internal imports should become assignments."""
+    """In 'assign' mode, function-local internal imports should be skipped if no-op."""
     code = """import sys
 
 def compute_order():
@@ -2423,15 +2423,15 @@ def compute_order():
     )
     # Module-level external import should be hoisted
     assert "import sys" in "".join(imports)
-    # Function-local internal import should be transformed to direct reference
+    # Function-local internal import should be removed (no-op assignment skipped)
     assert "from serger.utils import" not in body
-    assert "derive_module_name = derive_module_name" in body
+    assert "derive_module_name = derive_module_name" not in body  # No-op skipped
     assert "def compute_order():" in body
     assert "return derive_module_name" in body
 
 
 def test_split_imports_assign_internal_in_conditional() -> None:
-    """In 'assign' mode, internal imports in conditionals should become assignments."""
+    """In 'assign' mode, internal imports in conditionals should be skipped if no-op."""
     code = """import sys
 
 if some_condition:
@@ -2443,15 +2443,15 @@ if some_condition:
     )
     # External import should be hoisted
     assert "import sys" in "".join(imports)
-    # Internal import in conditional should be transformed to direct reference
+    # Internal import in conditional should be removed (no-op assignment skipped)
     assert "from serger.config import Config" not in body
-    assert "Config = Config" in body
+    assert "Config = Config" not in body  # No-op skipped
     assert "if some_condition:" in body
     assert "result = Config()" in body
 
 
 def test_split_imports_assign_internal_type_checking() -> None:
-    """In 'assign' mode, internal imports in TYPE_CHECKING should become assignments."""
+    """In 'assign' mode, TYPE_CHECKING imports should be skipped if no-op."""
     code = """import sys
 from typing import TYPE_CHECKING
 
@@ -2463,10 +2463,11 @@ if TYPE_CHECKING:
     )
     # External imports should be hoisted
     assert "import sys" in "".join(imports)
-    # Internal import in TYPE_CHECKING should be transformed to direct reference
+    # Internal import in TYPE_CHECKING should be removed (no-op assignment skipped)
     assert "from serger.config import Config" not in body
-    assert "Config = Config" in body
-    assert "if TYPE_CHECKING:" in body
+    assert "Config = Config" not in body  # No-op skipped
+    # Empty TYPE_CHECKING block should be removed entirely
+    assert "if TYPE_CHECKING:" not in body
 
 
 def test_split_imports_assign_internal_mixed_with_external() -> None:
@@ -2486,19 +2487,19 @@ def func1():
     # Module-level external imports should be hoisted
     assert "import json" in "".join(imports)
     assert "from pathlib import Path" in "".join(imports)
-    # Module-level internal imports should be transformed to direct references
+    # Module-level internal imports should be removed (no-op assignments skipped)
     assert "from serger.config import Config" not in body
     assert "from serger.utils import helper" not in body
-    assert "Config = Config" in body
-    assert "helper = helper" in body
-    # Function-local internal import should be transformed to direct reference
+    assert "Config = Config" not in body  # No-op skipped
+    assert "helper = helper" not in body  # No-op skipped (module-level)
+    # Function-local internal import should be removed (no-op assignment skipped)
     assert "from .internal import" not in body
-    assert "helper = helper" in body
+    assert "helper = helper" not in body  # No-op skipped (function-local)
     assert "def func1():" in body
 
 
 def test_split_imports_assign_internal_multi_package() -> None:
-    """In 'assign' mode, internal imports from multiple packages should be assigned."""
+    """In 'assign' mode, multi-package imports should be skipped if no-op."""
     code = """import sys
 from pkg1.module1 import func1
 from pkg2.module2 import func2
@@ -2510,8 +2511,30 @@ from external_lib import something
     # External imports should be hoisted
     assert "import sys" in "".join(imports)
     assert "from external_lib import something" in "".join(imports)
-    # Internal imports from both packages should be transformed to direct references
+    # Internal imports from both packages should be removed (no-op assignments skipped)
     assert "from pkg1.module1 import func1" not in body
     assert "from pkg2.module2 import func2" not in body
-    assert "func1 = func1" in body
-    assert "func2 = func2" in body
+    assert "func1 = func1" not in body  # No-op skipped
+    assert "func2 = func2" not in body  # No-op skipped
+
+
+def test_split_imports_assign_internal_noop_skipped() -> None:
+    """In 'assign' mode, no-op assignments should be skipped."""
+    code = """import sys
+from serger.config import Config, Other
+from serger.utils import helper as h
+
+def foo():
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top", internal_imports="assign"
+    )
+    # External import should be hoisted
+    assert "import sys" in "".join(imports)
+    # No-op assignments should be skipped
+    assert "Config = Config" not in body  # No-op skipped
+    assert "Other = Other" not in body  # No-op skipped
+    # Non-no-op assignment (with alias) should be created
+    assert "h = helper" in body
+    assert "def foo():" in body
