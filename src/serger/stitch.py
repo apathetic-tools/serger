@@ -94,7 +94,12 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
         package_names: List of package names to treat as internal
             (e.g., ["serger", "other"])
         external_imports: How to handle external imports. Supported modes:
-            - "force_top": Hoist module-level external imports to top of file
+            - "force_top": Hoist module-level external imports to top of file.
+              Always moves imports, even inside conditional structures (if, try,
+              etc.). Module-level imports are collected and deduplicated at the
+              top. Empty structures (if, try, etc.) get a `pass` statement.
+              Empty `if TYPE_CHECKING:` blocks (including those with only pass
+              statements) are removed entirely.
             - "top": Hoist module-level external imports to top, but only if
               not inside conditional structures (try/if blocks). `if TYPE_CHECKING:`
               blocks are excluded from this check.
@@ -104,6 +109,11 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
               structures (if, try, etc.) get a `pass` statement. Empty
               `if TYPE_CHECKING:` blocks (including those with only pass
               statements) are removed entirely.
+            - "strip": Remove external imports, but skip imports inside
+              conditional structures (if, try, etc.). `if TYPE_CHECKING:` blocks
+              are always processed (imports removed). Empty `if TYPE_CHECKING:`
+              blocks (including those with only pass statements) are removed
+              entirely.
 
     Returns:
         Tuple of (external_imports, body_text) where external_imports is a
@@ -302,13 +312,28 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
                 # (module-level, function-local, in conditionals, etc.)
                 all_import_ranges.append((start, end))
                 # Don't add to external_imports_list (we're stripping, not hoisting)
+            elif external_imports == "strip":
+                # Strip external imports, but skip imports inside conditional
+                # structures (if, try, etc.). TYPE_CHECKING blocks are always
+                # processed (imports removed).
+                if is_type_checking:
+                    # Always process TYPE_CHECKING blocks - remove imports
+                    all_import_ranges.append((start, end))
+                elif is_in_conditional(node, tree):
+                    # In conditional (but not TYPE_CHECKING) - keep import
+                    # Don't add to ranges
+                    pass
+                else:
+                    # Not in conditional - remove import
+                    all_import_ranges.append((start, end))
+                # Don't add to external_imports_list (we're stripping, not hoisting)
             else:
-                # Other modes (strip, pass, force_pass, assign)
+                # Other modes (assign)
                 # not yet implemented
                 msg = (
                     f"external_imports mode '{external_imports}' is not yet "
-                    "implemented. Only 'force_top', 'top', 'keep', and "
-                    "'force_strip' modes are currently supported."
+                    "implemented. Only 'force_top', 'top', 'keep', "
+                    "'force_strip', and 'strip' modes are currently supported."
                 )
                 raise ValueError(msg)
 

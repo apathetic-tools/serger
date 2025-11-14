@@ -177,8 +177,6 @@ Internal imports are imports from the package being stitched (e.g., `from mypkg.
 | `force_strip` | Remove internal imports (default). Always removes imports, even inside conditional structures (if, try, etc.). Internal imports are resolved by stitching, so they can be safely removed. |
 | `strip` | Remove internal imports (not yet implemented). Skips imports inside conditional structures (if, try, etc.), except `if TYPE_CHECKING` blocks which are always processed. |
 | `keep` | Keep internal imports in their original locations within each module section. |
-| `pass` | Replace internal imports with `pass` (not yet implemented). Skips imports inside conditional structures (if, try, etc.), except `if TYPE_CHECKING` blocks which are always processed. |
-| `force_pass` | Replace internal imports with `pass` only if inside conditional structures (if, try, etc.). Otherwise, remove them. |
 | `assign` | Transform imports into assignments. For example, `from mypkg.utils import foo` becomes `foo = mypkg.utils.foo`, and `from mypkg.utils import foo as bar` becomes `bar = mypkg.utils.foo`. These assignments do not count towards collision detection. |
 
 ### External Imports
@@ -187,13 +185,11 @@ External imports are imports from packages not being stitched (e.g., `import os`
 
 | Mode | Description |
 |------|-------------|
-| `force_top` | Move external imports to the top (default). Always moves imports, even inside conditional structures (if, try, etc.). Module-level imports are collected and deduplicated at the top. |
+| `force_top` | Move external imports to the top (default). Always moves imports, even inside conditional structures (if, try, etc.). Module-level imports are collected and deduplicated at the top. Empty structures (if, try, etc.) get a `pass` statement. Empty `if TYPE_CHECKING:` blocks (including those with only pass statements) are removed entirely. |
 | `top` | Move external imports to the top (not yet implemented). Moves imports to the top, but skips imports inside conditional structures (if, try, etc.), except `if TYPE_CHECKING` blocks which are always processed. |
 | `keep` | Keep external imports in their original locations within each module section. |
-| `force_strip` | Remove external imports. Always removes imports, even inside conditional structures (if, try, etc.). |
-| `strip` | Remove external imports (not yet implemented). Skips imports inside conditional structures (if, try, etc.), except `if TYPE_CHECKING` blocks which are always processed. |
-| `pass` | Replace external imports with `pass` (not yet implemented). Skips imports inside conditional structures (if, try, etc.), except `if TYPE_CHECKING` blocks which are always processed. |
-| `force_pass` | Replace external imports with `pass` only if inside conditional structures (if, try, etc.). Otherwise, remove them. |
+| `force_strip` | Remove external imports. Always removes imports, even inside conditional structures (if, try, etc.). Empty structures (if, try, etc.) get a `pass` statement. Empty `if TYPE_CHECKING:` blocks (including those with only pass statements) are removed entirely. |
+| `strip` | Remove external imports (not yet implemented). Skips imports inside conditional structures (if, try, etc.), except `if TYPE_CHECKING` blocks which are always processed. Empty `if TYPE_CHECKING:` blocks (including those with only pass statements) are removed entirely. |
 | `assign` | Transform imports into assignments. For example, `from pathlib import Path` becomes `Path = pathlib.Path`, and `from os import path as ospath` becomes `ospath = os.path`. These assignments do not count towards collision detection. |
 
 ### Example
