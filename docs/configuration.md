@@ -90,6 +90,7 @@ These options apply globally and can cascade into individual builds:
 | `pyproject_path` | `str` | - | Path to `pyproject.toml` (fallback for single builds) |
 | `internal_imports` | `str` | `"force_strip"` | How to handle internal package imports (see [Import Handling](#import-handling)) |
 | `external_imports` | `str` | `"top"` | How to handle external imports (see [Import Handling](#import-handling)) |
+| `stitch_mode` | `str` | `"raw"` | How to combine modules into a single file (see [Stitch Modes](#stitch-modes)) |
 
 ## Build Configuration Options
 
@@ -108,6 +109,7 @@ Each build in the `builds` array can specify:
 | `strict_config` | `bool` | No | Override root-level `strict_config` for this build |
 | `internal_imports` | `str` | No | Override root-level `internal_imports` for this build |
 | `external_imports` | `str` | No | Override root-level `external_imports` for this build |
+| `stitch_mode` | `str` | No | Override root-level `stitch_mode` for this build (see [Stitch Modes](#stitch-modes)) |
 
 \* Required unless provided via CLI arguments
 
@@ -164,9 +166,47 @@ You can define multiple builds in a single config file:
 }
 ```
 
+## Stitch Modes
+
+Serger supports different modes for combining multiple Python modules into a single file. Each mode has different characteristics and use cases:
+
+| Mode | Status | Description | Default Internal Imports | Default External Imports |
+|------|--------|-------------|--------------------------|--------------------------|
+| `raw` | ✅ **Implemented** | Concatenates all files together into a single namespace. All code from different modules is merged into one global scope. This is the simplest and fastest mode. | `force_strip` | `top` |
+| `class` | ⚠️ **Not Yet Implemented** | Wraps each module in a class namespace. Each module becomes a class (e.g., `_Module_utils`), preserving module boundaries while still producing a single file. Internal imports are transformed to class attribute access. | `assign` | `top` |
+| `exec` | ⚠️ **Not Yet Implemented** | Uses `exec()` with separate module objects in `sys.modules`. Each module maintains its own namespace and proper `__package__` attributes, allowing relative imports to work correctly. This mode most closely mimics normal Python module behavior. | `keep` | `top` |
+
+### Choosing a Stitch Mode
+
+- **`raw`** (default): Use this for most cases. It's the simplest and produces the most compact output. All modules share a single namespace, so internal imports are stripped since symbols are directly accessible.
+
+- **`class`**: Planned for cases where you need module isolation but still want a single file. Each module's code runs within its own class namespace, which can help avoid naming conflicts.
+
+- **`exec`**: Planned for maximum compatibility with existing code that relies on proper module semantics. This mode preserves `__package__` attributes and allows relative imports to work as they would in a normal Python installation.
+
+### Example
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/mypkg/**/*.py"],
+      "out": "dist/mypkg.py",
+      "stitch_mode": "raw"  // Use raw mode (default)
+    }
+  ],
+  "stitch_mode": "raw"  // Default for all builds
+}
+```
+
+> **Note**: Currently, only `raw` mode is implemented. Attempting to use `class` or `exec` will raise a `NotImplementedError`. The default import handling modes are automatically selected based on the stitch mode, but you can override them if needed.
+
 ## Import Handling
 
 Serger provides fine-grained control over how imports are handled during stitching. You can configure separate behaviors for internal imports (from the package being stitched) and external imports (from other packages).
+
+> **Note**: The default import handling modes depend on the selected `stitch_mode`. See [Stitch Modes](#stitch-modes) for details.
 
 ### Internal Imports
 
