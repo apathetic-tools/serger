@@ -34,6 +34,7 @@ Planned command-line flags for future releases:
 - can package be removed?
 - can we make the main() detection smarter?
 - config setting for main
+- tie the import mode defaults to the stitch mode
 
 ## 🧩 Joiner Scripts (Build System)
 Exploring bundling options for generating the single-file release:
@@ -44,6 +45,7 @@ Exploring bundling options for generating the single-file release:
 - How can we report what we comment tool ignore, in src and in tests?
 - Organize tests in classes? or separate files?
 - split large test files
+- is checking py_compiles overkill? should we also run it against the installed mode not just singlefile?
 
 ## 🧑‍💻 Development
 - How can we keep internal imports in stitch mode and avoid conflicts? (see [docs/example_isolated_stiching.md](docs/example_isolated_stiching.md))

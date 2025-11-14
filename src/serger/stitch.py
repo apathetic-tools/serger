@@ -127,7 +127,14 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
               are always processed (imports removed). Empty `if TYPE_CHECKING:`
               blocks (including those with only pass statements) are removed
               entirely.
-            - "assign": Transform imports into assignments. Not yet implemented.
+            - "assign": **[EXPERIMENTAL/WIP]** Transform imports into assignments.
+              Converts imports like `from module import name` to `name = name`
+              (direct reference). In stitched mode, all modules share the same
+              global namespace and execute in topological order, so symbols can be
+              referenced directly. Preserves original indentation and location of
+              imports. Assignments are included in collision detection. Note: `import
+              module` statements for internal packages may not work correctly as
+              there are no module objects in stitched mode.
 
     Returns:
         Tuple of (external_imports, body_text) where external_imports is a
@@ -146,6 +153,9 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
     # Separate list for TYPE_CHECKING imports
     type_checking_imports_list: list[str] = []
     all_import_ranges: list[tuple[int, int]] = []
+    # For assign mode: track imports to replace with assignments
+    # Maps (start, end) range to assignment code
+    import_replacements: dict[tuple[int, int], str] = {}
 
     def find_parent(
         node: ast.AST,
@@ -230,6 +240,76 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
 
         return False
 
+    def generate_assignments_from_import(
+        node: ast.Import | ast.ImportFrom,
+        _package_names: list[str],
+    ) -> str:
+        """Generate assignment statements from an import node.
+
+        In the stitched output, all modules share the same global namespace and
+        are executed in topological order. So we can reference symbols directly
+        instead of using sys.modules (which isn't set up until after all module
+        code runs).
+
+        Converts imports like:
+        - `from module import name` → `name = name` (direct reference)
+        - `from module import name as alias` → `alias = name` (direct reference)
+        - `import module` → `module = module` (for simple imports, but this is
+          problematic for dotted imports - see below)
+        - `import module as alias` → `alias = module` (direct reference)
+
+        Note: For `import a.b.c`, Python creates variable 'a' in the namespace,
+        but in stitched mode, we can't easily reference 'a.b.c' directly.
+        This case may need special handling or may not be fully supported.
+
+        Args:
+            node: AST Import or ImportFrom node
+            package_names: List of package names (unused, kept for API consistency)
+
+        Returns:
+            String containing assignment statements, one per line
+        """
+        assignments: list[str] = []
+
+        if isinstance(node, ast.ImportFrom):
+            # Handle: from module import name1, name2, ...
+            # In stitched mode, all symbols are in the same global namespace,
+            # so we can reference them directly
+            for alias in node.names:
+                imported_name = alias.name
+                local_name = alias.asname if alias.asname else imported_name
+                # Direct reference: symbol is already in global namespace
+                assignment = f"{local_name} = {imported_name}"
+                assignments.append(assignment)
+
+        else:
+            # Handle: import module [as alias]
+            for alias in node.names:
+                module_name = alias.name
+                if alias.asname:
+                    # import module as alias
+                    local_name = alias.asname
+                    # For simple imports like "import json", we can reference
+                    # directly. But this assumes the module was already imported
+                    # as an external import (hoisted to top).
+                    # For internal imports, this won't work - we'd need the
+                    # module object, which doesn't exist in stitched mode.
+                    # This is a limitation of assign mode for "import module".
+                    assignment = f"{local_name} = {module_name}"
+                else:
+                    # import module or import a.b.c
+                    # For dotted imports like "import a.b.c", Python creates
+                    # variable 'a' pointing to the 'a' module.
+                    # In stitched mode, we can't reference 'a.b.c' directly,
+                    # so we just reference the first component.
+                    # This may not work correctly for all cases.
+                    first_component = module_name.split(".", 1)[0]
+                    local_name = first_component
+                    assignment = f"{local_name} = {first_component}"
+                assignments.append(assignment)
+
+        return "\n".join(assignments)
+
     def collect_imports(node: ast.AST) -> None:  # noqa: C901, PLR0912, PLR0915
         """Recursively collect all import nodes from the AST."""
         if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -297,12 +377,33 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
                     else:
                         # Not in conditional - remove import
                         all_import_ranges.append((start, end))
+                elif internal_imports == "assign":
+                    # Transform imports into assignments
+                    # Get indentation from the original import line
+                    import_line = lines[start] if start < len(lines) else ""
+                    indent_match = re.match(r"^(\s*)", import_line)
+                    indent = indent_match.group(1) if indent_match else ""
+                    # Generate assignment code
+                    assignment_code = generate_assignments_from_import(
+                        node, package_names
+                    )
+                    # Indent each assignment line to match original import
+                    indented_assignments = "\n".join(
+                        f"{indent}{line}" for line in assignment_code.split("\n")
+                    )
+                    # Add newline at end if original had one
+                    if end < len(lines) and lines[end - 1].endswith("\n"):
+                        indented_assignments += "\n"
+                    # Store replacement
+                    import_replacements[(start, end)] = indented_assignments
+                    # Mark import for removal
+                    all_import_ranges.append((start, end))
                 else:
-                    # Other modes (assign) not yet implemented
+                    # Unknown mode
                     msg = (
-                        f"internal_imports mode '{internal_imports}' is not yet "
-                        "implemented. Only 'force_strip', 'keep', and 'strip' "
-                        "modes are currently supported."
+                        f"internal_imports mode '{internal_imports}' is not "
+                        "supported. Only 'force_strip', 'keep', 'strip', and "
+                        "'assign' modes are currently supported."
                     )
                     raise ValueError(msg)
             # External: handle according to mode
@@ -384,9 +485,34 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
     for node in tree.body:
         collect_imports(node)
 
-    # --- Remove *all* import lines from the body ---
-    skip = {i for s, e in all_import_ranges for i in range(s, e)}
-    body = "".join(line for i, line in enumerate(lines) if i not in skip)
+    # --- Remove *all* import lines from the body and insert assignments ---
+    # Build new body with imports replaced by assignments
+    new_lines: list[str] = []
+    i = 0
+    while i < len(lines):
+        # Check if this line is part of an import to remove
+        in_import_range = False
+        replacement_range: tuple[int, int] | None = None
+        for start, end in all_import_ranges:
+            if start <= i < end:
+                in_import_range = True
+                replacement_range = (start, end)
+                break
+
+        if in_import_range and replacement_range:
+            # This is an import to replace
+            if replacement_range in import_replacements:
+                # Insert assignment code
+                assignment_code = import_replacements[replacement_range]
+                new_lines.append(assignment_code)
+            # Skip all lines in this import range
+            i = replacement_range[1]
+        else:
+            # Keep this line
+            new_lines.append(lines[i])
+            i += 1
+
+    body = "".join(new_lines)
 
     # Check if TYPE_CHECKING blocks and other conditional blocks are empty
     # TYPE_CHECKING blocks: remove if empty
@@ -1114,12 +1240,14 @@ def _collect_modules(
 
         module_text = file_path.read_text(encoding="utf-8")
         module_text = strip_redundant_blocks(module_text)
-        module_sources[f"{module_name}.py"] = module_text
 
         # Extract imports - pass all detected package names and modes
         external_imports_list, module_body = split_imports(
             module_text, package_names_list, external_imports, internal_imports
         )
+        # Store transformed body for symbol extraction (collision detection)
+        # This ensures assign mode assignments are included in collision checks
+        module_sources[f"{module_name}.py"] = module_body
         for imp in external_imports_list:
             all_imports.setdefault(imp, None)
 
