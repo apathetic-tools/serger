@@ -16,6 +16,7 @@ import serger.build as mod_build
 import serger.config.config_loader as mod_config_loader
 import serger.config.config_resolve as mod_config_resolve
 import serger.config.config_types as mod_config_types
+import serger.constants as mod_constants
 from tests.utils.buildconfig import make_include_resolved
 
 
@@ -59,9 +60,21 @@ def test_multi_package_stitching_with_shims(tmp_path: Path) -> None:
                 "pkg2/__init__.py",
                 "pkg2/module2.py",
             ],
-            "out": {"root": tmp_path, "path": "stitched.py"},
+            "out": {"root": tmp_path, "path": "stitched.py", "origin": "test"},
+            "exclude": [],
+            "respect_gitignore": False,
+            "log_level": "info",
+            "strict_config": False,
+            "dry_run": False,
             "__meta__": {"config_root": tmp_path, "cli_root": tmp_path},
-            "stitch_mode": "raw",
+            "stitch_mode": mod_constants.DEFAULT_STITCH_MODE,
+            "internal_imports": mod_constants.DEFAULT_INTERNAL_IMPORTS,
+            "external_imports": mod_constants.DEFAULT_EXTERNAL_IMPORTS,
+            "post_processing": {
+                "enabled": True,
+                "category_order": [],
+                "categories": {},
+            },
         },
     )
 
@@ -272,9 +285,21 @@ def test_multi_package_stitching_three_packages(tmp_path: Path) -> None:
                 "pkg3/__init__.py",
                 "pkg3/module3.py",
             ],
-            "out": {"root": tmp_path, "path": "stitched.py"},
+            "out": {"root": tmp_path, "path": "stitched.py", "origin": "test"},
+            "exclude": [],
+            "respect_gitignore": False,
+            "log_level": "info",
+            "strict_config": False,
+            "dry_run": False,
             "__meta__": {"config_root": tmp_path, "cli_root": tmp_path},
-            "stitch_mode": "raw",
+            "stitch_mode": mod_constants.DEFAULT_STITCH_MODE,
+            "internal_imports": mod_constants.DEFAULT_INTERNAL_IMPORTS,
+            "external_imports": mod_constants.DEFAULT_EXTERNAL_IMPORTS,
+            "post_processing": {
+                "enabled": True,
+                "category_order": [],
+                "categories": {},
+            },
         },
     )
 
@@ -365,9 +390,21 @@ def test_multi_package_auto_discover_order_with_cross_package_imports(
             "include": includes,
             "package": "pkg1",  # Primary package name
             # No order specified - should auto-discover
-            "out": {"root": tmp_path, "path": "stitched.py"},
+            "out": {"root": tmp_path, "path": "stitched.py", "origin": "test"},
+            "exclude": [],
+            "respect_gitignore": False,
+            "log_level": "info",
+            "strict_config": False,
+            "dry_run": False,
             "__meta__": {"config_root": tmp_path, "cli_root": tmp_path},
-            "stitch_mode": "raw",
+            "stitch_mode": mod_constants.DEFAULT_STITCH_MODE,
+            "internal_imports": mod_constants.DEFAULT_INTERNAL_IMPORTS,
+            "external_imports": mod_constants.DEFAULT_EXTERNAL_IMPORTS,
+            "post_processing": {
+                "enabled": True,
+                "category_order": [],
+                "categories": {},
+            },
         },
     )
 

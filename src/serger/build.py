@@ -545,9 +545,9 @@ def run_build(  # noqa: PLR0915, PLR0912
     display_name_raw = build_cfg.get("display_name", "")
     description_raw = build_cfg.get("description", "")
     repo_raw = build_cfg.get("repo", "")
-    post_processing = build_cfg.get("post_processing")
-    external_imports = build_cfg.get("external_imports", "top")
-    stitch_mode = build_cfg.get("stitch_mode", "raw")
+    post_processing = build_cfg["post_processing"]
+    external_imports = build_cfg["external_imports"]
+    stitch_mode = build_cfg["stitch_mode"]
 
     stitch_config: dict[str, object] = {
         "package": package,

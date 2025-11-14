@@ -9,11 +9,17 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from .actions import get_metadata
 from .build import run_build
-from .constants import DEFAULT_LOG_LEVEL, DEFAULT_STRICT_CONFIG
+from .constants import (
+    DEFAULT_EXTERNAL_IMPORTS,
+    DEFAULT_INTERNAL_IMPORTS,
+    DEFAULT_LOG_LEVEL,
+    DEFAULT_STITCH_MODE,
+    DEFAULT_STRICT_CONFIG,
+)
 from .logs import get_app_logger
 from .meta import PROGRAM_DISPLAY, PROGRAM_SCRIPT
 from .utils import make_includeresolved, make_pathresolved
@@ -132,6 +138,18 @@ def _create_build_config(
             "strict_config": DEFAULT_STRICT_CONFIG,
             "dry_run": False,
             "__meta__": {"cli_root": tmp_dir, "config_root": tmp_dir},
+            # Required fields with defaults
+            "internal_imports": DEFAULT_INTERNAL_IMPORTS,
+            "external_imports": DEFAULT_EXTERNAL_IMPORTS,
+            "stitch_mode": DEFAULT_STITCH_MODE,
+            "post_processing": cast(
+                "Any",
+                {
+                    "enabled": True,
+                    "category_order": [],
+                    "categories": {},
+                },
+            ),
         }
         logger.trace(
             "[SELFTEST] Build config created: package=%s, order=%s",

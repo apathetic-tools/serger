@@ -1052,19 +1052,11 @@ def resolve_config(
         resolve_build_config(b, args, config_dir, cwd, root_cfg) for b in builds_input
     ]
 
-    # ------------------------------
-    # Post-processing
-    # ------------------------------
-    # For root-level, create a dummy build config to use the same resolution function
-    dummy_build: BuildConfig = {}
-    post_processing = resolve_post_processing(dummy_build, root_cfg)
-
     resolved_root: RootConfigResolved = {
         "builds": resolved_builds,
         "strict_config": root_cfg.get("strict_config", False),
         "watch_interval": watch_interval,
         "log_level": log_level,
-        "post_processing": post_processing,
     }
 
     return resolved_root
