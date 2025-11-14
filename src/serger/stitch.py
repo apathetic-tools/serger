@@ -99,6 +99,11 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
               not inside conditional structures (try/if blocks). `if TYPE_CHECKING:`
               blocks are excluded from this check.
             - "keep": Leave external imports in their original locations
+            - "force_strip": Remove all external imports regardless of location
+              (module-level, function-local, in conditionals, etc.). Empty
+              structures (if, try, etc.) get a `pass` statement. Empty
+              `if TYPE_CHECKING:` blocks (including those with only pass
+              statements) are removed entirely.
 
     Returns:
         Tuple of (external_imports, body_text) where external_imports is a
@@ -292,13 +297,18 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
                         else:
                             external_imports_list.append(import_text)
                 # Function-local and conditional external imports stay in place
+            elif external_imports == "force_strip":
+                # Strip all external imports regardless of location
+                # (module-level, function-local, in conditionals, etc.)
+                all_import_ranges.append((start, end))
+                # Don't add to external_imports_list (we're stripping, not hoisting)
             else:
-                # Other modes (force_strip, strip, pass, force_pass, assign)
+                # Other modes (strip, pass, force_pass, assign)
                 # not yet implemented
                 msg = (
                     f"external_imports mode '{external_imports}' is not yet "
-                    "implemented. Only 'force_top', 'top', and 'keep' modes are "
-                    "currently supported."
+                    "implemented. Only 'force_top', 'top', 'keep', and "
+                    "'force_strip' modes are currently supported."
                 )
                 raise ValueError(msg)
 
@@ -335,9 +345,11 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
             indent = indent_match.group(1) if indent_match else ""
             i += 1
             # Check if block is empty (only whitespace, pass, or nothing)
+            # For TYPE_CHECKING blocks, treat blocks with only pass statements as empty
             has_content = False
             block_end = i
             is_try = line.strip().startswith("try:")
+            only_pass_statements = True  # Track if block only has pass statements
             while i < len(body_lines):
                 next_line = body_lines[i]
                 stripped = next_line.strip()
@@ -352,20 +364,30 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
                     # Check if the try body (before this clause) was empty
                     block_end = i
                     break
-                # If we already have a pass, block is not empty
-                if stripped == "pass":
-                    has_content = True
-                    i += 1
-                    continue
                 # Check if line is indented (part of the block)
                 if re.match(r"^\s+", next_line):
-                    # Indented content found - block is not empty
-                    has_content = True
-                    break
+                    # Indented content found
+                    if stripped == "pass":
+                        # For TYPE_CHECKING blocks, pass statements don't count
+                        # as content. For other blocks, pass is content.
+                        if not is_type_checking:
+                            has_content = True
+                        # else: keep only_pass_statements = True
+                    else:
+                        # Non-pass content found - block has real content
+                        has_content = True
+                        only_pass_statements = False
+                    i += 1
+                    continue
                 # Non-indented line - end of block
                 block_end = i
                 break
-            if not has_content:
+            # For TYPE_CHECKING blocks, if only pass statements, treat as empty
+            if is_type_checking and only_pass_statements and not has_content:
+                # TYPE_CHECKING block with only pass statements: remove
+                for j in range(block_start, block_end):
+                    lines_to_remove.add(j)
+            elif not has_content:
                 if is_type_checking:
                     # TYPE_CHECKING block: remove if empty
                     for j in range(block_start, block_end):

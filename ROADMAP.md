@@ -46,11 +46,10 @@ Exploring bundling options for generating the single-file release:
 - set up comment stripper toggle
 - command to do common tasks based on reddit advice for dealing with AI.
 - quiet mode for the ai program
-- import options: strip, pass_always, pass_smart, assignment
+- import options: implement documented modes
 - stitch modes: raw, class/def/mixins?, exec+docstring
 - do we guarantee order (some for loops or data structures don't guarantee order)
 - same config same output? are we imdemponent (sp?)
-- what do we do with `if TYPE_CHECKING:`? only if pure
 
 ## 🚀 Deployment
 - Deploy action when I tag a release should create a release and attach it to the tagged release.
