@@ -1761,6 +1761,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     package_name_raw = config.get("package", "unknown")
     order_paths_raw = config.get("order", [])
     exclude_paths_raw = config.get("exclude_names", [])
+    stitch_mode_raw = config.get("stitch_mode", "raw")
 
     # Type guards for mypy/pyright
     if not isinstance(package_name_raw, str):
@@ -1771,6 +1772,9 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         raise TypeError(msg)
     if not isinstance(exclude_paths_raw, list):
         msg = "Config 'exclude_names' must be a list"
+        raise TypeError(msg)
+    if not isinstance(stitch_mode_raw, str):
+        msg = "Config 'stitch_mode' must be a string"
         raise TypeError(msg)
 
     # Cast to known types after type guards
@@ -1802,6 +1806,24 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
             "Either specify 'order' in config or ensure 'include' patterns match files."
         )
         raise RuntimeError(msg)
+
+    # Validate stitch_mode
+    valid_modes: set[str] = {"raw", "class", "exec"}
+    stitch_mode = stitch_mode_raw
+    if stitch_mode not in valid_modes:
+        msg = (
+            f"Invalid stitch_mode: {stitch_mode!r}. "
+            f"Must be one of: {', '.join(sorted(valid_modes))}"
+        )
+        raise ValueError(msg)
+
+    # Check if non-raw modes are implemented
+    if stitch_mode != "raw":
+        msg = (
+            f"stitch_mode '{stitch_mode}' is not yet implemented. "
+            "Only 'raw' mode is currently supported."
+        )
+        raise NotImplementedError(msg)
 
     logger.info("Starting stitch process for package: %s", package_name)
 

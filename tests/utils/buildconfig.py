@@ -58,6 +58,7 @@ def make_build_cfg(
     log_level: str = "info",
     dry_run: bool = False,
     out: mod_types.PathResolved | None = None,
+    stitch_mode: mod_types.StitchMode = "raw",
 ) -> mod_types.BuildConfigResolved:
     """Return a fake, fully-populated BuildConfigResolved."""
     return {
@@ -71,6 +72,7 @@ def make_build_cfg(
         "log_level": log_level,
         "dry_run": dry_run,
         "strict_config": False,
+        "stitch_mode": stitch_mode,
     }
 
 
