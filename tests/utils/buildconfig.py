@@ -49,7 +49,7 @@ def make_include_resolved(
     return cast("mod_types.IncludeResolved", d)
 
 
-def make_build_cfg(
+def make_build_cfg(  # noqa: PLR0913
     tmp_path: Path,
     include: list[mod_types.IncludeResolved],
     exclude: list[mod_types.PathResolved] | None = None,
@@ -59,6 +59,9 @@ def make_build_cfg(
     dry_run: bool = False,
     out: mod_types.PathResolved | None = None,
     stitch_mode: mod_types.StitchMode = "raw",
+    internal_imports: mod_types.InternalImportMode = "force_strip",
+    external_imports: mod_types.ExternalImportMode = "top",
+    post_processing: mod_types.PostProcessingConfigResolved | None = None,
 ) -> mod_types.BuildConfigResolved:
     """Return a fake, fully-populated BuildConfigResolved."""
     return {
@@ -73,6 +76,11 @@ def make_build_cfg(
         "dry_run": dry_run,
         "strict_config": False,
         "stitch_mode": stitch_mode,
+        "internal_imports": internal_imports,
+        "external_imports": external_imports,
+        "post_processing": post_processing
+        if post_processing is not None
+        else make_post_processing_config_resolved(),
     }
 
 

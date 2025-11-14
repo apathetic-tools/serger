@@ -165,12 +165,10 @@ class BuildConfigResolved(TypedDict):
     display_name: NotRequired[str]
     description: NotRequired[str]
     repo: NotRequired[str]
-    post_processing: NotRequired[
-        PostProcessingConfigResolved
-    ]  # Post-processing configuration
-    internal_imports: NotRequired[InternalImportMode]  # How to handle internal imports
-    external_imports: NotRequired[ExternalImportMode]  # How to handle external imports
-    stitch_mode: NotRequired[StitchMode]  # How to combine modules into a single file
+    post_processing: PostProcessingConfigResolved  # Post-processing configuration
+    internal_imports: InternalImportMode  # How to handle internal imports
+    external_imports: ExternalImportMode  # How to handle external imports
+    stitch_mode: StitchMode  # How to combine modules into a single file
 
 
 class RootConfigResolved(TypedDict):
@@ -180,4 +178,3 @@ class RootConfigResolved(TypedDict):
     log_level: str
     strict_config: bool
     watch_interval: float
-    post_processing: PostProcessingConfigResolved
