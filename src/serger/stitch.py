@@ -82,7 +82,7 @@ def extract_commit(root_path: Path) -> str:
 def split_imports(  # noqa: C901, PLR0912, PLR0915
     text: str,
     package_names: list[str],
-    external_imports: ExternalImportMode = "force_top",
+    external_imports: ExternalImportMode = "top",
     internal_imports: InternalImportMode = "force_strip",
 ) -> tuple[list[str], str]:
     """Extract external imports and body text using AST.
@@ -96,15 +96,15 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
         package_names: List of package names to treat as internal
             (e.g., ["serger", "other"])
         external_imports: How to handle external imports. Supported modes:
+            - "top": Hoist module-level external imports to top, but only if
+              not inside conditional structures (try/if blocks) (default).
+              `if TYPE_CHECKING:` blocks are excluded from this check.
             - "force_top": Hoist module-level external imports to top of file.
               Always moves imports, even inside conditional structures (if, try,
               etc.). Module-level imports are collected and deduplicated at the
               top. Empty structures (if, try, etc.) get a `pass` statement.
               Empty `if TYPE_CHECKING:` blocks (including those with only pass
               statements) are removed entirely.
-            - "top": Hoist module-level external imports to top, but only if
-              not inside conditional structures (try/if blocks). `if TYPE_CHECKING:`
-              blocks are excluded from this check.
             - "keep": Leave external imports in their original locations
             - "force_strip": Remove all external imports regardless of location
               (module-level, function-local, in conditionals, etc.). Empty
@@ -1189,7 +1189,7 @@ def _collect_modules(
     package_root: Path,
     package_name: str,
     file_to_include: dict[Path, IncludeResolved],
-    external_imports: ExternalImportMode = "force_top",
+    external_imports: ExternalImportMode = "top",
     internal_imports: InternalImportMode = "force_strip",
 ) -> tuple[dict[str, str], OrderedDict[str, None], list[str], list[str]]:
     """Collect and process module sources from file paths.
@@ -1828,7 +1828,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     # --- Collection Phase ---
     logger.debug("Collecting module sources...")
     # Extract external_imports from config
-    external_imports_raw = config.get("external_imports", "force_top")
+    external_imports_raw = config.get("external_imports", "top")
     if not isinstance(external_imports_raw, str):
         msg = "Config 'external_imports' must be a string"
         raise TypeError(msg)
