@@ -22,8 +22,10 @@ from .config_resolve import (
 from .config_types import (
     BuildConfig,
     BuildConfigResolved,
+    ExternalImportMode,
     IncludeConfig,
     IncludeResolved,
+    InternalImportMode,
     MetaBuildConfigResolved,
     OriginType,
     PathResolved,
@@ -55,8 +57,10 @@ __all__ = [  # noqa: RUF022
     # config_types
     "BuildConfig",
     "BuildConfigResolved",
+    "ExternalImportMode",
     "IncludeConfig",
     "IncludeResolved",
+    "InternalImportMode",
     "MetaBuildConfigResolved",
     "OriginType",
     "PathResolved",

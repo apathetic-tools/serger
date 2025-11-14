@@ -3,7 +3,11 @@
 
 This script processes files from .ai/rules/ to generate:
 - .cursor/rules/*.mdc (base .mdc files + cursor-specific .mdc files, copied as-is)
+- .cursor/commands/*.md (commands from .ai/commands/, copied as-is)
 - .claude/CLAUDE.md (base .mdc files + claude-specific .md files, stitched with headers)
+
+The script also removes any old files from .cursor/rules/ and .cursor/commands/
+that are no longer present in the source directories.
 """
 
 import re
@@ -79,15 +83,23 @@ def main() -> None:
     """Generate AI rules files."""
     project_root = Path(__file__).parent.parent
     ai_rules_dir = project_root / ".ai" / "rules"
+    ai_commands_dir = project_root / ".ai" / "commands"
     cursor_rules_dir = project_root / ".cursor" / "rules"
+    cursor_commands_dir = project_root / ".cursor" / "commands"
     claude_dir = project_root / ".claude"
 
     # Ensure directories exist
     ai_rules_dir.mkdir(parents=True, exist_ok=True)
     (ai_rules_dir / "claude").mkdir(parents=True, exist_ok=True)
     (ai_rules_dir / "cursor").mkdir(parents=True, exist_ok=True)
+    ai_commands_dir.mkdir(parents=True, exist_ok=True)
     cursor_rules_dir.mkdir(parents=True, exist_ok=True)
+    cursor_commands_dir.mkdir(parents=True, exist_ok=True)
     claude_dir.mkdir(parents=True, exist_ok=True)
+
+    # Track files we create to clean up old ones later
+    created_rules_files: set[Path] = set()
+    created_commands_files: set[Path] = set()
 
     # Get base .mdc files (rules/*.mdc)
     base_mdc_files = get_sorted_files(ai_rules_dir, "mdc")
@@ -96,6 +108,7 @@ def main() -> None:
     for mdc_file in base_mdc_files:
         dest_file = cursor_rules_dir / mdc_file.name
         shutil.copy2(mdc_file, dest_file)
+        created_rules_files.add(dest_file)
         print(
             f"Copied: {mdc_file.relative_to(project_root)}"
             f" -> {dest_file.relative_to(project_root)}"
@@ -109,10 +122,39 @@ def main() -> None:
     for mdc_file in cursor_mdc_files:
         dest_file = cursor_rules_dir / mdc_file.name
         shutil.copy2(mdc_file, dest_file)
+        created_rules_files.add(dest_file)
         print(
             f"Copied: {mdc_file.relative_to(project_root)}"
             f" -> {dest_file.relative_to(project_root)}",
         )
+
+    # Copy command files from .ai/commands/ to .cursor/commands/
+    if ai_commands_dir.exists():
+        command_files = get_sorted_files(ai_commands_dir, "md")
+        for cmd_file in command_files:
+            dest_file = cursor_commands_dir / cmd_file.name
+            shutil.copy2(cmd_file, dest_file)
+            created_commands_files.add(dest_file)
+            print(
+                f"Copied: {cmd_file.relative_to(project_root)}"
+                f" -> {dest_file.relative_to(project_root)}"
+            )
+
+    # Remove old files from .cursor/rules/ that are no longer in source
+    if cursor_rules_dir.exists():
+        existing_rules = set(cursor_rules_dir.glob("*.mdc"))
+        old_rules = existing_rules - created_rules_files
+        for old_file in old_rules:
+            old_file.unlink()
+            print(f"Removed old file: {old_file.relative_to(project_root)}")
+
+    # Remove old files from .cursor/commands/ that are no longer in source
+    if cursor_commands_dir.exists():
+        existing_commands = set(cursor_commands_dir.glob("*.md"))
+        old_commands = existing_commands - created_commands_files
+        for old_file in old_commands:
+            old_file.unlink()
+            print(f"Removed old file: {old_file.relative_to(project_root)}")
 
     # Generate CLAUDE.md from base .mdc files (extracting content)
     base_content = concatenate_mdc_files_for_claude(base_mdc_files)

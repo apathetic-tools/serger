@@ -14,7 +14,6 @@ Some of these we just want to consider, and may not want to implement.
 ## 🎯 Core Features
 Major stitching capabilities and enhancements:
 
-
 ## 🧰 CLI Parameters
 Planned command-line flags for future releases:
 
@@ -47,6 +46,11 @@ Exploring bundling options for generating the single-file release:
 - set up comment stripper toggle
 - command to do common tasks based on reddit advice for dealing with AI.
 - quiet mode for the ai program
+- import options: strip, pass_always, pass_smart, assignment
+- stitch modes: raw, class/def/mixins?, exec+docstring
+- do we guarantee order (some for loops or data structures don't guarantee order)
+- same config same output? are we imdemponent (sp?)
+- what do we do with if TYPING?
 
 ## 🚀 Deployment
 - Deploy action when I tag a release should create a release and attach it to the tagged release.
