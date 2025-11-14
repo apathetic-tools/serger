@@ -372,3 +372,117 @@ def test_is_excluded_raw_double_star_mixed_patterns(tmp_path: Path) -> None:
     # --- execute + verify ---
     patterns = ["*.py", "**/__init__.py", "ignore/*"]
     assert amod_utils_matching.is_excluded_raw(outside_file, patterns, root)
+
+
+def test_is_excluded_raw_relative_pattern_outside_root(tmp_path: Path) -> None:
+    """Relative patterns with ../ should match files outside exclude root.
+
+    Serger-specific behavior: Unlike rsync/ruff (which don't support '../'
+    in exclude patterns), serger allows patterns with '../' to explicitly
+    match files outside the exclude root.
+
+    Rationale:
+    - Config files can be in subdirectories (e.g., mode_verify/embedded_example/)
+    - They need to exclude files elsewhere in the project (e.g., src/**/__init__.py)
+    - Patterns with '../' explicitly signal intent to navigate outside the root
+    - This is consistent with include patterns, which already support '../'
+    - Enables more precise exclusions than '**/__init__.py' (which matches everywhere)
+
+    When a pattern contains '../', it's resolved relative to the exclude root,
+    then matched against the absolute file path.
+
+    Example:
+      path:     /tmp/src/pkg/__init__.py
+      root:     /tmp/config_dir/
+      pattern:  ["../src/**/__init__.py"]
+      Result: True
+      Explanation: Pattern resolves to /tmp/src/**/__init__.py, which matches
+                   the file path /tmp/src/pkg/__init__.py.
+    """
+    # --- setup ---
+    # Create structure: /tmp/.../config_dir/ and /tmp/.../src/pkg/
+    # From config_dir, we need ../ to get to tmp_path, then src
+    root = tmp_path / "config_dir"
+    root.mkdir()
+    outside_file = tmp_path / "src" / "pkg" / "__init__.py"
+    outside_file.parent.mkdir(parents=True)
+    outside_file.touch()
+
+    # Pattern uses ../ to navigate from config_dir to src (one level up)
+    pattern = "../src/**/__init__.py"
+
+    # --- execute + verify ---
+    # This should match because the pattern is designed to match files
+    # outside the exclude root
+    assert amod_utils_matching.is_excluded_raw(outside_file, [pattern], root)
+
+    # Non-matching file should not be excluded
+    other_file = tmp_path / "src" / "pkg" / "module.py"
+    other_file.touch()
+    assert not amod_utils_matching.is_excluded_raw(other_file, [pattern], root)
+
+
+def test_is_excluded_raw_relative_pattern_outside_root_complex(tmp_path: Path) -> None:
+    """Complex relative patterns with ../ should match files outside root.
+
+    This test matches the bug report scenario where a config file in a
+    subdirectory needs to exclude files outside the exclude root.
+
+    Example:
+      path:     /tmp/src/apathetic_logging/__init__.py
+      root:     /tmp/mode_verify/embedded_example/
+      pattern:  ["../../src/**/__init__.py"]
+      Result: True
+      Explanation: Pattern resolves from root (../../src/**/__init__.py) to
+                   /tmp/src/**/__init__.py, which matches the file path
+                   /tmp/src/apathetic_logging/__init__.py via glob matching.
+    """
+    # --- setup ---
+    # Create structure matching bug report scenario
+    root = tmp_path / "mode_verify" / "embedded_example"
+    root.mkdir(parents=True)
+    outside_file = tmp_path / "src" / "apathetic_logging" / "__init__.py"
+    outside_file.parent.mkdir(parents=True)
+    outside_file.touch()
+
+    # Pattern from config_dir to src (two levels up)
+    pattern = "../../src/**/__init__.py"
+
+    # --- execute + verify ---
+    assert amod_utils_matching.is_excluded_raw(outside_file, [pattern], root)
+
+    # File in different location should not match
+    other_file = tmp_path / "other" / "pkg" / "__init__.py"
+    other_file.parent.mkdir(parents=True)
+    other_file.touch()
+    assert not amod_utils_matching.is_excluded_raw(other_file, [pattern], root)
+
+
+def test_is_excluded_raw_relative_pattern_outside_root_specific_file(
+    tmp_path: Path,
+) -> None:
+    """Relative patterns should match specific files outside root.
+
+    Tests that patterns with '../' work even without '**/' globbing.
+    Demonstrates that '../' patterns work for both glob and exact matches.
+
+    Example:
+      path:     /tmp/src/pkg/__init__.py
+      root:     /tmp/config_dir/
+      pattern:  ["../src/pkg/__init__.py"]
+      Result: True
+      Explanation: Pattern resolves to /tmp/src/pkg/__init__.py, which
+                   exactly matches the file path.
+    """
+    # --- setup ---
+    root = tmp_path / "config_dir"
+    root.mkdir()
+    outside_file = tmp_path / "src" / "pkg" / "__init__.py"
+    outside_file.parent.mkdir(parents=True)
+    outside_file.touch()
+
+    # Specific file pattern (no **/) - one level up from config_dir
+    pattern = "../src/pkg/__init__.py"
+
+    # --- execute + verify ---
+    assert amod_utils_matching.is_excluded_raw(outside_file, [pattern], root)
