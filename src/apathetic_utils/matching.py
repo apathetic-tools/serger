@@ -102,7 +102,7 @@ def fnmatchcase_portable(path: str, pattern: str) -> bool:
     return bool(_compile_glob_recursive(pattern).match(path))
 
 
-def is_excluded_raw(  # noqa: PLR0911, PLR0912, C901
+def is_excluded_raw(  # noqa: PLR0911, PLR0912, PLR0915, C901
     path: Path | str,
     exclude_patterns: list[str],
     root: Path | str,
@@ -112,6 +112,14 @@ def is_excluded_raw(  # noqa: PLR0911, PLR0912, C901
     - Treats 'path' as relative to 'root' unless already absolute.
     - If 'root' is a file, match directly.
     - Handles absolute or relative glob patterns.
+
+    Special behavior for patterns with '../':
+    Unlike rsync/ruff (which don't support '../' in exclude patterns),
+    serger allows patterns with '../' to explicitly match files outside
+    the exclude root. This enables config files in subdirectories to
+    exclude files elsewhere in the project. Patterns containing '../'
+    are resolved relative to the exclude root, then matched against
+    the absolute file path.
 
     Note:
     The function does not require `root` to exist; if it does not,
@@ -190,7 +198,59 @@ def is_excluded_raw(  # noqa: PLR0911, PLR0912, C901
             if path_outside_root:
                 continue
 
-        # If path is outside root and pattern doesn't start with **/, skip
+        # Handle patterns with ../ - serger-specific behavior to allow
+        # patterns that explicitly navigate outside the exclude root
+        if "../" in pat or pat.startswith("../"):
+            # Resolve the pattern relative to the exclude root
+            # We need to handle glob patterns (with **) by resolving the base
+            # path and preserving the glob part
+            try:
+                abs_path_str = str(full_path).replace("\\", "/")
+
+                # If pattern contains glob chars, split and resolve carefully
+                if "*" in pat or "?" in pat or "[" in pat:
+                    # Find the first glob character to split base from pattern
+                    glob_chars = ["*", "?", "["]
+                    first_glob_pos = min(
+                        (pat.find(c) for c in glob_chars if c in pat),
+                        default=len(pat),
+                    )
+
+                    # Split into base path (before glob) and pattern part
+                    base_part = pat[:first_glob_pos].rstrip("/")
+                    pattern_part = pat[first_glob_pos:]
+
+                    # Resolve the base part relative to root
+                    if base_part:
+                        resolved_base = (root / base_part).resolve()
+                        resolved_pattern_str = (
+                            str(resolved_base).replace("\\", "/") + "/" + pattern_part
+                        )
+                    else:
+                        # Pattern starts with glob, resolve root and prepend pattern
+                        resolved_pattern_str = (
+                            str(root).replace("\\", "/") + "/" + pattern_part
+                        )
+                else:
+                    # No glob chars, resolve normally
+                    resolved_pattern = (root / pat).resolve()
+                    resolved_pattern_str = str(resolved_pattern).replace("\\", "/")
+
+                # Match the resolved pattern against the absolute file path
+                if fnmatchcase_portable(abs_path_str, resolved_pattern_str):
+                    logger.trace(
+                        f"[is_excluded_raw] MATCHED ../ pattern {pattern!r} "
+                        f"(resolved to {resolved_pattern_str})"
+                    )
+                    return True
+            except (ValueError, RuntimeError):
+                # Pattern resolves outside filesystem or invalid, skip
+                logger.trace(
+                    f"[is_excluded_raw] Could not resolve ../ pattern {pattern!r}"
+                )
+
+        # If path is outside root and pattern doesn't start with **/ or
+        # contain ../, skip
         if path_outside_root:
             continue
 
