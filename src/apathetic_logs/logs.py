@@ -36,6 +36,7 @@ GREEN = "\033[92m"  # or \033[32m
 GRAY = "\033[90m"
 
 # Logger levels
+TEST_LEVEL = logging.DEBUG - 10  # most verbose, bypasses capture
 TRACE_LEVEL = logging.DEBUG - 5
 # DEBUG      - builtin # verbose
 # INFO       - builtin
@@ -45,6 +46,7 @@ TRACE_LEVEL = logging.DEBUG - 5
 SILENT_LEVEL = logging.CRITICAL + 1  # one above the highest builtin level
 
 LEVEL_ORDER = [
+    "test",  # most verbose, bypasses capture for debugging tests
     "trace",
     "debug",
     "info",
@@ -55,6 +57,7 @@ LEVEL_ORDER = [
 ]
 
 TAG_STYLES = {
+    "TEST": (GRAY, "[TEST]"),
     "TRACE": (GRAY, "[TRACE]"),
     "DEBUG": (CYAN, "[DEBUG]"),
     "WARNING": ("", "⚠️ "),
@@ -219,9 +222,11 @@ class ApatheticCLILogger(logging.Logger):
 
         logging.setLoggerClass(cls)
 
+        logging.addLevelName(TEST_LEVEL, "TEST")
         logging.addLevelName(TRACE_LEVEL, "TRACE")
         logging.addLevelName(SILENT_LEVEL, "SILENT")
 
+        logging.TEST = TEST_LEVEL  # type: ignore[attr-defined]
         logging.TRACE = TRACE_LEVEL  # type: ignore[attr-defined]
         logging.SILENT = SILENT_LEVEL  # type: ignore[attr-defined]
 
@@ -291,6 +296,11 @@ class ApatheticCLILogger(logging.Logger):
     def trace(self, msg: str, *args: Any, **kwargs: Any) -> None:
         if self.isEnabledFor(TRACE_LEVEL):
             self._log(TRACE_LEVEL, msg, args, **kwargs)
+
+    def test(self, msg: str, *args: Any, **kwargs: Any) -> None:
+        """Log a test-level message (most verbose, bypasses capture)."""
+        if self.isEnabledFor(TEST_LEVEL):
+            self._log(TEST_LEVEL, msg, args, **kwargs)
 
     def resolve_level_name(self, level_name: str) -> int | None:
         """logging.getLevelNamesMapping() is only introduced in 3.11"""
@@ -381,7 +391,12 @@ class TagFormatter(logging.Formatter):
 
 
 class DualStreamHandler(logging.StreamHandler):  # type: ignore[type-arg]
-    """Send info/debug/trace to stdout, everything else to stderr."""
+    """Send info/debug/trace to stdout, everything else to stderr.
+
+    When logger level is TEST, TRACE/DEBUG/TEST messages bypass capture
+    by writing to sys.__stdout__/sys.__stderr__ instead of sys.stdout/sys.stderr.
+    This allows debugging tests without breaking output assertions.
+    """
 
     enable_color: bool = False
 
@@ -391,9 +406,28 @@ class DualStreamHandler(logging.StreamHandler):  # type: ignore[type-arg]
 
     def emit(self, record: logging.LogRecord) -> None:
         level = record.levelno
+
+        # Check if logger is in TEST mode (bypass capture for verbose levels)
+        logger_name = record.name
+        logger_instance = logging.getLogger(logger_name)
+        is_test_mode = (
+            isinstance(logger_instance, ApatheticCLILogger)
+            and logger_instance.getEffectiveLevel() == TEST_LEVEL
+        )
+
+        # Determine target stream
         if level >= logging.WARNING:
+            # Warnings and errors always go to stderr (normal behavior)
+            # This ensures they still break tests as expected
+            # Even in TEST mode, warnings/errors use normal stderr
             self.stream = sys.stderr
+        # TRACE, DEBUG, TEST, INFO go to stdout
+        # If in TEST mode, bypass capture for verbose levels (TEST/TRACE/DEBUG)
+        elif is_test_mode and level < logging.INFO:
+            # Use bypass stream for TEST/TRACE/DEBUG in test mode
+            self.stream = sys.__stdout__
         else:
+            # Normal behavior: use regular stdout
             self.stream = sys.stdout
 
         # used by TagFormatter
