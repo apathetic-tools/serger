@@ -110,10 +110,13 @@ def test_formatter_includes_expected_tags(
 ) -> None:
     """Each log level should include its corresponding prefix/tag."""
     # --- setup ---
-    direct_logger.setLevel("trace")
+    direct_logger.setLevel("test")  # most verbose to see all levels
 
     # --- execute, and verify ---
     for level_name, (_, expected_tag) in mod_alogs.TAG_STYLES.items():
+        # Skip TEST level - it bypasses capture so won't appear in capsys
+        if level_name == "TEST":
+            continue
         method = getattr(direct_logger, level_name.lower(), None)
         if callable(method):
             method("sample")
