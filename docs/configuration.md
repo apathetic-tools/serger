@@ -88,6 +88,8 @@ These options apply globally and can cascade into individual builds:
 | `watch_interval` | `float` | `1.0` | File watch interval in seconds (for `--watch` mode) |
 | `use_pyproject` | `bool` | `true` | Whether to pull metadata from `pyproject.toml` |
 | `pyproject_path` | `str` | - | Path to `pyproject.toml` (fallback for single builds) |
+| `internal_imports` | `str` | `"strip"` | How to handle internal package imports (see [Import Handling](#import-handling)) |
+| `external_imports` | `str` | `"top"` | How to handle external imports (see [Import Handling](#import-handling)) |
 
 ## Build Configuration Options
 
@@ -104,6 +106,8 @@ Each build in the `builds` array can specify:
 | `repo` | `str` | No | Repository URL for generated header |
 | `license_header` | `str` | No | License text for generated header |
 | `strict_config` | `bool` | No | Override root-level `strict_config` for this build |
+| `internal_imports` | `str` | No | Override root-level `internal_imports` for this build |
+| `external_imports` | `str` | No | Override root-level `external_imports` for this build |
 
 \* Required unless provided via CLI arguments
 
@@ -157,6 +161,53 @@ You can define multiple builds in a single config file:
       "out": "dist/utils.py"
     }
   ]
+}
+```
+
+## Import Handling
+
+Serger provides fine-grained control over how imports are handled during stitching. You can configure separate behaviors for internal imports (from the package being stitched) and external imports (from other packages).
+
+### Internal Imports
+
+Internal imports are imports from the package being stitched (e.g., `from mypkg.utils import foo` when stitching `mypkg`).
+
+| Mode | Description |
+|------|-------------|
+| `strip` | Remove internal imports (default). Internal imports are resolved by the stitching process, so they can be safely removed. |
+| `keep` | Keep internal imports in their original locations within each module section. |
+| `pass` | Replace internal imports with `pass` statements. |
+| `smart_pass` | Replace internal imports with `pass` statements only if they are inside conditional structures (if, try, etc.). Otherwise, remove them. |
+| `assign` | Transform imports into assignments. For example, `from mypkg.utils import foo` becomes `foo = mypkg.utils.foo`, and `from mypkg.utils import foo as bar` becomes `bar = mypkg.utils.foo`. These assignments do not count towards collision detection. |
+
+### External Imports
+
+External imports are imports from packages not being stitched (e.g., `import os`, `from pathlib import Path`).
+
+| Mode | Description |
+|------|-------------|
+| `top` | Move external imports to the top of the stitched file (default). Module-level external imports are collected and deduplicated at the top. |
+| `keep` | Keep external imports in their original locations within each module section. |
+| `strip` | Remove external imports from the stitched output. |
+| `pass` | Replace external imports with `pass` statements. |
+| `smart_pass` | Replace external imports with `pass` statements only if they are inside conditional structures (if, try, etc.). Otherwise, remove them. |
+| `assign` | Transform imports into assignments. For example, `from pathlib import Path` becomes `Path = pathlib.Path`, and `from os import path as ospath` becomes `ospath = os.path`. These assignments do not count towards collision detection. |
+
+### Example
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/mypkg/**/*.py"],
+      "out": "dist/mypkg.py",
+      "internal_imports": "strip",
+      "external_imports": "top"
+    }
+  ],
+  "internal_imports": "strip",  // Default for all builds
+  "external_imports": "top"     // Default for all builds
 }
 ```
 

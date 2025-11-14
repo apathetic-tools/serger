@@ -18,7 +18,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from .config import IncludeResolved, PostProcessingConfigResolved
+from .config import (
+    ExternalImportMode,
+    IncludeResolved,
+    PostProcessingConfigResolved,
+)
 from .logs import get_app_logger
 from .meta import PROGRAM_PACKAGE
 from .utils import derive_module_name
@@ -77,6 +81,7 @@ def extract_commit(root_path: Path) -> str:
 def split_imports(  # noqa: C901, PLR0915
     text: str,
     package_names: list[str],
+    external_imports: ExternalImportMode = "top",
 ) -> tuple[list[str], str]:
     """Extract external imports and body text using AST.
 
@@ -88,12 +93,25 @@ def split_imports(  # noqa: C901, PLR0915
         text: Python source code
         package_names: List of package names to treat as internal
             (e.g., ["serger", "other"])
+        external_imports: How to handle external imports. Currently only
+            "top" is implemented (hoist to top of file).
 
     Returns:
         Tuple of (external_imports, body_text) where external_imports is a
         list of import statement strings, and body_text is the source with
         all imports removed
+
+    Raises:
+        ValueError: If external_imports is not "top" (other modes not
+            yet implemented)
     """
+    # Validate external_imports
+    if external_imports != "top":
+        msg = (
+            f"external_imports mode '{external_imports}' is not yet "
+            "implemented. Only 'top' mode is currently supported."
+        )
+        raise ValueError(msg)
     logger = get_app_logger()
     try:
         tree = ast.parse(text)
@@ -102,7 +120,7 @@ def split_imports(  # noqa: C901, PLR0915
         return [], text
 
     lines = text.splitlines(keepends=True)
-    external_imports: list[str] = []
+    external_imports_list: list[str] = []
     all_import_ranges: list[tuple[int, int]] = []
 
     def find_parent(
@@ -203,7 +221,7 @@ def split_imports(  # noqa: C901, PLR0915
                     if import_text:
                         if not import_text.endswith("\n"):
                             import_text += "\n"
-                        external_imports.append(import_text)
+                        external_imports_list.append(import_text)
                         all_import_ranges.append((start, end))
                 # Function-local external imports stay in place (not added to ranges)
 
@@ -219,7 +237,7 @@ def split_imports(  # noqa: C901, PLR0915
     skip = {i for s, e in all_import_ranges for i in range(s, e)}
     body = "".join(line for i, line in enumerate(lines) if i not in skip)
 
-    return external_imports, body
+    return external_imports_list, body
 
 
 def strip_redundant_blocks(text: str) -> str:
@@ -792,6 +810,7 @@ def _collect_modules(
     package_root: Path,
     package_name: str,
     file_to_include: dict[Path, IncludeResolved],
+    external_imports: ExternalImportMode = "top",
 ) -> tuple[dict[str, str], OrderedDict[str, None], list[str], list[str]]:
     """Collect and process module sources from file paths.
 
@@ -800,6 +819,7 @@ def _collect_modules(
         package_root: Common root of all included files
         package_name: Root package name
         file_to_include: Mapping of file path to its include (for dest access)
+        external_imports: How to handle external imports
 
     Returns:
         Tuple of (module_sources, all_imports, parts, derived_module_names)
@@ -848,9 +868,11 @@ def _collect_modules(
         module_text = strip_redundant_blocks(module_text)
         module_sources[f"{module_name}.py"] = module_text
 
-        # Extract imports - pass all detected package names
-        external_imports, module_body = split_imports(module_text, package_names_list)
-        for imp in external_imports:
+        # Extract imports - pass all detected package names and mode
+        external_imports_list, module_body = split_imports(
+            module_text, package_names_list, external_imports
+        )
+        for imp in external_imports_list:
             all_imports.setdefault(imp, None)
 
         # Create module section - use derived module name in header
@@ -1422,8 +1444,15 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
 
     # --- Collection Phase ---
     logger.debug("Collecting module sources...")
+    # Extract external_imports from config
+    external_imports_raw = config.get("external_imports", "top")
+    if not isinstance(external_imports_raw, str):
+        msg = "Config 'external_imports' must be a string"
+        raise TypeError(msg)
+    external_imports = cast("ExternalImportMode", external_imports_raw)
+
     module_sources, all_imports, parts, derived_module_names = _collect_modules(
-        order_paths, package_root, package_name, file_to_include
+        order_paths, package_root, package_name, file_to_include, external_imports
     )
 
     # --- Parse AST once for all modules ---

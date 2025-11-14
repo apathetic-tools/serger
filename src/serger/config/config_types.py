@@ -9,6 +9,9 @@ from typing_extensions import NotRequired
 
 OriginType = Literal["cli", "config", "plugin", "default", "code", "gitignore", "test"]
 
+InternalImportMode = Literal["strip", "keep", "pass", "smart_pass", "assign"]
+ExternalImportMode = Literal["top", "keep", "strip", "pass", "smart_pass", "assign"]
+
 
 # Post-processing configuration types
 class ToolConfig(TypedDict, total=False):
@@ -100,6 +103,9 @@ class BuildConfig(TypedDict, total=False):
     display_name: str  # Display name for header (defaults to package)
     description: str  # Description for header (defaults to blank)
     repo: str  # Repository URL for header (optional)
+    # Import handling configuration
+    internal_imports: InternalImportMode  # How to handle internal package imports
+    external_imports: ExternalImportMode  # How to handle external imports
 
 
 class RootConfig(TypedDict, total=False):
@@ -118,6 +124,10 @@ class RootConfig(TypedDict, total=False):
     # Pyproject.toml integration
     use_pyproject: bool  # Whether to pull metadata from pyproject.toml (default: true)
     pyproject_path: str  # Path to pyproject.toml (fallback for single builds)
+
+    # Import handling defaults (cascade into builds)
+    internal_imports: InternalImportMode  # How to handle internal package imports
+    external_imports: ExternalImportMode  # How to handle external imports
 
 
 class BuildConfigResolved(TypedDict):
@@ -146,6 +156,8 @@ class BuildConfigResolved(TypedDict):
     post_processing: NotRequired[
         PostProcessingConfigResolved
     ]  # Post-processing configuration
+    internal_imports: NotRequired[InternalImportMode]  # How to handle internal imports
+    external_imports: NotRequired[ExternalImportMode]  # How to handle external imports
 
 
 class RootConfigResolved(TypedDict):

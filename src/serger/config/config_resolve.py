@@ -12,6 +12,8 @@ from serger.constants import (
     DEFAULT_CATEGORIES,
     DEFAULT_CATEGORY_ORDER,
     DEFAULT_ENV_WATCH_INTERVAL,
+    DEFAULT_EXTERNAL_IMPORTS,
+    DEFAULT_INTERNAL_IMPORTS,
     DEFAULT_OUT_DIR,
     DEFAULT_RESPECT_GITIGNORE,
     DEFAULT_STRICT_CONFIG,
@@ -929,6 +931,28 @@ def resolve_build_config(
         resolved_cfg["strict_config"] = root_strict
     else:
         resolved_cfg["strict_config"] = DEFAULT_STRICT_CONFIG
+
+    # ------------------------------
+    # Import handling
+    # ------------------------------
+    # Cascade: build-level → root-level → default
+    build_internal = resolved_cfg.get("internal_imports")
+    root_internal = (root_cfg or {}).get("internal_imports")
+    if build_internal is not None:
+        resolved_cfg["internal_imports"] = build_internal
+    elif root_internal is not None:
+        resolved_cfg["internal_imports"] = root_internal
+    else:
+        resolved_cfg["internal_imports"] = DEFAULT_INTERNAL_IMPORTS
+
+    build_external = resolved_cfg.get("external_imports")
+    root_external = (root_cfg or {}).get("external_imports")
+    if build_external is not None:
+        resolved_cfg["external_imports"] = build_external
+    elif root_external is not None:
+        resolved_cfg["external_imports"] = root_external
+    else:
+        resolved_cfg["external_imports"] = DEFAULT_EXTERNAL_IMPORTS
 
     # ------------------------------
     # Post-processing

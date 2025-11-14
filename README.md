@@ -10,6 +10,9 @@
 **Stitch your module into a single file.**
 *Because packaging is overrated.*
 
+> [!CAUTION]
+> Heads up: the AI cooked dinner. It’s edible, but watch your step. Detailed bug reports welcome.
+
 ## 🚀 Quick Start
 
 The self-contained executable script lives at [**`bin/serger.py`**](./bin/serger.py).  
