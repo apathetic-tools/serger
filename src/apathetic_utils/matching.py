@@ -102,7 +102,7 @@ def fnmatchcase_portable(path: str, pattern: str) -> bool:
     return bool(_compile_glob_recursive(pattern).match(path))
 
 
-def is_excluded_raw(  # noqa: PLR0911
+def is_excluded_raw(  # noqa: PLR0911, PLR0912, C901
     path: Path | str,
     exclude_patterns: list[str],
     root: Path | str,
@@ -142,15 +142,57 @@ def is_excluded_raw(  # noqa: PLR0911
 
     # Otherwise, treat as directory root.
     full_path = path if path.is_absolute() else (root / path)
+    full_path = full_path.resolve()
 
+    # Try to get relative path for standard matching
     try:
         rel = str(full_path.relative_to(root)).replace("\\", "/")
+        path_outside_root = False
     except ValueError:
-        # Path lies outside the root; skip matching
-        return False
+        # Path lies outside the root
+        path_outside_root = True
+        # For patterns starting with **/, we can still match against filename
+        # or absolute path. For other patterns, we need rel, so use empty string
+        # as fallback (won't match non-**/ patterns)
+        rel = ""
 
     for pattern in exclude_patterns:
         pat = pattern.replace("\\", "/")
+
+        # Handle patterns starting with **/ - these should match even for files
+        # outside the exclude root (matching rsync/ruff behavior)
+        if pat.startswith("**/"):
+            # For **/ patterns, match against:
+            # 1. The file's name (e.g., **/__init__.py matches any __init__.py)
+            # 2. The absolute path (for more complex patterns)
+            file_name = full_path.name
+            abs_path_str = str(full_path).replace("\\", "/")
+
+            # Remove **/ prefix and match against filename
+            pattern_suffix = pat[3:]  # Remove "**/" prefix
+            if fnmatchcase_portable(file_name, pattern_suffix):
+                logger.trace(
+                    f"[is_excluded_raw] MATCHED **/ pattern {pattern!r} "
+                    f"against filename {file_name}"
+                )
+                return True
+
+            # Also try matching against absolute path
+            # (for patterns like **/subdir/file.py)
+            if fnmatchcase_portable(abs_path_str, pat):
+                logger.trace(
+                    f"[is_excluded_raw] MATCHED **/ pattern {pattern!r} "
+                    f"against absolute path"
+                )
+                return True
+
+            # Continue to next pattern if we're outside root and **/ didn't match
+            if path_outside_root:
+                continue
+
+        # If path is outside root and pattern doesn't start with **/, skip
+        if path_outside_root:
+            continue
 
         logger.trace(f"[is_excluded_raw] Testing pattern {pattern!r} against {rel}")
 

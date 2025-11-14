@@ -131,3 +131,60 @@ def test_collect_exclude_with_different_root(tmp_path: Path) -> None:
     # src/skip.py should NOT be excluded because exclude root is 'other'
     assert (src / "skip.py").resolve() in file_set
     assert (src / "a.py").resolve() in file_set
+
+
+def test_collect_exclude_patterns_with_parent_directory_includes(
+    tmp_path: Path,
+) -> None:
+    """Exclude patterns should work when includes reference files outside root.
+
+    This test verifies that exclude patterns like `**/__init__.py` work correctly
+    when include patterns reference files outside the project root (using `../`).
+    This matches the behavior of tools like rsync and ruff, where exclude patterns
+    match against the actual file paths, not just paths relative to the exclude root.
+
+    Behavior:
+    - rsync: Exclude patterns are evaluated relative to the source directory
+    - ruff: Exclude patterns match against absolute paths
+    - serger: Should match `**/__init__.py` patterns even for files outside exclude root
+    """
+    # --- setup ---
+    # Create structure:
+    #   tmp_path/
+    #     project/          (config root)
+    #       config.json
+    #     external/         (outside project root)
+    #       pkg/
+    #         __init__.py   (should be excluded)
+    #         module.py     (should be included)
+    #         subdir/
+    #           __init__.py (should be excluded)
+    #           other.py    (should be included)
+    project = tmp_path / "project"
+    project.mkdir()
+    external = tmp_path / "external"
+    pkg = external / "pkg"
+    subdir = pkg / "subdir"
+    subdir.mkdir(parents=True)
+
+    (pkg / "__init__.py").write_text("# Package init")
+    (pkg / "module.py").write_text("def func(): pass")
+    (subdir / "__init__.py").write_text("# Subdir init")
+    (subdir / "other.py").write_text("def other(): pass")
+
+    # Include pattern goes outside project root using ../
+    # Exclude pattern uses **/__init__.py to match all __init__.py files
+    includes = [make_include_resolved("../external/pkg/**", project)]
+    excludes = [make_resolved("**/__init__.py", project)]
+
+    # --- execute ---
+    files, _file_to_include = mod_build.collect_included_files(includes, excludes)
+
+    # --- verify ---
+    file_set = set(files)
+    # __init__.py files should be excluded even though they're outside exclude root
+    assert (pkg / "__init__.py").resolve() not in file_set
+    assert (subdir / "__init__.py").resolve() not in file_set
+    # Other Python files should be included
+    assert (pkg / "module.py").resolve() in file_set
+    assert (subdir / "other.py").resolve() in file_set
