@@ -78,7 +78,7 @@ def extract_commit(root_path: Path) -> str:
     return "unknown"
 
 
-def split_imports(  # noqa: C901, PLR0915
+def split_imports(  # noqa: C901, PLR0912, PLR0915
     text: str,
     package_names: list[str],
     external_imports: ExternalImportMode = "force_top",
@@ -114,6 +114,8 @@ def split_imports(  # noqa: C901, PLR0915
 
     lines = text.splitlines(keepends=True)
     external_imports_list: list[str] = []
+    # Separate list for TYPE_CHECKING imports
+    type_checking_imports_list: list[str] = []
     all_import_ranges: list[tuple[int, int]] = []
 
     def find_parent(
@@ -234,25 +236,20 @@ def split_imports(  # noqa: C901, PLR0915
                         break
 
             # Check if import is inside if TYPE_CHECKING block
+            # Must be exactly 'if TYPE_CHECKING:' (not 'if TYPE_CHECKING and
+            # something:')
             type_checking_block = find_parent(node, tree, ast.If)
             is_type_checking = (
                 type_checking_block
                 and isinstance(type_checking_block, ast.If)
                 and isinstance(type_checking_block.test, ast.Name)
                 and type_checking_block.test.id == "TYPE_CHECKING"
-                and len(type_checking_block.body) == 1
             )
 
             # Always remove internal imports (they break in stitched mode)
             if is_internal:
-                # For internal imports in TYPE_CHECKING blocks, remove entire block
-                if is_type_checking and type_checking_block is not None:
-                    if_block = cast("ast.If", type_checking_block)
-                    type_start = if_block.lineno - 1
-                    type_end = getattr(if_block, "end_lineno", if_block.lineno)
-                    all_import_ranges.append((type_start, type_end))
-                    return  # Skip this import, entire block will be removed
-                # Regular internal import - just remove it
+                # For internal imports in TYPE_CHECKING blocks, just remove the import
+                # We'll check if the block is empty later
                 all_import_ranges.append((start, end))
             # External: handle according to mode
             elif external_imports == "keep":
@@ -265,19 +262,16 @@ def split_imports(  # noqa: C901, PLR0915
                 )
                 if is_module_level:
                     # Module-level external import - hoist to top section
-                    # If it's in a TYPE_CHECKING block, remove the entire block
-                    if is_type_checking and type_checking_block is not None:
-                        if_block = cast("ast.If", type_checking_block)
-                        type_start = if_block.lineno - 1
-                        type_end = getattr(if_block, "end_lineno", if_block.lineno)
-                        all_import_ranges.append((type_start, type_end))
-                    else:
-                        all_import_ranges.append((start, end))
+                    all_import_ranges.append((start, end))
                     import_text = snippet.strip()
                     if import_text:
                         if not import_text.endswith("\n"):
                             import_text += "\n"
-                        external_imports_list.append(import_text)
+                        # Track TYPE_CHECKING imports separately
+                        if is_type_checking:
+                            type_checking_imports_list.append(import_text)
+                        else:
+                            external_imports_list.append(import_text)
                 # Function-local external imports stay in place (not added to ranges)
             elif external_imports == "top":
                 # Hoist module-level to top, but only if not in conditional
@@ -287,19 +281,16 @@ def split_imports(  # noqa: C901, PLR0915
                 )
                 if is_module_level and not is_in_conditional(node, tree):
                     # Module-level external import not in conditional - hoist to top
-                    # If it's in a TYPE_CHECKING block, remove the entire block
-                    if is_type_checking and type_checking_block is not None:
-                        if_block = cast("ast.If", type_checking_block)
-                        type_start = if_block.lineno - 1
-                        type_end = getattr(if_block, "end_lineno", if_block.lineno)
-                        all_import_ranges.append((type_start, type_end))
-                    else:
-                        all_import_ranges.append((start, end))
+                    all_import_ranges.append((start, end))
                     import_text = snippet.strip()
                     if import_text:
                         if not import_text.endswith("\n"):
                             import_text += "\n"
-                        external_imports_list.append(import_text)
+                        # Track TYPE_CHECKING imports separately
+                        if is_type_checking:
+                            type_checking_imports_list.append(import_text)
+                        else:
+                            external_imports_list.append(import_text)
                 # Function-local and conditional external imports stay in place
             else:
                 # Other modes (force_strip, strip, pass, force_pass, assign)
@@ -322,6 +313,89 @@ def split_imports(  # noqa: C901, PLR0915
     # --- Remove *all* import lines from the body ---
     skip = {i for s, e in all_import_ranges for i in range(s, e)}
     body = "".join(line for i, line in enumerate(lines) if i not in skip)
+
+    # Check if TYPE_CHECKING blocks and other conditional blocks are empty
+    # TYPE_CHECKING blocks: remove if empty
+    # Other conditionals: add 'pass' if empty (they might have side effects)
+    body_lines = body.splitlines(keepends=True)
+    lines_to_remove: set[int] = set()
+    lines_to_insert: list[tuple[int, str]] = []  # (index, line_to_insert)
+
+    # Find empty conditional blocks
+    i = 0
+    while i < len(body_lines):
+        line = body_lines[i].rstrip()
+        # Check if this is a conditional block start (if/try)
+        # Match "if condition:" or "try:" (try can have no condition)
+        if re.match(r"^\s*(if\s+.*|try)\s*:\s*$", line):
+            block_start = i
+            is_type_checking = bool(re.match(r"^\s*if\s+TYPE_CHECKING\s*:\s*$", line))
+            # Get indentation level
+            indent_match = re.match(r"^(\s*)", body_lines[i])
+            indent = indent_match.group(1) if indent_match else ""
+            i += 1
+            # Check if block is empty (only whitespace, pass, or nothing)
+            has_content = False
+            block_end = i
+            is_try = line.strip().startswith("try:")
+            while i < len(body_lines):
+                next_line = body_lines[i]
+                stripped = next_line.strip()
+                # Empty line - continue checking
+                if not stripped:
+                    i += 1
+                    continue
+                # For try blocks, check for except/finally/else clauses
+                # These are at the same indentation as try:, so they end the try body
+                if is_try and stripped.startswith(("except", "finally", "else:")):
+                    # We've reached the end of the try body
+                    # Check if the try body (before this clause) was empty
+                    block_end = i
+                    break
+                # If we already have a pass, block is not empty
+                if stripped == "pass":
+                    has_content = True
+                    i += 1
+                    continue
+                # Check if line is indented (part of the block)
+                if re.match(r"^\s+", next_line):
+                    # Indented content found - block is not empty
+                    has_content = True
+                    break
+                # Non-indented line - end of block
+                block_end = i
+                break
+            if not has_content:
+                if is_type_checking:
+                    # TYPE_CHECKING block: remove if empty
+                    for j in range(block_start, block_end):
+                        lines_to_remove.add(j)
+                else:
+                    # Other conditional: add 'pass' to make it valid
+                    # Insert pass after the block start line
+                    pass_line = f"{indent}    pass\n"
+                    lines_to_insert.append((block_start + 1, pass_line))
+        i += 1
+
+    # Apply insertions (in reverse order to maintain indices)
+    for idx, line in sorted(lines_to_insert, reverse=True):
+        body_lines.insert(idx, line)
+
+    # Remove empty TYPE_CHECKING blocks
+    if lines_to_remove:
+        body = "".join(
+            line for i, line in enumerate(body_lines) if i not in lines_to_remove
+        )
+    else:
+        body = "".join(body_lines)
+
+    # Group TYPE_CHECKING imports together in a single block
+    if type_checking_imports_list:
+        type_checking_block_text = "if TYPE_CHECKING:\n"
+        for imp in type_checking_imports_list:
+            # Indent the import
+            type_checking_block_text += f"    {imp}"
+        external_imports_list.append(type_checking_block_text)
 
     return external_imports_list, body
 
