@@ -9,8 +9,12 @@ from typing_extensions import NotRequired
 
 OriginType = Literal["cli", "config", "plugin", "default", "code", "gitignore", "test"]
 
-InternalImportMode = Literal["strip", "keep", "pass", "smart_pass", "assign"]
-ExternalImportMode = Literal["top", "keep", "strip", "pass", "smart_pass", "assign"]
+InternalImportMode = Literal[
+    "force_strip", "strip", "keep", "pass", "force_pass", "assign"
+]
+ExternalImportMode = Literal[
+    "force_top", "top", "keep", "force_strip", "strip", "pass", "force_pass", "assign"
+]
 
 
 # Post-processing configuration types

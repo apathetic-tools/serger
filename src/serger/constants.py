@@ -25,8 +25,9 @@ DEFAULT_STRICT_CONFIG: bool = True
 DEFAULT_OUT_DIR: str = "dist"
 DEFAULT_DRY_RUN: bool = False
 DEFAULT_USE_PYPROJECT: bool = True
-DEFAULT_INTERNAL_IMPORTS: str = "strip"  # Remove internal imports (current behavior)
-DEFAULT_EXTERNAL_IMPORTS: str = "top"  # Hoist external imports to top
+# Remove internal imports (current behavior)
+DEFAULT_INTERNAL_IMPORTS: str = "force_strip"
+DEFAULT_EXTERNAL_IMPORTS: str = "force_top"  # Hoist external imports to top
 
 # --- post-processing defaults ---
 DEFAULT_CATEGORY_ORDER: list[str] = ["static_checker", "formatter", "import_sorter"]

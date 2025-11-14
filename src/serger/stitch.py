@@ -81,7 +81,7 @@ def extract_commit(root_path: Path) -> str:
 def split_imports(  # noqa: C901, PLR0915
     text: str,
     package_names: list[str],
-    external_imports: ExternalImportMode = "top",
+    external_imports: ExternalImportMode = "force_top",
 ) -> tuple[list[str], str]:
     """Extract external imports and body text using AST.
 
@@ -94,7 +94,7 @@ def split_imports(  # noqa: C901, PLR0915
         package_names: List of package names to treat as internal
             (e.g., ["serger", "other"])
         external_imports: How to handle external imports. Supported modes:
-            - "top": Hoist module-level external imports to top of file
+            - "force_top": Hoist module-level external imports to top of file
             - "keep": Leave external imports in their original locations
 
     Returns:
@@ -204,7 +204,7 @@ def split_imports(  # noqa: C901, PLR0915
             elif external_imports == "keep":
                 # Keep external imports in place - don't add to ranges or list
                 pass
-            elif external_imports == "top":
+            elif external_imports == "force_top":
                 # Hoist module-level to top, keep function-local in place
                 is_module_level = not find_parent(
                     node, tree, (ast.FunctionDef, ast.AsyncFunctionDef)
@@ -219,10 +219,11 @@ def split_imports(  # noqa: C901, PLR0915
                         all_import_ranges.append((start, end))
                 # Function-local external imports stay in place (not added to ranges)
             else:
-                # Other modes (strip, pass, smart_pass, assign) not yet implemented
+                # Other modes (top, force_strip, strip, pass, force_pass, assign)
+                # not yet implemented
                 msg = (
                     f"external_imports mode '{external_imports}' is not yet "
-                    "implemented. Only 'top' and 'keep' modes are currently "
+                    "implemented. Only 'force_top' and 'keep' modes are currently "
                     "supported."
                 )
                 raise ValueError(msg)
@@ -812,7 +813,7 @@ def _collect_modules(
     package_root: Path,
     package_name: str,
     file_to_include: dict[Path, IncludeResolved],
-    external_imports: ExternalImportMode = "top",
+    external_imports: ExternalImportMode = "force_top",
 ) -> tuple[dict[str, str], OrderedDict[str, None], list[str], list[str]]:
     """Collect and process module sources from file paths.
 
@@ -1447,7 +1448,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     # --- Collection Phase ---
     logger.debug("Collecting module sources...")
     # Extract external_imports from config
-    external_imports_raw = config.get("external_imports", "top")
+    external_imports_raw = config.get("external_imports", "force_top")
     if not isinstance(external_imports_raw, str):
         msg = "Config 'external_imports' must be a string"
         raise TypeError(msg)

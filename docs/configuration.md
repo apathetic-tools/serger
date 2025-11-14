@@ -88,8 +88,8 @@ These options apply globally and can cascade into individual builds:
 | `watch_interval` | `float` | `1.0` | File watch interval in seconds (for `--watch` mode) |
 | `use_pyproject` | `bool` | `true` | Whether to pull metadata from `pyproject.toml` |
 | `pyproject_path` | `str` | - | Path to `pyproject.toml` (fallback for single builds) |
-| `internal_imports` | `str` | `"strip"` | How to handle internal package imports (see [Import Handling](#import-handling)) |
-| `external_imports` | `str` | `"top"` | How to handle external imports (see [Import Handling](#import-handling)) |
+| `internal_imports` | `str` | `"force_strip"` | How to handle internal package imports (see [Import Handling](#import-handling)) |
+| `external_imports` | `str` | `"force_top"` | How to handle external imports (see [Import Handling](#import-handling)) |
 
 ## Build Configuration Options
 
@@ -174,10 +174,11 @@ Internal imports are imports from the package being stitched (e.g., `from mypkg.
 
 | Mode | Description |
 |------|-------------|
-| `strip` | Remove internal imports (default). Internal imports are resolved by the stitching process, so they can be safely removed. |
+| `force_strip` | Remove internal imports (default). Always removes imports, even inside conditional structures (if, try, etc.). Internal imports are resolved by stitching, so they can be safely removed. |
+| `strip` | Remove internal imports (not yet implemented). Skips imports inside conditional structures (if, try, etc.), except `if TYPE_CHECKING` blocks which are always processed. |
 | `keep` | Keep internal imports in their original locations within each module section. |
-| `pass` | Replace internal imports with `pass` statements. |
-| `smart_pass` | Replace internal imports with `pass` statements only if they are inside conditional structures (if, try, etc.). Otherwise, remove them. |
+| `pass` | Replace internal imports with `pass` (not yet implemented). Skips imports inside conditional structures (if, try, etc.), except `if TYPE_CHECKING` blocks which are always processed. |
+| `force_pass` | Replace internal imports with `pass` only if inside conditional structures (if, try, etc.). Otherwise, remove them. |
 | `assign` | Transform imports into assignments. For example, `from mypkg.utils import foo` becomes `foo = mypkg.utils.foo`, and `from mypkg.utils import foo as bar` becomes `bar = mypkg.utils.foo`. These assignments do not count towards collision detection. |
 
 ### External Imports
@@ -186,11 +187,13 @@ External imports are imports from packages not being stitched (e.g., `import os`
 
 | Mode | Description |
 |------|-------------|
-| `top` | Move external imports to the top of the stitched file (default). Module-level external imports are collected and deduplicated at the top. |
+| `force_top` | Move external imports to the top (default). Always moves imports, even inside conditional structures (if, try, etc.). Module-level imports are collected and deduplicated at the top. |
+| `top` | Move external imports to the top (not yet implemented). Moves imports to the top, but skips imports inside conditional structures (if, try, etc.), except `if TYPE_CHECKING` blocks which are always processed. |
 | `keep` | Keep external imports in their original locations within each module section. |
-| `strip` | Remove external imports from the stitched output. |
-| `pass` | Replace external imports with `pass` statements. |
-| `smart_pass` | Replace external imports with `pass` statements only if they are inside conditional structures (if, try, etc.). Otherwise, remove them. |
+| `force_strip` | Remove external imports. Always removes imports, even inside conditional structures (if, try, etc.). |
+| `strip` | Remove external imports (not yet implemented). Skips imports inside conditional structures (if, try, etc.), except `if TYPE_CHECKING` blocks which are always processed. |
+| `pass` | Replace external imports with `pass` (not yet implemented). Skips imports inside conditional structures (if, try, etc.), except `if TYPE_CHECKING` blocks which are always processed. |
+| `force_pass` | Replace external imports with `pass` only if inside conditional structures (if, try, etc.). Otherwise, remove them. |
 | `assign` | Transform imports into assignments. For example, `from pathlib import Path` becomes `Path = pathlib.Path`, and `from os import path as ospath` becomes `ospath = os.path`. These assignments do not count towards collision detection. |
 
 ### Example
@@ -202,12 +205,12 @@ External imports are imports from packages not being stitched (e.g., `import os`
       "package": "mypkg",
       "include": ["src/mypkg/**/*.py"],
       "out": "dist/mypkg.py",
-      "internal_imports": "strip",
-      "external_imports": "top"
+      "internal_imports": "force_strip",
+      "external_imports": "force_top"
     }
   ],
-  "internal_imports": "strip",  // Default for all builds
-  "external_imports": "top"     // Default for all builds
+  "internal_imports": "force_strip",  // Default for all builds
+  "external_imports": "force_top"     // Default for all builds
 }
 ```
 
