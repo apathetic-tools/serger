@@ -741,3 +741,158 @@ license = "MIT"
     assert resolved.get("description") == "config description"
     # But version should still be extracted (stored as _pyproject_version)
     assert resolved.get("_pyproject_version") == "1.0.0"
+
+
+# ---------------------------------------------------------------------------
+# Parent directory traversal tests
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_build_config_include_with_parent_from_config(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Include with ../ in config should resolve relative to config_dir."""
+    # --- setup ---
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    project = tmp_path / "project"
+    project.mkdir()
+    raw = make_build_input(include=["../shared/pkg/**"], out="dist")
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, project, project)
+
+    # --- validate ---
+    inc = resolved["include"][0]
+    # Root should be config_dir (project), path should preserve ../
+    assert inc["root"] == project
+    assert inc["path"] == "../shared/pkg/**"
+    assert inc["origin"] == "config"
+
+
+def test_resolve_build_config_out_with_parent_from_config(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Out with ../ in config should resolve relative to config_dir."""
+    # --- setup ---
+    project = tmp_path / "project"
+    project.mkdir()
+    raw = make_build_input(include=["src/**"], out="../outputs/dist")
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, project, project)
+
+    # --- validate ---
+    out = resolved["out"]
+    # Root should be config_dir (project), path should preserve ../
+    assert out["root"] == project
+    assert out["path"] == "../outputs/dist"
+    assert out["origin"] == "config"
+
+
+def test_resolve_build_config_include_with_parent_from_cli(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Include with ../ from CLI should resolve relative to cwd."""
+    # --- setup ---
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    cwd = tmp_path / "project"
+    cwd.mkdir()
+    raw = make_build_input(include=["src/**"], out="dist")
+    args = _args(include=["../shared/pkg/**"])
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, cwd)
+
+    # --- validate ---
+    inc = resolved["include"][0]
+    # Root should be cwd, path should preserve ../
+    assert inc["root"] == cwd
+    assert inc["path"] == "../shared/pkg/**"
+    assert inc["origin"] == "cli"
+
+
+def test_resolve_build_config_out_with_parent_from_cli(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Out with ../ from CLI should resolve relative to cwd."""
+    # --- setup ---
+    cwd = tmp_path / "project"
+    cwd.mkdir()
+    raw = make_build_input(include=["src/**"], out="dist")
+    args = _args(out="../outputs/dist")
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, cwd)
+
+    # --- validate ---
+    out = resolved["out"]
+    # Root should be cwd, path should preserve ../
+    assert out["root"] == cwd
+    assert out["path"] == "../outputs/dist"
+    assert out["origin"] == "cli"
+
+
+def test_resolve_build_config_include_with_parent_different_config_and_cwd(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Config include with ../ should use config_dir, not cwd."""
+    # --- setup ---
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    config_dir = tmp_path / "config_dir"
+    config_dir.mkdir()
+    cwd = tmp_path / "cwd"
+    cwd.mkdir()
+    # Include goes backwards from config_dir, not cwd
+    raw = make_build_input(include=["../shared/pkg/**"], out="dist")
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, config_dir, cwd)
+
+    # --- validate ---
+    inc = resolved["include"][0]
+    # Should use config_dir as root, not cwd
+    assert inc["root"] == config_dir
+    assert inc["path"] == "../shared/pkg/**"
+    assert inc["origin"] == "config"
+
+
+def test_resolve_build_config_out_with_parent_different_config_and_cwd(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Config out with ../ should use config_dir, not cwd."""
+    # --- setup ---
+    config_dir = tmp_path / "config_dir"
+    config_dir.mkdir()
+    cwd = tmp_path / "cwd"
+    cwd.mkdir()
+    # Out goes backwards from config_dir, not cwd
+    raw = make_build_input(include=["src/**"], out="../outputs/dist")
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, config_dir, cwd)
+
+    # --- validate ---
+    out = resolved["out"]
+    # Should use config_dir as root, not cwd
+    assert out["root"] == config_dir
+    assert out["path"] == "../outputs/dist"
+    assert out["origin"] == "config"
