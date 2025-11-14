@@ -11,14 +11,12 @@ OriginType = Literal["cli", "config", "plugin", "default", "code", "gitignore", 
 
 # default: force_strip (but we always just strip irrelevant of mode
 # all modes unimplemented
-InternalImportMode = Literal[
-    "force_strip", "strip", "keep", "pass", "force_pass", "assign"
-]
+InternalImportMode = Literal["force_strip", "strip", "keep", "assign"]
 # default: force_top
-# Implemented: "force_top", "top", "keep"
-# Not yet implemented: "force_strip", "strip", "pass", "force_pass", "assign"
+# Implemented: "force_top", "top", "keep", "force_strip", "strip"
+# Not yet implemented: "assign"
 ExternalImportMode = Literal[
-    "force_top", "top", "keep", "force_strip", "strip", "pass", "force_pass", "assign"
+    "force_top", "top", "keep", "force_strip", "strip", "assign"
 ]
 
 

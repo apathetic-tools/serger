@@ -1259,3 +1259,190 @@ from pathlib import Path
     assert "import json  # serger: no-move" in body
     # Path should be removed
     assert "from pathlib import Path" not in body
+
+
+# ===== strip mode tests =====
+
+
+def test_split_imports_strip_module_level_removed() -> None:
+    """In 'strip' mode, module-level external imports should be removed."""
+    code = """import sys
+import json
+from pathlib import Path
+
+def foo():
+    pass
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="strip")
+    # No imports should be collected
+    assert len(imports) == 0
+    # External imports should be removed from body
+    assert "import sys" not in body
+    assert "import json" not in body
+    assert "from pathlib import Path" not in body
+    assert "def foo():" in body
+
+
+def test_split_imports_strip_function_local_in_conditional_kept() -> None:
+    """In 'strip' mode, function-local imports in conditionals should be kept."""
+    code = """def load_toml():
+    try:
+        import tomllib
+        return tomllib.load
+    except ImportError:
+        import tomli
+        return tomli.load
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="strip")
+    # No imports should be collected
+    assert len(imports) == 0
+    # Function-local imports in try blocks should be kept (try is a conditional)
+    assert "import tomllib" in body
+    assert "import tomli" in body
+    assert "def load_toml():" in body
+    assert "try:" in body
+    assert "return tomllib.load" in body
+    assert "return tomli.load" in body
+
+
+def test_split_imports_strip_function_local_not_in_conditional_removed() -> None:
+    """In 'strip' mode, function-local imports not in conditionals are removed."""
+    code = """def load_toml():
+    import tomllib
+    return tomllib.load
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="strip")
+    # No imports should be collected
+    assert len(imports) == 0
+    # Function-local imports not in conditionals should be removed
+    assert "import tomllib" not in body
+    assert "def load_toml():" in body
+    assert "return tomllib.load" in body
+
+
+def test_split_imports_strip_try_block_kept() -> None:
+    """In 'strip' mode, imports inside try blocks should be kept."""
+    code = """try:
+    import json
+    result = json.loads('{}')
+except ImportError:
+    pass
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="strip")
+    # No imports should be collected
+    assert len(imports) == 0
+    # Import should be kept in try block
+    assert "import json" in body
+    assert "try:" in body
+    assert "result = json.loads('{}')" in body
+
+
+def test_split_imports_strip_if_block_kept() -> None:
+    """In 'strip' mode, imports inside if blocks should be kept."""
+    code = """if some_condition:
+    import json
+    result = json.loads('{}')
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="strip")
+    # No imports should be collected
+    assert len(imports) == 0
+    # Import should be kept in if block
+    assert "import json" in body
+    assert "if some_condition:" in body
+    assert "result = json.loads('{}')" in body
+
+
+def test_split_imports_strip_type_checking_removed() -> None:
+    """In 'strip' mode, imports inside TYPE_CHECKING blocks should be removed."""
+    code = """from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+    from typing import Optional
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="strip")
+    # No imports should be collected
+    assert len(imports) == 0
+    # Imports should be removed
+    assert "from pathlib import Path" not in body
+    assert "from typing import Optional" not in body
+    # Empty TYPE_CHECKING block should be removed entirely
+    assert "if TYPE_CHECKING:" not in body
+
+
+def test_split_imports_strip_type_checking_with_content_kept() -> None:
+    """In 'strip' mode, TYPE_CHECKING blocks with non-import content are kept."""
+    code = """from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+    # Some comment
+    SOME_CONSTANT = "value"
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="strip")
+    # No imports should be collected
+    assert len(imports) == 0
+    # Import should be removed
+    assert "from pathlib import Path" not in body
+    # TYPE_CHECKING block should remain with non-import content
+    assert "if TYPE_CHECKING:" in body
+    assert 'SOME_CONSTANT = "value"' in body
+
+
+def test_split_imports_strip_mixed_module_and_conditional() -> None:
+    """In 'strip' mode, module-level imports removed, conditional ones kept."""
+    code = """import sys
+import json
+
+if some_condition:
+    import os
+    result = os.getenv('TEST')
+
+def foo():
+    pass
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="strip")
+    # No imports should be collected
+    assert len(imports) == 0
+    # Module-level imports should be removed
+    assert "import sys" not in body
+    assert "import json" not in body
+    # Conditional import should be kept
+    assert "import os" in body
+    assert "if some_condition:" in body
+    assert "result = os.getenv('TEST')" in body
+    assert "def foo():" in body
+
+
+def test_split_imports_strip_nested_conditionals_kept() -> None:
+    """In 'strip' mode, imports in nested conditionals should be kept."""
+    code = """if condition1:
+    if condition2:
+        import json
+        result = json.loads('{}')
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="strip")
+    # No imports should be collected
+    assert len(imports) == 0
+    # Import should be kept in nested conditionals
+    assert "import json" in body
+    assert "if condition1:" in body
+    assert "if condition2:" in body
+    assert "result = json.loads('{}')" in body
+
+
+def test_split_imports_strip_no_move_comment_respected() -> None:
+    """In 'strip' mode, no-move comments should still be respected."""
+    code = """import sys
+import json  # serger: no-move
+from pathlib import Path
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="strip")
+    # No imports should be collected
+    assert len(imports) == 0
+    # sys should be removed
+    assert "import sys" not in body
+    # json should stay (has no-move comment)
+    assert "import json  # serger: no-move" in body
+    # Path should be removed
+    assert "from pathlib import Path" not in body
