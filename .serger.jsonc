@@ -1,5 +1,5 @@
 // Serger's self-hosting configuration
-// This file defines how to stitch serger itself into a single-file executable
+// This file defines how to stitch serger itself into a single-file python script
 
 {
   "builds": [

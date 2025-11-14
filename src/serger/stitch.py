@@ -416,7 +416,11 @@ def compute_module_order(  # noqa: C901, PLR0912, PLR0915
         except SyntaxError:
             continue
 
-        for node in tree.body:
+        # Use ast.walk() to find ALL imports, including those inside
+        # if/else blocks, functions, etc. This is necessary because
+        # imports inside conditionals (like "if not __STANDALONE__: from .x import y")
+        # still represent dependencies that affect module ordering.
+        for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom):
                 # Handle relative imports (node.level > 0)
                 if node.level > 0:
