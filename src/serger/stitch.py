@@ -1367,6 +1367,9 @@ def _collect_modules(
         module_text = strip_redundant_blocks(module_text)
 
         # Process comments according to mode
+        # IMPORTANT: This must happen BEFORE split_imports, as split_imports
+        # works with the text directly and will preserve any comments that
+        # are still in the text at that point
         module_text = process_comments(module_text, comments_mode)
 
         # Extract imports - pass all detected package names and modes
@@ -1380,6 +1383,8 @@ def _collect_modules(
             all_imports.setdefault(imp, None)
 
         # Create module section - use derived module name in header
+        # Note: serger-generated comments (like headers) are added here and should
+        # remain even in strip mode, as they're part of serger's output, not user code
         header = f"# === {module_name} ==="
         parts.append(f"\n{header}\n{module_body.strip()}\n\n")
 
