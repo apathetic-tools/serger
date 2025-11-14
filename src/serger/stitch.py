@@ -95,6 +95,9 @@ def split_imports(  # noqa: C901, PLR0915
             (e.g., ["serger", "other"])
         external_imports: How to handle external imports. Supported modes:
             - "force_top": Hoist module-level external imports to top of file
+            - "top": Hoist module-level external imports to top, but only if
+              not inside conditional structures (try/if blocks). `if TYPE_CHECKING:`
+              blocks are excluded from this check.
             - "keep": Leave external imports in their original locations
 
     Returns:
@@ -146,7 +149,57 @@ def split_imports(  # noqa: C901, PLR0915
         pattern = r"#\s*serger\s*:\s*no-move"
         return bool(re.search(pattern, snippet, re.IGNORECASE))
 
-    def collect_imports(node: ast.AST) -> None:  # noqa: C901, PLR0912
+    def is_in_conditional(node: ast.AST, tree: ast.AST) -> bool:
+        """Check if node is inside a conditional structure (try/if).
+
+        Returns True if node is inside a try block or if block (excluding
+        `if TYPE_CHECKING:` blocks). Returns False otherwise.
+
+        Args:
+            node: AST node to check
+            tree: Root AST tree (for building parent map)
+
+        Returns:
+            True if node is in a conditional structure, False otherwise
+        """
+        # Build parent map once
+        parent_map: dict[ast.AST, ast.AST] = {}
+
+        def build_parent_map(parent: ast.AST) -> None:
+            """Recursively build parent mapping."""
+            for child in ast.iter_child_nodes(parent):
+                parent_map[child] = parent
+                build_parent_map(child)
+
+        build_parent_map(tree)
+
+        # Walk up the parent chain
+        current: ast.AST | None = node
+        while current is not None:
+            # Check for try blocks
+            if isinstance(current, ast.Try):
+                return True
+
+            # Check for if blocks (but exclude `if TYPE_CHECKING:`)
+            if isinstance(current, ast.If):
+                # Check if this is `if TYPE_CHECKING:`
+                # It must be: test is a Name with id == "TYPE_CHECKING"
+                if (
+                    isinstance(current.test, ast.Name)
+                    and current.test.id == "TYPE_CHECKING"
+                ):
+                    # This is `if TYPE_CHECKING:` - don't count as conditional
+                    # Continue checking parent chain
+                    pass
+                else:
+                    # This is a regular if block - count as conditional
+                    return True
+
+            current = parent_map.get(current)
+
+        return False
+
+    def collect_imports(node: ast.AST) -> None:  # noqa: C901, PLR0912, PLR0915
         """Recursively collect all import nodes from the AST."""
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             start = node.lineno - 1
@@ -182,23 +235,24 @@ def split_imports(  # noqa: C901, PLR0915
 
             # Check if import is inside if TYPE_CHECKING block
             type_checking_block = find_parent(node, tree, ast.If)
-            if (
+            is_type_checking = (
                 type_checking_block
                 and isinstance(type_checking_block, ast.If)
                 and isinstance(type_checking_block.test, ast.Name)
                 and type_checking_block.test.id == "TYPE_CHECKING"
                 and len(type_checking_block.body) == 1
-            ):
-                # If this is the only statement in the if block, remove entire block
-                type_start = type_checking_block.lineno - 1
-                type_end = getattr(
-                    type_checking_block, "end_lineno", type_checking_block.lineno
-                )
-                all_import_ranges.append((type_start, type_end))
-                return  # Skip this import, entire block will be removed
+            )
 
             # Always remove internal imports (they break in stitched mode)
             if is_internal:
+                # For internal imports in TYPE_CHECKING blocks, remove entire block
+                if is_type_checking and type_checking_block is not None:
+                    if_block = cast("ast.If", type_checking_block)
+                    type_start = if_block.lineno - 1
+                    type_end = getattr(if_block, "end_lineno", if_block.lineno)
+                    all_import_ranges.append((type_start, type_end))
+                    return  # Skip this import, entire block will be removed
+                # Regular internal import - just remove it
                 all_import_ranges.append((start, end))
             # External: handle according to mode
             elif external_imports == "keep":
@@ -211,20 +265,49 @@ def split_imports(  # noqa: C901, PLR0915
                 )
                 if is_module_level:
                     # Module-level external import - hoist to top section
+                    # If it's in a TYPE_CHECKING block, remove the entire block
+                    if is_type_checking and type_checking_block is not None:
+                        if_block = cast("ast.If", type_checking_block)
+                        type_start = if_block.lineno - 1
+                        type_end = getattr(if_block, "end_lineno", if_block.lineno)
+                        all_import_ranges.append((type_start, type_end))
+                    else:
+                        all_import_ranges.append((start, end))
                     import_text = snippet.strip()
                     if import_text:
                         if not import_text.endswith("\n"):
                             import_text += "\n"
                         external_imports_list.append(import_text)
-                        all_import_ranges.append((start, end))
                 # Function-local external imports stay in place (not added to ranges)
+            elif external_imports == "top":
+                # Hoist module-level to top, but only if not in conditional
+                # Keep function-local and conditional imports in place
+                is_module_level = not find_parent(
+                    node, tree, (ast.FunctionDef, ast.AsyncFunctionDef)
+                )
+                if is_module_level and not is_in_conditional(node, tree):
+                    # Module-level external import not in conditional - hoist to top
+                    # If it's in a TYPE_CHECKING block, remove the entire block
+                    if is_type_checking and type_checking_block is not None:
+                        if_block = cast("ast.If", type_checking_block)
+                        type_start = if_block.lineno - 1
+                        type_end = getattr(if_block, "end_lineno", if_block.lineno)
+                        all_import_ranges.append((type_start, type_end))
+                    else:
+                        all_import_ranges.append((start, end))
+                    import_text = snippet.strip()
+                    if import_text:
+                        if not import_text.endswith("\n"):
+                            import_text += "\n"
+                        external_imports_list.append(import_text)
+                # Function-local and conditional external imports stay in place
             else:
-                # Other modes (top, force_strip, strip, pass, force_pass, assign)
+                # Other modes (force_strip, strip, pass, force_pass, assign)
                 # not yet implemented
                 msg = (
                     f"external_imports mode '{external_imports}' is not yet "
-                    "implemented. Only 'force_top' and 'keep' modes are currently "
-                    "supported."
+                    "implemented. Only 'force_top', 'top', and 'keep' modes are "
+                    "currently supported."
                 )
                 raise ValueError(msg)
 

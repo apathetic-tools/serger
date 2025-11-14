@@ -342,3 +342,292 @@ def func2():
     assert "import external_lib" in body
     assert "def func1():" in body
     assert "def func2():" in body
+
+
+def test_split_imports_top_mode_module_level_hoisted() -> None:
+    """In 'top' mode, module-level external imports should be hoisted."""
+    code = """import sys
+import json
+from pathlib import Path
+
+def foo():
+    pass
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="top")
+    # Module-level external imports should be hoisted
+    expected_import_count = 3
+    assert len(imports) == expected_import_count
+    assert "import sys" in "".join(imports)
+    assert "import json" in "".join(imports)
+    assert "from pathlib import Path" in "".join(imports)
+    # Imports should be removed from body
+    assert "import sys" not in body
+    assert "import json" not in body
+    assert "from pathlib import Path" not in body
+    assert "def foo():" in body
+
+
+def test_split_imports_top_mode_try_block_not_hoisted() -> None:
+    """In 'top' mode, imports inside try blocks should NOT be hoisted."""
+    code = """import sys
+
+try:
+    import json
+    result = json.loads('{}')
+except ImportError:
+    pass
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="top")
+    # Module-level import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Import inside try block should NOT be hoisted
+    assert "import json" not in "".join(imports)
+    assert "import json" in body
+    assert "try:" in body
+
+
+def test_split_imports_top_mode_if_block_not_hoisted() -> None:
+    """In 'top' mode, imports inside if blocks should NOT be hoisted."""
+    code = """import sys
+
+if some_condition:
+    import json
+    result = json.loads('{}')
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="top")
+    # Module-level import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Import inside if block should NOT be hoisted
+    assert "import json" not in "".join(imports)
+    assert "import json" in body
+    assert "if some_condition:" in body
+
+
+def test_split_imports_top_mode_type_checking_hoisted() -> None:
+    """In 'top' mode, imports inside 'if TYPE_CHECKING:' should be hoisted."""
+    code = """import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+    from typing import Optional
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="top")
+    # All imports should be hoisted (TYPE_CHECKING is not a conditional)
+    assert "import sys" in "".join(imports)
+    assert "from pathlib import Path" in "".join(imports)
+    assert "from typing import Optional" in "".join(imports)
+    # Imports should be removed from body
+    assert "from pathlib import Path" not in body
+    assert "from typing import Optional" not in body
+
+
+def test_split_imports_top_mode_nested_conditional_not_hoisted() -> None:
+    """In 'top' mode, imports inside nested conditionals should NOT be hoisted."""
+    code = """import sys
+
+if condition1:
+    if condition2:
+        import json
+        result = json.loads('{}')
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="top")
+    # Module-level import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Import inside nested if blocks should NOT be hoisted
+    assert "import json" not in "".join(imports)
+    assert "import json" in body
+    assert "if condition1:" in body
+    assert "if condition2:" in body
+
+
+def test_split_imports_top_mode_try_in_if_not_hoisted() -> None:
+    """In 'top' mode, imports in try blocks within if blocks should NOT be hoisted."""
+    code = """import sys
+
+if some_condition:
+    try:
+        import json
+        result = json.loads('{}')
+    except ImportError:
+        pass
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="top")
+    # Module-level import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Import inside try/if should NOT be hoisted
+    assert "import json" not in "".join(imports)
+    assert "import json" in body
+
+
+def test_split_imports_top_mode_function_local_not_hoisted() -> None:
+    """In 'top' mode, function-local external imports should NOT be hoisted."""
+    code = """import sys
+
+def load_toml():
+    try:
+        import tomllib
+        return tomllib.load
+    except ImportError:
+        import tomli
+        return tomli.load
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="top")
+    # Module-level import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Function-local imports should NOT be hoisted
+    assert "import tomllib" not in "".join(imports)
+    assert "import tomli" not in "".join(imports)
+    # Function-local imports should stay in body
+    assert "import tomllib" in body
+    assert "import tomli" in body
+    assert "def load_toml():" in body
+
+
+def test_split_imports_top_mode_mixed_scenarios() -> None:
+    """In 'top' mode, mixed scenarios should be handled correctly."""
+    code = """import sys
+from pathlib import Path
+
+if TYPE_CHECKING:
+    from typing import Optional
+
+if some_condition:
+    import json
+
+try:
+    import os
+except ImportError:
+    pass
+
+def func():
+    import re
+"""
+    imports, body = mod_stitch.split_imports(code, ["serger"], external_imports="top")
+    # Module-level imports should be hoisted
+    assert "import sys" in "".join(imports)
+    assert "from pathlib import Path" in "".join(imports)
+    # TYPE_CHECKING import should be hoisted
+    assert "from typing import Optional" in "".join(imports)
+    # Conditional imports should NOT be hoisted
+    assert "import json" not in "".join(imports)
+    assert "import os" not in "".join(imports)
+    # Function-local import should NOT be hoisted
+    assert "import re" not in "".join(imports)
+    # Conditional imports should stay in body
+    assert "import json" in body
+    assert "import os" in body
+    # Function-local import should stay in body
+    assert "import re" in body
+
+
+def test_split_imports_force_top_mode_module_level_hoisted() -> None:
+    """In 'force_top' mode, module-level external imports should be hoisted."""
+    code = """import sys
+import json
+from pathlib import Path
+
+def foo():
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    # Module-level external imports should be hoisted
+    expected_import_count = 3
+    assert len(imports) == expected_import_count
+    assert "import sys" in "".join(imports)
+    assert "import json" in "".join(imports)
+    assert "from pathlib import Path" in "".join(imports)
+    # Imports should be removed from body
+    assert "import sys" not in body
+    assert "import json" not in body
+    assert "from pathlib import Path" not in body
+    assert "def foo():" in body
+
+
+def test_split_imports_force_top_mode_try_block_hoisted() -> None:
+    """In 'force_top' mode, imports inside try blocks should be hoisted."""
+    code = """import sys
+
+try:
+    import json
+    result = json.loads('{}')
+except ImportError:
+    pass
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    # Module-level import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Import inside try block SHOULD be hoisted (unlike 'top' mode)
+    assert "import json" in "".join(imports)
+    assert "import json" not in body
+    assert "try:" in body
+
+
+def test_split_imports_force_top_mode_if_block_hoisted() -> None:
+    """In 'force_top' mode, imports inside if blocks should be hoisted."""
+    code = """import sys
+
+if some_condition:
+    import json
+    result = json.loads('{}')
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    # Module-level import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Import inside if block SHOULD be hoisted (unlike 'top' mode)
+    assert "import json" in "".join(imports)
+    assert "import json" not in body
+    assert "if some_condition:" in body
+
+
+def test_split_imports_force_top_mode_type_checking_hoisted() -> None:
+    """In 'force_top' mode, imports inside 'if TYPE_CHECKING:' should be hoisted."""
+    code = """import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+    from typing import Optional
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    # All imports should be hoisted
+    assert "import sys" in "".join(imports)
+    assert "from pathlib import Path" in "".join(imports)
+    assert "from typing import Optional" in "".join(imports)
+    # Imports should be removed from body
+    assert "from pathlib import Path" not in body
+    assert "from typing import Optional" not in body
+
+
+def test_split_imports_force_top_mode_function_local_not_hoisted() -> None:
+    """In 'force_top' mode, function-local external imports should NOT be hoisted."""
+    code = """import sys
+
+def load_toml():
+    try:
+        import tomllib
+        return tomllib.load
+    except ImportError:
+        import tomli
+        return tomli.load
+"""
+    imports, body = mod_stitch.split_imports(
+        code, ["serger"], external_imports="force_top"
+    )
+    # Module-level import should be hoisted
+    assert "import sys" in "".join(imports)
+    # Function-local imports should NOT be hoisted
+    assert "import tomllib" not in "".join(imports)
+    assert "import tomli" not in "".join(imports)
+    # Function-local imports should stay in body
+    assert "import tomllib" in body
+    assert "import tomli" in body
+    assert "def load_toml():" in body
