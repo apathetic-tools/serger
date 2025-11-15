@@ -414,9 +414,14 @@ class ModuleActionFull(TypedDict, total=False):
 ModuleActions = dict[str, str | None] | list[ModuleActionFull]
 ```
 
-**Add to `BuildConfig` and `BuildConfigResolved`**:
+**Add to `BuildConfig`**:
 ```python
 module_actions: NotRequired[ModuleActions]
+```
+
+**Add to `BuildConfigResolved`**:
+```python
+module_actions: list[ModuleActionFull]  # Always present, empty list if not provided
 ```
 
 ### 11. Examples

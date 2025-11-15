@@ -1070,3 +1070,219 @@ def test_resolve_build_config_shim_invalid_root_value_raises_error(
         pytest.raises(ValueError, match="Invalid shim value"),
     ):
         mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path, root_cfg)
+
+
+# ---------------------------------------------------------------------------
+# Module actions tests
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_build_config_module_actions_dict_format(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions dict format should be accepted and normalized."""
+    # --- setup ---
+    raw = make_build_input(
+        include=["src/**"], module_actions={"oldmodule": "newmodule"}
+    )
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert "module_actions" in resolved
+    assert isinstance(resolved["module_actions"], list)
+    assert len(resolved["module_actions"]) == 1
+    action = resolved["module_actions"][0]
+    assert action.get("source") == "oldmodule"
+    assert action.get("dest") == "newmodule"
+
+
+def test_resolve_build_config_module_actions_list_format(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions list format should be accepted."""
+    # --- setup ---
+    raw = make_build_input(
+        include=["src/**"],
+        module_actions=[{"source": "old", "dest": "new", "action": "move"}],
+    )
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert "module_actions" in resolved
+    assert isinstance(resolved["module_actions"], list)
+    assert len(resolved["module_actions"]) == 1
+    action = resolved["module_actions"][0]
+    assert action.get("source") == "old"
+    assert action.get("dest") == "new"
+    assert action.get("action") == "move"
+
+
+def test_resolve_build_config_module_actions_cascades_from_root(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions should cascade from root config."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"])
+    root_cfg: mod_types.RootConfig = {"module_actions": {"old": "new"}}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    assert "module_actions" in resolved
+    assert isinstance(resolved["module_actions"], list)
+    assert len(resolved["module_actions"]) == 1
+    action = resolved["module_actions"][0]
+    assert action.get("source") == "old"
+    assert action.get("dest") == "new"
+
+
+def test_resolve_build_config_module_actions_build_overrides_root(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Build-level module_actions should override root-level."""
+    # --- setup ---
+    raw = make_build_input(
+        include=["src/**"], module_actions={"build_old": "build_new"}
+    )
+    root_cfg: mod_types.RootConfig = {"module_actions": {"root_old": "root_new"}}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    assert "module_actions" in resolved
+    assert len(resolved["module_actions"]) == 1
+    action = resolved["module_actions"][0]
+    assert action.get("source") == "build_old"
+    assert action.get("dest") == "build_new"
+
+
+def test_resolve_build_config_module_actions_invalid_dict_key_type_raises_error(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions dict with non-string keys should raise error."""
+    # --- setup ---
+    # Use cast to allow invalid value for testing validation
+    raw = cast(
+        "mod_types.BuildConfig",
+        {"include": ["src/**"], "module_actions": {123: "new"}},
+    )
+    args = _args()
+
+    # --- execute and validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(TypeError, match="module_actions dict keys must be strings"),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+
+def test_resolve_build_config_module_actions_invalid_dict_value_type_raises_error(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions dict with non-string/None values should raise error."""
+    # --- setup ---
+    # Use cast to allow invalid value for testing validation
+    raw = cast(
+        "mod_types.BuildConfig",
+        {"include": ["src/**"], "module_actions": {"old": 123}},
+    )
+    args = _args()
+
+    # --- execute and validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(
+            ValueError, match="module_actions dict values must be strings or None"
+        ),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+
+def test_resolve_build_config_module_actions_list_missing_source_raises_error(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions list item missing 'source' should raise error."""
+    # --- setup ---
+    # Use cast to allow invalid value for testing validation
+    raw = cast(
+        "mod_types.BuildConfig",
+        {"include": ["src/**"], "module_actions": [{"dest": "new"}]},
+    )
+    args = _args()
+
+    # --- execute and validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(ValueError, match=r"missing required 'source' key"),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+
+def test_resolve_build_config_module_actions_list_invalid_action_raises_error(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions list with invalid action value should raise error."""
+    # --- setup ---
+    # Use cast to allow invalid value for testing validation
+    raw = cast(
+        "mod_types.BuildConfig",
+        {
+            "include": ["src/**"],
+            "module_actions": [{"source": "old", "action": "invalid"}],
+        },
+    )
+    args = _args()
+
+    # --- execute and validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(ValueError, match=r"module_actions.*'action'].*invalid"),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+
+def test_resolve_build_config_module_actions_invalid_type_raises_error(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions with invalid type should raise error."""
+    # --- setup ---
+    # Use cast to allow invalid value for testing validation
+    raw = cast(
+        "mod_types.BuildConfig",
+        {"include": ["src/**"], "module_actions": "invalid"},
+    )
+    args = _args()
+
+    # --- execute and validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(ValueError, match="module_actions must be dict or list"),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)

@@ -35,14 +35,14 @@ ModuleActions = ModuleActionSimple | list[ModuleActionFull]
 ### 2. Add to Config Types
 - Add `module_actions: NotRequired[ModuleActions]` to `BuildConfig`
 - Add `module_actions: NotRequired[ModuleActions]` to `RootConfig`
-- Add `module_actions: NotRequired[list[ModuleActionFull]]` to `BuildConfigResolved` (normalized to list format)
+- Add `module_actions: list[ModuleActionFull]` to `BuildConfigResolved` (normalized to list format, always present - empty list if not provided)
 
 ### 3. Update Config Resolution (`src/serger/config/config_resolve.py`)
 - In `resolve_build_config()`, accept `module_actions` from config
 - Validate structure (basic validation - full validation comes later):
   - If dict: validate keys are strings, values are strings or None
   - If list: validate each item has `source` key, validate action types using `literal_to_set()` for Literal types
-- Store in `BuildConfigResolved` (normalized to list format, but don't parse yet)
+- Store in `BuildConfigResolved` (normalized to list format, always set to empty list `[]` if not provided)
 
 ### 4. Add Tests
 - `tests/5_core/test_config_types.py`: Test type definitions
