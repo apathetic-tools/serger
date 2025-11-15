@@ -1081,7 +1081,7 @@ def test_resolve_build_config_module_actions_dict_format(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Module actions dict format should be accepted and normalized."""
+    """Module actions dict format should be accepted and normalized with defaults."""
     # --- setup ---
     raw = make_build_input(
         include=["src/**"], module_actions={"oldmodule": "newmodule"}
@@ -1097,15 +1097,22 @@ def test_resolve_build_config_module_actions_dict_format(
     assert isinstance(resolved["module_actions"], list)
     assert len(resolved["module_actions"]) == 1
     action = resolved["module_actions"][0]
-    assert action.get("source") == "oldmodule"
-    assert action.get("dest") == "newmodule"
+    # All fields should be present with defaults applied
+    # Normalized actions have all fields present
+    assert action["source"] == "oldmodule"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["dest"] == "newmodule"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["action"] == "move"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["mode"] == "preserve"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["scope"] == "shim"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["affects"] == "shims"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["cleanup"] == "auto"  # pyright: ignore[reportTypedDictNotRequiredAccess]
 
 
 def test_resolve_build_config_module_actions_list_format(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Module actions list format should be accepted."""
+    """Module actions list format should be accepted with defaults applied."""
     # --- setup ---
     raw = make_build_input(
         include=["src/**"],
@@ -1122,16 +1129,22 @@ def test_resolve_build_config_module_actions_list_format(
     assert isinstance(resolved["module_actions"], list)
     assert len(resolved["module_actions"]) == 1
     action = resolved["module_actions"][0]
-    assert action.get("source") == "old"
-    assert action.get("dest") == "new"
-    assert action.get("action") == "move"
+    # All fields should be present with defaults applied
+    # Normalized actions have all fields present
+    assert action["source"] == "old"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["dest"] == "new"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["action"] == "move"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["mode"] == "preserve"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["scope"] == "shim"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["affects"] == "shims"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["cleanup"] == "auto"  # pyright: ignore[reportTypedDictNotRequiredAccess]
 
 
 def test_resolve_build_config_module_actions_cascades_from_root(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Module actions should cascade from root config."""
+    """Module actions should cascade from root config with defaults applied."""
     # --- setup ---
     raw = make_build_input(include=["src/**"])
     root_cfg: mod_types.RootConfig = {"module_actions": {"old": "new"}}
@@ -1148,8 +1161,15 @@ def test_resolve_build_config_module_actions_cascades_from_root(
     assert isinstance(resolved["module_actions"], list)
     assert len(resolved["module_actions"]) == 1
     action = resolved["module_actions"][0]
-    assert action.get("source") == "old"
-    assert action.get("dest") == "new"
+    # All fields should be present with defaults applied
+    # Normalized actions have all fields present
+    assert action["source"] == "old"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["dest"] == "new"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["action"] == "move"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["mode"] == "preserve"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["scope"] == "shim"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["affects"] == "shims"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["cleanup"] == "auto"  # pyright: ignore[reportTypedDictNotRequiredAccess]
 
 
 def test_resolve_build_config_module_actions_build_overrides_root(
@@ -1174,8 +1194,15 @@ def test_resolve_build_config_module_actions_build_overrides_root(
     assert "module_actions" in resolved
     assert len(resolved["module_actions"]) == 1
     action = resolved["module_actions"][0]
-    assert action.get("source") == "build_old"
-    assert action.get("dest") == "build_new"
+    # Normalized actions have all fields present
+    assert action["source"] == "build_old"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["dest"] == "build_new"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    # Defaults should still be applied
+    assert action["action"] == "move"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["mode"] == "preserve"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["scope"] == "shim"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["affects"] == "shims"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["cleanup"] == "auto"  # pyright: ignore[reportTypedDictNotRequiredAccess]
 
 
 def test_resolve_build_config_module_actions_invalid_dict_key_type_raises_error(
@@ -1284,5 +1311,383 @@ def test_resolve_build_config_module_actions_invalid_type_raises_error(
     with (
         module_logger.use_level("info"),
         pytest.raises(ValueError, match="module_actions must be dict or list"),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+
+def test_resolve_build_config_module_actions_dict_format_delete(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions dict format with None value should create delete action."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"], module_actions={"old": None})
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert len(resolved["module_actions"]) == 1
+    action = resolved["module_actions"][0]
+    # Normalized actions have all fields present
+    assert action["source"] == "old"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["action"] == "delete"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert "dest" not in action  # dest must not be present for delete
+    assert action["mode"] == "preserve"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["scope"] == "shim"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["affects"] == "shims"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["cleanup"] == "auto"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+
+
+def test_resolve_build_config_module_actions_empty_source_raises_error(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions with empty source string should raise error."""
+    # --- setup ---
+    raw = cast(
+        "mod_types.BuildConfig",
+        {"include": ["src/**"], "module_actions": {"": "new"}},
+    )
+    args = _args()
+
+    # --- execute and validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(
+            ValueError, match="module_actions dict keys \\(source\\) must be non-empty"
+        ),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+
+def test_resolve_build_config_module_actions_list_empty_source_raises_error(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions list with empty source string should raise error."""
+    # --- setup ---
+    raw = cast(
+        "mod_types.BuildConfig",
+        {"include": ["src/**"], "module_actions": [{"source": ""}]},
+    )
+    args = _args()
+
+    # --- execute and validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(
+            ValueError, match=r"module_actions.*'source'].*must be a non-empty string"
+        ),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+
+def test_resolve_build_config_module_actions_move_missing_dest_raises_error(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions with move action missing dest should raise error."""
+    # --- setup ---
+    raw = cast(
+        "mod_types.BuildConfig",
+        {
+            "include": ["src/**"],
+            "module_actions": [{"source": "old", "action": "move"}],
+        },
+    )
+    args = _args()
+
+    # --- execute and validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(ValueError, match="'dest' is required for 'move' action"),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+
+def test_resolve_build_config_module_actions_copy_missing_dest_raises_error(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions with copy action missing dest should raise error."""
+    # --- setup ---
+    raw = cast(
+        "mod_types.BuildConfig",
+        {
+            "include": ["src/**"],
+            "module_actions": [{"source": "old", "action": "copy"}],
+        },
+    )
+    args = _args()
+
+    # --- execute and validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(ValueError, match="'dest' is required for 'copy' action"),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+
+def test_resolve_build_config_module_actions_delete_with_dest_raises_error(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions with delete action having dest should raise error."""
+    # --- setup ---
+    raw = cast(
+        "mod_types.BuildConfig",
+        {
+            "include": ["src/**"],
+            "module_actions": [{"source": "old", "action": "delete", "dest": "new"}],
+        },
+    )
+    args = _args()
+
+    # --- execute and validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(
+            ValueError, match="'dest' must not be present for 'delete' action"
+        ),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+
+def test_resolve_build_config_module_actions_none_normalized_to_delete(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions with action='none' should be normalized to 'delete'."""
+    # --- setup ---
+    raw = make_build_input(
+        include=["src/**"],
+        module_actions=[{"source": "old", "action": "none"}],
+    )
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert len(resolved["module_actions"]) == 1
+    action = resolved["module_actions"][0]
+    # Normalized actions have all fields present
+    assert action["source"] == "old"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    # Normalized from "none"
+    assert action["action"] == "delete"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert "dest" not in action
+    assert action["mode"] == "preserve"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["scope"] == "shim"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["affects"] == "shims"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["cleanup"] == "auto"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+
+
+def test_resolve_build_config_module_actions_defaults_applied(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions should have all defaults applied when fields are missing."""
+    # --- setup ---
+    raw = make_build_input(
+        include=["src/**"],
+        module_actions=[{"source": "old", "dest": "new"}],  # Only source and dest
+    )
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert len(resolved["module_actions"]) == 1
+    action = resolved["module_actions"][0]
+    # Normalized actions have all fields present
+    assert action["source"] == "old"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["dest"] == "new"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    # Defaults applied
+    assert action["action"] == "move"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["mode"] == "preserve"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    # Default for user actions
+    assert action["scope"] == "shim"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["affects"] == "shims"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["cleanup"] == "auto"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+
+
+def test_resolve_build_config_module_actions_invalid_mode_raises_error(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions with invalid mode should raise error."""
+    # --- setup ---
+    raw = cast(
+        "mod_types.BuildConfig",
+        {
+            "include": ["src/**"],
+            "module_actions": [{"source": "old", "dest": "new", "mode": "invalid"}],
+        },
+    )
+    args = _args()
+
+    # --- execute and validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(ValueError, match=r"module_actions.*'mode'].*invalid"),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+
+def test_resolve_build_config_module_actions_invalid_scope_raises_error(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions with invalid scope should raise error."""
+    # --- setup ---
+    raw = cast(
+        "mod_types.BuildConfig",
+        {
+            "include": ["src/**"],
+            "module_actions": [{"source": "old", "dest": "new", "scope": "invalid"}],
+        },
+    )
+    args = _args()
+
+    # --- execute and validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(ValueError, match=r"module_actions.*'scope'].*invalid"),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+
+def test_resolve_build_config_module_actions_invalid_affects_raises_error(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions with invalid affects should raise error."""
+    # --- setup ---
+    raw = cast(
+        "mod_types.BuildConfig",
+        {
+            "include": ["src/**"],
+            "module_actions": [{"source": "old", "dest": "new", "affects": "invalid"}],
+        },
+    )
+    args = _args()
+
+    # --- execute and validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(ValueError, match=r"module_actions.*'affects'].*invalid"),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+
+def test_resolve_build_config_module_actions_invalid_cleanup_raises_error(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions with invalid cleanup should raise error."""
+    # --- setup ---
+    raw = cast(
+        "mod_types.BuildConfig",
+        {
+            "include": ["src/**"],
+            "module_actions": [{"source": "old", "dest": "new", "cleanup": "invalid"}],
+        },
+    )
+    args = _args()
+
+    # --- execute and validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(ValueError, match=r"module_actions.*'cleanup'].*invalid"),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+
+def test_resolve_build_config_module_actions_source_path_validation(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions with source_path should validate it's a non-empty string."""
+    # --- setup ---
+    raw = make_build_input(
+        include=["src/**"],
+        module_actions=[
+            {"source": "old", "dest": "new", "source_path": "/path/to/file.py"}
+        ],
+    )
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert len(resolved["module_actions"]) == 1
+    action = resolved["module_actions"][0]
+    # Normalized actions have all fields present
+    assert action["source"] == "old"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["dest"] == "new"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["source_path"] == "/path/to/file.py"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    # Defaults should still be applied
+    assert action["action"] == "move"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["mode"] == "preserve"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["scope"] == "shim"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["affects"] == "shims"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    assert action["cleanup"] == "auto"  # pyright: ignore[reportTypedDictNotRequiredAccess]
+
+
+def test_resolve_build_config_module_actions_empty_source_path_raises_error(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions with empty source_path should raise error."""
+    # --- setup ---
+    raw = cast(
+        "mod_types.BuildConfig",
+        {
+            "include": ["src/**"],
+            "module_actions": [{"source": "old", "dest": "new", "source_path": ""}],
+        },
+    )
+    args = _args()
+
+    # --- execute and validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(
+            ValueError,
+            match=r"module_actions.*'source_path'].*must be a non-empty string",
+        ),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+
+def test_resolve_build_config_module_actions_invalid_source_path_type_raises_error(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module actions with non-string source_path should raise error."""
+    # --- setup ---
+    raw = cast(
+        "mod_types.BuildConfig",
+        {
+            "include": ["src/**"],
+            "module_actions": [{"source": "old", "dest": "new", "source_path": 123}],
+        },
+    )
+    args = _args()
+
+    # --- execute and validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(
+            TypeError, match=r"module_actions.*'source_path'].*must be a string"
+        ),
     ):
         mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)

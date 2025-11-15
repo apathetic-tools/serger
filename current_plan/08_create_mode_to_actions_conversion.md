@@ -111,3 +111,13 @@ feat(module_actions): add mode-to-actions conversion
 - Not yet integrated into stitch logic (coming in later iteration)
 ```
 
+## Final Step: Update START_HERE.md
+
+After completing this iteration, update `current_plan/START_HERE.md`:
+- Mark iteration 08 as completed ✓
+- Update the "Current status" section with what was accomplished in this iteration
+- Update "Next step" to point to iteration 09
+- Include a brief summary of what was done (e.g., "Added generate_actions_from_mode() to convert module_mode values to equivalent module_actions")
+
+This ensures the next chat session can pick up where this one left off.
+

@@ -207,18 +207,30 @@ def _validate_and_normalize_module_actions(  # noqa: C901, PLR0912, PLR0915
 ) -> list[ModuleActionFull]:
     """Validate and normalize module_actions to list format.
 
+    Applies all default values and validates all fields. Returns fully resolved
+    actions with all fields present (defaults applied).
+
     Args:
         module_actions: Either dict format (simple) or list format (full)
 
     Returns:
-        Normalized list of ModuleActionFull
+        Normalized list of ModuleActionFull with all fields present
 
     Raises:
         ValueError: If validation fails
+        TypeError: If types are invalid
     """
+    valid_action_types = literal_to_set(ModuleActionType)
+    valid_action_modes = literal_to_set(ModuleActionMode)
+    valid_action_scopes = literal_to_set(ModuleActionScope)
+    valid_action_affects = literal_to_set(ModuleActionAffects)
+    valid_action_cleanups = literal_to_set(ModuleActionCleanup)
+
     if isinstance(module_actions, dict):
         # Simple format: dict[str, str | None]
-        # Validate keys are strings, values are strings or None
+        # Convert to list format with defaults applied
+        # {"old": "new"} -> move action
+        # {"old": None} -> delete action
         result: list[ModuleActionFull] = []
         for key, value in sorted(module_actions.items()):
             if not isinstance(key, str):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -233,21 +245,41 @@ def _validate_and_normalize_module_actions(  # noqa: C901, PLR0912, PLR0915
                     f"got {type(value).__name__}"
                 )
                 raise ValueError(msg)
-            action: ModuleActionFull = {"source": key}
+
+            # Validate source is non-empty
+            if not key:
+                msg = "module_actions dict keys (source) must be non-empty strings"
+                raise ValueError(msg)
+
+            # Build normalized action with defaults
+            # Dict format: {"old": "new"} -> move, {"old": None} -> delete
             if value is not None:
-                action["dest"] = value
-            result.append(action)
+                # Move action: {"old": "new"}
+                normalized: ModuleActionFull = {
+                    "source": key,
+                    "dest": value,
+                    "action": "move",
+                    "mode": "preserve",
+                    "scope": "shim",  # Explicitly set for dict format (per Q4)
+                    "affects": "shims",
+                    "cleanup": "auto",
+                }
+            else:
+                # Delete action: {"old": None}
+                normalized = {
+                    "source": key,
+                    "action": "delete",
+                    "mode": "preserve",
+                    "scope": "shim",  # Explicitly set for dict format (per Q4)
+                    "affects": "shims",
+                    "cleanup": "auto",
+                }
+            result.append(normalized)
         return result
 
     if isinstance(module_actions, list):  # pyright: ignore[reportUnnecessaryIsInstance]
         # Full format: list[ModuleActionFull]
-        # Validate each item has 'source' key and validate action types
-        valid_action_types = literal_to_set(ModuleActionType)
-        valid_action_modes = literal_to_set(ModuleActionMode)
-        valid_action_scopes = literal_to_set(ModuleActionScope)
-        valid_action_affects = literal_to_set(ModuleActionAffects)
-        valid_action_cleanups = literal_to_set(ModuleActionCleanup)
-
+        # Validate each item, then apply defaults
         result_list: list[ModuleActionFull] = []
         for idx, action in enumerate(module_actions):
             if not isinstance(action, dict):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -261,24 +293,32 @@ def _validate_and_normalize_module_actions(  # noqa: C901, PLR0912, PLR0915
             if "source" not in action:
                 msg = f"module_actions[{idx}] missing required 'source' key"
                 raise ValueError(msg)
-            if not isinstance(action["source"], str):  # pyright: ignore[reportUnnecessaryIsInstance]
+            source_val = action["source"]
+            if not isinstance(source_val, str):  # pyright: ignore[reportUnnecessaryIsInstance]
                 msg = (
                     f"module_actions[{idx}]['source'] must be a string, "
-                    f"got {type(action['source']).__name__}"
+                    f"got {type(source_val).__name__}"
                 )
                 raise TypeError(msg)
+            # Validate source is non-empty
+            if not source_val:
+                msg = f"module_actions[{idx}]['source'] must be a non-empty string"
+                raise ValueError(msg)
 
-            # Validate optional fields if present
-            if "action" in action:
-                action_val = action["action"]
-                if action_val not in valid_action_types:
-                    valid_str = ", ".join(repr(v) for v in sorted(valid_action_types))
-                    msg = (
-                        f"module_actions[{idx}]['action'] invalid: {action_val!r}. "
-                        f"Must be one of: {valid_str}"
-                    )
-                    raise ValueError(msg)
+            # Validate and normalize action type
+            action_val = action.get("action", "move")
+            # Normalize "none" to "delete" (alias)
+            if action_val == "none":
+                action_val = "delete"
+            if action_val not in valid_action_types:
+                valid_str = ", ".join(repr(v) for v in sorted(valid_action_types))
+                msg = (
+                    f"module_actions[{idx}]['action'] invalid: {action_val!r}. "
+                    f"Must be one of: {valid_str}"
+                )
+                raise ValueError(msg)
 
+            # Validate mode if present
             if "mode" in action:
                 mode_val = action["mode"]
                 if mode_val not in valid_action_modes:
@@ -289,6 +329,7 @@ def _validate_and_normalize_module_actions(  # noqa: C901, PLR0912, PLR0915
                     )
                     raise ValueError(msg)
 
+            # Validate scope if present
             if "scope" in action:
                 scope_val = action["scope"]
                 if scope_val not in valid_action_scopes:
@@ -299,6 +340,7 @@ def _validate_and_normalize_module_actions(  # noqa: C901, PLR0912, PLR0915
                     )
                     raise ValueError(msg)
 
+            # Validate affects if present
             if "affects" in action:
                 affects_val = action["affects"]
                 if affects_val not in valid_action_affects:
@@ -309,6 +351,7 @@ def _validate_and_normalize_module_actions(  # noqa: C901, PLR0912, PLR0915
                     )
                     raise ValueError(msg)
 
+            # Validate cleanup if present
             if "cleanup" in action:
                 cleanup_val = action["cleanup"]
                 if cleanup_val not in valid_action_cleanups:
@@ -321,8 +364,65 @@ def _validate_and_normalize_module_actions(  # noqa: C901, PLR0912, PLR0915
                     )
                     raise ValueError(msg)
 
-            # Copy validated action
-            result_list.append(cast_hint(ModuleActionFull, dict(action)))
+            # Validate source_path if present (basic validation only, per Q6)
+            if "source_path" in action:
+                source_path_val = action["source_path"]
+                if not isinstance(source_path_val, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+                    msg = (
+                        f"module_actions[{idx}]['source_path'] must be a string, "
+                        f"got {type(source_path_val).__name__}"
+                    )
+                    raise TypeError(msg)
+                if not source_path_val:
+                    msg = (
+                        f"module_actions[{idx}]['source_path'] must be a "
+                        f"non-empty string if present"
+                    )
+                    raise ValueError(msg)
+
+            # Validate dest based on action type (per Q5)
+            dest_val = action.get("dest")
+            if action_val in ("move", "copy"):
+                # dest is required for move/copy
+                if dest_val is None:
+                    msg = (
+                        f"module_actions[{idx}]: 'dest' is required for "
+                        f"'{action_val}' action"
+                    )
+                    raise ValueError(msg)
+                if not isinstance(dest_val, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+                    msg = (
+                        f"module_actions[{idx}]['dest'] must be a string, "
+                        f"got {type(dest_val).__name__}"
+                    )
+                    raise TypeError(msg)
+            elif action_val == "delete":
+                # dest must NOT be present for delete
+                if dest_val is not None:
+                    msg = (
+                        f"module_actions[{idx}]: 'dest' must not be present "
+                        f"for 'delete' action"
+                    )
+                    raise ValueError(msg)
+
+            # Build normalized action with all defaults applied (per Q1/Q2)
+            normalized_action: ModuleActionFull = {
+                "source": source_val,
+                "action": action_val,  # Already normalized ("none" -> "delete")
+                "mode": action.get("mode", "preserve"),
+                # Default for user actions (per Q3)
+                "scope": action.get("scope", "shim"),
+                "affects": action.get("affects", "shims"),
+                "cleanup": action.get("cleanup", "auto"),
+            }
+            # Add dest only if present (required for move/copy, not for delete)
+            if dest_val is not None:
+                normalized_action["dest"] = dest_val
+            # Add source_path only if present
+            if "source_path" in action:
+                normalized_action["source_path"] = action["source_path"]
+
+            result_list.append(normalized_action)
 
         return result_list
 

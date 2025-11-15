@@ -146,3 +146,13 @@ feat(stitch): integrate module_actions into stitch logic
 - Update existing tests to use module_mode and module_actions
 ```
 
+## Final Step: Update START_HERE.md
+
+After completing this iteration, update `current_plan/START_HERE.md`:
+- Mark iteration 10 as completed ✓
+- Update the "Current status" section with what was accomplished in this iteration
+- Update "Next step" to point to iteration 11
+- Include a brief summary of what was done (e.g., "Integrated module_actions into stitch logic, replacing shim_mode processing")
+
+This ensures the next chat session can pick up where this one left off.
+

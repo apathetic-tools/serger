@@ -22,6 +22,7 @@ I'm implementing the Module Actions feature for serger. The implementation plan 
 - Iteration 02 - Add `shim` setting types ✓
 - Iteration 03 - Add `module_actions` types ✓
 - Iteration 03.5 - Resolve clarifying questions ✓
+- Iteration 04 - Validate and normalize `module_actions` config ✓
 
 **Current status**:
 - `ModuleActionType`, `ModuleActionMode`, `ModuleActionScope`, `ModuleActionAffects`, `ModuleActionCleanup` literal types added
@@ -29,11 +30,19 @@ I'm implementing the Module Actions feature for serger. The implementation plan 
 - `ModuleActionSimple` and `ModuleActions` union types added
 - `module_actions` field added to `BuildConfig`, `RootConfig`, and `BuildConfigResolved`
 - `BuildConfigResolved.module_actions` is always present (empty list `[]` if not provided)
-- Basic validation in config resolution implemented (dict/list format validation, action type validation)
-- Tests added for type definitions and config acceptance
+- Full validation and normalization implemented in `_validate_and_normalize_module_actions()`:
+  - Dict format converted to list format with all defaults applied
+  - List format validated and normalized with all defaults applied
+  - `source` validated as non-empty string
+  - `dest` validated based on action type (required for move/copy, not allowed for delete)
+  - `action` validated and normalized ("none" → "delete")
+  - `mode`, `scope`, `affects`, `cleanup` validated if present
+  - `source_path` validated as non-empty string if present (basic validation)
+  - All defaults applied: `action: "move"`, `mode: "preserve"`, `scope: "shim"`, `affects: "shims"`, `cleanup: "auto"`
+- Comprehensive tests added for all validation cases
 - All checks passing (`poetry run poe check:fix`)
 
-**Next step**: Iteration 04 - Validate and normalize `module_actions` config.
+**Next step**: Iteration 05 - Create `module_actions.py` with parsing functions.
 
 **Iteration 03.5 complete**: All clarifying questions have been answered. See `current_plan/03.5_resolve_clarifying_questions.md` for the full decisions.
 
