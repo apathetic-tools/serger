@@ -498,8 +498,9 @@ class DualStreamHandler(logging.StreamHandler):  # type: ignore[type-arg]
     """Send info/debug/trace to stdout, everything else to stderr.
 
     When logger level is TEST, TRACE/DEBUG/TEST messages bypass capture
-    by writing to sys.__stdout__/sys.__stderr__ instead of sys.stdout/sys.stderr.
-    This allows debugging tests without breaking output assertions.
+    by writing to sys.__stderr__ instead of sys.stderr.
+    This allows debugging tests without breaking output assertions while
+    still being capturable by subprocess.run(capture_output=True).
     """
 
     enable_color: bool = False
@@ -529,7 +530,9 @@ class DualStreamHandler(logging.StreamHandler):  # type: ignore[type-arg]
         # If in TEST mode, bypass capture for verbose levels (TEST/TRACE/DEBUG)
         elif is_test_mode and level < logging.INFO:
             # Use bypass stream for TEST/TRACE/DEBUG in test mode
-            self.stream = sys.__stdout__
+            # Use __stderr__ so they bypass pytest capsys but are still
+            # capturable by subprocess.run(capture_output=True)
+            self.stream = sys.__stderr__
         else:
             # Normal behavior: use regular stdout
             self.stream = sys.stdout

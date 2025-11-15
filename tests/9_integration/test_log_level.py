@@ -253,7 +253,7 @@ def test_log_level_test_bypasses_capture(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """LOG_LEVEL=test should send TRACE/DEBUG to __stdout__, bypassing capsys."""
+    """LOG_LEVEL=test should send TRACE/DEBUG to __stderr__, bypassing capsys."""
     # --- setup ---
     pkg_dir = tmp_path / "mypkg"
     make_test_package(pkg_dir)
@@ -267,9 +267,9 @@ def test_log_level_test_bypasses_capture(
         log_level="test",  # Set log_level in config to test
     )
 
-    # Capture sys.__stdout__ to verify bypass messages are written there
+    # Capture sys.__stderr__ to verify bypass messages are written there
     bypass_buf = StringIO()
-    monkeypatch.setattr(sys, "__stdout__", bypass_buf)
+    monkeypatch.setattr(sys, "__stderr__", bypass_buf)
 
     # --- patch and execute ---
     monkeypatch.chdir(tmp_path)
@@ -282,26 +282,35 @@ def test_log_level_test_bypasses_capture(
     # Check capsys - TRACE/DEBUG messages should NOT be captured here
     captured = capsys.readouterr()
     out = captured.out.lower()
+    err = captured.err.lower()
 
     # Check bypass buffer - TRACE/DEBUG messages SHOULD be written here
     bypass_output = bypass_buf.getvalue().lower()
 
     # Verify TRACE/DEBUG messages are NOT in capsys (they bypass capture)
     assert "[trace" not in out, (
-        "TRACE messages should bypass capsys and write to sys.__stdout__ instead. "
-        f"Found in capsys: {out[:200]}"
+        "TRACE messages should bypass capsys and write to sys.__stderr__ instead. "
+        f"Found in capsys.out: {out[:200]}"
     )
     assert "[debug" not in out, (
-        "DEBUG messages should bypass capsys and write to sys.__stdout__ instead. "
-        f"Found in capsys: {out[:200]}"
+        "DEBUG messages should bypass capsys and write to sys.__stderr__ instead. "
+        f"Found in capsys.out: {out[:200]}"
+    )
+    assert "[trace" not in err, (
+        "TRACE messages should bypass capsys and write to sys.__stderr__ instead. "
+        f"Found in capsys.err: {err[:200]}"
+    )
+    assert "[debug" not in err, (
+        "DEBUG messages should bypass capsys and write to sys.__stderr__ instead. "
+        f"Found in capsys.err: {err[:200]}"
     )
 
-    # Verify TRACE/DEBUG messages ARE in the bypass buffer (sys.__stdout__)
+    # Verify TRACE/DEBUG messages ARE in the bypass buffer (sys.__stderr__)
     assert "[trace" in bypass_output, (
-        "TRACE messages should appear in sys.__stdout__ bypass buffer. "
+        "TRACE messages should appear in sys.__stderr__ bypass buffer. "
         f"Bypass buffer length: {len(bypass_output)} chars"
     )
     assert "[debug" in bypass_output, (
-        "DEBUG messages should appear in sys.__stdout__ bypass buffer. "
+        "DEBUG messages should appear in sys.__stderr__ bypass buffer. "
         f"Bypass buffer length: {len(bypass_output)} chars"
     )
