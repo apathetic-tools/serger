@@ -412,7 +412,7 @@ class DualStreamHandler(logging.StreamHandler):  # type: ignore[type-arg]
         logger_instance = logging.getLogger(logger_name)
         is_test_mode = (
             isinstance(logger_instance, ApatheticCLILogger)
-            and logger_instance.getEffectiveLevel() == TEST_LEVEL
+            and logger_instance.level == TEST_LEVEL
         )
 
         # Determine target stream
