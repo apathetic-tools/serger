@@ -11,6 +11,7 @@ from .config import BuildConfigResolved
 from .constants import DEFAULT_WATCH_INTERVAL
 from .logs import get_app_logger
 from .meta import Metadata
+from .utils.utils_validation import validate_required_keys
 
 
 def _collect_included_files(resolved_builds: list[BuildConfigResolved]) -> list[Path]:
@@ -22,6 +23,8 @@ def _collect_included_files(resolved_builds: list[BuildConfigResolved]) -> list[
     all_files: list[Path] = []
 
     for b in resolved_builds:
+        # include and exclude are optional, but if present they need validation
+        # Validation happens inside collect_included_files
         includes = b.get("include", [])
         excludes = b.get("exclude", [])
         # Collect files for this build (watch mode respects excludes from config)
@@ -60,6 +63,10 @@ def watch_for_changes(
     # Collect all output paths to ignore (can be directories or files)
     out_paths: list[Path] = []
     for b in resolved_builds:
+        validate_required_keys(b, {"out"}, "resolved_builds item")
+        validate_required_keys(
+            b["out"], {"path", "root"}, "resolved_builds item['out']"
+        )
         out_path = (b["out"]["root"] / b["out"]["path"]).resolve()
         out_paths.append(out_path)
 

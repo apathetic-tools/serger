@@ -7,6 +7,7 @@ from pathlib import Path
 from apathetic_utils import has_glob_chars
 from serger.config.config_types import IncludeResolved
 from serger.logs import get_app_logger
+from serger.utils.utils_validation import validate_required_keys
 
 
 def _non_glob_prefix(pattern: str) -> Path:
@@ -163,6 +164,8 @@ def derive_module_name(
     package_root_resolved = package_root.resolve()
 
     # Check if include has dest override
+    if include:
+        validate_required_keys(include, {"path", "root"}, "include")
     if include and include.get("dest"):
         dest_raw = include.get("dest")
         # dest is Path | None, but we know it's truthy from the if check

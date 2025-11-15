@@ -17,6 +17,7 @@ from .stitch import (
     extract_version,
     stitch_modules,
 )
+from .utils.utils_validation import validate_required_keys
 
 
 # --------------------------------------------------------------------------- #
@@ -33,6 +34,7 @@ def expand_include_pattern(include: IncludeResolved) -> list[Path]:
     Returns:
         List of resolved absolute paths to matching .py files
     """
+    validate_required_keys(include, {"path", "root"}, "include")
     logger = get_app_logger()
     src_pattern = str(include["path"])
     root = Path(include["root"]).resolve()
@@ -101,6 +103,10 @@ def collect_included_files(
     Returns:
         Tuple of (filtered file paths, mapping of file to its include)
     """
+    for inc in includes:
+        validate_required_keys(inc, {"path", "root"}, "include")
+    for exc in excludes:
+        validate_required_keys(exc, {"path", "root"}, "exclude")
     logger = get_app_logger()
     all_files: set[Path] = set()
     # Track which include produced each file (for dest parameter and exclude checking)
@@ -427,6 +433,7 @@ def _extract_build_metadata(
     Returns:
         Tuple of (version, commit, build_date)
     """
+    # _pyproject_version is optional, no validation needed
     # Use version from resolved config if available (from pyproject.toml),
     # otherwise fall back to extracting it directly
     version_raw = build_cfg.get("_pyproject_version")
@@ -453,6 +460,18 @@ def run_build(  # noqa: PLR0915, PLR0912
     a single executable script). File copying is the responsibility of
     pocket-build, not serger.
     """
+    validate_required_keys(
+        build_cfg,
+        {
+            "out",
+            "__meta__",
+            "post_processing",
+            "external_imports",
+            "stitch_mode",
+            "comments_mode",
+        },
+        "build_cfg",
+    )
     logger = get_app_logger()
     dry_run = build_cfg.get("dry_run", DEFAULT_DRY_RUN)
 
@@ -480,6 +499,7 @@ def run_build(  # noqa: PLR0915, PLR0912
         raise TypeError(xmsg)
 
     # Determine output file path
+    validate_required_keys(out_entry, {"path", "root"}, "build_cfg['out']")
     out_path = (out_entry["root"] / out_entry["path"]).resolve()
     # Check if it's a directory (exists and is dir) or should be treated as one
     # If path doesn't exist and has no .py extension, treat as directory
@@ -499,6 +519,7 @@ def run_build(  # noqa: PLR0915, PLR0912
     # Collect included files using new collection functions
     includes = build_cfg.get("include", [])
     excludes = build_cfg.get("exclude", [])
+    # Validation happens inside collect_included_files
     included_files, file_to_include = collect_included_files(includes, excludes)
 
     if not included_files:
@@ -506,6 +527,9 @@ def run_build(  # noqa: PLR0915, PLR0912
         raise ValueError(xmsg)
 
     # Get config root for resolving order paths
+    validate_required_keys(
+        build_cfg["__meta__"], {"config_root"}, "build_cfg['__meta__']"
+    )
     config_root = build_cfg["__meta__"]["config_root"]
 
     # Compute package root for module name derivation (needed for auto-discovery)
@@ -542,6 +566,7 @@ def run_build(  # noqa: PLR0915, PLR0912
                 exclude_paths.append(exclude_path)
 
     # Prepare config dict for stitch_modules
+    # post_processing, external_imports, stitch_mode, comments_mode already validated
     display_name_raw = build_cfg.get("display_name", "")
     description_raw = build_cfg.get("description", "")
     repo_raw = build_cfg.get("repo", "")
