@@ -28,7 +28,7 @@ class SubprocessResult:
 
     @property
     def stdout(self) -> str:
-        """Captured stdout (includes trace/debug when LOG_LEVEL=test)."""
+        """Captured stdout."""
         return self.result.stdout
 
     @property

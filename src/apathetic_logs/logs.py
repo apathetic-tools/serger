@@ -495,7 +495,10 @@ class TagFormatter(logging.Formatter):
 
 
 class DualStreamHandler(logging.StreamHandler):  # type: ignore[type-arg]
-    """Send info/debug/trace to stdout, everything else to stderr.
+    """Send info to stdout, everything else to stderr.
+
+    TRACE, DEBUG, WARNING, ERROR, and CRITICAL all go to stderr.
+    Only INFO goes to stdout.
 
     When logger level is TEST, TRACE/DEBUG/TEST messages bypass capture
     by writing to sys.__stderr__ instead of sys.stderr.
@@ -526,16 +529,17 @@ class DualStreamHandler(logging.StreamHandler):  # type: ignore[type-arg]
             # This ensures they still break tests as expected
             # Even in TEST mode, warnings/errors use normal stderr
             self.stream = sys.stderr
-        # TRACE, DEBUG, TEST, INFO go to stdout
-        # If in TEST mode, bypass capture for verbose levels (TEST/TRACE/DEBUG)
+        elif level == logging.INFO:
+            # INFO goes to stdout (normal program output)
+            self.stream = sys.stdout
         elif is_test_mode and level < logging.INFO:
-            # Use bypass stream for TEST/TRACE/DEBUG in test mode
+            # TEST/TRACE/DEBUG in TEST mode: use bypass stream
             # Use __stderr__ so they bypass pytest capsys but are still
             # capturable by subprocess.run(capture_output=True)
             self.stream = sys.__stderr__
         else:
-            # Normal behavior: use regular stdout
-            self.stream = sys.stdout
+            # TRACE and DEBUG go to stderr (diagnostic output)
+            self.stream = sys.stderr
 
         # used by TagFormatter
         record.enable_color = getattr(self, "enable_color", False)
