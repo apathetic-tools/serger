@@ -20,6 +20,12 @@ from .patch_everywhere import patch_everywhere
 from .proj_root import PROJ_ROOT
 from .runtime_swap import runtime_swap
 from .strip_common_prefix import strip_common_prefix
+from .subprocess_output import (
+    SubprocessResult,
+    SubprocessResultWithBypass,
+    run_with_output,
+    run_with_separated_output,
+)
 from .test_trace import TEST_TRACE, make_test_trace
 
 
@@ -51,6 +57,11 @@ __all__ = [  # noqa: RUF022
     "runtime_swap",
     # strip_common_prefix
     "strip_common_prefix",
+    # subprocess_output
+    "SubprocessResult",
+    "SubprocessResultWithBypass",
+    "run_with_output",
+    "run_with_separated_output",
     # test_trace
     "TEST_TRACE",
     "make_test_trace",
