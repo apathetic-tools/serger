@@ -57,6 +57,7 @@ Exploring bundling options for generating the single-file release:
 - command to do common tasks based on reddit advice for dealing with AI.
 - if we moved the sys.modules shims as we went, would that allow us to do imports as long as the order was correct?
 - should more of our config settings be available to be set via ENV?
+- is package still needed?
 
 ## 🚀 Deployment
 - Deploy action when I tag a release should create a release and attach it to the tagged release.
