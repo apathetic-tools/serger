@@ -8,9 +8,9 @@ from typing import cast
 from apathetic_logs import (
     TEST_TRACE,
     ApatheticCLILogger,
-    get_logger,
     register_default_log_level,
     register_log_level_env_vars,
+    register_logger_name,
 )
 
 from .constants import DEFAULT_ENV_LOG_LEVEL, DEFAULT_LOG_LEVEL
@@ -53,7 +53,7 @@ class AppLogger(ApatheticCLILogger):
 
 # Force the logging module to use our subclass globally.
 # This must happen *before* any loggers are created.
-# logging.setLoggerClass(AppLogger)
+logging.setLoggerClass(AppLogger)
 
 # Force registration of TRACE and SILENT levels
 AppLogger.extend_logging_module()
@@ -65,8 +65,12 @@ register_log_level_env_vars(
 )
 register_default_log_level(DEFAULT_LOG_LEVEL)
 
-# Now this will actually return an AppLogger instance.
-# The logging module acts as the registry, so we just need to register the name.
+# Register the logger name so get_logger() can find it
+register_logger_name(PROGRAM_PACKAGE)
+
+# Create the app logger instance via logging.getLogger()
+# This ensures it's registered with the logging module and can be retrieved
+# by other code that uses logging.getLogger()
 _APP_LOGGER = cast("AppLogger", logging.getLogger(PROGRAM_PACKAGE))
 
 
@@ -80,12 +84,11 @@ def get_app_logger() -> AppLogger:
     Use this in application code instead of utils_logs.get_logger() for
     better type hints.
     """
-    logger = cast("AppLogger", get_logger())
     TEST_TRACE(
-        "get_logger() called",
-        f"id={id(logger)}",
-        f"name={logger.name}",
-        f"level={logger.level_name}",
-        f"handlers={[type(h).__name__ for h in logger.handlers]}",
+        "get_app_logger() called",
+        f"id={id(_APP_LOGGER)}",
+        f"name={_APP_LOGGER.name}",
+        f"level={_APP_LOGGER.level_name}",
+        f"handlers={[type(h).__name__ for h in _APP_LOGGER.handlers]}",
     )
-    return logger
+    return _APP_LOGGER
