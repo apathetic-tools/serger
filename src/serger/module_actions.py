@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from serger.config.config_types import (
         ModuleActionFull,
+        ModuleActionMode,
         ModuleActionScope,
     )
 
@@ -319,3 +320,238 @@ def validate_module_actions(
 
     # Validate no conflicting operations
     validate_no_conflicting_operations(filtered_actions)
+
+
+def _transform_module_name(  # noqa: PLR0911
+    module_name: str,
+    source: str,
+    dest: str,
+    mode: "ModuleActionMode",
+) -> str | None:
+    """Transform a single module name based on action.
+
+    Handles preserve vs flatten modes:
+    - preserve: Keep structure (apathetic_logs.utils -> grinch.utils)
+    - flatten: Remove intermediate levels (apathetic_logs.utils -> grinch)
+
+    Args:
+        module_name: The module name to transform
+        source: Source module path (e.g., "apathetic_logs")
+        dest: Destination module path (e.g., "grinch")
+        mode: Transformation mode ("preserve" or "flatten")
+
+    Returns:
+        Transformed module name, or None if module doesn't match source
+    """
+    # Check if module_name starts with source
+    if not module_name.startswith(source):
+        return None
+
+    # Exact match: source -> dest
+    if module_name == source:
+        return dest
+
+    # Check if it's a submodule (must have a dot after source)
+    if not module_name.startswith(f"{source}."):
+        return None
+
+    # Extract the suffix (everything after source.)
+    suffix = module_name[len(source) + 1 :]
+
+    if mode == "preserve":
+        # Preserve structure: dest + suffix
+        return f"{dest}.{suffix}"
+
+    # mode == "flatten"
+    # Flatten: dest + last component only
+    # e.g., "apathetic_logs.utils.text" -> "grinch.text"
+    # e.g., "apathetic_logs.utils.schema.validator" -> "grinch.validator"
+    if "." in suffix:
+        # Multiple levels: take only the last component
+        last_component = suffix.split(".")[-1]
+        return f"{dest}.{last_component}"
+
+    # Single level: dest + suffix
+    return f"{dest}.{suffix}"
+
+
+def _apply_move_action(
+    module_names: list[str],
+    action: "ModuleActionFull",
+) -> list[str]:
+    """Apply move action with preserve or flatten mode.
+
+    Moves modules from source to dest, removing source modules.
+    Handles preserve vs flatten modes.
+
+    Args:
+        module_names: List of module names to transform
+        action: Move action with source, dest, and mode
+
+    Returns:
+        Transformed list of module names
+    """
+    source = action["source"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    dest = action.get("dest")
+    if dest is None:
+        msg = "Move action requires 'dest' field"
+        raise ValueError(msg)
+
+    mode = action.get("mode", "preserve")
+    if mode not in ("preserve", "flatten"):
+        msg = f"Invalid mode '{mode}', must be 'preserve' or 'flatten'"
+        raise ValueError(msg)
+
+    result: list[str] = []
+    for module_name in module_names:
+        transformed = _transform_module_name(module_name, source, dest, mode)
+        if transformed is not None:
+            # Replace source module with transformed name
+            result.append(transformed)
+        else:
+            # Keep modules that don't match source
+            result.append(module_name)
+
+    return result
+
+
+def _apply_copy_action(
+    module_names: list[str],
+    action: "ModuleActionFull",
+) -> list[str]:
+    """Apply copy action (source remains, also appears at dest).
+
+    Copies modules from source to dest, keeping source modules.
+    Handles preserve vs flatten modes.
+
+    Args:
+        module_names: List of module names to transform
+        action: Copy action with source, dest, and mode
+
+    Returns:
+        Transformed list of module names (includes both original and copied)
+    """
+    source = action["source"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    dest = action.get("dest")
+    if dest is None:
+        msg = "Copy action requires 'dest' field"
+        raise ValueError(msg)
+
+    mode = action.get("mode", "preserve")
+    if mode not in ("preserve", "flatten"):
+        msg = f"Invalid mode '{mode}', must be 'preserve' or 'flatten'"
+        raise ValueError(msg)
+
+    result: list[str] = []
+    for module_name in module_names:
+        # Always keep the original
+        result.append(module_name)
+
+        # Also add transformed version if it matches source
+        transformed = _transform_module_name(module_name, source, dest, mode)
+        if transformed is not None:
+            result.append(transformed)
+
+    return result
+
+
+def _apply_delete_action(
+    module_names: list[str],
+    action: "ModuleActionFull",
+) -> list[str]:
+    """Apply delete action (remove module and all submodules).
+
+    Removes the source module and all modules that start with source.
+
+    Args:
+        module_names: List of module names to transform
+        action: Delete action with source
+
+    Returns:
+        Filtered list of module names (deleted modules removed)
+    """
+    source = action["source"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+
+    result: list[str] = []
+    for module_name in module_names:
+        # Keep modules that don't start with source
+        # Check exact match or submodule (must have dot after source)
+        if module_name == source:
+            # Exact match: delete it
+            continue
+        if module_name.startswith(f"{source}."):
+            # Submodule: delete it
+            continue
+        # Keep this module
+        result.append(module_name)
+
+    return result
+
+
+def apply_single_action(
+    module_names: list[str],
+    action: "ModuleActionFull",
+    _detected_packages: set[str],
+) -> list[str]:
+    """Apply a single action to module names.
+
+    Routes to the appropriate action handler based on action type.
+
+    Args:
+        module_names: List of module names to transform
+        action: Action to apply
+        detected_packages: Set of detected package names (for context)
+
+    Returns:
+        Transformed list of module names
+
+    Raises:
+        ValueError: If action type is invalid or missing required fields
+    """
+    action_type = action.get("action", "move")
+
+    if action_type == "move":
+        return _apply_move_action(module_names, action)
+    if action_type == "copy":
+        return _apply_copy_action(module_names, action)
+    if action_type == "delete":
+        return _apply_delete_action(module_names, action)
+    if action_type == "none":
+        # No-op action
+        return module_names
+
+    msg = (
+        f"Invalid action type '{action_type}', must be "
+        "'move', 'copy', 'delete', or 'none'"
+    )
+    raise ValueError(msg)
+
+
+def apply_module_actions(
+    module_names: list[str],
+    actions: list["ModuleActionFull"],
+    _detected_packages: set[str],
+) -> list[str]:
+    """Apply module actions to transform module names.
+
+    Applies all actions in sequence to transform the module names list.
+    Each action is applied to the result of the previous action.
+
+    Args:
+        module_names: Initial list of module names
+        actions: List of actions to apply in order
+        detected_packages: Set of detected package names (for context)
+
+    Returns:
+        Transformed list of module names
+
+    Raises:
+        ValueError: For invalid operations
+    """
+    result = list(module_names)
+
+    # Apply each action in sequence
+    for action in actions:
+        result = apply_single_action(result, action, _detected_packages)
+
+    return result

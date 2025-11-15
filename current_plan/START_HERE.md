@@ -1,6 +1,6 @@
 # Start Here: Module Actions Implementation
 
-**Next iteration**: Iteration 07 - `current_plan/07_integrate_validation.md`
+**Next iteration**: Iteration 08 - `current_plan/08_create_mode_to_actions_conversion.md`
 
 **Context**:
 - See `current_plan/00_overview.md` for overall strategy and principles
@@ -15,10 +15,11 @@
 - Add unit tests for each section as we go
 - **Review at end of iteration** - document any clarifying questions before proceeding
 
-**Completed**: Iterations 01, 02, 03, 03.5, 04, 05, 06 ✓
+**Completed**: Iterations 01, 02, 03, 03.5, 04, 05, 06, 07 ✓
 
 **Key decisions** (from iteration 03.5):
 - Defaults applied at config resolution - all fields present in `BuildConfigResolved`
 - User actions: `scope: "shim"` at config resolution
 - Mode-generated actions: `scope: "original"` when created (via `set_mode_generated_action_defaults()`)
 - Validation functions ready in `src/serger/module_actions.py` (not yet integrated)
+- Action application functions ready in `src/serger/module_actions.py` (not yet integrated)
