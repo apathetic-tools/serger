@@ -44,8 +44,10 @@ def generate_actions_from_mode(
 - `"flat"`: Cannot be expressed as actions (requires file-level detection) - raise `NotImplementedError` or return empty list with comment
 
 ### 3. Implementation Details
-- All generated actions have `scope: "original"` explicitly set
-- All generated actions have `affects: "shims"` (default)
+- Generate actions with required fields (`source`, `dest` where needed)
+- Apply defaults using `set_mode_generated_action_defaults()` from iteration 05
+  - This sets `scope: "original"` (always for mode-generated)
+  - Sets other defaults (action: "move", mode: "preserve", affects: "shims", cleanup: "auto")
 - Actions are generated in sorted order for determinism
 - Handle edge cases (no packages, package_name in detected_packages, etc.)
 
@@ -71,6 +73,31 @@ def generate_actions_from_mode(
 - Run `poetry run poe check:fix` - must pass
 - Comprehensive tests for all mode conversions
 - Test edge cases (empty packages, package_name matches, etc.)
+
+## Review and Clarifying Questions
+
+**After implementing this iteration**, review the changes and document any questions that arise:
+
+1. **Review the implementation**:
+   - Check that all mode values are correctly mapped to actions
+   - Verify that generated actions have correct defaults (`scope: "original"`, `affects: "shims"`)
+   - Check that actions are generated in sorted order for determinism
+   - Verify edge cases (empty packages, package_name in detected_packages)
+
+2. **Document any questions**:
+   - How should we handle `"flat"` mode (cannot be expressed as actions)?
+   - Are there any differences between mode behavior and generated actions?
+   - Should we validate that generated actions match expected mode behavior?
+
+3. **Resolve before proceeding**:
+   - Answer all questions before moving to iteration 09
+   - Update implementation if needed
+   - Update iteration 09 plan if decisions affect it
+
+**Questions to consider**:
+- Should `"flat"` mode raise `NotImplementedError` or return empty list with a comment?
+- How should we handle `package_name` that appears in `detected_packages`?
+- Are there any edge cases with mode conversion that need special handling?
 
 ## Commit Message
 ```

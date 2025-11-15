@@ -62,6 +62,32 @@ Add support for `affects` key (shims/stitching/both) and `cleanup` key (auto/err
 - Comprehensive tests for all `affects` and `cleanup` combinations
 - Test edge cases (mixed modules in files, etc.)
 
+## Review and Clarifying Questions
+
+**After implementing this iteration**, review the changes and document any questions that arise:
+
+1. **Review the implementation**:
+   - Check that `affects` key works correctly for all values (shims/stitching/both)
+   - Verify that file selection is correct for `affects: "stitching"` actions
+   - Check that cleanup behavior works correctly (auto/error/ignore)
+   - Verify that shim-stitching mismatches are detected and handled correctly
+
+2. **Document any questions**:
+   - Are there edge cases in affects handling that need clarification?
+   - How should we handle files with mixed modules (some deleted, some kept)?
+   - Are there any performance concerns with tracking module-to-file mapping?
+   - Should cleanup warnings be logged or silent?
+
+3. **Resolve before proceeding**:
+   - Answer all questions before moving to iteration 13
+   - Update implementation if needed
+   - Update iteration 13 plan if decisions affect it
+
+**Questions to consider**:
+- How should we handle files that contain both deleted and kept modules?
+- Should cleanup warnings be logged at a specific log level?
+- Are there any edge cases with cleanup behavior that need special handling?
+
 ## Commit Message
 ```
 feat(module_actions): add affects and cleanup handling

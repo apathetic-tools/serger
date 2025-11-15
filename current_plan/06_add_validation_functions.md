@@ -90,6 +90,33 @@ def validate_no_conflicting_operations(
 - Comprehensive tests for all validation rules
 - Test both upfront and incremental validation
 
+## Review and Clarifying Questions
+
+**After implementing this iteration**, review the changes and document any questions that arise:
+
+1. **Review the implementation**:
+   - Check that validation functions handle all edge cases correctly
+   - Verify upfront validation works for `scope: "original"` actions
+   - Verify incremental validation works for `scope: "shim"` actions
+   - Check that error messages are clear and helpful
+   - Verify validation catches all invalid operations (circular moves, conflicts, etc.)
+
+2. **Document any questions**:
+   - Are there edge cases in validation that need clarification?
+   - Are there validation scenarios that are ambiguous?
+   - Are there any inconsistencies with existing code patterns?
+   - Should validation be more strict or more lenient in certain cases?
+
+3. **Resolve before proceeding**:
+   - Answer all questions before moving to iteration 07
+   - Update implementation if needed
+   - Update iteration 07 plan if decisions affect it
+
+**Questions to consider**:
+- How should we handle validation when a module is deleted then moved in the same action list?
+- Should we validate that `dest` paths are valid module names (no invalid characters)?
+- Are there any performance concerns with upfront validation for large action lists?
+
 ## Commit Message
 ```
 feat(module_actions): add validation functions

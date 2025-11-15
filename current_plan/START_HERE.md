@@ -15,11 +15,13 @@ I'm implementing the Module Actions feature for serger. The implementation plan 
 - Add unit tests for each section as we go
 - **Update documentation as we go** - each iteration includes documentation updates that must be completed as part of that step
 - Follow the iteration file exactly - it has all the details
+- **Review at end of iteration** - After implementing changes, review for ambiguous decisions, edge cases, or unclear behavior. Document any clarifying questions and resolve them before proceeding to the next iteration (see `current_plan/00_overview.md` for details)
 
 **Completed**:
 - Iteration 01 - Rename `shim_mode` → `module_mode` ✓
 - Iteration 02 - Add `shim` setting types ✓
 - Iteration 03 - Add `module_actions` types ✓
+- Iteration 03.5 - Resolve clarifying questions ✓
 
 **Current status**:
 - `ModuleActionType`, `ModuleActionMode`, `ModuleActionScope`, `ModuleActionAffects`, `ModuleActionCleanup` literal types added
@@ -31,9 +33,17 @@ I'm implementing the Module Actions feature for serger. The implementation plan 
 - Tests added for type definitions and config acceptance
 - All checks passing (`poetry run poe check:fix`)
 
-**Next step**: Iteration 03.5 - Resolve clarifying questions before proceeding to iteration 04.
+**Next step**: Iteration 04 - Validate and normalize `module_actions` config.
 
-Several clarifying questions were identified during review of iterations 01-03 that should be answered before implementing iteration 04. These questions affect design decisions around default values, validation timing, and implementation approach.
+**Iteration 03.5 complete**: All clarifying questions have been answered. See `current_plan/03.5_resolve_clarifying_questions.md` for the full decisions.
 
-Please review and answer the questions in `current_plan/03.5_resolve_clarifying_questions.md`, then update the implementation plan accordingly before proceeding to iteration 04.
+**Key decisions from iteration 03.5** (affect implementation):
+- **Q1/Q2**: Defaults applied at config resolution time - all fields present in `BuildConfigResolved`
+- **Q3**: User actions get `scope: "shim"` at config resolution; mode-generated actions set `scope: "original"` when created
+- **Q4**: Dict format explicitly sets `scope: "shim"` when converting
+- **Q5**: `dest` validation happens in iteration 04 (upfront validation)
+- **Q6**: `source_path` handling deferred to later iteration (basic validation only for now)
+- **Q7**: `shim: "public"` accepted as valid but treated same as `"all"` for now
+
+**Ready to proceed**: See `current_plan/04_validate_module_actions_config.md` for implementation details. The plan has been updated to reflect all decisions from iteration 03.5.
 

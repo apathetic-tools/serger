@@ -40,6 +40,31 @@ Ensure scope handling works correctly in the integrated system. This includes pr
 - All scope-related tests pass
 - Existing tests still pass
 
+## Review and Clarifying Questions
+
+**After implementing this iteration**, review the changes and document any questions that arise:
+
+1. **Review the implementation**:
+   - Check that scope handling works correctly in all scenarios
+   - Verify that validation timing is correct (upfront vs incremental)
+   - Check that action ordering is correct
+   - Verify that error messages clearly indicate which scope failed
+
+2. **Document any questions**:
+   - Are there any edge cases in scope handling that need clarification?
+   - Are there any scenarios where scope behavior is ambiguous?
+   - Should we add more validation for scope consistency?
+
+3. **Resolve before proceeding**:
+   - Answer all questions before moving to iteration 12
+   - Update implementation if needed
+   - Update iteration 12 plan if decisions affect it
+
+**Questions to consider**:
+- How should we handle user actions that mix `scope: "original"` and `scope: "shim"`?
+- Are there any validation rules we should add for scope consistency?
+- Should we warn about potentially confusing scope usage?
+
 ## Commit Message
 ```
 feat(module_actions): refine scope handling
