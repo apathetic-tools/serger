@@ -92,6 +92,7 @@ These options apply globally and can cascade into individual builds:
 | `external_imports` | `str` | `"top"` | How to handle external imports (see [Import Handling](#import-handling)) |
 | `stitch_mode` | `str` | `"raw"` | How to combine modules into a single file (see [Stitch Modes](#stitch-modes)) |
 | `comments_mode` | `str` | `"keep"` | How to handle comments in stitched output (see [Comment Handling](#comment-handling)) |
+| `docstring_mode` | `str \| dict` | `"keep"` | How to handle docstrings in stitched output (see [Docstring Handling](#docstring-handling)) |
 
 ## Build Configuration Options
 
@@ -112,6 +113,7 @@ Each build in the `builds` array can specify:
 | `external_imports` | `str` | No | Override root-level `external_imports` for this build |
 | `stitch_mode` | `str` | No | Override root-level `stitch_mode` for this build (see [Stitch Modes](#stitch-modes)) |
 | `comments_mode` | `str` | No | Override root-level `comments_mode` for this build (see [Comment Handling](#comment-handling)) |
+| `docstring_mode` | `str \| dict` | No | Override root-level `docstring_mode` for this build (see [Docstring Handling](#docstring-handling)) |
 
 \* Required unless provided via CLI arguments
 
@@ -210,12 +212,14 @@ Serger provides control over how comments are handled in the stitched output. Yo
 
 > **Note**: Comment handling does not affect docstrings (triple-quoted strings). Docstrings are controlled separately via the `docstring_mode` setting.
 
+**Available modes:**
+
 | Mode | Description |
 |------|-------------|
 | `keep` | Keep all comments (default). Preserves all comments in their original locations, including standalone comments and inline comments. |
-| `strip` | Remove all comments. Removes all comments from the stitched output while preserving docstrings. This produces cleaner, more compact output. |
 | `ignores` | Only keep comments that specify ignore rules. Preserves comments that are used by linters and type checkers, such as `# noqa`, `# type: ignore`, `# pyright: ignore`, `# mypy: ignore`, `# ruff: noqa`, and `# serger: no-move`. All other comments are removed. |
 | `inline` | Only keep inline comments. Preserves comments that appear on the same line as code (e.g., `x = 1  # comment`), but removes standalone comment lines (e.g., `# This is a comment` on its own line). |
+| `strip` | Remove all comments. Removes all comments from the stitched output while preserving docstrings. This produces cleaner, more compact output. |
 
 ### Example
 
@@ -237,15 +241,19 @@ Serger provides control over how comments are handled in the stitched output. Yo
 
 Serger provides control over how docstrings are handled in the stitched output. You can choose to keep all docstrings, remove them, or selectively preserve only certain types of docstrings based on their location or visibility.
 
-> **Note**: Docstring handling uses AST parsing to accurately identify docstrings at different locations (module, class, function, method). Both triple-quoted strings (`"""..."""` and `'''...'''`) are supported.
+> **Note**: Docstring handling uses AST parsing to accurately identify docstrings at different locations (module, class, function, method). Both triple-quoted strings (`"""..."""` and `'''...'''`) are supported. Single-line docstrings are also supported.
+
+**Available modes:**
 
 ### Simple Modes
+
+You can use a simple string mode to apply the same behavior to all docstrings:
 
 | Mode | Description |
 |------|-------------|
 | `keep` | Keep all docstrings (default). Preserves all docstrings in their original locations, including module, class, function, and method docstrings. |
 | `strip` | Remove all docstrings. Removes all docstrings from the stitched output, producing more compact code. |
-| `public` | Keep only public docstrings. Preserves docstrings for public symbols (those not prefixed with an underscore), removing docstrings for private symbols (e.g., `_private_func`, `__special__`). |
+| `public` | Keep only public docstrings. Preserves docstrings for public symbols (those not prefixed with an underscore), removing docstrings for private symbols (e.g., `_private_func`, `__special__`). Note: Module-level docstrings are always kept in `public` mode, as they are considered public. |
 
 ### Per-Location Control
 
@@ -272,12 +280,12 @@ For fine-grained control, you can use a dictionary to specify different modes fo
 **Valid locations:**
 - `module` - Module-level docstrings (at the top of the file)
 - `class` - Class docstrings
-- `function` - Top-level function docstrings
-- `method` - Method docstrings (functions inside classes)
+- `function` - Top-level function docstrings (functions defined at module level)
+- `method` - Method docstrings (functions inside classes, including regular methods, properties, static methods, class methods, and async methods)
 
 **Location modes:**
 - Each location can use `"keep"`, `"strip"`, or `"public"`
-- Omitted locations default to `"keep"`
+- Omitted locations default to `"keep"` (least destructive default)
 
 ### Example
 
