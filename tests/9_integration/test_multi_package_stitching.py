@@ -10,14 +10,11 @@ import sys
 from argparse import Namespace
 from pathlib import Path
 from types import ModuleType
-from typing import cast
 
 import serger.build as mod_build
 import serger.config.config_loader as mod_config_loader
 import serger.config.config_resolve as mod_config_resolve
-import serger.config.config_types as mod_config_types
-import serger.constants as mod_constants
-from tests.utils.buildconfig import make_include_resolved
+from tests.utils.buildconfig import make_build_cfg, make_include_resolved, make_resolved
 
 
 def test_multi_package_stitching_with_shims(tmp_path: Path) -> None:
@@ -49,38 +46,18 @@ def test_multi_package_stitching_with_shims(tmp_path: Path) -> None:
         make_include_resolved("pkg2/**/*.py", tmp_path),
     ]
 
-    build_cfg: mod_config_types.BuildConfigResolved = cast(
-        "mod_config_types.BuildConfigResolved",
-        {
-            "include": includes,
-            "package": "pkg1",  # Primary package name
-            "order": [
-                "pkg1/__init__.py",
-                "pkg1/module1.py",
-                "pkg2/__init__.py",
-                "pkg2/module2.py",
-            ],
-            "out": {"root": tmp_path, "path": "stitched.py", "origin": "test"},
-            "exclude": [],
-            "respect_gitignore": False,
-            "log_level": "info",
-            "strict_config": False,
-            "dry_run": False,
-            "__meta__": {"config_root": tmp_path, "cli_root": tmp_path},
-            "stitch_mode": mod_constants.DEFAULT_STITCH_MODE,
-            "internal_imports": mod_constants.DEFAULT_INTERNAL_IMPORTS[
-                mod_constants.DEFAULT_STITCH_MODE
-            ],
-            "external_imports": mod_constants.DEFAULT_EXTERNAL_IMPORTS[
-                mod_constants.DEFAULT_STITCH_MODE
-            ],
-            "comments_mode": mod_constants.DEFAULT_COMMENTS_MODE,
-            "post_processing": {
-                "enabled": True,
-                "category_order": [],
-                "categories": {},
-            },
-        },
+    build_cfg = make_build_cfg(
+        tmp_path,
+        includes,
+        respect_gitignore=False,
+        out=make_resolved("stitched.py", tmp_path),
+        package="pkg1",  # Primary package name
+        order=[
+            "pkg1/__init__.py",
+            "pkg1/module1.py",
+            "pkg2/__init__.py",
+            "pkg2/module2.py",
+        ],
     )
 
     # --- Execute stitch ---
@@ -277,40 +254,20 @@ def test_multi_package_stitching_three_packages(tmp_path: Path) -> None:
         make_include_resolved("pkg3/**/*.py", tmp_path),
     ]
 
-    build_cfg: mod_config_types.BuildConfigResolved = cast(
-        "mod_config_types.BuildConfigResolved",
-        {
-            "include": includes,
-            "package": "pkg1",
-            "order": [
-                "pkg1/__init__.py",
-                "pkg1/module1.py",
-                "pkg2/__init__.py",
-                "pkg2/module2.py",
-                "pkg3/__init__.py",
-                "pkg3/module3.py",
-            ],
-            "out": {"root": tmp_path, "path": "stitched.py", "origin": "test"},
-            "exclude": [],
-            "respect_gitignore": False,
-            "log_level": "info",
-            "strict_config": False,
-            "dry_run": False,
-            "__meta__": {"config_root": tmp_path, "cli_root": tmp_path},
-            "stitch_mode": mod_constants.DEFAULT_STITCH_MODE,
-            "internal_imports": mod_constants.DEFAULT_INTERNAL_IMPORTS[
-                mod_constants.DEFAULT_STITCH_MODE
-            ],
-            "external_imports": mod_constants.DEFAULT_EXTERNAL_IMPORTS[
-                mod_constants.DEFAULT_STITCH_MODE
-            ],
-            "comments_mode": mod_constants.DEFAULT_COMMENTS_MODE,
-            "post_processing": {
-                "enabled": True,
-                "category_order": [],
-                "categories": {},
-            },
-        },
+    build_cfg = make_build_cfg(
+        tmp_path,
+        includes,
+        respect_gitignore=False,
+        out=make_resolved("stitched.py", tmp_path),
+        package="pkg1",
+        order=[
+            "pkg1/__init__.py",
+            "pkg1/module1.py",
+            "pkg2/__init__.py",
+            "pkg2/module2.py",
+            "pkg3/__init__.py",
+            "pkg3/module3.py",
+        ],
     )
 
     # --- Execute stitch ---
@@ -394,33 +351,13 @@ def test_multi_package_auto_discover_order_with_cross_package_imports(
         make_include_resolved("pkg2/**/*.py", tmp_path),
     ]
 
-    build_cfg: mod_config_types.BuildConfigResolved = cast(
-        "mod_config_types.BuildConfigResolved",
-        {
-            "include": includes,
-            "package": "pkg1",  # Primary package name
-            # No order specified - should auto-discover
-            "out": {"root": tmp_path, "path": "stitched.py", "origin": "test"},
-            "exclude": [],
-            "respect_gitignore": False,
-            "log_level": "info",
-            "strict_config": False,
-            "dry_run": False,
-            "__meta__": {"config_root": tmp_path, "cli_root": tmp_path},
-            "stitch_mode": mod_constants.DEFAULT_STITCH_MODE,
-            "internal_imports": mod_constants.DEFAULT_INTERNAL_IMPORTS[
-                mod_constants.DEFAULT_STITCH_MODE
-            ],
-            "external_imports": mod_constants.DEFAULT_EXTERNAL_IMPORTS[
-                mod_constants.DEFAULT_STITCH_MODE
-            ],
-            "comments_mode": mod_constants.DEFAULT_COMMENTS_MODE,
-            "post_processing": {
-                "enabled": True,
-                "category_order": [],
-                "categories": {},
-            },
-        },
+    build_cfg = make_build_cfg(
+        tmp_path,
+        includes,
+        respect_gitignore=False,
+        out=make_resolved("stitched.py", tmp_path),
+        package="pkg1",  # Primary package name
+        # No order specified - should auto-discover
     )
 
     # --- Execute stitch ---

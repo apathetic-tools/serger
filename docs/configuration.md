@@ -208,7 +208,7 @@ Serger supports different modes for combining multiple Python modules into a sin
 
 Serger provides control over how comments are handled in the stitched output. You can choose to keep all comments, remove them, or selectively preserve only certain types of comments.
 
-> **Note**: Comment handling does not affect docstrings (triple-quoted strings). Docstrings are preserved regardless of the `comments_mode` setting. A future `docstring_mode` setting will provide separate control over docstrings.
+> **Note**: Comment handling does not affect docstrings (triple-quoted strings). Docstrings are controlled separately via the `docstring_mode` setting.
 
 | Mode | Description |
 |------|-------------|
@@ -230,6 +230,68 @@ Serger provides control over how comments are handled in the stitched output. Yo
     }
   ],
   "comments_mode": "keep"  // Default for all builds
+}
+```
+
+## Docstring Handling
+
+Serger provides control over how docstrings are handled in the stitched output. You can choose to keep all docstrings, remove them, or selectively preserve only certain types of docstrings based on their location or visibility.
+
+> **Note**: Docstring handling uses AST parsing to accurately identify docstrings at different locations (module, class, function, method). Both triple-quoted strings (`"""..."""` and `'''...'''`) are supported.
+
+### Simple Modes
+
+| Mode | Description |
+|------|-------------|
+| `keep` | Keep all docstrings (default). Preserves all docstrings in their original locations, including module, class, function, and method docstrings. |
+| `strip` | Remove all docstrings. Removes all docstrings from the stitched output, producing more compact code. |
+| `public` | Keep only public docstrings. Preserves docstrings for public symbols (those not prefixed with an underscore), removing docstrings for private symbols (e.g., `_private_func`, `__special__`). |
+
+### Per-Location Control
+
+For fine-grained control, you can use a dictionary to specify different modes for different docstring locations:
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/mypkg/**/*.py"],
+      "out": "dist/mypkg.py",
+      "docstring_mode": {
+        "module": "strip",    // Remove module-level docstrings
+        "class": "keep",       // Keep class docstrings
+        "function": "public",   // Keep only public function docstrings
+        "method": "strip"     // Remove method docstrings
+      }
+    }
+  ]
+}
+```
+
+**Valid locations:**
+- `module` - Module-level docstrings (at the top of the file)
+- `class` - Class docstrings
+- `function` - Top-level function docstrings
+- `method` - Method docstrings (functions inside classes)
+
+**Location modes:**
+- Each location can use `"keep"`, `"strip"`, or `"public"`
+- Omitted locations default to `"keep"`
+
+### Example
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/mypkg/**/*.py"],
+      "out": "dist/mypkg.py",
+      "docstring_mode": "public"  // Keep only public docstrings
+    }
+  ],
+  "docstring_mode": "keep"  // Default for all builds
 }
 ```
 

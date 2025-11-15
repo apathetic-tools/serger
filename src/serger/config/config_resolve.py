@@ -12,6 +12,7 @@ from serger.constants import (
     DEFAULT_CATEGORIES,
     DEFAULT_CATEGORY_ORDER,
     DEFAULT_COMMENTS_MODE,
+    DEFAULT_DOCSTRING_MODE,
     DEFAULT_ENV_WATCH_INTERVAL,
     DEFAULT_EXTERNAL_IMPORTS,
     DEFAULT_INTERNAL_IMPORTS,
@@ -986,6 +987,19 @@ def resolve_build_config(  # noqa: PLR0912, PLR0915
         resolved_cfg["comments_mode"] = root_comments_mode
     else:
         resolved_cfg["comments_mode"] = DEFAULT_COMMENTS_MODE
+
+    # ------------------------------
+    # Docstring mode
+    # ------------------------------
+    # Cascade: build-level → root-level → default
+    build_docstring_mode = resolved_cfg.get("docstring_mode")
+    root_docstring_mode = (root_cfg or {}).get("docstring_mode")
+    if build_docstring_mode is not None:
+        resolved_cfg["docstring_mode"] = build_docstring_mode
+    elif root_docstring_mode is not None:
+        resolved_cfg["docstring_mode"] = root_docstring_mode
+    else:
+        resolved_cfg["docstring_mode"] = DEFAULT_DOCSTRING_MODE
 
     # ------------------------------
     # Post-processing

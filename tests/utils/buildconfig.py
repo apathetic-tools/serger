@@ -62,10 +62,13 @@ def make_build_cfg(  # noqa: PLR0913
     internal_imports: mod_types.InternalImportMode = "force_strip",
     external_imports: mod_types.ExternalImportMode = "top",
     comments_mode: mod_types.CommentsMode = "keep",
+    docstring_mode: mod_types.DocstringMode = "keep",
     post_processing: mod_types.PostProcessingConfigResolved | None = None,
+    package: str | None = None,
+    order: list[str] | None = None,
 ) -> mod_types.BuildConfigResolved:
     """Return a fake, fully-populated BuildConfigResolved."""
-    return {
+    cfg: dict[str, object] = {
         "include": include,
         "exclude": exclude or [],
         "out": out
@@ -80,10 +83,16 @@ def make_build_cfg(  # noqa: PLR0913
         "internal_imports": internal_imports,
         "external_imports": external_imports,
         "comments_mode": comments_mode,
+        "docstring_mode": docstring_mode,
         "post_processing": post_processing
         if post_processing is not None
         else make_post_processing_config_resolved(),
     }
+    if package is not None:
+        cfg["package"] = package
+    if order is not None:
+        cfg["order"] = order
+    return cast("mod_types.BuildConfigResolved", cfg)
 
 
 def make_build_input(

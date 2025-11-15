@@ -46,21 +46,19 @@ Exploring bundling options for generating the single-file release:
 - Organize tests in classes? or separate files?
 - split large test files
 - is checking py_compiles overkill? should we also run it against the installed mode not just singlefile?
+- make sure for our config_types TypeDicts, we have a make_ factory in tests/utils that has sane defaults for all fields it can and named parameters for overriding each. that way a test can focus on just overiding the values it cares about. make sure our tests use the factories.
 
 ## 🧑‍💻 Development
 - implement stich mode: exec (see [docs/example_isolated_stiching.md](docs/example_isolated_stiching.md))
 - implement stich mode: class (requires working assign import mode)
 - Evaluate ignores and determine if we can fix them instead of ignore them
 - can we pull out common CLI elements with pocket-build into a single toplevel module?
-- set up docstring mode
 - command to do common tasks based on reddit advice for dealing with AI.
-- quiet mode for the ai program
-- import options: implement documented modes
-- stitch modes: raw, class/def/mixins?, exec+docstring
 - do we guarantee order (some for loops or data structures don't guarantee order)
 - same config same output? are we imdemponent (sp?)
 - if we moved the sys.modules shims as we went, would that allow us to do imports as long as the order was correct?
 - should more of our config settings be available to be set via ENV?
+- check for secret hidden keys on our types that aren't in config_types like "_pyproject_version" that should actually be added.
 
 ## 🚀 Deployment
 - Deploy action when I tag a release should create a release and attach it to the tagged release.
