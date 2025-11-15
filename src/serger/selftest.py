@@ -15,6 +15,7 @@ from .actions import get_metadata
 from .build import run_build
 from .constants import (
     DEFAULT_COMMENTS_MODE,
+    DEFAULT_DOCSTRING_MODE,
     DEFAULT_EXTERNAL_IMPORTS,
     DEFAULT_INTERNAL_IMPORTS,
     DEFAULT_LOG_LEVEL,
@@ -145,6 +146,7 @@ def _create_build_config(
             "external_imports": DEFAULT_EXTERNAL_IMPORTS[DEFAULT_STITCH_MODE],
             "stitch_mode": DEFAULT_STITCH_MODE,
             "comments_mode": DEFAULT_COMMENTS_MODE,
+            "docstring_mode": DEFAULT_DOCSTRING_MODE,
             "post_processing": cast(
                 "Any",
                 {

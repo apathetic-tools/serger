@@ -14,6 +14,10 @@ InternalImportMode = Literal["force_strip", "strip", "keep", "assign"]
 ExternalImportMode = Literal["force_top", "top", "keep", "force_strip", "strip"]
 StitchMode = Literal["raw", "class", "exec"]
 CommentsMode = Literal["keep", "ignores", "inline", "strip"]
+# DocstringMode can be a simple string mode or a dict for per-location control
+DocstringModeSimple = Literal["keep", "strip", "public"]
+DocstringModeLocation = Literal["module", "class", "function", "method"]
+DocstringMode = DocstringModeSimple | dict[DocstringModeLocation, DocstringModeSimple]
 
 
 # Post-processing configuration types
@@ -121,6 +125,15 @@ class BuildConfig(TypedDict, total=False):
     # - "inline": Only keep inline comments (comments on the same line as code)
     # - "strip": Remove all comments
     comments_mode: CommentsMode
+    # Docstring mode: how to handle docstrings in stitched output
+    # - "keep": Keep all docstrings (default)
+    # - "strip": Remove all docstrings
+    # - "public": Keep only public docstrings (not prefixed with underscore)
+    # - dict: Per-location control, e.g., {"module": "keep", "class": "strip"}
+    #   Valid locations: "module", "class", "function", "method"
+    #   Each location value can be "keep", "strip", or "public"
+    #   Omitted locations default to "keep"
+    docstring_mode: DocstringMode
 
 
 class RootConfig(TypedDict, total=False):
@@ -155,6 +168,15 @@ class RootConfig(TypedDict, total=False):
     # - "inline": Only keep inline comments (comments on the same line as code)
     # - "strip": Remove all comments
     comments_mode: CommentsMode
+    # Docstring mode default (cascades into builds)
+    # - "keep": Keep all docstrings (default)
+    # - "strip": Remove all docstrings
+    # - "public": Keep only public docstrings (not prefixed with underscore)
+    # - dict: Per-location control, e.g., {"module": "keep", "class": "strip"}
+    #   Valid locations: "module", "class", "function", "method"
+    #   Each location value can be "keep", "strip", or "public"
+    #   Omitted locations default to "keep"
+    docstring_mode: DocstringMode
 
 
 class BuildConfigResolved(TypedDict):
@@ -185,6 +207,7 @@ class BuildConfigResolved(TypedDict):
     external_imports: ExternalImportMode  # How to handle external imports
     stitch_mode: StitchMode  # How to combine modules into a single file
     comments_mode: CommentsMode  # How to handle comments in stitched output
+    docstring_mode: DocstringMode  # How to handle docstrings in stitched output
 
 
 class RootConfigResolved(TypedDict):

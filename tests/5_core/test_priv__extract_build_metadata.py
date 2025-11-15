@@ -9,10 +9,9 @@ import re
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import cast
 
 import serger.build as mod_build
-import serger.config.config_types as mod_config_types
+from tests.utils.buildconfig import make_build_cfg
 
 
 # Allow up to 2 seconds difference for timestamp comparisons
@@ -26,26 +25,7 @@ def test_extract_build_metadata_with_version() -> None:
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text('version = "1.2.3"\n')
 
-        build_cfg = cast(
-            "mod_config_types.BuildConfigResolved",
-            {
-                "__meta__": {
-                    "cli_root": tmp_path,
-                    "config_root": tmp_path,
-                },
-                "out": {
-                    "root": tmp_path,
-                    "path": "dist/script.py",
-                    "origin": "test",
-                },
-                "include": [],
-                "exclude": [],
-                "strict_config": False,
-                "respect_gitignore": True,
-                "log_level": "info",
-                "dry_run": False,
-            },
-        )
+        build_cfg = make_build_cfg(tmp_path, include=[])
 
         version, commit, build_date = mod_build._extract_build_metadata(
             build_cfg, tmp_path
@@ -66,26 +46,7 @@ def test_extract_build_metadata_without_version_uses_timestamp() -> None:
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text("# no version here\n")
 
-        build_cfg = cast(
-            "mod_config_types.BuildConfigResolved",
-            {
-                "__meta__": {
-                    "cli_root": tmp_path,
-                    "config_root": tmp_path,
-                },
-                "out": {
-                    "root": tmp_path,
-                    "path": "dist/script.py",
-                    "origin": "test",
-                },
-                "include": [],
-                "exclude": [],
-                "strict_config": False,
-                "respect_gitignore": True,
-                "log_level": "info",
-                "dry_run": False,
-            },
-        )
+        build_cfg = make_build_cfg(tmp_path, include=[])
 
         # Capture timestamp before and after to ensure it's recent
         before = datetime.now(timezone.utc)
@@ -121,27 +82,9 @@ def test_extract_build_metadata_with_config_version() -> None:
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text('version = "0.1.0"\n')
 
-        build_cfg = cast(
-            "mod_config_types.BuildConfigResolved",
-            {
-                "__meta__": {
-                    "cli_root": tmp_path,
-                    "config_root": tmp_path,
-                },
-                "out": {
-                    "root": tmp_path,
-                    "path": "dist/script.py",
-                    "origin": "test",
-                },
-                "include": [],
-                "exclude": [],
-                "strict_config": False,
-                "respect_gitignore": True,
-                "log_level": "info",
-                "dry_run": False,
-                "_pyproject_version": "2.0.0",
-            },
-        )
+        build_cfg = make_build_cfg(tmp_path, include=[])
+        # Add special field for testing version override
+        build_cfg["_pyproject_version"] = "2.0.0"  # type: ignore[typeddict-unknown-key]
 
         version, _commit, _build_date = mod_build._extract_build_metadata(
             build_cfg, tmp_path
@@ -158,26 +101,7 @@ def test_extract_build_metadata_missing_pyproject() -> None:
         tmp_path = Path(tmpdir)
         # No pyproject.toml file
 
-        build_cfg = cast(
-            "mod_config_types.BuildConfigResolved",
-            {
-                "__meta__": {
-                    "cli_root": tmp_path,
-                    "config_root": tmp_path,
-                },
-                "out": {
-                    "root": tmp_path,
-                    "path": "dist/script.py",
-                    "origin": "test",
-                },
-                "include": [],
-                "exclude": [],
-                "strict_config": False,
-                "respect_gitignore": True,
-                "log_level": "info",
-                "dry_run": False,
-            },
-        )
+        build_cfg = make_build_cfg(tmp_path, include=[])
 
         before = datetime.now(timezone.utc)
         version, _commit, build_date = mod_build._extract_build_metadata(

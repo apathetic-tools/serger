@@ -20,6 +20,9 @@ from typing import cast
 
 from .config import (
     CommentsMode,
+    DocstringMode,
+    DocstringModeLocation,
+    DocstringModeSimple,
     ExternalImportMode,
     IncludeResolved,
     InternalImportMode,
@@ -755,6 +758,199 @@ def process_comments(text: str, mode: CommentsMode) -> str:  # noqa: C901, PLR09
     return "".join(output_lines)
 
 
+def process_docstrings(text: str, mode: DocstringMode) -> str:  # noqa: C901, PLR0915
+    """Process docstrings in source code according to the specified mode.
+
+    Args:
+        text: Python source code
+        mode: Docstring processing mode:
+            - "keep": Keep all docstrings (default)
+            - "strip": Remove all docstrings
+            - "public": Keep only public docstrings (not prefixed with underscore)
+            - dict: Per-location control, e.g., {"module": "keep", "class": "strip"}
+              Valid locations: "module", "class", "function", "method"
+              Each location value can be "keep", "strip", or "public"
+              Omitted locations default to "keep"
+
+    Returns:
+        Source code with docstrings processed according to mode
+    """
+    logger = get_app_logger()
+
+    # Handle simple string modes
+    if isinstance(mode, str):
+        if mode == "keep":
+            return text
+
+        # Normalize to dict format for processing
+        mode_dict: dict[DocstringModeLocation, DocstringModeSimple] = {
+            "module": mode,
+            "class": mode,
+            "function": mode,
+            "method": mode,
+        }
+    else:
+        # Dict mode - fill in defaults for omitted locations
+        mode_dict = {
+            "module": mode.get("module", "keep"),
+            "class": mode.get("class", "keep"),
+            "function": mode.get("function", "keep"),
+            "method": mode.get("method", "keep"),
+        }
+
+    # Parse AST to find docstrings
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        logger.exception("Failed to parse file for docstring processing")
+        return text
+
+    # Build parent map to distinguish methods from functions
+    parent_map: dict[ast.AST, ast.AST] = {}
+
+    def build_parent_map(parent: ast.AST) -> None:
+        """Recursively build parent mapping."""
+        for child in ast.iter_child_nodes(parent):
+            parent_map[child] = parent
+            build_parent_map(child)
+
+    build_parent_map(tree)
+
+    lines = text.splitlines(keepends=True)
+    # Track line ranges to remove (start, end) inclusive
+    ranges_to_remove: list[tuple[int, int]] = []
+
+    def get_docstring_node(node: ast.AST) -> ast.Expr | None:
+        """Get the docstring node if it exists as the first statement."""
+        # Type guard: only nodes with body attribute can have docstrings
+        if not isinstance(
+            node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+        ):
+            return None
+        if not node.body:
+            return None
+        first_stmt = node.body[0]
+        if (
+            isinstance(first_stmt, ast.Expr)
+            and isinstance(first_stmt.value, ast.Constant)
+            and isinstance(first_stmt.value.value, str)
+        ):
+            return first_stmt
+        return None
+
+    def is_public(name: str) -> bool:
+        """Check if a name is public (doesn't start with underscore)."""
+        return not name.startswith("_")
+
+    def get_location_type(node: ast.AST) -> DocstringModeLocation | None:
+        """Determine the location type of a docstring node.
+
+        Note: "method" covers all functions inside classes, including:
+        - Regular methods
+        - Properties (@property)
+        - Static methods (@staticmethod)
+        - Class methods (@classmethod)
+        - Async methods (async def)
+        """
+        if isinstance(node, ast.Module):
+            return "module"
+        if isinstance(node, ast.ClassDef):
+            return "class"
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            # Check if function is inside a class (method) or top-level (function)
+            # This covers all method types: regular, @property, @staticmethod, etc.
+            parent = parent_map.get(node)
+            if isinstance(parent, ast.ClassDef):
+                return "method"
+            return "function"
+        return None
+
+    def should_remove_docstring(
+        location: DocstringModeLocation,
+        name: str,
+    ) -> bool:
+        """Determine if a docstring should be removed based on mode."""
+        location_mode = mode_dict[location]
+
+        if location_mode == "keep":
+            return False
+        if location_mode == "strip":
+            return True
+        if location_mode == "public":
+            # Module docstrings are always considered public
+            if location == "module":
+                return False
+            # Remove if not public
+            return not is_public(name)
+        # Unknown mode - keep it
+        return False
+
+    # Process module-level docstring
+    module_docstring = get_docstring_node(tree)
+    if module_docstring:
+        location: DocstringModeLocation = "module"
+        if should_remove_docstring(location, "__module__"):
+            # Get line range for docstring
+            start_line = module_docstring.lineno - 1  # 0-indexed
+            end_line = (
+                module_docstring.end_lineno - 1
+                if module_docstring.end_lineno
+                else start_line
+            )
+            ranges_to_remove.append((start_line, end_line))
+
+    # Process class and function/method docstrings
+    def process_node(node: ast.AST) -> None:
+        """Recursively process nodes to find docstrings."""
+        # Skip module docstring - it's already processed above
+        if isinstance(node, ast.Module):
+            # Just recurse into children, don't process module docstring again
+            for child in node.body:
+                process_node(child)
+            return
+
+        docstring = get_docstring_node(node)
+        if docstring:
+            location = get_location_type(node)
+            if location:
+                name = ""
+                if isinstance(
+                    node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+                ):
+                    name = node.name
+
+                if should_remove_docstring(location, name):
+                    # Get line range for docstring
+                    start_line = docstring.lineno - 1  # 0-indexed
+                    end_line = (
+                        docstring.end_lineno - 1 if docstring.end_lineno else start_line
+                    )
+                    ranges_to_remove.append((start_line, end_line))
+
+        # Recurse into child nodes
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            for child in node.body:
+                process_node(child)
+
+    process_node(tree)
+
+    # If no ranges to remove, return original text
+    if not ranges_to_remove:
+        return text
+
+    # Sort ranges by start line (descending) so we can remove from end to start
+    # This preserves line numbers while removing
+    ranges_to_remove.sort(reverse=True)
+
+    # Remove docstrings from text
+    result_lines = lines[:]
+    for start_line, end_line in ranges_to_remove:
+        # Remove the range (inclusive)
+        del result_lines[start_line : end_line + 1]
+
+    return "".join(result_lines)
+
+
 @dataclass
 class ModuleSymbols:
     """Top-level symbols extracted from a Python module."""
@@ -1309,6 +1505,7 @@ def _collect_modules(
     external_imports: ExternalImportMode = "top",
     internal_imports: InternalImportMode = "force_strip",
     comments_mode: CommentsMode = "keep",
+    docstring_mode: DocstringMode = "keep",
 ) -> tuple[dict[str, str], OrderedDict[str, None], list[str], list[str]]:
     """Collect and process module sources from file paths.
 
@@ -1320,6 +1517,7 @@ def _collect_modules(
         external_imports: How to handle external imports
         internal_imports: How to handle internal imports
         comments_mode: How to handle comments in stitched output
+        docstring_mode: How to handle docstrings in stitched output
 
     Returns:
         Tuple of (module_sources, all_imports, parts, derived_module_names)
@@ -1386,6 +1584,20 @@ def _collect_modules(
             len(module_text),
             has_comment_before,
             has_comment_after,
+        )
+
+        # Process docstrings according to mode
+        # IMPORTANT: This must happen BEFORE split_imports, similar to comments
+        logger.trace(
+            "Processing docstrings: mode=%s, file=%s, text_length=%d",
+            docstring_mode,
+            file_path,
+            len(module_text),
+        )
+        module_text = process_docstrings(module_text, docstring_mode)
+        logger.trace(
+            "After process_docstrings: text_length=%d",
+            len(module_text),
         )
 
         # Extract imports - pass all detected package names and modes
@@ -2014,6 +2226,14 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         raise TypeError(msg)
     comments_mode = cast("CommentsMode", comments_mode_raw)
 
+    # Extract docstring_mode from config
+    docstring_mode_raw = config.get("docstring_mode", "keep")
+    # docstring_mode can be a string or dict
+    if not isinstance(docstring_mode_raw, (str, dict)):
+        msg = "Config 'docstring_mode' must be a string or dict"
+        raise TypeError(msg)
+    docstring_mode = cast("DocstringMode", docstring_mode_raw)
+
     module_sources, all_imports, parts, derived_module_names = _collect_modules(
         order_paths,
         package_root,
@@ -2022,6 +2242,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         external_imports,
         internal_imports,
         comments_mode,
+        docstring_mode,
     )
 
     # --- Parse AST once for all modules ---
