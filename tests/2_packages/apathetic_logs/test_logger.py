@@ -72,12 +72,12 @@ def capture_log_output(
 @pytest.mark.parametrize(
     ("msg_level", "expected_stream"),
     [
-        ("debug", "stdout"),
+        ("debug", "stderr"),
         ("info", "stdout"),
         ("warning", "stderr"),
         ("error", "stderr"),
         ("critical", "stderr"),
-        ("trace", "stdout"),
+        ("trace", "stderr"),
     ],
 )
 def test_log_routes_correct_stream(
@@ -133,12 +133,12 @@ def test_formatter_adds_ansi_when_color_enabled(
 ) -> None:
     """When color is enabled, ANSI codes should appear in output."""
     # --- patch and execute ---
-    out, _ = capture_log_output(
+    _, err = capture_log_output(
         monkeypatch, direct_logger, "debug", enable_color=True, msg="colored"
     )
 
     # --- verify ---
-    assert "\033[" in out
+    assert "\033[" in err
 
 
 def test_log_dynamic_unknown_level(
