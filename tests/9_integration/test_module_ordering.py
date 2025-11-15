@@ -7,14 +7,13 @@ modules should be ordered AFTER the modules they import from to prevent runtime
 errors.
 """
 
-import os
-import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
 import serger.meta as mod_meta
+from tests.utils import run_with_output
 
 
 @pytest.fixture
@@ -115,13 +114,10 @@ def test_init_ordering_stitched_file_compiles(
 ) -> None:
     """Test that stitched file compiles without syntax errors."""
     # Run serger
-    result = subprocess.run(  # noqa: S603
+    result = run_with_output(
         [sys.executable, "-m", mod_meta.PROGRAM_PACKAGE],
         cwd=tmp_path,
-        capture_output=True,
-        text=True,
         check=False,
-        env=os.environ.copy(),
     )
 
     if result.returncode != 0:
@@ -136,12 +132,9 @@ def test_init_ordering_stitched_file_compiles(
     assert output_file.exists(), f"Output file not created: {output_file}"
 
     # Try to compile the stitched file
-    result = subprocess.run(  # noqa: S603
+    result = run_with_output(
         [sys.executable, "-m", "py_compile", str(output_file)],
-        capture_output=True,
-        text=True,
         check=False,
-        env=os.environ.copy(),
     )
 
     if result.returncode != 0:
@@ -155,13 +148,10 @@ def test_init_ordering_module_order_correct(
 ) -> None:
     """Test that module_b appears before __init__.py in stitched output."""
     # Run serger
-    result = subprocess.run(  # noqa: S603
+    result = run_with_output(
         [sys.executable, "-m", mod_meta.PROGRAM_PACKAGE],
         cwd=tmp_path,
-        capture_output=True,
-        text=True,
         check=False,
-        env=os.environ.copy(),
     )
 
     assert result.returncode == 0, f"Serger failed: {result.stderr}"
@@ -199,13 +189,10 @@ def test_init_ordering_runtime_works(
 ) -> None:
     """Test that the stitched file can be imported and used without errors."""
     # Run serger
-    result = subprocess.run(  # noqa: S603
+    result = run_with_output(
         [sys.executable, "-m", mod_meta.PROGRAM_PACKAGE],
         cwd=tmp_path,
-        capture_output=True,
-        text=True,
         check=False,
-        env=os.environ.copy(),
     )
 
     assert result.returncode == 0, f"Serger failed: {result.stderr}"
@@ -235,13 +222,10 @@ print("✓ Import and usage successful")
     )
 
     # Run the test script
-    result = subprocess.run(  # noqa: S603
+    result = run_with_output(
         [sys.executable, str(test_script)],
         cwd=tmp_path,
-        capture_output=True,
-        text=True,
         check=False,
-        env=os.environ.copy(),
     )
 
     if result.returncode != 0:
@@ -261,13 +245,10 @@ def test_init_ordering_with_standalone_marker(
     it can access globals()["ClassB"] without KeyError.
     """
     # Run serger
-    result = subprocess.run(  # noqa: S603
+    result = run_with_output(
         [sys.executable, "-m", mod_meta.PROGRAM_PACKAGE],
         cwd=tmp_path,
-        capture_output=True,
-        text=True,
         check=False,
-        env=os.environ.copy(),
     )
 
     assert result.returncode == 0, f"Serger failed: {result.stderr}"
@@ -310,13 +291,10 @@ except Exception as e:
 """
     )
 
-    result = subprocess.run(  # noqa: S603
+    result = run_with_output(
         [sys.executable, str(test_script)],
         cwd=tmp_path,
-        capture_output=True,
-        text=True,
         check=False,
-        env=os.environ.copy(),
     )
 
     if result.returncode != 0:
@@ -398,13 +376,10 @@ EXPORTED_VALUE = _apathetic_logging_ns.get_value()
     config_file.write_text(config_content)
 
     # Run serger
-    result = subprocess.run(  # noqa: S603
+    result = run_with_output(
         [sys.executable, "-m", mod_meta.PROGRAM_PACKAGE],
         cwd=tmp_path,
-        capture_output=True,
-        text=True,
         check=False,
-        env=os.environ.copy(),
     )
 
     assert result.returncode == 0, (
@@ -452,13 +427,10 @@ except KeyError as e:
 """
     )
 
-    result = subprocess.run(  # noqa: S603
+    result = run_with_output(
         [sys.executable, str(test_script)],
         cwd=tmp_path,
-        capture_output=True,
-        text=True,
         check=False,
-        env=os.environ.copy(),
     )
 
     if result.returncode != 0:

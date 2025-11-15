@@ -102,7 +102,7 @@ def run_with_output(
     cwd: Path | str | None = None,
     initial_env: dict[str, str] | None = None,
     env: dict[str, str] | None = None,
-    forward_to: str | None = "bypass",
+    forward_to: str | None = "normal",
     check: bool = False,
     **kwargs: Any,
 ) -> SubprocessResult:

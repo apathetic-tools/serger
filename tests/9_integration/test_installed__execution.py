@@ -1,14 +1,12 @@
 # tests/9_integration/test_installed__execution.py
 """Verify the installed package version works via `python -m serger`."""
 
-import os
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 import serger.meta as mod_meta
-from tests.utils import make_test_package, write_config_file
+from tests.utils import make_test_package, run_with_output, write_config_file
 
 
 # --- only for installed runs ---
@@ -36,14 +34,11 @@ def test_installed_module_execution() -> None:
             out="tmp-dist/mypkg.py",
         )
 
-        result = subprocess.run(  # noqa: S603
+        result = run_with_output(
             [sys.executable, "-m", mod_meta.PROGRAM_PACKAGE],
             check=False,
             cwd=tmp,  # ✅ run in temp dir
-            capture_output=True,
-            text=True,
             timeout=15,
-            env=os.environ.copy(),
         )
 
     # --- verify ---
