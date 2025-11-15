@@ -37,6 +37,8 @@ Planned command-line flags for future releases:
 - Module actions glob pattern support: Phase 1 (simple wildcards in convenience dict)
 - Module actions glob pattern support: Phase 2 (globs in list format)
 - Module actions glob pattern support: Phase 3 (advanced patterns with multiple wildcards and named captures)
+- package can likely be resolved in single-builds. and in multi builds if not user provided we probably raised an error so we only move forward if it was provided.
+- evaluate the other NotRequired fields in resolved typedict to see if they are truly still optional or can be resolved or errored out before then.
 
 ## 🧩 Joiner Scripts (Build System)
 Exploring bundling options for generating the single-file release:
