@@ -13,6 +13,7 @@ from apathetic_utils.system import (
 from apathetic_utils.text import plural, remove_path_in_error_message
 from apathetic_utils.types import (
     cast_hint,
+    literal_to_set,
     safe_isinstance,
     schema_from_typeddict,
 )
@@ -40,6 +41,7 @@ __all__ = [  # noqa: RUF022
     "remove_path_in_error_message",
     # types
     "cast_hint",
+    "literal_to_set",
     "safe_isinstance",
     "schema_from_typeddict",
 ]
