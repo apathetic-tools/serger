@@ -1632,7 +1632,7 @@ class TestRepoField:
                     build_date_idx = i
                 if "# Repo:" in line:
                     repo_idx = i
-                if "# ruff: noqa:" in line:
+                if "# noqa:" in line:
                     ruff_noqa_idx = i
 
             assert build_date_idx is not None, "Build Date line not found"

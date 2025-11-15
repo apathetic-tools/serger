@@ -1475,7 +1475,7 @@ def _find_package_root_for_file(file_path: Path) -> Path | None:
         current_dir = parent
 
 
-def _detect_packages_from_files(
+def detect_packages_from_files(
     file_paths: list[Path],
     package_name: str,
 ) -> set[str]:
@@ -2121,12 +2121,13 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     # Use pre-detected packages from run_build (already excludes exclude_paths)
     detected_packages_raw = config.get("detected_packages")
     if detected_packages_raw is not None and isinstance(detected_packages_raw, set):
-        detected_packages = detected_packages_raw
+        # Type narrowing: cast to set[str] after isinstance check
+        detected_packages = cast("set[str]", detected_packages_raw)
         logger.debug("Using pre-detected packages: %s", sorted(detected_packages))
     else:
         # Fallback: detect from order_paths (shouldn't happen in normal flow)
         logger.debug("Detecting packages from order_paths (fallback)...")
-        detected_packages = _detect_packages_from_files(order_paths, package_name)
+        detected_packages = detect_packages_from_files(order_paths, package_name)
 
     # --- Validation Phase ---
     logger.debug("Validating module listing...")

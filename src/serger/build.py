@@ -12,8 +12,8 @@ from .config import BuildConfigResolved, IncludeResolved, PathResolved
 from .constants import DEFAULT_DRY_RUN
 from .logs import get_app_logger
 from .stitch import (
-    _detect_packages_from_files,
     compute_module_order,
+    detect_packages_from_files,
     extract_commit,
     extract_version,
     stitch_modules,
@@ -559,7 +559,7 @@ def run_build(  # noqa: PLR0915, PLR0912
 
     # Detect packages once from final files (after all exclusions)
     logger.debug("Detecting packages from included files (after exclusions)...")
-    detected_packages = _detect_packages_from_files(final_files, package)
+    detected_packages = detect_packages_from_files(final_files, package)
 
     # Resolve order paths (order is list[str] of paths, or None for auto-discovery)
     topo_paths: list[Path] | None = None
