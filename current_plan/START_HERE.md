@@ -31,5 +31,9 @@ I'm implementing the Module Actions feature for serger. The implementation plan 
 - Tests added for type definitions and config acceptance
 - All checks passing (`poetry run poe check:fix`)
 
-Please implement Iteration 04: Validate and resolve `module_actions` config.
+**Next step**: Iteration 03.5 - Resolve clarifying questions before proceeding to iteration 04.
+
+Several clarifying questions were identified during review of iterations 01-03 that should be answered before implementing iteration 04. These questions affect design decisions around default values, validation timing, and implementation approach.
+
+Please review and answer the questions in `current_plan/03.5_resolve_clarifying_questions.md`, then update the implementation plan accordingly before proceeding to iteration 04.
 

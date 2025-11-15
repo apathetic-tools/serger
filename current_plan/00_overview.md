@@ -14,6 +14,7 @@ This directory contains the iterative implementation plan for the Module Actions
 - **Iteration 01**: Rename `shim_mode` → `module_mode` in types and config
 - **Iteration 02**: Add `shim` setting types (`"all" | "public" | "none"`)
 - **Iteration 03**: Add `module_actions` types (ModuleActionFull, ModuleActions)
+- **Iteration 03.5**: Resolve clarifying questions from iterations 01-03
 - **Iteration 04**: Update config resolution to accept new keys (validation only, not used yet)
 
 ### Phase 2: Core Infrastructure
@@ -41,4 +42,27 @@ This directory contains the iterative implementation plan for the Module Actions
 - **Early renaming**: Rename `shim_mode` → `module_mode` early
 - **Preserve code**: Keep code that will be needed later, even if not called
 - **Test incrementally**: Add tests as we go, expand previous tests as we add features
+- **Ask clarifying questions**: If design decisions are unclear, add a clarifying questions section to the iteration plan and resolve them before proceeding
+
+## Clarifying Questions Pattern
+
+When implementing iterations, if you encounter design decisions that need clarification:
+
+1. **Add a "Clarifying Questions" section** to the iteration plan file
+2. **Document the question** with context and options
+3. **Create a separate iteration** (e.g., 03.5) if questions span multiple iterations or are critical
+4. **Answer all questions** before proceeding to the next iteration
+5. **Update implementation plans** based on the answers
+
+Example structure:
+```markdown
+## Clarifying Questions
+
+**Q: [Question title]**
+- Context: [Why this question matters]
+- **Decision needed**: [Options A, B, C]
+- **Answer**: [To be determined - see iteration X.Y]
+```
+
+This ensures design decisions are made explicitly and documented, preventing confusion or rework later.
 
