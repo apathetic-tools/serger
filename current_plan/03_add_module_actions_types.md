@@ -1,5 +1,7 @@
 # Iteration 03: Add `module_actions` Types
 
+> **Context**: See `current_plan/00_overview.md` for overall strategy and principles.
+
 ## Goal
 Add all type definitions for `module_actions` configuration. This includes the full TypedDict structure and union types.
 

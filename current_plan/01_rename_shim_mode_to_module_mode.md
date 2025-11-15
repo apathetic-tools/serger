@@ -1,5 +1,7 @@
 # Iteration 01: Rename `shim_mode` → `module_mode`
 
+> **Context**: See `current_plan/00_overview.md` for overall strategy and principles.
+
 ## Goal
 Rename `shim_mode` to `module_mode` throughout the codebase in types and config handling. This is a pure rename with no functional changes.
 

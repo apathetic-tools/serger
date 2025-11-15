@@ -1,4 +1,6 @@
 # Iteration 12: Add `affects` and `cleanup` Handling
+> **Context**: See `current_plan/00_overview.md` for overall strategy and principles.
+
 
 ## Goal
 Add support for `affects` key (shims/stitching/both) and `cleanup` key (auto/error/ignore) to handle shim-stitching mismatches.

@@ -1,4 +1,6 @@
 # Iteration 05: Create `module_actions.py` with Parsing Functions
+> **Context**: See `current_plan/00_overview.md` for overall strategy and principles.
+
 
 ## Goal
 Create the core `module_actions.py` file with parsing and normalization functions. This code will be used later but is not yet integrated.

@@ -1,4 +1,6 @@
 # Iteration 07: Add Action Application Functions
+> **Context**: See `current_plan/00_overview.md` for overall strategy and principles.
+
 
 ## Goal
 Add functions to apply module actions (move, copy, delete) to transform module names. This includes handling `preserve` and `flatten` modes.

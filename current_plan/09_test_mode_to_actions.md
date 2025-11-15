@@ -1,4 +1,6 @@
 # Iteration 09: Expand Tests for Mode-to-Actions
+> **Context**: See `current_plan/00_overview.md` for overall strategy and principles.
+
 
 ## Goal
 Add comprehensive tests for mode-to-actions conversion, including integration with parsing and validation.

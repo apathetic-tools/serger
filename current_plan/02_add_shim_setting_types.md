@@ -1,5 +1,7 @@
 # Iteration 02: Add `shim` Setting Types
 
+> **Context**: See `current_plan/00_overview.md` for overall strategy and principles.
+
 ## Goal
 Add the new `shim` setting type (`"all" | "public" | "none"`) to control shim generation. This is type-only, not yet used in logic.
 
