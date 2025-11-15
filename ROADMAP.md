@@ -55,8 +55,6 @@ Exploring bundling options for generating the single-file release:
 - Evaluate ignores and determine if we can fix them instead of ignore them
 - can we pull out common CLI elements with pocket-build into a single toplevel module?
 - command to do common tasks based on reddit advice for dealing with AI.
-- do we guarantee order (some for loops or data structures don't guarantee order)
-- same config same output? are we imdemponent (sp?)
 - if we moved the sys.modules shims as we went, would that allow us to do imports as long as the order was correct?
 - should more of our config settings be available to be set via ENV?
 

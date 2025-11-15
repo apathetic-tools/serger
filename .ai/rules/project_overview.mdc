@@ -1,8 +1,7 @@
 ---
 description: Serger project overview and context
 globs:
-  - "**/*.py"
-  - "**/*.md"
+  - "**/*"
 alwaysApply: true
 ---
 

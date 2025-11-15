@@ -1045,7 +1045,9 @@ def detect_name_collisions(
                 symbols[name] = mod
 
     if collisions:
-        collision_list = ", ".join(f"{name!r}" for name, _, _ in collisions)
+        # Sort collisions by name for deterministic error messages
+        sorted_collisions = sorted(collisions, key=lambda x: x[0])
+        collision_list = ", ".join(f"{name!r}" for name, _, _ in sorted_collisions)
         msg = f"Top-level name collisions detected: {collision_list}"
         raise RuntimeError(msg)
 
@@ -1994,7 +1996,8 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         if pkg_name not in packages:
             continue  # Skip packages that don't have any modules
 
-        module_names_for_pkg = [name for name, _ in packages[pkg_name]]
+        # Sort module names for deterministic output
+        module_names_for_pkg = sorted([name for name, _ in packages[pkg_name]])
         # Module names already have full paths (with package_name prefix),
         # but ensure they're correctly formatted for registration
         # If name equals pkg_name, it's the root module itself

@@ -2,7 +2,6 @@
 description: Execution and workflow conventions
 globs:
   - "**/*.py"
-  - "**/*.md"
 alwaysApply: true
 ---
 
