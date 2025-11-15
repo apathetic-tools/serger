@@ -529,17 +529,17 @@ class DualStreamHandler(logging.StreamHandler):  # type: ignore[type-arg]
             # This ensures they still break tests as expected
             # Even in TEST mode, warnings/errors use normal stderr
             self.stream = sys.stderr
-        elif level == logging.INFO:
-            # INFO goes to stdout (normal program output)
-            self.stream = sys.stdout
-        elif is_test_mode and level < logging.INFO:
+        elif level <= logging.DEBUG:
             # TEST/TRACE/DEBUG in TEST mode: use bypass stream
             # Use __stderr__ so they bypass pytest capsys but are still
             # capturable by subprocess.run(capture_output=True)
-            self.stream = sys.__stderr__
+            if is_test_mode:
+                self.stream = sys.__stderr__
+            else:
+                self.stream = sys.stderr
         else:
-            # TRACE and DEBUG go to stderr (diagnostic output)
-            self.stream = sys.stderr
+            # INFO goes to stdout (normal program output)
+            self.stream = sys.stdout
 
         # used by TagFormatter
         record.enable_color = getattr(self, "enable_color", False)
