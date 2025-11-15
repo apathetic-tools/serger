@@ -91,6 +91,33 @@ def _transform_module_name(
 - Comprehensive tests for all action types and modes
 - Test complex scenarios (multiple actions, nested packages, etc.)
 
+## Review and Clarifying Questions
+
+**After implementing this iteration**, review the changes and document any questions that arise:
+
+1. **Review the implementation**:
+   - Check that all action types (move, copy, delete) work correctly
+   - Verify preserve vs flatten modes work as expected
+   - Check that copy actions keep source in place
+   - Verify delete actions remove module and all submodules
+   - Check that multi-level paths are handled correctly
+
+2. **Document any questions**:
+   - Are there edge cases in action application that need clarification?
+   - How should we handle overlapping actions (e.g., move then delete same module)?
+   - Are there any performance concerns with large module lists?
+   - Should we validate module names after transformation?
+
+3. **Resolve before proceeding**:
+   - Answer all questions before moving to iteration 08
+   - Update implementation if needed
+   - Update iteration 08 plan if decisions affect it
+
+**Questions to consider**:
+- How should we handle intermediate package creation (e.g., `grinch.xmas.topper` when `grinch.xmas` doesn't exist)?
+- Should we track which packages were created vs which existed originally?
+- Are there any edge cases with flatten mode and deeply nested packages?
+
 ## Commit Message
 ```
 feat(module_actions): add action application functions

@@ -3,7 +3,7 @@
 
 
 ## Goal
-Create the core `module_actions.py` file with parsing and normalization functions. This code will be used later but is not yet integrated.
+Create the core `module_actions.py` file with helper functions for processing module actions. **Note**: Config parsing and normalization is already done in iteration 04 (config resolution), so this focuses on helper functions for working with already-normalized actions and setting defaults on mode-generated actions.
 
 ## Changes
 
@@ -14,88 +14,100 @@ Create the core `module_actions.py` file with parsing and normalization function
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from serger.config.config_types import ModuleActionFull, ModuleActions
+    from serger.config.config_types import ModuleActionFull
 
-def parse_module_actions(
-    module_actions: ModuleActions | None,
-) -> list[ModuleActionFull]:
-    """
-    Parse and normalize module_actions config to internal format.
-    
-    Converts dict format to list format and sets defaults.
-    Returns empty list if module_actions is None or empty.
-    """
-    # Implementation here
-
-def _normalize_dict_format(
-    actions_dict: dict[str, str | None],
-) -> list[ModuleActionFull]:
-    """Convert dict format to list format."""
-    # Implementation here
-
-def _set_action_defaults(
+def set_mode_generated_action_defaults(
     action: ModuleActionFull,
-    is_mode_generated: bool = False,
 ) -> ModuleActionFull:
     """
-    Set default values for action fields.
+    Set default values for mode-generated actions.
     
-    - action: default "move"
-    - mode: default "preserve"
-    - scope: default "original" for mode-generated, "shim" for user actions
-    - affects: default "shims"
-    - cleanup: default "auto"
+    Mode-generated actions are created fresh (not from config), so they need
+    defaults applied. All mode-generated actions have:
+    - action: "move" (if not specified)
+    - mode: "preserve" (if not specified)
+    - scope: "original" (always set for mode-generated)
+    - affects: "shims" (if not specified)
+    - cleanup: "auto" (if not specified)
+    
+    Note: User actions from BuildConfigResolved already have all defaults
+    applied (including scope: "shim") from config resolution (iteration 04).
     """
     # Implementation here
 ```
 
 ### 2. Implementation Details
-- `parse_module_actions()`:
-  - Handle None/empty input
-  - If dict format, convert to list
-  - If list format, validate structure
-  - Set defaults for all optional fields
-  - Return normalized list
-  
-- `_normalize_dict_format()`:
-  - Convert `{"old": "new"}` → `[{"source": "old", "dest": "new", ...}]`
-  - Convert `{"old": None}` → `[{"source": "old", "action": "delete", ...}]`
-  - Set appropriate defaults
-  
-- `_set_action_defaults()`:
+- `set_mode_generated_action_defaults()`:
   - Set `action: "move"` if not specified
   - Set `mode: "preserve"` if not specified
-  - Set `scope: "original"` if `is_mode_generated=True`, else `"shim"`
+  - **Always set** `scope: "original"` (mode-generated actions always use original scope)
   - Set `affects: "shims"` if not specified
   - Set `cleanup: "auto"` if not specified
+  - Return action with all fields present
 
-### 3. Add Tests
-- `tests/5_core/test_module_actions.py`: Test parsing functions
-  - Test `parse_module_actions()` with None/empty
-  - Test dict format parsing
-  - Test list format parsing
-  - Test default value setting
-  - Test mode-generated vs user action defaults (scope)
+### 3. Notes on Config Resolution (Iteration 04)
+- **User actions** from `BuildConfigResolved.module_actions` are already:
+  - Normalized to list format
+  - Have all defaults applied (action, mode, affects, cleanup)
+  - Have `scope: "shim"` set (per Q3 decision)
+  - Ready to use directly - no parsing needed
+  
+- **Mode-generated actions** are created fresh in iteration 08/10, so they need:
+  - Defaults applied using `set_mode_generated_action_defaults()`
+  - `scope: "original"` explicitly set (per Q3 decision)
+
+### 4. Add Tests
+- `tests/5_core/test_module_actions.py`: Test helper functions
+  - Test `set_mode_generated_action_defaults()` sets all defaults correctly
+  - Test that `scope: "original"` is always set for mode-generated actions
   - Test that all fields are properly set
+  - Test with actions that already have some fields set (shouldn't override)
 
 ## Notes
-- This code is not yet called from stitch.py
-- Functions are ready to be used when integration happens
-- All parsing logic is centralized here
+- **Important**: Config parsing is done in iteration 04 (config resolution)
+- User actions from `BuildConfigResolved` are already fully normalized - use directly
+- This iteration focuses on helper functions for mode-generated actions
+- Mode-generated actions need defaults applied when created (iteration 08/10)
 
 ## Testing
 - Run `poetry run poe check:fix` - must pass
 - Comprehensive unit tests for all parsing functions
 - Test edge cases (empty dict, empty list, etc.)
 
+## Review and Clarifying Questions
+
+**After implementing this iteration**, review the changes and document any questions that arise:
+
+1. **Review the implementation**:
+   - Check that parsing functions handle all edge cases correctly
+   - Verify default values are set correctly for both mode-generated and user actions
+   - Check that dict format conversion works correctly
+   - Verify all fields are properly set in normalized actions
+   - Check for any inconsistencies with config resolution logic (iteration 04)
+
+2. **Document any questions**:
+   - Are there edge cases in parsing that need clarification?
+   - Are there any conflicts between this parsing and config resolution?
+   - Are there any unclear behaviors that should be documented?
+   - Should `parse_module_actions()` duplicate logic from config resolution, or should it reuse it?
+
+3. **Resolve before proceeding**:
+   - Answer all questions before moving to iteration 06
+   - Update implementation if needed
+   - Update iteration 06 plan if decisions affect it
+
+**Questions to consider**:
+- Should we add other helper functions for working with normalized actions?
+- Are there any edge cases with setting defaults on mode-generated actions?
+
 ## Commit Message
 ```
-feat(module_actions): add parsing and normalization functions
+feat(module_actions): add helper functions for mode-generated actions
 
 - Create src/serger/module_actions.py
-- Add parse_module_actions() to normalize config to internal format
-- Add _normalize_dict_format() to convert dict to list format
-- Add _set_action_defaults() to set default values
+- Add set_mode_generated_action_defaults() to set defaults on fresh actions
+- Mode-generated actions get scope: "original" and other defaults
+- Note: User actions from BuildConfigResolved already normalized (iteration 04)
 - Add comprehensive unit tests
 - Not yet integrated into stitch logic (coming in later iteration)
 ```

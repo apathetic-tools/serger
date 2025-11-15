@@ -54,35 +54,16 @@ ModuleActions = ModuleActionSimple | list[ModuleActionFull]
 
 ## Clarifying Questions
 
-**Q1: When should default values be applied to module actions?**
-- The design doc mentions defaults for optional fields (action: "move", mode: "preserve", scope: "shim"/"original", affects: "shims", cleanup: "auto").
-- **Decision needed**: Should defaults be applied at config resolution time or later when processing actions?
-- **Answer**: [To be determined - see iteration 03.5]
+**Note**: All clarifying questions have been resolved in iteration 03.5. See `current_plan/03.5_resolve_clarifying_questions.md` for full answers.
 
-**Q2: Should `BuildConfigResolved.module_actions` have all fields present with defaults?**
-- `BuildConfigResolved` is a "Resolved" TypedDict, meaning it should have all fields present with final values.
-- **Decision needed**: Should all fields be present with defaults, or keep optional fields optional?
-- **Answer**: [To be determined - see iteration 03.5]
-
-**Q3: When should `scope` defaults be set?**
-- The design doc says user actions default to `scope: "shim"`, mode-generated actions default to `scope: "original"`.
-- **Decision needed**: Should we set scope defaults at config resolution or later when we know if actions are mode-generated?
-- **Answer**: [To be determined - see iteration 03.5]
-
-**Q4: Should dict format actions have `scope: "shim"` set explicitly?**
-- The design doc says dict format defaults to `scope: "shim"` for user actions.
-- **Decision needed**: Should we explicitly set `scope: "shim"` when converting dict format to list format?
-- **Answer**: [To be determined - see iteration 03.5]
-
-**Q5: When should `dest` validation happen?**
-- The design doc says `dest` is required for `move`/`copy`, must not be present for `delete`.
-- **Decision needed**: Should we validate this in iteration 04 (config resolution) or later when processing actions?
-- **Answer**: [To be determined - see iteration 03.5]
-
-**Q6: Is `source_path` needed in iteration 03/04?**
-- The design doc mentions `source_path` for re-including excluded modules.
-- **Decision needed**: Should we include `source_path` validation in iteration 04 or defer to later?
-- **Answer**: [To be determined - see iteration 03.5]
+**Summary of decisions**:
+- **Q1**: Defaults applied at config resolution time (Option A)
+- **Q2**: All fields present with defaults in `BuildConfigResolved` (Option A)
+- **Q3**: Set `scope: "shim"` for user actions at config resolution; mode-generated actions set `scope: "original"` when created (Option C)
+- **Q4**: Explicitly set `scope: "shim"` when converting dict format (Option A)
+- **Q5**: Validate `dest` in iteration 04 (config resolution) (Option A)
+- **Q6**: Defer `source_path` handling to later iteration (Option B)
+- **Q7**: Accept `shim: "public"` as valid but treat same as `"all"` for now (Option C)
 
 ## Notes
 - Types are added but not yet used in stitch logic

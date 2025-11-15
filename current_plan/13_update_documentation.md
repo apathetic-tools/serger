@@ -51,6 +51,32 @@ Update `configuration-reference.md` and other documentation to reflect the compl
 - Documentation is clear and complete
 - Examples are accurate and tested
 
+## Review and Clarifying Questions
+
+**After implementing this iteration**, review the changes and document any questions that arise:
+
+1. **Review the implementation**:
+   - Check that all documentation is clear and complete
+   - Verify that examples are accurate and tested
+   - Check that terminology is consistent throughout
+   - Verify that all features are documented
+
+2. **Document any questions**:
+   - Are there any documentation gaps that need filling?
+   - Are there any examples that are unclear or need improvement?
+   - Are there any edge cases that should be documented?
+   - Should we add troubleshooting sections?
+
+3. **Resolve before proceeding**:
+   - Answer all questions before moving to iteration 14
+   - Update documentation if needed
+   - Update iteration 14 plan if decisions affect it
+
+**Questions to consider**:
+- Are there any common use cases that need better examples?
+- Should we add a migration guide for users of old `shim_mode`?
+- Are there any gotchas or common mistakes that should be documented?
+
 ## Commit Message
 ```
 docs: update configuration reference for module_actions

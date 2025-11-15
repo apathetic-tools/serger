@@ -43,6 +43,7 @@ This directory contains the iterative implementation plan for the Module Actions
 - **Preserve code**: Keep code that will be needed later, even if not called
 - **Test incrementally**: Add tests as we go, expand previous tests as we add features
 - **Ask clarifying questions**: If design decisions are unclear, add a clarifying questions section to the iteration plan and resolve them before proceeding
+- **Review at end of iteration**: After implementing changes and before committing, review the implementation for ambiguous decisions, edge cases, or unclear behavior. Document any new clarifying questions that arise and resolve them before proceeding to the next iteration.
 
 ## Clarifying Questions Pattern
 
@@ -65,4 +66,39 @@ Example structure:
 ```
 
 This ensures design decisions are made explicitly and documented, preventing confusion or rework later.
+
+## Review and Clarifying Questions at End of Iteration
+
+**Standard practice**: At the end of each iteration, after implementing changes and running tests:
+
+1. **Review the implementation**:
+   - Check for ambiguous behavior or edge cases
+   - Verify the implementation matches the design decisions
+   - Look for inconsistencies with existing code patterns
+   - Identify any unclear or potentially problematic areas
+
+2. **Document clarifying questions**:
+   - Add a "Review and Clarifying Questions" section to the iteration file
+   - Document any questions that arose during implementation
+   - If questions are critical or affect multiple iterations, create a separate iteration (e.g., 03.5) to resolve them
+   - If questions are minor, document them and answer them inline
+
+3. **Resolve before proceeding**:
+   - Answer all questions before moving to the next iteration
+   - Update the implementation if needed based on answers
+   - Update the next iteration's plan if decisions affect it
+
+**Example structure for iteration files**:
+```markdown
+## Review and Clarifying Questions
+
+After implementing this iteration, review the changes and document any questions:
+
+**Q: [Question that arose during implementation]**
+- Context: [What made this unclear]
+- Options: [Possible approaches]
+- Decision: [Answer or "To be resolved in iteration X.Y"]
+```
+
+This practice catches issues early and ensures each iteration is complete and unambiguous before moving forward.
 

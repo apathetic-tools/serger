@@ -36,6 +36,30 @@ Add comprehensive tests for mode-to-actions conversion, including integration wi
 - All new tests pass
 - All previous tests still pass
 
+## Review and Clarifying Questions
+
+**After implementing this iteration**, review the changes and document any questions that arise:
+
+1. **Review the implementation**:
+   - Check that all tests cover the intended scenarios
+   - Verify that mode-generated actions work correctly with parsing and validation
+   - Check that combining mode-generated and user actions works as expected
+   - Verify that test coverage is comprehensive
+
+2. **Document any questions**:
+   - Are there any test scenarios that are missing?
+   - Are there any edge cases that need additional tests?
+   - Do the tests adequately verify that mode-generated actions match old mode behavior?
+
+3. **Resolve before proceeding**:
+   - Answer all questions before moving to iteration 10
+   - Add additional tests if needed
+   - Update iteration 10 plan if decisions affect it
+
+**Questions to consider**:
+- Should we add comparison tests to verify mode-generated actions produce same results as old mode logic?
+- Are there any integration scenarios that need testing before iteration 10?
+
 ## Commit Message
 ```
 test(module_actions): expand tests for mode-to-actions conversion
