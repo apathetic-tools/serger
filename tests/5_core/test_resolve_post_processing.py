@@ -302,3 +302,116 @@ def test_resolve_post_processing_none_root_config() -> None:
     resolved = mod_resolve.resolve_post_processing(build_cfg, None)
 
     assert resolved["enabled"] is False
+
+
+def test_resolve_post_processing_custom_labels_in_user_config_priority() -> None:
+    """Should handle custom labels in user config priority."""
+    build_cfg: mod_types.BuildConfig = {
+        "post_processing": {
+            "categories": {
+                "formatter": {
+                    "priority": ["ruff:first", "ruff:second"],
+                    "tools": {
+                        "ruff:first": {
+                            "command": "ruff",
+                            "args": ["check", "--fix"],
+                        },
+                        "ruff:second": {
+                            "command": "ruff",
+                            "args": ["format"],
+                        },
+                    },
+                },
+            },
+        },
+    }
+    root_cfg: mod_types.RootConfig | None = None
+
+    resolved = mod_resolve.resolve_post_processing(build_cfg, root_cfg)
+
+    # Both should be in priority
+    formatter = resolved["categories"]["formatter"]
+    assert formatter.get("priority") == ["ruff:first", "ruff:second"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+
+
+def test_resolve_post_processing_custom_labels_in_default_categories() -> None:
+    """Should handle custom labels in DEFAULT_CATEGORIES priority."""
+    # Temporarily modify DEFAULT_CATEGORIES to have custom labels
+    original_formatter = mod_constants.DEFAULT_CATEGORIES["formatter"].copy()
+    mod_constants.DEFAULT_CATEGORIES["formatter"] = {
+        "enabled": True,
+        "priority": ["ruff:check", "ruff:format"],
+        "tools": {
+            "ruff:check": {
+                "command": "ruff",
+                "args": ["check", "--fix"],
+            },
+            "ruff:format": {
+                "command": "ruff",
+                "args": ["format"],
+            },
+        },
+    }
+
+    try:
+        # User config doesn't override - should use defaults
+        build_cfg: mod_types.BuildConfig = {}
+        root_cfg: mod_types.RootConfig | None = None
+        resolved = mod_resolve.resolve_post_processing(build_cfg, root_cfg)
+
+        formatter = resolved["categories"]["formatter"]
+        # Should have custom labels from defaults
+        assert formatter.get("priority") == ["ruff:check", "ruff:format"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+        tools = formatter.get("tools")  # pyright: ignore[reportTypedDictNotRequiredAccess]
+        assert tools is not None
+        assert "ruff:check" in tools
+        assert "ruff:format" in tools
+    finally:
+        mod_constants.DEFAULT_CATEGORIES["formatter"] = original_formatter
+
+
+def test_resolve_post_processing_custom_label_fallback_from_defaults() -> None:
+    """Should fallback to DEFAULT_CATEGORIES when custom label in priority.
+
+    Custom label should be found in DEFAULT_CATEGORIES when not in user tools.
+    """
+    # DEFAULT_CATEGORIES has custom label
+    original_formatter = mod_constants.DEFAULT_CATEGORIES["formatter"].copy()
+    mod_constants.DEFAULT_CATEGORIES["formatter"] = {
+        "enabled": True,
+        "priority": ["ruff:check", "ruff:format"],
+        "tools": {
+            "ruff:check": {
+                "command": "ruff",
+                "args": ["check", "--fix"],
+            },
+            "ruff:format": {
+                "command": "ruff",
+                "args": ["format"],
+            },
+        },
+    }
+
+    try:
+        # User config has custom label in priority but doesn't define it in tools
+        build_cfg: mod_types.BuildConfig = {
+            "post_processing": {
+                "categories": {
+                    "formatter": {
+                        "priority": ["ruff:check"],  # In priority but not in user tools
+                        # No tools dict - should fallback to defaults
+                    },
+                },
+            },
+        }
+        root_cfg: mod_types.RootConfig | None = None
+        resolved = mod_resolve.resolve_post_processing(build_cfg, root_cfg)
+
+        formatter = resolved["categories"]["formatter"]
+        assert formatter.get("priority") == ["ruff:check"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+        tools = formatter.get("tools")  # pyright: ignore[reportTypedDictNotRequiredAccess]
+        assert tools is not None
+        # Should have ruff:check from defaults via fallback
+        assert "ruff:check" in tools
+    finally:
+        mod_constants.DEFAULT_CATEGORIES["formatter"] = original_formatter

@@ -867,3 +867,66 @@ def test_execute_post_processing_subprocess_exception(
         mod_verify.execute_post_processing(path, config)
     finally:
         path.unlink(missing_ok=True)
+
+
+def test_execute_post_processing_custom_label_missing_from_tools_skipped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Should skip custom label gracefully when missing from tools and defaults.
+
+    Custom label in priority but not defined anywhere should be skipped.
+    """
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+        f.write("x = 1\n")
+        f.flush()
+        path = Path(f.name)
+
+    try:
+        executed_commands: list[list[str]] = []
+
+        def mock_run(
+            command: list[str],
+            **_kwargs: object,
+        ) -> MagicMock:
+            executed_commands.append(command)
+            result = MagicMock()
+            result.returncode = 0
+            result.stdout = ""
+            result.stderr = ""
+            return result
+
+        def mock_find_tool_executable(
+            tool_name: str,
+            **_kwargs: object,
+        ) -> str | None:
+            return f"/fake/path/{tool_name}"
+
+        monkeypatch.setattr(subprocess, "run", mock_run)
+        monkeypatch.setattr(
+            mod_verify, "find_tool_executable", mock_find_tool_executable
+        )
+
+        # User config has custom label in priority but not defined anywhere
+        build_cfg: mod_config_types.BuildConfig = {
+            "post_processing": {
+                "categories": {
+                    "formatter": {
+                        "priority": ["ruff:missing", "ruff"],  # ruff:missing not defined
+                        "tools": {
+                            "ruff": {
+                                "command": "ruff",
+                                "args": ["format"],
+                            },
+                        },
+                    },
+                },
+            },
+        }
+        resolved = mod_config_resolve.resolve_post_processing(build_cfg, None)
+
+        # Should not raise, should skip ruff:missing and use ruff
+        mod_verify.execute_post_processing(path, resolved)
+        # Should have executed at least one command (ruff)
+        assert len(executed_commands) >= 1
+    finally:
+        path.unlink(missing_ok=True)
