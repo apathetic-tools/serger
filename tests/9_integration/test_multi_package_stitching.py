@@ -74,6 +74,7 @@ def test_multi_package_stitching_with_shims(tmp_path: Path) -> None:
             "external_imports": mod_constants.DEFAULT_EXTERNAL_IMPORTS[
                 mod_constants.DEFAULT_STITCH_MODE
             ],
+            "comments_mode": mod_constants.DEFAULT_COMMENTS_MODE,
             "post_processing": {
                 "enabled": True,
                 "category_order": [],
@@ -303,6 +304,7 @@ def test_multi_package_stitching_three_packages(tmp_path: Path) -> None:
             "external_imports": mod_constants.DEFAULT_EXTERNAL_IMPORTS[
                 mod_constants.DEFAULT_STITCH_MODE
             ],
+            "comments_mode": mod_constants.DEFAULT_COMMENTS_MODE,
             "post_processing": {
                 "enabled": True,
                 "category_order": [],
@@ -412,6 +414,7 @@ def test_multi_package_auto_discover_order_with_cross_package_imports(
             "external_imports": mod_constants.DEFAULT_EXTERNAL_IMPORTS[
                 mod_constants.DEFAULT_STITCH_MODE
             ],
+            "comments_mode": mod_constants.DEFAULT_COMMENTS_MODE,
             "post_processing": {
                 "enabled": True,
                 "category_order": [],
