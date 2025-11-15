@@ -555,3 +555,103 @@ def apply_module_actions(
         result = apply_single_action(result, action, _detected_packages)
 
     return result
+
+
+def _generate_force_actions(
+    detected_packages: set[str],
+    package_name: str,
+    mode: "ModuleActionMode",
+) -> list["ModuleActionFull"]:
+    """Generate actions for force/force_flat modes.
+
+    Args:
+        detected_packages: Set of all detected package names
+        package_name: Target package name (excluded from actions)
+        mode: "preserve" or "flatten"
+
+    Returns:
+        List of actions for root packages
+    """
+    actions: list[ModuleActionFull] = []
+    root_packages = {pkg for pkg in detected_packages if "." not in pkg}
+    for pkg in sorted(root_packages):
+        if pkg != package_name:
+            action: ModuleActionFull = {
+                "source": pkg,
+                "dest": package_name,
+                "mode": mode,
+            }
+            actions.append(set_mode_generated_action_defaults(action))
+    return actions
+
+
+def _generate_unify_actions(
+    detected_packages: set[str],
+    package_name: str,
+) -> list["ModuleActionFull"]:
+    """Generate actions for unify/unify_preserve modes.
+
+    Args:
+        detected_packages: Set of all detected package names
+        package_name: Target package name (excluded from actions)
+
+    Returns:
+        List of actions for all packages
+    """
+    actions: list[ModuleActionFull] = []
+    for pkg in sorted(detected_packages):
+        if pkg != package_name:
+            action: ModuleActionFull = {
+                "source": pkg,
+                "dest": f"{package_name}.{pkg}",
+                "mode": "preserve",
+            }
+            actions.append(set_mode_generated_action_defaults(action))
+    return actions
+
+
+def generate_actions_from_mode(
+    module_mode: str,
+    detected_packages: set[str],
+    package_name: str,
+) -> list["ModuleActionFull"]:
+    """Generate module_actions equivalent to a module_mode.
+
+    Converts module_mode presets into explicit actions that are prepended to
+    user-specified actions. Returns list of actions that would produce the
+    same result as the mode.
+
+    All generated actions have scope: "original".
+
+    Args:
+        module_mode: Mode value ("force", "force_flat", "unify", "multi", etc.)
+        detected_packages: Set of all detected package names
+        package_name: Target package name (excluded from actions)
+
+    Returns:
+        List of actions equivalent to the mode
+
+    Raises:
+        ValueError: For invalid mode values
+    """
+    if module_mode == "force":
+        return _generate_force_actions(detected_packages, package_name, "preserve")
+
+    if module_mode == "force_flat":
+        return _generate_force_actions(detected_packages, package_name, "flatten")
+
+    if module_mode in ("unify", "unify_preserve"):
+        return _generate_unify_actions(detected_packages, package_name)
+
+    if module_mode in ("multi", "none", "flat"):
+        # multi: no actions needed (default behavior)
+        # none: no shims (handled separately via shim setting)
+        # flat: cannot be expressed as actions (requires file-level detection)
+        return []
+
+    msg = (
+        f"Invalid module_mode: {module_mode!r}. "
+        f"Must be one of: 'none', 'multi', 'force', 'force_flat', "
+        f"'unify', 'unify_preserve', 'flat'"
+    )
+    raise ValueError(msg)
