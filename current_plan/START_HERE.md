@@ -1,6 +1,6 @@
 # Start Here: Module Actions Implementation
 
-**Next iteration**: Iteration 09 - `current_plan/09_integrate_mode_to_actions.md`
+**Next iteration**: Iteration 10 - `current_plan/10_integrate_module_actions_into_stitch.md`
 
 **Context**:
 - See `current_plan/00_overview.md` for overall strategy and principles
@@ -15,4 +15,4 @@
 - Add unit tests for each section as we go
 - **Review at end of iteration** - document any clarifying questions before proceeding
 
-**Completed**: Iterations 01, 02, 03, 03.5, 04, 05, 06, 07, 08 ✓
+**Completed**: Iterations 01, 02, 03, 03.5, 04, 05, 06, 07, 08, 09 ✓

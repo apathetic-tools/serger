@@ -140,3 +140,65 @@ def test_validate_module_actions_conflicting_operations_error() -> None:
         mod_module_actions.validate_module_actions(
             actions, original_modules, detected_packages
         )
+
+
+def test_validate_module_actions_mode_generated_actions() -> None:
+    """Test that mode-generated actions pass validation."""
+    detected_packages = {"pkg1", "pkg2", "target"}
+    package_name = "target"
+    original_modules = {"pkg1", "pkg2", "target"}
+
+    # Generate actions from mode
+    actions = mod_module_actions.generate_actions_from_mode(
+        "force", detected_packages, package_name
+    )
+
+    # Should pass validation
+    mod_module_actions.validate_module_actions(
+        actions, original_modules, detected_packages
+    )
+
+
+def test_validate_module_actions_mode_generated_with_scope_filter() -> None:
+    """Test mode-generated actions with scope filter."""
+    detected_packages = {"pkg1", "pkg2", "target"}
+    package_name = "target"
+    original_modules = {"pkg1", "pkg2", "target"}
+
+    actions = mod_module_actions.generate_actions_from_mode(
+        "force", detected_packages, package_name
+    )
+
+    # All mode-generated actions have scope: "original"
+    # Should pass with scope="original" filter
+    mod_module_actions.validate_module_actions(
+        actions, original_modules, detected_packages, scope="original"
+    )
+
+    # Should also pass with scope="shim" filter (filters to empty, but valid)
+    mod_module_actions.validate_module_actions(
+        actions, original_modules, detected_packages, scope="shim"
+    )
+
+
+def test_validate_module_actions_combine_mode_and_user() -> None:
+    """Test validation of combined mode-generated and user actions."""
+    detected_packages = {"pkg1", "pkg2", "pkg3", "target"}
+    package_name = "target"
+    original_modules = {"pkg1", "pkg2", "pkg3", "target"}
+
+    # Mode-generated actions
+    mode_actions = mod_module_actions.generate_actions_from_mode(
+        "force", detected_packages, package_name
+    )
+
+    # User actions
+    user_actions: list[mod_types.ModuleActionFull] = [
+        {"source": "pkg3", "dest": "pkg3_new", "action": "move"}
+    ]
+
+    # Combined actions should pass validation
+    combined = mode_actions + user_actions
+    mod_module_actions.validate_module_actions(
+        combined, original_modules, detected_packages
+    )

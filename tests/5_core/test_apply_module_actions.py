@@ -106,3 +106,101 @@ def test_apply_module_actions_complex_scenario() -> None:
     #                        other_pkg, other_pkg.sub]
     # After delete: [grinch, grinch.utils, grinch.text, other_pkg]
     assert result == ["grinch", "grinch.utils", "grinch.text", "other_pkg"]
+
+
+def test_apply_module_actions_mode_generated_force() -> None:
+    """Test applying mode-generated actions from force mode."""
+    detected_packages = {"pkg1", "pkg2", "target"}
+    package_name = "target"
+    module_names = ["pkg1", "pkg1.sub", "pkg2", "target"]
+
+    actions = mod_module_actions.generate_actions_from_mode(
+        "force", detected_packages, package_name
+    )
+
+    result = mod_module_actions.apply_module_actions(
+        module_names, actions, detected_packages
+    )
+
+    # Force mode: pkg1, pkg2 -> target
+    assert "target" in result
+    assert "target.sub" in result
+    assert "pkg1" not in result
+    assert "pkg2" not in result
+
+
+def test_apply_module_actions_mode_generated_unify() -> None:
+    """Test applying mode-generated actions from unify mode."""
+    detected_packages = {"pkg1", "pkg2.sub", "target"}
+    package_name = "target"
+    module_names = ["pkg1", "pkg1.sub", "pkg2", "pkg2.sub", "target"]
+
+    actions = mod_module_actions.generate_actions_from_mode(
+        "unify", detected_packages, package_name
+    )
+
+    result = mod_module_actions.apply_module_actions(
+        module_names, actions, detected_packages
+    )
+
+    # Unify mode: pkg1 -> target.pkg1, pkg2.sub -> target.pkg2.sub
+    assert "target.pkg1" in result
+    assert "target.pkg1.sub" in result
+    assert "target.pkg2.sub" in result
+    assert "pkg1" not in result
+    assert "pkg2.sub" not in result
+
+
+def test_apply_module_actions_mode_generated_force_flat() -> None:
+    """Test applying mode-generated actions from force_flat mode."""
+    detected_packages = {"pkg1", "pkg2", "target"}
+    package_name = "target"
+    module_names = ["pkg1", "pkg1.sub", "pkg2", "target"]
+
+    actions = mod_module_actions.generate_actions_from_mode(
+        "force_flat", detected_packages, package_name
+    )
+
+    result = mod_module_actions.apply_module_actions(
+        module_names, actions, detected_packages
+    )
+
+    # Force_flat mode: pkg1, pkg2 -> target (flatten)
+    # pkg1.sub -> target.sub (not target.pkg1.sub)
+    assert "target" in result
+    assert "target.sub" in result
+    assert "target.pkg1" not in result
+    assert "pkg1" not in result
+    assert "pkg2" not in result
+
+
+def test_apply_module_actions_combine_mode_and_user() -> None:
+    """Test applying combined mode-generated and user actions."""
+    # pkg3 is not in detected_packages so mode actions won't move it
+    detected_packages = {"pkg1", "pkg2", "target"}
+    package_name = "target"
+    module_names = ["pkg1", "pkg2", "pkg3", "target"]
+
+    # Mode actions: pkg1, pkg2 -> target
+    mode_actions = mod_module_actions.generate_actions_from_mode(
+        "force", detected_packages, package_name
+    )
+
+    # User action: pkg3 -> pkg3_new
+    user_actions: list[mod_types.ModuleActionFull] = [
+        {"source": "pkg3", "dest": "pkg3_new", "action": "move"}
+    ]
+
+    # Combine: mode first, then user
+    combined = mode_actions + user_actions
+    result = mod_module_actions.apply_module_actions(
+        module_names, combined, detected_packages
+    )
+
+    # Mode: pkg1, pkg2 -> target
+    # User: pkg3 -> pkg3_new
+    assert "target" in result
+    assert "pkg3_new" in result
+    assert "pkg1" not in result
+    assert "pkg2" not in result
+    assert "pkg3" not in result

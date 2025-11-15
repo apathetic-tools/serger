@@ -73,12 +73,17 @@ def validate_action_source_exists(
 def validate_action_dest(
     action: "ModuleActionFull",
     existing_modules: set[str],
+    *,
+    allowed_destinations: set[str] | None = None,
 ) -> None:
     """Validate action destination (conflicts, required for move/copy, etc.).
 
     Args:
         action: Action to validate
         existing_modules: Set of existing module names (for conflict checking)
+        allowed_destinations: Optional set of destinations that are allowed
+            even if they exist in existing_modules (e.g., target package for
+            mode-generated actions). If None, no special exceptions.
 
     Raises:
         ValueError: If destination is invalid
@@ -105,8 +110,14 @@ def validate_action_dest(
             raise ValueError(msg)
 
         # For move, dest must not conflict with existing modules
+        # Exception: if dest is in allowed_destinations, it's allowed
+        # (e.g., target package for mode-generated actions)
         # For copy, dest can conflict (it's allowed to overwrite)
-        if action_type == "move" and dest in existing_modules:
+        if (
+            action_type == "move"
+            and dest in existing_modules
+            and (allowed_destinations is None or dest not in allowed_destinations)
+        ):
             msg = (
                 f"Module action 'move' destination '{dest}' "
                 f"conflicts with existing module"
@@ -183,7 +194,7 @@ def validate_no_circular_moves(
             raise ValueError(msg)
 
 
-def validate_no_conflicting_operations(
+def validate_no_conflicting_operations(  # noqa: PLR0912
     actions: list["ModuleActionFull"],
 ) -> None:
     """Validate no conflicting operations (delete then move, etc.).
@@ -249,19 +260,34 @@ def validate_no_conflicting_operations(
 
     # Check: Can't move to something that's being moved/copied from
     # (copy is allowed to overwrite, but move is not)
+    # Exception: If a module is only a destination (not a source) in other
+    # actions, it's allowed to move it (e.g., moving target package after
+    # mode actions have moved things into it)
     for action in actions:
         action_type = action.get("action", "move")
         dest = action.get("dest")
+        # Check if dest is being moved/copied FROM (not just TO)
+        # Only error if dest is a source of another action
         if (
             action_type == "move"
             and dest is not None
             and (dest in moved_from or dest in copied_from)
         ):
-            msg = (
-                f"Cannot move to '{dest}' because it is being "
-                f"moved or copied from in another action"
+            # But allow if dest is also a destination in other actions
+            # (it's being moved into, then moved from - this is valid)
+            # Only error if dest is ONLY a source (not also a destination)
+            # Check if dest appears as a destination in any other action
+            dest_is_also_destination = any(
+                other_action.get("dest") == dest
+                for other_action in actions
+                if other_action is not action
             )
-            raise ValueError(msg)
+            if not dest_is_also_destination:
+                msg = (
+                    f"Cannot move to '{dest}' because it is being "
+                    f"moved or copied from in another action"
+                )
+                raise ValueError(msg)
 
 
 def validate_module_actions(
@@ -315,8 +341,25 @@ def validate_module_actions(
     validate_no_circular_moves(filtered_actions)
 
     # Validate each action's destination
+    # For mode-generated actions (scope: "original"), allow moving into
+    # the target package even if it exists. Extract target packages from
+    # actions that have scope: "original" and dest in existing_modules.
+    allowed_destinations: set[str] | None = None
+    if scope == "original" or scope is None:
+        # Check if any action is moving into an existing module
+        # This is allowed for mode-generated actions (target package)
+        for action in filtered_actions:
+            if action.get("scope") == "original":
+                dest = action.get("dest")
+                if dest is not None and dest in available_modules:
+                    if allowed_destinations is None:
+                        allowed_destinations = set()
+                    allowed_destinations.add(dest)
+
     for action in filtered_actions:
-        validate_action_dest(action, available_modules)
+        validate_action_dest(
+            action, available_modules, allowed_destinations=allowed_destinations
+        )
 
     # Validate no conflicting operations
     validate_no_conflicting_operations(filtered_actions)
