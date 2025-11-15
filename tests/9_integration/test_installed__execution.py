@@ -1,6 +1,7 @@
 # tests/9_integration/test_installed__execution.py
 """Verify the installed package version works via `python -m serger`."""
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -42,6 +43,7 @@ def test_installed_module_execution() -> None:
             capture_output=True,
             text=True,
             timeout=15,
+            env=os.environ.copy(),
         )
 
     # --- verify ---

@@ -36,7 +36,8 @@ GREEN = "\033[92m"  # or \033[32m
 GRAY = "\033[90m"
 
 # Logger levels
-TEST_LEVEL = logging.DEBUG - 10  # most verbose, bypasses capture
+# most verbose, bypasses capture (2, not 0 to avoid NOTSET)
+TEST_LEVEL = logging.DEBUG - 8
 TRACE_LEVEL = logging.DEBUG - 5
 # DEBUG      - builtin # verbose
 # INFO       - builtin
@@ -193,9 +194,30 @@ class ApatheticCLILogger(logging.Logger):
         super()._log(level, msg, args, **kwargs)
 
     def setLevel(self, level: int | str) -> None:  # noqa: N802
-        """Case insensitive version"""
+        """Case insensitive version that resolves string level names.
+
+        Validates that custom levels (TEST, TRACE, SILENT) are not set to 0,
+        which would cause NOTSET inheritance from root logger.
+        """
+        # Resolve string to integer if needed
         if isinstance(level, str):
-            level = level.upper()
+            level_str = level.upper()
+            # Resolve string level name to integer for Python 3.10 compatibility
+            resolved = self.resolve_level_name(level_str)
+            if resolved is not None:
+                level = resolved
+            else:
+                # Fall back to logging's built-in resolution (Python 3.11+)
+                # This will raise if the level name is invalid
+                pass
+
+        # Validate any level <= 0 (prevents NOTSET inheritance)
+        # Built-in levels (DEBUG=10, INFO=20, etc.) are all > 0, so they pass
+        # _validate_level_positive() will raise if level <= 0
+        if isinstance(level, int):
+            level_name = logging.getLevelName(level) or str(level)
+            self._validate_level_positive(level, level_name)
+
         super().setLevel(level)
 
     @classmethod
@@ -210,6 +232,90 @@ class ApatheticCLILogger(logging.Logger):
         # Auto-detect: use color if output is a TTY
         return sys.stdout.isatty()
 
+    @staticmethod
+    def _validate_level_positive(level: int, level_name: str | None = None) -> None:
+        """Validate that a level value is positive (> 0).
+
+        Custom levels with values <= 0 will inherit from the root logger,
+        causing NOTSET inheritance issues.
+
+        Args:
+            level: The numeric level value to validate
+            level_name: Optional name for the level (for error messages).
+                If None, will attempt to get from logging.getLevelName()
+
+        Raises:
+            ValueError: If level <= 0
+
+        Example:
+            >>> ApatheticCLILogger._validate_level_positive(5, "TRACE")
+            >>> ApatheticCLILogger._validate_level_positive(0, "TEST")
+            ValueError: Custom level 'TEST' has value 0...
+        """
+        if level <= 0:
+            if level_name is None:
+                level_name = logging.getLevelName(level) or str(level)
+            msg = (
+                f"Level '{level_name}' has value {level}, "
+                "which is <= 0. This causes NOTSET inheritance from root logger. "
+                "Levels must be > 0."
+            )
+            raise ValueError(msg)
+
+    @staticmethod
+    def addLevelName(level: int, level_name: str) -> None:  # noqa: N802
+        """Safely add a custom logging level name with validation.
+
+        This is a wrapper around logging.addLevelName() that validates the level
+        value to prevent NOTSET inheritance issues. Custom levels with values <= 0
+        will inherit from the root logger, causing unexpected behavior.
+
+        Also sets logging.<LEVEL_NAME> attribute for convenience, matching the
+        pattern of built-in levels (logging.DEBUG, logging.INFO, etc.).
+
+        Args:
+            level: The numeric level value (must be > 0 for custom levels)
+            level_name: The name to associate with this level
+
+        Raises:
+            ValueError: If level <= 0 (which would cause NOTSET inheritance)
+            ValueError: If logging.<LEVEL_NAME> already exists with an invalid value
+                (not a positive integer, or different from the provided level)
+
+        Example:
+            >>> ApatheticCLILogger.addLevelName(5, "TRACE")
+            >>> # Now logging.TRACE = 5 (convenience attribute)
+            >>> # logging.addLevelName(5, "TRACE")  # Equivalent, but unsafe
+        """
+        # Validate level is positive
+        ApatheticCLILogger._validate_level_positive(level, level_name)
+
+        # Check if attribute already exists and validate it
+        existing_value = getattr(logging, level_name, None)
+        if existing_value is not None:
+            # If it exists, it must be a valid level value (positive integer)
+            if not isinstance(existing_value, int):
+                msg = (
+                    f"Cannot set logging.{level_name}: attribute already exists "
+                    f"with non-integer value {existing_value!r}. "
+                    "Level attributes must be integers."
+                )
+                raise ValueError(msg)
+            # Validate existing value is positive
+            ApatheticCLILogger._validate_level_positive(existing_value, level_name)
+            if existing_value != level:
+                msg = (
+                    f"Cannot set logging.{level_name}: attribute already exists "
+                    f"with different value {existing_value} (trying to set {level}). "
+                    "Level attributes must match the level value."
+                )
+                raise ValueError(msg)
+            # If it exists and matches, we can proceed (idempotent)
+
+        logging.addLevelName(level, level_name)
+        # Set convenience attribute matching built-in levels (logging.DEBUG, etc.)
+        setattr(logging, level_name, level)
+
     @classmethod
     def extend_logging_module(cls) -> bool:
         """The return value tells you if we ran or not.
@@ -222,13 +328,11 @@ class ApatheticCLILogger(logging.Logger):
 
         logging.setLoggerClass(cls)
 
-        logging.addLevelName(TEST_LEVEL, "TEST")
-        logging.addLevelName(TRACE_LEVEL, "TRACE")
-        logging.addLevelName(SILENT_LEVEL, "SILENT")
-
-        logging.TEST = TEST_LEVEL  # type: ignore[attr-defined]
-        logging.TRACE = TRACE_LEVEL  # type: ignore[attr-defined]
-        logging.SILENT = SILENT_LEVEL  # type: ignore[attr-defined]
+        # Register custom levels with validation
+        # addLevelName() also sets logging.TEST, logging.TRACE, etc. attributes
+        cls.addLevelName(TEST_LEVEL, "TEST")
+        cls.addLevelName(TRACE_LEVEL, "TRACE")
+        cls.addLevelName(SILENT_LEVEL, "SILENT")
 
         return True
 

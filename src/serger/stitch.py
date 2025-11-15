@@ -1370,7 +1370,22 @@ def _collect_modules(
         # IMPORTANT: This must happen BEFORE split_imports, as split_imports
         # works with the text directly and will preserve any comments that
         # are still in the text at that point
+        logger.trace(
+            "Processing comments: mode=%s, file=%s, text_length=%d",
+            comments_mode,
+            file_path,
+            len(module_text),
+        )
+        has_comment_before = "# This comment should be removed" in module_text
         module_text = process_comments(module_text, comments_mode)
+        has_comment_after = "# This comment should be removed" in module_text
+        logger.trace(
+            "After process_comments: text_length=%d, had_comment_before=%s, "
+            "has_comment_after=%s",
+            len(module_text),
+            has_comment_before,
+            has_comment_after,
+        )
 
         # Extract imports - pass all detected package names and modes
         external_imports_list, module_body = split_imports(

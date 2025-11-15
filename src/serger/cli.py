@@ -1,7 +1,6 @@
 # src/serger/cli.py
 
 import argparse
-import logging
 import platform
 import sys
 from dataclasses import dataclass
@@ -9,7 +8,6 @@ from difflib import get_close_matches
 from pathlib import Path
 
 from apathetic_logs import LEVEL_ORDER, safe_log
-from apathetic_logs.logs import TEST_LEVEL
 from apathetic_utils import cast_hint, get_sys_version_info
 
 from .actions import get_metadata, watch_for_changes
@@ -271,10 +269,6 @@ def _initialize_logger(args: argparse.Namespace) -> None:
     logger = get_app_logger()
     log_level = logger.determine_log_level(args=args)
     logger.setLevel(log_level)
-    # When using TEST level, also set root logger level to allow TRACE/DEBUG
-    # messages to be logged (isEnabledFor uses getEffectiveLevel)
-    if logger.level == TEST_LEVEL:
-        logging.root.setLevel(TEST_LEVEL)
     logger.enable_color = getattr(
         args, "enable_color", logger.determine_color_enabled()
     )

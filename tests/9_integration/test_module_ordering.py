@@ -7,6 +7,7 @@ modules should be ordered AFTER the modules they import from to prevent runtime
 errors.
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -120,6 +121,7 @@ def test_init_ordering_stitched_file_compiles(
         capture_output=True,
         text=True,
         check=False,
+        env=os.environ.copy(),
     )
 
     if result.returncode != 0:
@@ -139,6 +141,7 @@ def test_init_ordering_stitched_file_compiles(
         capture_output=True,
         text=True,
         check=False,
+        env=os.environ.copy(),
     )
 
     if result.returncode != 0:
@@ -158,6 +161,7 @@ def test_init_ordering_module_order_correct(
         capture_output=True,
         text=True,
         check=False,
+        env=os.environ.copy(),
     )
 
     assert result.returncode == 0, f"Serger failed: {result.stderr}"
@@ -201,6 +205,7 @@ def test_init_ordering_runtime_works(
         capture_output=True,
         text=True,
         check=False,
+        env=os.environ.copy(),
     )
 
     assert result.returncode == 0, f"Serger failed: {result.stderr}"
@@ -236,6 +241,7 @@ print("✓ Import and usage successful")
         capture_output=True,
         text=True,
         check=False,
+        env=os.environ.copy(),
     )
 
     if result.returncode != 0:
@@ -261,6 +267,7 @@ def test_init_ordering_with_standalone_marker(
         capture_output=True,
         text=True,
         check=False,
+        env=os.environ.copy(),
     )
 
     assert result.returncode == 0, f"Serger failed: {result.stderr}"
@@ -309,6 +316,7 @@ except Exception as e:
         capture_output=True,
         text=True,
         check=False,
+        env=os.environ.copy(),
     )
 
     if result.returncode != 0:
@@ -396,6 +404,7 @@ EXPORTED_VALUE = _apathetic_logging_ns.get_value()
         capture_output=True,
         text=True,
         check=False,
+        env=os.environ.copy(),
     )
 
     assert result.returncode == 0, (
@@ -449,6 +458,7 @@ except KeyError as e:
         capture_output=True,
         text=True,
         check=False,
+        env=os.environ.copy(),
     )
 
     if result.returncode != 0:
