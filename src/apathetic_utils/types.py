@@ -40,6 +40,30 @@ def schema_from_typeddict(td: type[Any]) -> dict[str, Any]:
     return get_type_hints(td, include_extras=True)
 
 
+def literal_to_set(literal_type: Any) -> set[Any]:
+    """Extract values from a Literal type as a set.
+
+    Example:
+        StitchMode = Literal["raw", "package"]
+        valid_modes = literal_to_set(StitchMode)  # Returns set with literal values
+
+    Args:
+        literal_type: A Literal type (e.g., Literal["a", "b"])
+
+    Returns:
+        A set containing all values from the Literal type.
+        The type checker infers the specific type from usage context.
+
+    Raises:
+        TypeError: If the input is not a Literal type
+    """
+    origin = get_origin(literal_type)
+    if origin is not Literal:
+        msg = f"Expected Literal type, got {literal_type}"
+        raise TypeError(msg)
+    return set(get_args(literal_type))
+
+
 def _isinstance_generics(  # noqa: PLR0911
     value: Any,
     origin: Any,
