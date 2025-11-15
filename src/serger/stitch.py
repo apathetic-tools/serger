@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+from apathetic_utils import literal_to_set
+
 from .config import (
     CommentsMode,
     DocstringMode,
@@ -26,7 +28,17 @@ from .config import (
     ExternalImportMode,
     IncludeResolved,
     InternalImportMode,
+    ModuleMode,
     PostProcessingConfigResolved,
+    StitchMode,
+)
+from .constants import (
+    DEFAULT_COMMENTS_MODE,
+    DEFAULT_DOCSTRING_MODE,
+    DEFAULT_EXTERNAL_IMPORTS,
+    DEFAULT_INTERNAL_IMPORTS,
+    DEFAULT_MODULE_MODE,
+    DEFAULT_STITCH_MODE,
 )
 from .logs import get_app_logger
 from .meta import PROGRAM_PACKAGE
@@ -1714,7 +1726,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     order_names: list[str],
     all_function_names: set[str],
     detected_packages: set[str],
-    shim_mode: str,
+    module_mode: str,
     _order_paths: list[Path] | None = None,
     _package_root: Path | None = None,
     _file_to_include: dict[Path, IncludeResolved] | None = None,
@@ -1736,7 +1748,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         all_function_names: Set of all function names from all modules
             (used to detect if main() function exists)
         detected_packages: Pre-detected package names
-        shim_mode: How to generate import shims ("none", "multi", "force")
+        module_mode: How to generate import shims ("none", "multi", "force")
         _order_paths: Optional list of file paths (unused, kept for API consistency)
         _package_root: Optional common root (unused, kept for API consistency)
         _file_to_include: Optional mapping (unused, kept for API consistency)
@@ -1764,8 +1776,8 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     future_block = "".join(future_imports.keys())
     import_block = "".join(all_imports.keys())
 
-    # Generate import shims based on shim_mode
-    if shim_mode == "none":
+    # Generate import shims based on module_mode
+    if module_mode == "none":
         # No shims generated
         shim_text = ""
     else:
@@ -1787,7 +1799,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         # (e.g., "utils.utils_text" -> "serger.utils.utils_text")
         shim_names: list[str] = []
         for name in shim_names_raw:
-            if shim_mode == "force_flat":
+            if module_mode == "force_flat":
                 # Force flat mode: flatten everything to package_name
                 # All modules become direct children of package_name
                 if name == package_name:
@@ -1807,7 +1819,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                     full_name = f"{package_name}.{name.split('.')[-1]}"
                 else:
                     full_name = f"{package_name}.{name}"
-            elif shim_mode == "force":
+            elif module_mode == "force":
                 # Force mode: replace root package but keep subpackages
                 # e.g., "pkg1.sub" -> "mypkg.sub", "pkg2.sub" -> "mypkg.sub"
                 if name == package_name:
@@ -1839,7 +1851,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                 else:
                     # Top-level module: prepend package_name
                     full_name = f"{package_name}.{name}"
-            elif shim_mode == "unify":
+            elif module_mode == "unify":
                 # Unify mode: place all detected packages under package_name
                 # If package_name matches a detected package, combine them
                 # (no double prefix). Loose files attach directly to package_name
@@ -1862,7 +1874,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                 else:
                     # Loose file: attach directly to package_name
                     full_name = f"{package_name}.{name}"
-            elif shim_mode == "unify_preserve":
+            elif module_mode == "unify_preserve":
                 # Unify preserve mode: like unify but preserves structure
                 # when package matches. Loose files attach to package_name
                 if name == package_name:
@@ -1884,7 +1896,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                 else:
                     # Loose file: attach to package_name as module file
                     full_name = f"{package_name}.{name}"
-            elif shim_mode == "flat":
+            elif module_mode == "flat":
                 # Flat mode: treat loose files as top-level modules (not under package)
                 # Packages still get shims as usual
                 if name == package_name:
@@ -1936,7 +1948,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         for module_name in shim_names:
             if "." not in module_name:
                 # Top-level module
-                if shim_mode == "flat":
+                if module_mode == "flat":
                     # In flat mode, top-level modules are not under any package
                     top_level_modules.append(module_name)
                 else:
@@ -1960,7 +1972,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         all_packages: set[str] = set()
         for module_name in shim_names:
             # Skip top-level modules in flat mode (they're not in packages)
-            if shim_mode == "flat" and "." not in module_name:
+            if module_mode == "flat" and "." not in module_name:
                 continue
             name_parts = module_name.split(".")
             # Add all package prefixes
@@ -1972,7 +1984,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
             if "." in module_name:
                 all_packages.add(name_parts[0])
         # Add root package if not already present (unless flat mode with no packages)
-        if shim_mode != "flat" or all_packages:
+        if module_mode != "flat" or all_packages:
             all_packages.add(package_name)
 
         # Sort packages by depth (shallowest first) to create parents before children
@@ -2069,7 +2081,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
             )
 
         # Handle top-level modules for flat mode
-        if shim_mode == "flat" and top_level_modules:
+        if module_mode == "flat" and top_level_modules:
             # Register top-level modules directly in sys.modules
             shim_blocks.extend(
                 f"sys.modules[{module_name!r}] = globals()"
@@ -2196,8 +2208,8 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     package_name_raw = config.get("package", "unknown")
     order_paths_raw = config.get("order", [])
     exclude_paths_raw = config.get("exclude_names", [])
-    stitch_mode_raw = config.get("stitch_mode", "raw")
-    shim_mode_raw = config.get("shim_mode", "multi")
+    stitch_mode_raw = config.get("stitch_mode", DEFAULT_STITCH_MODE)
+    module_mode_raw = config.get("module_mode", DEFAULT_MODULE_MODE)
 
     # Type guards for mypy/pyright
     if not isinstance(package_name_raw, str):
@@ -2212,8 +2224,8 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     if not isinstance(stitch_mode_raw, str):
         msg = "Config 'stitch_mode' must be a string"
         raise TypeError(msg)
-    if not isinstance(shim_mode_raw, str):
-        msg = "Config 'shim_mode' must be a string"
+    if not isinstance(module_mode_raw, str):
+        msg = "Config 'module_mode' must be a string"
         raise TypeError(msg)
 
     # Cast to known types after type guards
@@ -2247,30 +2259,22 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         raise RuntimeError(msg)
 
     # Validate stitch_mode
-    valid_modes: set[str] = {"raw", "class", "exec"}
+    valid_modes = literal_to_set(StitchMode)
     stitch_mode = stitch_mode_raw
     if stitch_mode not in valid_modes:
         msg = (
             f"Invalid stitch_mode: {stitch_mode!r}. "
-            f"Must be one of: {', '.join(sorted(valid_modes))}"
+            f"Must be one of: {', '.join(sorted(cast('set[str]', valid_modes)))}"
         )
         raise ValueError(msg)
 
-    # Validate shim_mode
-    valid_shim_modes: set[str] = {
-        "none",
-        "multi",
-        "force",
-        "force_flat",
-        "unify",
-        "unify_preserve",
-        "flat",
-    }
-    shim_mode = shim_mode_raw
-    if shim_mode not in valid_shim_modes:
+    # Validate module_mode
+    valid_module_modes = literal_to_set(ModuleMode)
+    module_mode = module_mode_raw
+    if module_mode not in valid_module_modes:
         msg = (
-            f"Invalid shim_mode: {shim_mode!r}. "
-            f"Must be one of: {', '.join(sorted(valid_shim_modes))}"
+            f"Invalid module_mode: {module_mode!r}. "
+            f"Must be one of: {', '.join(sorted(cast('set[str]', valid_module_modes)))}"
         )
         raise ValueError(msg)
 
@@ -2324,28 +2328,32 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     # --- Collection Phase ---
     logger.debug("Collecting module sources...")
     # Extract external_imports from config
-    external_imports_raw = config.get("external_imports", "top")
+    external_imports_raw = config.get(
+        "external_imports", DEFAULT_EXTERNAL_IMPORTS[stitch_mode]
+    )
     if not isinstance(external_imports_raw, str):
         msg = "Config 'external_imports' must be a string"
         raise TypeError(msg)
     external_imports = cast("ExternalImportMode", external_imports_raw)
 
     # Extract internal_imports from config
-    internal_imports_raw = config.get("internal_imports", "force_strip")
+    internal_imports_raw = config.get(
+        "internal_imports", DEFAULT_INTERNAL_IMPORTS[stitch_mode]
+    )
     if not isinstance(internal_imports_raw, str):
         msg = "Config 'internal_imports' must be a string"
         raise TypeError(msg)
     internal_imports = cast("InternalImportMode", internal_imports_raw)
 
     # Extract comments_mode from config
-    comments_mode_raw = config.get("comments_mode", "keep")
+    comments_mode_raw = config.get("comments_mode", DEFAULT_COMMENTS_MODE)
     if not isinstance(comments_mode_raw, str):
         msg = "Config 'comments_mode' must be a string"
         raise TypeError(msg)
     comments_mode = cast("CommentsMode", comments_mode_raw)
 
     # Extract docstring_mode from config
-    docstring_mode_raw = config.get("docstring_mode", "keep")
+    docstring_mode_raw = config.get("docstring_mode", DEFAULT_DOCSTRING_MODE)
     # docstring_mode can be a string or dict
     if not isinstance(docstring_mode_raw, (str, dict)):
         msg = "Config 'docstring_mode' must be a string or dict"
@@ -2401,7 +2409,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         order_names=derived_module_names,
         all_function_names=all_function_names,
         detected_packages=detected_packages,
-        shim_mode=shim_mode,
+        module_mode=module_mode,
         _order_paths=order_paths,
         _package_root=package_root,
         _file_to_include=file_to_include,

@@ -16,9 +16,9 @@ from serger.constants import (
     DEFAULT_ENV_WATCH_INTERVAL,
     DEFAULT_EXTERNAL_IMPORTS,
     DEFAULT_INTERNAL_IMPORTS,
+    DEFAULT_MODULE_MODE,
     DEFAULT_OUT_DIR,
     DEFAULT_RESPECT_GITIGNORE,
-    DEFAULT_SHIM_MODE,
     DEFAULT_STITCH_MODE,
     DEFAULT_STRICT_CONFIG,
     DEFAULT_USE_PYPROJECT,
@@ -955,17 +955,17 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
         raise TypeError(msg)
 
     # ------------------------------
-    # Shim mode
+    # Module mode
     # ------------------------------
     # Cascade: build-level → root-level → default
-    build_shim_mode = resolved_cfg.get("shim_mode")
-    root_shim_mode = (root_cfg or {}).get("shim_mode")
-    if build_shim_mode is not None:
-        resolved_cfg["shim_mode"] = build_shim_mode
-    elif root_shim_mode is not None:
-        resolved_cfg["shim_mode"] = root_shim_mode
+    build_module_mode = resolved_cfg.get("module_mode")
+    root_module_mode = (root_cfg or {}).get("module_mode")
+    if build_module_mode is not None:
+        resolved_cfg["module_mode"] = build_module_mode
+    elif root_module_mode is not None:
+        resolved_cfg["module_mode"] = root_module_mode
     else:
-        resolved_cfg["shim_mode"] = DEFAULT_SHIM_MODE
+        resolved_cfg["module_mode"] = DEFAULT_MODULE_MODE
 
     # ------------------------------
     # Import handling

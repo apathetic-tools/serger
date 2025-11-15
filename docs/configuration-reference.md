@@ -25,7 +25,7 @@ These options apply globally and can cascade into individual builds:
 | `internal_imports` | `str` | `"force_strip"` | How to handle internal package imports (see [Import Handling](#import-handling)) |
 | `external_imports` | `str` | `"top"` | How to handle external imports (see [Import Handling](#import-handling)) |
 | `stitch_mode` | `str` | `"raw"` | How to combine modules into a single file (see [Stitch Modes](#stitch-modes)) |
-| `shim_mode` | `str` | `"multi"` | How to generate import shims for single-file runtime (see [Shim Modes](#shim-modes)) |
+| `module_mode` | `str` | `"multi"` | How to generate import shims for single-file runtime (see [Module Modes](#module-modes)) |
 | `comments_mode` | `str` | `"keep"` | How to handle comments in stitched output (see [Comment Handling](#comment-handling)) |
 | `docstring_mode` | `str \| dict` | `"keep"` | How to handle docstrings in stitched output (see [Docstring Handling](#docstring-handling)) |
 
@@ -47,7 +47,7 @@ Each build in the `builds` array can specify:
 | `internal_imports` | `str` | No | Override root-level `internal_imports` for this build |
 | `external_imports` | `str` | No | Override root-level `external_imports` for this build |
 | `stitch_mode` | `str` | No | Override root-level `stitch_mode` for this build (see [Stitch Modes](#stitch-modes)) |
-| `shim_mode` | `str` | No | Override root-level `shim_mode` for this build (see [Shim Modes](#shim-modes)) |
+| `module_mode` | `str` | No | Override root-level `module_mode` for this build (see [Module Modes](#module-modes)) |
 | `comments_mode` | `str` | No | Override root-level `comments_mode` for this build (see [Comment Handling](#comment-handling)) |
 | `docstring_mode` | `str \| dict` | No | Override root-level `docstring_mode` for this build (see [Docstring Handling](#docstring-handling)) |
 
@@ -142,7 +142,7 @@ Serger supports different modes for combining multiple Python modules into a sin
 
 > **Note**: Currently, only `raw` mode is implemented. Attempting to use `class` or `exec` will raise a `NotImplementedError`. The default import handling modes are automatically selected based on the stitch mode, but you can override them if needed.
 
-## Shim Modes
+## Module Modes
 
 Serger provides control over how import shims are generated for the single-file runtime. Import shims allow external code to import modules from the stitched file as if they were separate files. Different shim modes control how module names are organized and whether packages are preserved or flattened.
 
@@ -158,7 +158,7 @@ Serger provides control over how import shims are generated for the single-file 
 | `unify_preserve` | Like `unify` but preserves structure when package matches. Similar to `unify`, but when the configured `package` matches a detected package, the full structure is preserved without any flattening. Loose files still attach to the configured package as module files. |
 | `flat` | Treat loose files as top-level modules (not under package). Loose files (files not in a package directory) are kept as top-level modules without the package prefix. Packages still get shims as usual. For example, `main.py` stays as `main`, not `mypkg.main`. |
 
-### Choosing a Shim Mode
+### Choosing a Module Mode
 
 - **`multi`** (default): Use this for most cases. It preserves the original package structure and allows multiple packages to coexist in the stitched file.
 
@@ -183,10 +183,10 @@ Serger provides control over how import shims are generated for the single-file 
       "package": "mypkg",
       "include": ["src/**/*.py"],
       "out": "dist/mypkg.py",
-      "shim_mode": "multi"  // Generate shims for all detected packages
+      "module_mode": "multi"  // Generate shims for all detected packages
     }
   ],
-  "shim_mode": "multi"  // Default for all builds
+  "module_mode": "multi"  // Default for all builds
 }
 ```
 
