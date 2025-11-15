@@ -121,7 +121,7 @@ class BuildConfig(TypedDict, total=False):
     # Comments mode: how to handle comments in stitched output
     # - "keep": Keep all comments (default)
     # - "ignores": Only keep comments that specify ignore rules
-    #   (e.g., # noqa:, # type: ignore)
+    #   (e.g., "noqa:", "type: ignore")
     # - "inline": Only keep inline comments (comments on the same line as code)
     # - "strip": Remove all comments
     comments_mode: CommentsMode
@@ -164,7 +164,7 @@ class RootConfig(TypedDict, total=False):
     # Comments mode default (cascades into builds)
     # - "keep": Keep all comments (default)
     # - "ignores": Only keep comments that specify ignore rules
-    #   (e.g., # noqa:, # type: ignore)
+    #   (e.g., "noqa:", "type: ignore")
     # - "inline": Only keep inline comments (comments on the same line as code)
     # - "strip": Remove all comments
     comments_mode: CommentsMode
@@ -194,6 +194,9 @@ class BuildConfigResolved(TypedDict):
 
     # global provenance (optional, for audit/debug)
     __meta__: MetaBuildConfigResolved
+
+    # Internal metadata fields (not user-configurable)
+    _pyproject_version: NotRequired[str]  # Version extracted from pyproject.toml
 
     # Stitching fields (optional - present if this is a stitch build)
     package: NotRequired[str]

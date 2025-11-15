@@ -84,7 +84,7 @@ def test_extract_build_metadata_with_config_version() -> None:
 
         build_cfg = make_build_cfg(tmp_path, include=[])
         # Add special field for testing version override
-        build_cfg["_pyproject_version"] = "2.0.0"  # type: ignore[typeddict-unknown-key]
+        build_cfg["_pyproject_version"] = "2.0.0"
 
         version, _commit, _build_date = mod_build._extract_build_metadata(
             build_cfg, tmp_path

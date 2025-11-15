@@ -1,3 +1,89 @@
+# Build Requirements
+
+## Build Reproducibility and Determinism
+
+Serger builds must be **reproducible, deterministic, and idempotent**. This means:
+
+- **Reproducible**: Running the same build configuration multiple times produces identical output
+- **Deterministic**: Build output does not depend on iteration order of unordered collections (sets, dicts without explicit ordering)
+- **Idempotent**: Running a build multiple times with the same inputs produces the same result
+
+### Requirements
+
+1. **Collection Iteration Order**
+   - **Always sort** before iterating over collections that affect output:
+     - Sets: `for item in sorted(my_set):`
+     - Dict keys/values/items: `for key, value in sorted(my_dict.items()):`
+     - Any collection where iteration order affects the final build output
+   - This applies to:
+     - Module ordering
+     - Import collection and ordering
+     - Dependency resolution
+     - Symbol extraction and collision detection
+     - Package detection
+     - Any other collection that ends up in the final output
+
+2. **File System Ordering**
+   - File collections from glob patterns or directory walks must be sorted
+   - Example: `collect_included_files()` already returns `sorted(filtered)` to ensure deterministic file ordering
+
+3. **Dependency Graph Ordering**
+   - Dependency graphs (e.g., for module ordering via topological sort) provide a **partial order**
+   - The graph determines which modules must come before others (dependency constraints)
+   - When multiple valid orderings exist (modules with no dependencies between them), sorting is used to break ties and ensure determinism
+   - The dependency graph (`deps`) must be built with sorted file paths to ensure consistent dict insertion order
+   - This ensures `graphlib.TopologicalSorter.static_order()` produces deterministic results even when there are multiple valid topological orderings
+
+4. **No Time-Dependent Output**
+   - Build timestamps in metadata are acceptable (they're explicitly time-dependent)
+   - But the structure and content of the stitched code must not depend on build time or execution order
+
+### Implementation Guidelines
+
+When working with collections that affect build output:
+
+```python
+# ❌ BAD: Non-deterministic iteration
+for pkg in detected_packages:  # set iteration order is undefined
+    # process package
+
+# ✅ GOOD: Deterministic iteration
+for pkg in sorted(detected_packages):
+    # process package
+```
+
+```python
+# ❌ BAD: Dict iteration without sorting
+for mod_name, source in module_sources.items():
+    # process module
+
+# ✅ GOOD: Deterministic iteration
+for mod_name, source in sorted(module_sources.items()):
+    # process module
+```
+
+**Dependency Graph Ordering:**
+```python
+# Dependency graphs provide partial ordering (A must come before B)
+# But when multiple valid orderings exist, sorting ensures determinism
+
+# ✅ GOOD: Build graph with sorted inputs for deterministic tie-breaking
+# Note: file_paths is already sorted from collect_included_files()
+# This ensures dict insertion order is deterministic, which makes
+# topological sort deterministic even when multiple valid orderings exist
+deps: dict[str, set[str]] = {
+    file_to_module[fp]: set() for fp in file_paths  # already sorted
+}
+# Topological sort respects dependencies AND uses dict insertion order for ties
+topo_modules = list(graphlib.TopologicalSorter(deps).static_order())
+```
+
+### Verification
+
+- All tests must pass to verify correctness
+- Builds should produce identical output when run multiple times with the same configuration
+- When making changes that affect iteration order, verify that the output remains deterministic
+
 # Code Quality
 
 ## Code Quality
@@ -278,6 +364,13 @@ Serger is a Python module stitcher that combines multiple source files into a si
 - **Defensive checks**: Runtime checks like `isinstance()` with ignore comments are only acceptable as defensive checks when data comes from external sources (function parameters, config files, user input). Do NOT use for constants or values that are known and can be typed properly within the function.
   - **Acceptable**: `if not isinstance(package, str):  # pyright: ignore[reportUnnecessaryIsInstance]` when `package` comes from parsed config file
   - **Not acceptable**: `if isinstance(CONSTANT_VALUE, str):` when `CONSTANT_VALUE` is a module-level constant that can be properly typed
+
+#### TypedDict Maintenance
+- **Always update TypedDict definitions when adding properties**: When adding a new property to a dictionary that is typed as a TypedDict (or should be), **always** update the corresponding TypedDict class definition to include that property. This ensures type safety and prevents runtime errors.
+  - **Required**: If you add a field like `config["_new_field"] = value`, you must add `_new_field: NotRequired[Type]` (or `_new_field: Type` if required) to the TypedDict definition
+  - **Never use `type: ignore` comments** to bypass missing TypedDict fields - instead, add the field to the type definition
+  - **Example**: If adding `resolved_cfg["_pyproject_version"] = metadata.version`, add `_pyproject_version: NotRequired[str]` to the `BuildConfigResolved` TypedDict
+  - This applies to all TypedDict classes, including those in `config_types.py` and any other type definitions
 
 # Workflow
 
