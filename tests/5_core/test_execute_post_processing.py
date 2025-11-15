@@ -268,25 +268,23 @@ def test_execute_post_processing_default_custom_instances(
         monkeypatch.setattr(subprocess, "run", mock_run)
 
         # Patch DEFAULT_CATEGORIES to include custom instances
-        original_categories = mod_constants.DEFAULT_CATEGORIES.copy()
-        mod_constants.DEFAULT_CATEGORIES = {
-            **original_categories,
-            "formatter": {
-                "enabled": True,
-                "priority": ["ruff:firstcheck", "ruff:secondcheck"],
-                "tools": {
-                    "ruff:firstcheck": {
-                        "command": "ruff",
-                        "args": ["check", "--fix"],
-                        "path": None,
-                        "options": [],
-                    },
-                    "ruff:secondcheck": {
-                        "command": "ruff",
-                        "args": ["check", "--select", "E", "--fix"],
-                        "path": None,
-                        "options": [],
-                    },
+        # Modify in place to ensure config_resolve sees the changes
+        original_formatter = mod_constants.DEFAULT_CATEGORIES["formatter"].copy()
+        mod_constants.DEFAULT_CATEGORIES["formatter"] = {
+            "enabled": True,
+            "priority": ["ruff:firstcheck", "ruff:secondcheck"],
+            "tools": {
+                "ruff:firstcheck": {
+                    "command": "ruff",
+                    "args": ["check", "--fix"],
+                    "path": None,
+                    "options": [],
+                },
+                "ruff:secondcheck": {
+                    "command": "ruff",
+                    "args": ["check", "--select", "E", "--fix"],
+                    "path": None,
+                    "options": [],
                 },
             },
         }
@@ -306,7 +304,7 @@ def test_execute_post_processing_default_custom_instances(
             assert any("check" in cmd and "--fix" in cmd for cmd in command_strings)
         finally:
             # Restore original
-            mod_constants.DEFAULT_CATEGORIES = original_categories
+            mod_constants.DEFAULT_CATEGORIES["formatter"] = original_formatter
     finally:
         path.unlink(missing_ok=True)
 
