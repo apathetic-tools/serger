@@ -1,4 +1,6 @@
 # Iteration 06: Add Validation Functions
+> **Context**: See `current_plan/00_overview.md` for overall strategy and principles.
+
 
 ## Goal
 Add validation functions for module actions. This includes upfront validation for `scope: "original"` actions and incremental validation for `scope: "shim"` actions.

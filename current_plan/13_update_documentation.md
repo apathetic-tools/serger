@@ -1,4 +1,6 @@
 # Iteration 13: Update Documentation with End Goal
+> **Context**: See `current_plan/00_overview.md` for overall strategy and principles.
+
 
 ## Goal
 Update `configuration-reference.md` and other documentation to reflect the complete module_actions feature. Document the end goal without extra ROADMAP items.

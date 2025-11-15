@@ -1,4 +1,6 @@
 # Iteration 14: Add Comprehensive Integration Tests
+> **Context**: See `current_plan/00_overview.md` for overall strategy and principles.
+
 
 ## Goal
 Add comprehensive integration tests that test the full module_actions feature end-to-end. This includes testing config → stitched file → import behavior.

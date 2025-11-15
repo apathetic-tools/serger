@@ -1,5 +1,7 @@
 # Iteration 10: Integrate Module Actions into Stitch Logic
 
+> **Context**: See `current_plan/00_overview.md` for overall strategy and principles.
+
 ## Goal
 Replace `module_mode` logic in `stitch.py` with `module_actions` processing. This is the main integration point.
 

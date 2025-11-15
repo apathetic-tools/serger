@@ -1,4 +1,6 @@
 # Iteration 04: Validate and Resolve `module_actions` Config
+> **Context**: See `current_plan/00_overview.md` for overall strategy and principles.
+
 
 ## Goal
 Add full validation and normalization of `module_actions` config in `config_resolve.py`. This includes parsing dict format to list format and validating all fields.

@@ -1,4 +1,6 @@
 # Iteration 08: Create Mode-to-Actions Conversion
+> **Context**: See `current_plan/00_overview.md` for overall strategy and principles.
+
 
 ## Goal
 Create `generate_actions_from_mode()` function that converts `module_mode` values to equivalent `module_actions`. This allows modes to generate actions internally.

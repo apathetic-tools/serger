@@ -1,4 +1,6 @@
 # Iteration 11: Add Scope Handling
+> **Context**: See `current_plan/00_overview.md` for overall strategy and principles.
+
 
 ## Goal
 Ensure scope handling works correctly in the integrated system. This includes proper validation timing and action ordering.
