@@ -17,11 +17,13 @@ from argparse import Namespace
 from pathlib import Path
 from types import ModuleType
 
-import pytest
-
 import serger.build as mod_build
 import serger.config.config_loader as mod_config_loader
 import serger.config.config_resolve as mod_config_resolve
+
+
+# --- only for singlefile runs ---
+__runtime_mode__ = "singlefile"
 
 
 def test_serger_utils_subpackage_imports() -> None:
@@ -30,19 +32,6 @@ def test_serger_utils_subpackage_imports() -> None:
     This test verifies the fix for the original issue where subpackages
     were not being recognized, causing ModuleNotFoundError.
     """
-    # Only run in singlefile mode - this is testing the stitched output
-    serger_mod = sys.modules.get("serger")
-    if not serger_mod:
-        pytest.skip("serger module not loaded")
-
-    serger_file = getattr(serger_mod, "__file__", None)
-    if not serger_file:
-        pytest.skip("serger module has no __file__ attribute")
-
-    # Check if we're running against the stitched singlefile
-    if not str(serger_file).endswith("dist/serger.py"):
-        pytest.skip("Not running against stitched singlefile")
-
     # --- Test 1: serger.utils package import works ---
 
     assert "serger.utils" in sys.modules
