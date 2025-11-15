@@ -1,6 +1,6 @@
 # Iteration 04: Validate and Resolve `module_actions` Config
 > **Context**: See `current_plan/00_overview.md` for overall strategy and principles.
-
+> **Prerequisites**: Complete iteration 03.5 to resolve clarifying questions first.
 
 ## Goal
 Add full validation and normalization of `module_actions` config in `config_resolve.py`. This includes parsing dict format to list format and validating all fields.
@@ -50,9 +50,11 @@ def _normalize_module_actions(
   - Test error messages are clear
 
 ## Notes
+- **Important**: This iteration depends on decisions made in iteration 03.5. Review those answers before implementing.
 - Config is fully validated and normalized, but not yet used in stitch logic
 - Normalized format is stored in `BuildConfigResolved` for later use
 - All validation happens at config resolution time
+- Default value application and validation timing should follow decisions from iteration 03.5
 
 ## Testing
 - Run `poetry run poe check:fix` - must pass

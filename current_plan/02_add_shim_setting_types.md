@@ -31,6 +31,16 @@ ShimSetting = Literal["all", "public", "none"]
   - Test invalid values raise error
   - Test valid values are accepted
 
+## Clarifying Questions
+
+**Q: What does `shim: "public"` mean and when should it be implemented?**
+- The design doc says `shim: "public"` means "Only generate shims for public modules (future: based on `_` prefix or `__all__`)".
+- **Decision needed**: Should we:
+  - Option A: Implement `shim: "public"` now (even if basic implementation)
+  - Option B: Defer `shim: "public"` to later iteration
+  - Option C: Accept `"public"` as valid value but treat it same as `"all"` for now
+- **Answer**: [To be determined - see iteration 03.5]
+
 ## Notes
 - The `shim` setting is not yet used in stitch logic - that comes later
 - This iteration only adds types and config resolution
