@@ -82,7 +82,7 @@ class TestStitchModulesValidation:
             file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
             out_path = tmp_path / "output.py"
 
-            with pytest.raises(RuntimeError, match="package"):
+            with pytest.raises(TypeError, match="package"):
                 mod_stitch.stitch_modules(
                     config=config,
                     file_paths=file_paths,

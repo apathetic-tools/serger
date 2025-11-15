@@ -13,6 +13,7 @@ from pathlib import Path
 
 from .config import PostProcessingConfigResolved, ToolConfigResolved
 from .logs import get_app_logger
+from .utils.utils_validation import validate_required_keys
 
 
 def verify_compiles(file_path: Path) -> bool:
@@ -85,6 +86,9 @@ def build_tool_command(
     # Look up tool in tools_dict (includes defaults from resolved config)
     if tools_dict and tool_label in tools_dict:
         tool_config = tools_dict[tool_label]
+        validate_required_keys(
+            tool_config, {"command", "args", "path", "options"}, "tool_config"
+        )
         actual_tool_name = tool_config["command"]
         base_args = tool_config["args"]
         extra = tool_config["options"]
@@ -112,6 +116,9 @@ def execute_post_processing(
         file_path: Path to the file to process
         config: Resolved post-processing configuration
     """
+    validate_required_keys(
+        config, {"enabled", "category_order", "categories"}, "config"
+    )
     logger = get_app_logger()
 
     if not config["enabled"]:
@@ -127,6 +134,7 @@ def execute_post_processing(
             continue
 
         category = config["categories"][category_name]
+        validate_required_keys(category, {"enabled", "priority", "tools"}, "category")
         if not category["enabled"]:
             logger.debug("Category %s is disabled, skipping", category_name)
             continue

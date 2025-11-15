@@ -28,6 +28,7 @@ from .config import (
 from .logs import get_app_logger
 from .meta import PROGRAM_PACKAGE
 from .utils import derive_module_name
+from .utils.utils_validation import validate_required_keys
 from .verify_script import post_stitch_processing
 
 
@@ -1899,6 +1900,8 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     """
     logger = get_app_logger()
 
+    # package is required for stitching
+    validate_required_keys(config, {"package"}, "config")
     package_name_raw = config.get("package", "unknown")
     order_paths_raw = config.get("order", [])
     exclude_paths_raw = config.get("exclude_names", [])

@@ -24,6 +24,7 @@ from .constants import (
 from .logs import get_app_logger
 from .meta import PROGRAM_DISPLAY, PROGRAM_SCRIPT
 from .utils import make_includeresolved, make_pathresolved
+from .utils.utils_validation import validate_required_keys
 
 
 if TYPE_CHECKING:
@@ -174,6 +175,8 @@ def _execute_build(build_cfg: "BuildConfigResolved") -> None:
     Raises:
         RuntimeError: If build execution fails (program bug)
     """
+    # run_build will validate required keys, but we need package for this function
+    validate_required_keys(build_cfg, {"package"}, "build_cfg")
     logger = get_app_logger()
     logger.trace("[SELFTEST] _execute_build: package=%s", build_cfg.get("package"))
 

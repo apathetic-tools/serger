@@ -24,6 +24,7 @@ from serger.constants import (
 )
 from serger.logs import get_app_logger
 from serger.utils import make_includeresolved, make_pathresolved
+from serger.utils.utils_validation import validate_required_keys
 
 from .config_types import (
     BuildConfig,
@@ -451,7 +452,7 @@ def _merge_post_processing(  # noqa: C901, PLR0912, PLR0915
     return merged
 
 
-def resolve_post_processing(  # noqa: PLR0912, C901
+def resolve_post_processing(  # noqa: PLR0912
     build_cfg: BuildConfig,
     root_cfg: RootConfig | None,
 ) -> PostProcessingConfigResolved:
@@ -497,9 +498,7 @@ def resolve_post_processing(  # noqa: PLR0912, C901
         tool_dict = cast("dict[str, Any]", tool_config)
 
         # Args is required - if not present, this is an error
-        if "args" not in tool_dict:
-            xmsg = f"Tool config for {tool_label} is missing required 'args' field"
-            raise ValueError(xmsg)
+        validate_required_keys(tool_dict, {"args"}, f"tool_config for {tool_label}")
 
         resolved: ToolConfigResolved = {
             "command": tool_dict.get("command", tool_label),
