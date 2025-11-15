@@ -52,7 +52,27 @@ def literal_to_set(literal_type: Any) -> set[Any]:
 
     Returns:
         A set containing all values from the Literal type.
-        The type checker infers the specific type from usage context.
+        Returns set[Any] to allow flexible operations without requiring
+        casts. The actual values are constrained by the Literal type at
+        runtime validation.
+
+    Type Safety Tradeoffs:
+        This function returns set[Any] after considering three approaches:
+
+        1. set[Any] (current): Allows flexible operations (e.g., sorted(),
+           membership checks) without requiring casts. Less type-safe but
+           more ergonomic for common use cases.
+
+        2. set[str | int | float | bool | None]: More type-safe, but requires
+           casts for operations like sorted() that expect specific types,
+           creating noise and potential for errors.
+
+        3. TypeVar (like cast_hint): Would provide perfect type inference,
+           but Python's type system cannot extract the union of literal
+           values from a Literal type at the type level.
+
+        The current approach prioritizes ergonomics while still providing
+        runtime validation that the input is a Literal type.
 
     Raises:
         TypeError: If the input is not a Literal type
