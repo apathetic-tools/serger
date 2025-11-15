@@ -89,3 +89,13 @@ docs: update configuration reference for module_actions
 - Update terminology throughout documentation
 ```
 
+## Final Step: Update START_HERE.md
+
+After completing this iteration, update `current_plan/START_HERE.md`:
+- Mark iteration 13 as completed ✓
+- Update the "Current status" section with what was accomplished in this iteration
+- Update "Next step" to point to iteration 14
+- Include a brief summary of what was done (e.g., "Updated configuration reference documentation with complete module_actions feature")
+
+This ensures the next chat session can pick up where this one left off.
+

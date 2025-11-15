@@ -112,3 +112,13 @@ feat(module_actions): add helper functions for mode-generated actions
 - Not yet integrated into stitch logic (coming in later iteration)
 ```
 
+## Final Step: Update START_HERE.md
+
+After completing this iteration, update `current_plan/START_HERE.md`:
+- Mark iteration 05 as completed ✓
+- Update the "Current status" section with what was accomplished in this iteration
+- Update "Next step" to point to iteration 06
+- Include a brief summary of what was done (e.g., "Created module_actions.py with set_mode_generated_action_defaults() helper function")
+
+This ensures the next chat session can pick up where this one left off.
+

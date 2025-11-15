@@ -76,3 +76,13 @@ feat(module_actions): refine scope handling
 - Improve error messages to indicate scope
 ```
 
+## Final Step: Update START_HERE.md
+
+After completing this iteration, update `current_plan/START_HERE.md`:
+- Mark iteration 11 as completed ✓
+- Update the "Current status" section with what was accomplished in this iteration
+- Update "Next step" to point to iteration 12
+- Include a brief summary of what was done (e.g., "Refined scope handling with proper validation timing and action ordering")
+
+This ensures the next chat session can pick up where this one left off.
+

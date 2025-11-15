@@ -100,3 +100,13 @@ feat(module_actions): add affects and cleanup handling
 - Add comprehensive tests for affects and cleanup
 ```
 
+## Final Step: Update START_HERE.md
+
+After completing this iteration, update `current_plan/START_HERE.md`:
+- Mark iteration 12 as completed ✓
+- Update the "Current status" section with what was accomplished in this iteration
+- Update "Next step" to point to iteration 13
+- Include a brief summary of what was done (e.g., "Added affects and cleanup handling for shim-stitching mismatches")
+
+This ensures the next chat session can pick up where this one left off.
+

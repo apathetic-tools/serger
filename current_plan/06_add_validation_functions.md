@@ -131,3 +131,13 @@ feat(module_actions): add validation functions
 - Not yet integrated into stitch logic (coming in later iteration)
 ```
 
+## Final Step: Update START_HERE.md
+
+After completing this iteration, update `current_plan/START_HERE.md`:
+- Mark iteration 06 as completed ✓
+- Update the "Current status" section with what was accomplished in this iteration
+- Update "Next step" to point to iteration 07
+- Include a brief summary of what was done (e.g., "Added validation functions for module actions with upfront and incremental validation support")
+
+This ensures the next chat session can pick up where this one left off.
+

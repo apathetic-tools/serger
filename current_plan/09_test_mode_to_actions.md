@@ -71,3 +71,13 @@ test(module_actions): expand tests for mode-to-actions conversion
 - Expand previous tests to cover mode-generated actions
 ```
 
+## Final Step: Update START_HERE.md
+
+After completing this iteration, update `current_plan/START_HERE.md`:
+- Mark iteration 09 as completed ✓
+- Update the "Current status" section with what was accomplished in this iteration
+- Update "Next step" to point to iteration 10
+- Include a brief summary of what was done (e.g., "Expanded tests for mode-to-actions conversion and integration scenarios")
+
+This ensures the next chat session can pick up where this one left off.
+
