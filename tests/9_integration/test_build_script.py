@@ -71,6 +71,7 @@ def test_build_script_respects_ci_env(
         text=True,
         check=True,
         cwd=PROJ_ROOT,
+        env=os.environ.copy(),
     )
 
     out = result.stdout.strip()

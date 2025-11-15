@@ -2,6 +2,7 @@
 
 """Integration tests for comments_mode setting."""
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -45,7 +46,9 @@ def func():
         config_path.write_text(config_content)
 
         # Run serger
-        subprocess.run(  # noqa: S603
+        env = os.environ.copy()
+        env["LOG_LEVEL"] = "test"
+        result = subprocess.run(  # noqa: S603
             [
                 sys.executable,
                 "-m",
@@ -57,7 +60,13 @@ def func():
             capture_output=True,
             text=True,
             check=True,
+            env=env,
         )
+        # Print stderr if it contains trace output (for debugging)
+        if result.stderr and (
+            "TRACE" in result.stderr or "Processing comments" in result.stderr
+        ):
+            print(f"\nSubprocess stderr:\n{result.stderr}\n", file=sys.stderr)
 
         # Check output file exists
         output_file = out_dir / "output.py"
@@ -75,6 +84,7 @@ def func():
             capture_output=True,
             text=True,
             check=True,
+            env=os.environ.copy(),
         )
 
 
@@ -113,7 +123,9 @@ def func():
         config_path.write_text(config_content)
 
         # Run serger
-        subprocess.run(  # noqa: S603
+        env = os.environ.copy()
+        env["LOG_LEVEL"] = "test"
+        result = subprocess.run(  # noqa: S603
             [
                 sys.executable,
                 "-m",
@@ -125,7 +137,13 @@ def func():
             capture_output=True,
             text=True,
             check=True,
+            env=env,
         )
+        # Print stderr if it contains trace output (for debugging)
+        if result.stderr and (
+            "TRACE" in result.stderr or "Processing comments" in result.stderr
+        ):
+            print(f"\nSubprocess stderr:\n{result.stderr}\n", file=sys.stderr)
 
         # Check output file exists
         output_file = out_dir / "output.py"
@@ -142,6 +160,7 @@ def func():
             capture_output=True,
             text=True,
             check=True,
+            env=os.environ.copy(),
         )
 
 
@@ -180,7 +199,9 @@ def func():
         config_path.write_text(config_content)
 
         # Run serger
-        subprocess.run(  # noqa: S603
+        env = os.environ.copy()
+        env["LOG_LEVEL"] = "test"
+        result = subprocess.run(  # noqa: S603
             [
                 sys.executable,
                 "-m",
@@ -192,7 +213,13 @@ def func():
             capture_output=True,
             text=True,
             check=True,
+            env=env,
         )
+        # Print stderr if it contains trace output (for debugging)
+        if result.stderr and (
+            "TRACE" in result.stderr or "Processing comments" in result.stderr
+        ):
+            print(f"\nSubprocess stderr:\n{result.stderr}\n", file=sys.stderr)
 
         # Check output file exists
         output_file = out_dir / "output.py"
@@ -211,6 +238,7 @@ def func():
             capture_output=True,
             text=True,
             check=True,
+            env=os.environ.copy(),
         )
 
 
@@ -248,7 +276,9 @@ def func():
         config_path.write_text(config_content)
 
         # Run serger
-        subprocess.run(  # noqa: S603
+        env = os.environ.copy()
+        env["LOG_LEVEL"] = "test"
+        result = subprocess.run(  # noqa: S603
             [
                 sys.executable,
                 "-m",
@@ -260,7 +290,13 @@ def func():
             capture_output=True,
             text=True,
             check=True,
+            env=env,
         )
+        # Print stderr if it contains trace output (for debugging)
+        if result.stderr and (
+            "TRACE" in result.stderr or "Processing comments" in result.stderr
+        ):
+            print(f"\nSubprocess stderr:\n{result.stderr}\n", file=sys.stderr)
 
         # Check output file exists
         output_file = out_dir / "output.py"
@@ -277,4 +313,5 @@ def func():
             capture_output=True,
             text=True,
             check=True,
+            env=os.environ.copy(),
         )

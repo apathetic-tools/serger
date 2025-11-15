@@ -55,7 +55,12 @@ def ensure_standalone_script_up_to_date(root: Path) -> Path:
 
     if needs_rebuild:
         print("⚙️  Rebuilding standalone bundle (python -m serger)...")
-        subprocess.run([sys.executable, "-m", "serger"], check=True, cwd=root)  # noqa: S603
+        subprocess.run(  # noqa: S603
+            [sys.executable, "-m", "serger"],
+            check=True,
+            cwd=root,
+            env=os.environ.copy(),
+        )
         # force mtime update in case contents identical
         bin_path.touch()
         assert bin_path.exists(), "❌ Failed to generate standalone script."

@@ -4,6 +4,7 @@ was generated correctly — includes metadata, license header,
 and matches the declared version from pyproject.toml.
 """
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -53,6 +54,7 @@ def test_standalone_script_metadata_and_execution() -> None:
             capture_output=True,
             text=True,
             timeout=15,
+            env=os.environ.copy(),
         )
 
     # --- verify ---

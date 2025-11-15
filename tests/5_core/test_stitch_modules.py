@@ -1,6 +1,7 @@
 # tests/5_core/test_stitch_modules.py
 """Tests for stitch_modules orchestration function and helpers."""
 
+import os
 import py_compile
 import stat
 import subprocess
@@ -670,6 +671,7 @@ class TestStitchModulesAssignMode:
                 capture_output=True,
                 text=True,
                 cwd=tmp_path,
+                env=os.environ.copy(),
             )
             assert result.returncode == 0, (
                 f"Stitched file failed to execute:\n"
@@ -731,6 +733,7 @@ class TestStitchModulesAssignMode:
                 capture_output=True,
                 text=True,
                 cwd=tmp_path,
+                env=os.environ.copy(),
             )
             assert result.returncode == 0, (
                 f"Stitched file failed to execute (would fail with sys.modules):\n"
@@ -783,6 +786,7 @@ class TestStitchModulesAssignMode:
                 capture_output=True,
                 text=True,
                 cwd=tmp_path,
+                env=os.environ.copy(),
             )
             assert result.returncode == 0, (
                 f"Stitched file failed to execute:\n"
@@ -830,6 +834,7 @@ class TestStitchModulesAssignMode:
                 capture_output=True,
                 text=True,
                 cwd=tmp_path,
+                env=os.environ.copy(),
             )
             assert result.returncode == 0, (
                 f"Stitched file failed to execute:\n"
@@ -881,6 +886,7 @@ class TestStitchModulesAssignMode:
                 capture_output=True,
                 text=True,
                 cwd=tmp_path,
+                env=os.environ.copy(),
             )
             assert result.returncode == 0, (
                 f"Stitched file failed to execute:\n"
@@ -932,6 +938,7 @@ class TestStitchModulesAssignMode:
                 capture_output=True,
                 text=True,
                 cwd=tmp_path,
+                env=os.environ.copy(),
             )
             assert result.returncode == 0, (
                 f"Stitched file failed to execute:\n"
@@ -1010,6 +1017,7 @@ class TestStitchModulesAssignMode:
                 capture_output=True,
                 text=True,
                 cwd=tmp_path,
+                env=os.environ.copy(),
             )
 
             assert result.returncode == 0, (
@@ -1085,6 +1093,7 @@ class TestStitchModulesOtherImportModes:
                 capture_output=True,
                 text=True,
                 cwd=tmp_path,
+                env=os.environ.copy(),
             )
 
             assert result.returncode == 0, (
