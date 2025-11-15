@@ -17,6 +17,32 @@ ModuleMode = Literal[
     "none", "multi", "force", "force_flat", "unify", "unify_preserve", "flat"
 ]
 ShimSetting = Literal["all", "public", "none"]
+# Module actions configuration types
+ModuleActionType = Literal["move", "copy", "delete", "none"]
+ModuleActionMode = Literal["preserve", "flatten"]
+ModuleActionScope = Literal["original", "shim"]
+ModuleActionAffects = Literal["shims", "stitching", "both"]
+ModuleActionCleanup = Literal["auto", "error", "ignore"]
+
+
+class ModuleActionFull(TypedDict, total=False):
+    source: str  # required
+    source_path: NotRequired[str]  # optional filesystem path
+    dest: NotRequired[str]  # required for move/copy
+    action: NotRequired[ModuleActionType]  # default: "move"
+    mode: NotRequired[ModuleActionMode]  # default: "preserve"
+    # default: "shim" for user, "original" for mode-generated
+    scope: NotRequired[ModuleActionScope]
+    affects: NotRequired[ModuleActionAffects]  # default: "shims"
+    cleanup: NotRequired[ModuleActionCleanup]  # default: "auto"
+
+
+# Simple format: dict[str, str | None]
+ModuleActionSimple = dict[str, str | None]
+
+# Union type for config
+ModuleActions = ModuleActionSimple | list[ModuleActionFull]
+
 CommentsMode = Literal["keep", "ignores", "inline", "strip"]
 # DocstringMode can be a simple string mode or a dict for per-location control
 DocstringModeSimple = Literal["keep", "strip", "public"]
@@ -137,6 +163,10 @@ class BuildConfig(TypedDict, total=False):
     #   (future: based on _ prefix or __all__)
     # - "none": Don't generate shims at all
     shim: ShimSetting
+    # Module actions: custom module transformations (move, copy, delete)
+    # - dict[str, str | None]: Simple format mapping source -> dest
+    # - list[ModuleActionFull]: Full format with detailed options
+    module_actions: NotRequired[ModuleActions]
     # Comments mode: how to handle comments in stitched output
     # - "keep": Keep all comments (default)
     # - "ignores": Only keep comments that specify ignore rules
@@ -195,6 +225,10 @@ class RootConfig(TypedDict, total=False):
     #   (future: based on _ prefix or __all__)
     # - "none": Don't generate shims at all
     shim: ShimSetting
+    # Module actions default (cascades into builds): custom module transformations
+    # - dict[str, str | None]: Simple format mapping source -> dest
+    # - list[ModuleActionFull]: Full format with detailed options
+    module_actions: NotRequired[ModuleActions]
     # Comments mode default (cascades into builds)
     # - "keep": Keep all comments (default)
     # - "ignores": Only keep comments that specify ignore rules
@@ -245,6 +279,8 @@ class BuildConfigResolved(TypedDict):
     stitch_mode: StitchMode  # How to combine modules into a single file
     module_mode: ModuleMode  # How to generate import shims for single-file runtime
     shim: ShimSetting  # Controls shim generation and which modules get shims
+    # Module transformations (normalized to list format, always present)
+    module_actions: list[ModuleActionFull]
     comments_mode: CommentsMode  # How to handle comments in stitched output
     docstring_mode: DocstringMode  # How to handle docstrings in stitched output
 

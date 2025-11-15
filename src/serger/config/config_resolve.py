@@ -34,6 +34,13 @@ from .config_types import (
     BuildConfigResolved,
     IncludeResolved,
     MetaBuildConfigResolved,
+    ModuleActionAffects,
+    ModuleActionCleanup,
+    ModuleActionFull,
+    ModuleActionMode,
+    ModuleActions,
+    ModuleActionScope,
+    ModuleActionType,
     OriginType,
     PathResolved,
     PostCategoryConfigResolved,
@@ -193,6 +200,134 @@ def _resolve_pyproject_path(
         return (config_dir / root_pyproject_path).resolve()
     # Default: config_dir / "pyproject.toml" (project root)
     return config_dir / "pyproject.toml"
+
+
+def _validate_and_normalize_module_actions(  # noqa: C901, PLR0912, PLR0915
+    module_actions: ModuleActions,
+) -> list[ModuleActionFull]:
+    """Validate and normalize module_actions to list format.
+
+    Args:
+        module_actions: Either dict format (simple) or list format (full)
+
+    Returns:
+        Normalized list of ModuleActionFull
+
+    Raises:
+        ValueError: If validation fails
+    """
+    if isinstance(module_actions, dict):
+        # Simple format: dict[str, str | None]
+        # Validate keys are strings, values are strings or None
+        result: list[ModuleActionFull] = []
+        for key, value in sorted(module_actions.items()):
+            if not isinstance(key, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+                msg = (
+                    f"module_actions dict keys must be strings, "
+                    f"got {type(key).__name__}"
+                )
+                raise TypeError(msg)
+            if value is not None and not isinstance(value, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+                msg = (
+                    f"module_actions dict values must be strings or None, "
+                    f"got {type(value).__name__}"
+                )
+                raise ValueError(msg)
+            action: ModuleActionFull = {"source": key}
+            if value is not None:
+                action["dest"] = value
+            result.append(action)
+        return result
+
+    if isinstance(module_actions, list):  # pyright: ignore[reportUnnecessaryIsInstance]
+        # Full format: list[ModuleActionFull]
+        # Validate each item has 'source' key and validate action types
+        valid_action_types = literal_to_set(ModuleActionType)
+        valid_action_modes = literal_to_set(ModuleActionMode)
+        valid_action_scopes = literal_to_set(ModuleActionScope)
+        valid_action_affects = literal_to_set(ModuleActionAffects)
+        valid_action_cleanups = literal_to_set(ModuleActionCleanup)
+
+        result_list: list[ModuleActionFull] = []
+        for idx, action in enumerate(module_actions):
+            if not isinstance(action, dict):  # pyright: ignore[reportUnnecessaryIsInstance]
+                msg = (
+                    f"module_actions list items must be dicts, "
+                    f"got {type(action).__name__} at index {idx}"
+                )
+                raise TypeError(msg)
+
+            # Validate required 'source' key
+            if "source" not in action:
+                msg = f"module_actions[{idx}] missing required 'source' key"
+                raise ValueError(msg)
+            if not isinstance(action["source"], str):  # pyright: ignore[reportUnnecessaryIsInstance]
+                msg = (
+                    f"module_actions[{idx}]['source'] must be a string, "
+                    f"got {type(action['source']).__name__}"
+                )
+                raise TypeError(msg)
+
+            # Validate optional fields if present
+            if "action" in action:
+                action_val = action["action"]
+                if action_val not in valid_action_types:
+                    valid_str = ", ".join(repr(v) for v in sorted(valid_action_types))
+                    msg = (
+                        f"module_actions[{idx}]['action'] invalid: {action_val!r}. "
+                        f"Must be one of: {valid_str}"
+                    )
+                    raise ValueError(msg)
+
+            if "mode" in action:
+                mode_val = action["mode"]
+                if mode_val not in valid_action_modes:
+                    valid_str = ", ".join(repr(v) for v in sorted(valid_action_modes))
+                    msg = (
+                        f"module_actions[{idx}]['mode'] invalid: {mode_val!r}. "
+                        f"Must be one of: {valid_str}"
+                    )
+                    raise ValueError(msg)
+
+            if "scope" in action:
+                scope_val = action["scope"]
+                if scope_val not in valid_action_scopes:
+                    valid_str = ", ".join(repr(v) for v in sorted(valid_action_scopes))
+                    msg = (
+                        f"module_actions[{idx}]['scope'] invalid: {scope_val!r}. "
+                        f"Must be one of: {valid_str}"
+                    )
+                    raise ValueError(msg)
+
+            if "affects" in action:
+                affects_val = action["affects"]
+                if affects_val not in valid_action_affects:
+                    valid_str = ", ".join(repr(v) for v in sorted(valid_action_affects))
+                    msg = (
+                        f"module_actions[{idx}]['affects'] invalid: {affects_val!r}. "
+                        f"Must be one of: {valid_str}"
+                    )
+                    raise ValueError(msg)
+
+            if "cleanup" in action:
+                cleanup_val = action["cleanup"]
+                if cleanup_val not in valid_action_cleanups:
+                    valid_str = ", ".join(
+                        repr(v) for v in sorted(valid_action_cleanups)
+                    )
+                    msg = (
+                        f"module_actions[{idx}]['cleanup'] invalid: {cleanup_val!r}. "
+                        f"Must be one of: {valid_str}"
+                    )
+                    raise ValueError(msg)
+
+            # Copy validated action
+            result_list.append(cast_hint(ModuleActionFull, dict(action)))
+
+        return result_list
+
+    msg = f"module_actions must be dict or list, got {type(module_actions).__name__}"
+    raise ValueError(msg)
 
 
 def _is_explicitly_requested(
@@ -992,6 +1127,26 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
         resolved_cfg["shim"] = root_shim
     else:
         resolved_cfg["shim"] = DEFAULT_SHIM
+
+    # ------------------------------
+    # Module actions
+    # ------------------------------
+    # Cascade: build-level → root-level → default (empty list if not provided)
+    build_module_actions = resolved_cfg.get("module_actions")
+    root_module_actions = (root_cfg or {}).get("module_actions")
+    if build_module_actions is not None:
+        # Validate and normalize to list format
+        resolved_cfg["module_actions"] = _validate_and_normalize_module_actions(
+            build_module_actions
+        )
+    elif root_module_actions is not None:
+        # Validate and normalize to list format
+        resolved_cfg["module_actions"] = _validate_and_normalize_module_actions(
+            root_module_actions
+        )
+    else:
+        # Always set to empty list in resolved config (fully resolved)
+        resolved_cfg["module_actions"] = []
 
     # ------------------------------
     # Import handling
