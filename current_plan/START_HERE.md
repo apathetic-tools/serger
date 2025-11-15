@@ -2,7 +2,7 @@
 
 I'm implementing the Module Actions feature for serger. The implementation plan is in `current_plan/` with 14 iterations.
 
-**Start with Iteration 04**: `current_plan/04_validate_module_actions_config.md`
+**Start with Iteration 05**: `current_plan/05_create_module_actions_parsing.md`
 
 **Context**:
 - See `current_plan/00_overview.md` for the overall strategy and principles
@@ -54,5 +54,5 @@ I'm implementing the Module Actions feature for serger. The implementation plan 
 - **Q6**: `source_path` handling deferred to later iteration (basic validation only for now)
 - **Q7**: `shim: "public"` accepted as valid but treated same as `"all"` for now
 
-**Ready to proceed**: See `current_plan/04_validate_module_actions_config.md` for implementation details. The plan has been updated to reflect all decisions from iteration 03.5.
+**Ready to proceed**: See `current_plan/05_create_module_actions_parsing.md` for implementation details. This iteration creates the core `module_actions.py` file with helper functions for processing module actions, focusing on setting defaults for mode-generated actions since user actions are already normalized in iteration 04.
 
