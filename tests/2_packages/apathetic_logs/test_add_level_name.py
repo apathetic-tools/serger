@@ -69,7 +69,9 @@ def test_add_level_name_success() -> None:
 
 def test_add_level_name_sets_convenience_attribute() -> None:
     """addLevelName() should set logging.<LEVEL_NAME> attribute."""
-    level_value = 30
+    # Use a level value that doesn't conflict with built-in levels
+    # Built-in levels: DEBUG=10, INFO=20, WARNING=30, ERROR=40, CRITICAL=50
+    level_value = 25  # Between INFO and WARNING
     level_name = "CONVENIENCE_TEST"
 
     # Clean up if it exists
