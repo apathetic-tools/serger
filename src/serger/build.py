@@ -12,6 +12,7 @@ from .config import BuildConfigResolved, IncludeResolved, PathResolved
 from .constants import DEFAULT_DRY_RUN
 from .logs import get_app_logger
 from .stitch import (
+    _detect_packages_from_files,
     compute_module_order,
     extract_commit,
     extract_version,
@@ -530,26 +531,8 @@ def run_build(  # noqa: PLR0915, PLR0912
     )
     config_root = build_cfg["__meta__"]["config_root"]
 
-    # Compute package root for module name derivation (needed for auto-discovery)
-    package_root = find_package_root(included_files)
-
-    # Resolve order paths (order is list[str] of paths, or None for auto-discovery)
-    topo_paths: list[Path] | None = None
-    if order is not None:
-        # Use explicit order from config
-        order_paths = resolve_order_paths(order, included_files, config_root)
-        logger.debug("Using explicit order from config (%d entries)", len(order_paths))
-    else:
-        # Auto-discover order via topological sort
-        logger.info("Auto-discovering module order via topological sort...")
-        order_paths = compute_module_order(
-            included_files, package_root, package, file_to_include
-        )
-        logger.debug("Auto-discovered order (%d modules)", len(order_paths))
-        # When auto-discovered, order_paths IS the topological order, so we can reuse it
-        topo_paths = order_paths
-
     # Resolve exclude_names to paths (exclude_names is list[str] of paths)
+    # Do this early so we can exclude them before package detection
     exclude_names_raw = build_cfg.get("exclude_names", [])
     exclude_paths: list[Path] = []
     if exclude_names_raw:
@@ -562,6 +545,41 @@ def run_build(  # noqa: PLR0915, PLR0912
                 exclude_path = (config_root / exclude_name).resolve()
             if exclude_path in included_set:
                 exclude_paths.append(exclude_path)
+
+    # Filter out excluded files to get final set for stitching
+    exclude_set = set(exclude_paths)
+    final_files = [f for f in included_files if f not in exclude_set]
+
+    if not final_files:
+        xmsg = "No files remaining after exclusions"
+        raise ValueError(xmsg)
+
+    # Compute package root for module name derivation (needed for auto-discovery)
+    package_root = find_package_root(final_files)
+
+    # Detect packages once from final files (after all exclusions)
+    logger.debug("Detecting packages from included files (after exclusions)...")
+    detected_packages = _detect_packages_from_files(final_files, package)
+
+    # Resolve order paths (order is list[str] of paths, or None for auto-discovery)
+    topo_paths: list[Path] | None = None
+    if order is not None:
+        # Use explicit order from config (filtered to final_files)
+        order_paths = resolve_order_paths(order, final_files, config_root)
+        logger.debug("Using explicit order from config (%d entries)", len(order_paths))
+    else:
+        # Auto-discover order via topological sort (using final_files)
+        logger.info("Auto-discovering module order via topological sort...")
+        order_paths = compute_module_order(
+            final_files,
+            package_root,
+            package,
+            file_to_include,
+            detected_packages=detected_packages,
+        )
+        logger.debug("Auto-discovered order (%d modules)", len(order_paths))
+        # When auto-discovered, order_paths IS the topological order, so we can reuse it
+        topo_paths = order_paths
 
     # Prepare config dict for stitch_modules
     # post_processing, external_imports, stitch_mode, comments_mode already validated
@@ -576,8 +594,8 @@ def run_build(  # noqa: PLR0915, PLR0912
 
     stitch_config: dict[str, object] = {
         "package": package,
-        "order": order_paths,  # Pass resolved paths
-        "exclude_names": exclude_paths,  # Pass resolved paths
+        "order": order_paths,  # Pass resolved paths (already excludes exclude_paths)
+        "exclude_names": exclude_paths,  # Pass resolved paths (for validation)
         "display_name": display_name_raw,
         "description": description_raw,
         "repo": repo_raw,
@@ -586,6 +604,7 @@ def run_build(  # noqa: PLR0915, PLR0912
         "stitch_mode": stitch_mode,
         "comments_mode": comments_mode,
         "docstring_mode": docstring_mode,
+        "detected_packages": detected_packages,  # Pre-detected packages
     }
 
     # Extract metadata for embedding (use package_root as root_path)

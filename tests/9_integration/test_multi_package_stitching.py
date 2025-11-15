@@ -141,6 +141,10 @@ def test_multi_package_stitching_via_config_file(tmp_path: Path) -> None:
     pkg1_dir.mkdir()
     pkg2_dir.mkdir()
 
+    # Add __init__.py files to make them proper packages
+    (pkg1_dir / "__init__.py").write_text("")
+    (pkg2_dir / "__init__.py").write_text("")
+
     (pkg1_dir / "foo.py").write_text("def foo():\n    return 'foo from pkg1'\n")
     (pkg2_dir / "bar.py").write_text("def bar():\n    return 'bar from pkg2'\n")
 
@@ -153,6 +157,9 @@ def test_multi_package_stitching_via_config_file(tmp_path: Path) -> None:
       "include": [
         "pkg1/**/*.py",
         "pkg2/**/*.py"
+      ],
+      "exclude": [
+        "**/__init__.py"
       ],
       "package": "pkg1",
       "order": [
@@ -331,6 +338,10 @@ def test_multi_package_auto_discover_order_with_cross_package_imports(
     pkg1_dir.mkdir()
     pkg2_dir.mkdir()
 
+    # Add __init__.py files to make them proper packages
+    (pkg1_dir / "__init__.py").write_text("")
+    (pkg2_dir / "__init__.py").write_text("")
+
     # Package 1: base module (no dependencies)
     (pkg1_dir / "base.py").write_text("BASE = 1\n")
 
@@ -350,6 +361,9 @@ def test_multi_package_auto_discover_order_with_cross_package_imports(
         make_include_resolved("pkg1/**/*.py", tmp_path),
         make_include_resolved("pkg2/**/*.py", tmp_path),
     ]
+    excludes = [
+        make_resolved("**/__init__.py", tmp_path),
+    ]
 
     build_cfg = make_build_cfg(
         tmp_path,
@@ -357,6 +371,7 @@ def test_multi_package_auto_discover_order_with_cross_package_imports(
         respect_gitignore=False,
         out=make_resolved("stitched.py", tmp_path),
         package="pkg1",  # Primary package name
+        exclude=excludes,
         # No order specified - should auto-discover
     )
 
