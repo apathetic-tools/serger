@@ -1025,13 +1025,15 @@ def detect_name_collisions(
     symbols: dict[str, str] = {}  # name -> module
     collisions: list[tuple[str, str, str]] = []
 
-    for mod, symbols_data in module_symbols.items():
+    # Sort module names for deterministic iteration order
+    for mod, symbols_data in sorted(module_symbols.items()):
         # Check all symbol types (functions, classes, assignments)
         all_names = (
             symbols_data.functions | symbols_data.classes | symbols_data.assignments
         )
 
-        for name in all_names:
+        # Sort for deterministic iteration order
+        for name in sorted(all_names):
             # skip known harmless globals
             if name in ignore:
                 continue
@@ -1108,12 +1110,15 @@ def compute_module_order(  # noqa: C901, PLR0912, PLR0915
 
     # Detect all packages from module names (for multi-package support)
     detected_packages: set[str] = {package_name}  # Always include configured package
-    for module_name in file_to_module.values():
+    # Iterate in sorted order for reproducibility
+    for module_name in sorted(file_to_module.values()):
         if "." in module_name:
             pkg = module_name.split(".", 1)[0]
             detected_packages.add(pkg)
 
     # Build dependency graph using derived module names
+    # file_paths is already sorted from collect_included_files, so dict insertion
+    # order is deterministic
     deps: dict[str, set[str]] = {file_to_module[fp]: set() for fp in file_paths}
 
     for file_path in file_paths:
@@ -1159,7 +1164,8 @@ def compute_module_order(  # noqa: C901, PLR0912, PLR0915
                 matched_package = None
                 is_relative_resolved = node.level > 0 and mod and "." not in mod
 
-                for pkg in detected_packages:
+                # Sort packages for deterministic iteration order
+                for pkg in sorted(detected_packages):
                     # Match only if mod equals pkg or starts with pkg + "."
                     # This prevents false matches where a module name happens to
                     # start with a package name (e.g., "foo_bar" matching "foo")
@@ -1186,7 +1192,8 @@ def compute_module_order(  # noqa: C901, PLR0912, PLR0915
                         module_name,
                         mod,
                     )
-                    for dep_module in deps:
+                    # Sort for deterministic iteration order
+                    for dep_module in sorted(deps.keys()):
                         # Match if dep_module equals mod or starts with mod.
                         if (
                             dep_module == mod or dep_module.startswith(mod + ".")
@@ -1214,7 +1221,8 @@ def compute_module_order(  # noqa: C901, PLR0912, PLR0915
                         # Check if this matches any derived module name
                         # Match both the suffix (for same-package imports)
                         # and full module name (for cross-package imports)
-                        for dep_module in deps:
+                        # Sort for deterministic iteration order
+                        for dep_module in sorted(deps.keys()):
                             # Match if: dep_module equals mod_suffix or mod
                             # or dep_module starts with mod_suffix or mod
                             prefix_tuple = (mod_suffix + ".", mod + ".")
@@ -1229,7 +1237,8 @@ def compute_module_order(  # noqa: C901, PLR0912, PLR0915
                     mod = alias.name
                     # Check if import starts with any detected package
                     matched_package = None
-                    for pkg in detected_packages:
+                    # Sort packages for deterministic iteration order
+                    for pkg in sorted(detected_packages):
                         if mod.startswith(pkg):
                             matched_package = pkg
                             break
@@ -1247,7 +1256,8 @@ def compute_module_order(  # noqa: C901, PLR0912, PLR0915
                             # Check if this matches any derived module name
                             # Match both the suffix (for same-package imports)
                             # and full module name (for cross-package imports)
-                            for dep_module in deps:
+                            # Sort for deterministic iteration order
+                            for dep_module in sorted(deps.keys()):
                                 prefix_tuple = (mod_suffix + ".", mod + ".")
                                 matches = dep_module in (
                                     mod_suffix,
@@ -2251,7 +2261,8 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     logger.debug("Extracting symbols from modules...")
     module_symbols: dict[str, ModuleSymbols] = {}
     all_function_names: set[str] = set()
-    for mod_name, source in module_sources.items():
+    # Sort for deterministic iteration order
+    for mod_name, source in sorted(module_sources.items()):
         symbols = _extract_top_level_symbols(source)
         module_symbols[mod_name] = symbols
         all_function_names.update(symbols.functions)
