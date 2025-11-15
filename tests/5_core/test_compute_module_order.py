@@ -50,8 +50,17 @@ def test_simple_order() -> None:
             src_dir, ["a", "b"]
         )
 
+        # Detect packages for the test
+        detected_packages = mod_stitch._detect_packages_from_files(  # noqa: SLF001
+            file_paths, "pkg"
+        )
+
         order = mod_stitch.compute_module_order(
-            file_paths, package_root, "pkg", file_to_include
+            file_paths,
+            package_root,
+            "pkg",
+            file_to_include,
+            detected_packages=detected_packages,
         )
         assert set(order) == set(file_paths)
 
@@ -67,8 +76,17 @@ def test_dependency_order() -> None:
             src_dir, ["derived", "base"]
         )
 
+        # Detect packages for the test
+        detected_packages = mod_stitch._detect_packages_from_files(  # noqa: SLF001
+            file_paths, "pkg"
+        )
+
         order = mod_stitch.compute_module_order(
-            file_paths, package_root, "pkg", file_to_include
+            file_paths,
+            package_root,
+            "pkg",
+            file_to_include,
+            detected_packages=detected_packages,
         )
         # base must come before derived
         base_path = next(p for p in file_paths if p.name == "base.py")
@@ -87,9 +105,18 @@ def test_circular_import_error() -> None:
             src_dir, ["a", "b"]
         )
 
+        # Detect packages for the test
+        detected_packages = mod_stitch._detect_packages_from_files(  # noqa: SLF001
+            file_paths, "pkg"
+        )
+
         with pytest.raises(RuntimeError):
             mod_stitch.compute_module_order(
-                file_paths, package_root, "pkg", file_to_include
+                file_paths,
+                package_root,
+                "pkg",
+                file_to_include,
+                detected_packages=detected_packages,
             )
 
 
@@ -104,8 +131,17 @@ def test_relative_import_order() -> None:
             src_dir, ["derived", "base"]
         )
 
+        # Detect packages for the test
+        detected_packages = mod_stitch._detect_packages_from_files(  # noqa: SLF001
+            file_paths, "pkg"
+        )
+
         order = mod_stitch.compute_module_order(
-            file_paths, package_root, "pkg", file_to_include
+            file_paths,
+            package_root,
+            "pkg",
+            file_to_include,
+            detected_packages=detected_packages,
         )
         # base must come before derived
         base_path = next(p for p in file_paths if p.name == "base.py")
@@ -148,8 +184,17 @@ def test_init_py_relative_import_order() -> None:
         for file_path in file_paths:
             file_to_include[file_path] = include
 
+        # Detect packages for the test
+        detected_packages = mod_stitch._detect_packages_from_files(  # noqa: SLF001
+            file_paths, "apathetic_logging"
+        )
+
         order = mod_stitch.compute_module_order(
-            file_paths, package_root, "apathetic_logging", file_to_include
+            file_paths,
+            package_root,
+            "apathetic_logging",
+            file_to_include,
+            detected_packages=detected_packages,
         )
 
         # namespace.py must come before __init__.py
@@ -196,8 +241,17 @@ else:
         for file_path in file_paths:
             file_to_include[file_path] = include
 
+        # Detect packages for the test
+        detected_packages = mod_stitch._detect_packages_from_files(  # noqa: SLF001
+            file_paths, "apathetic_logging"
+        )
+
         order = mod_stitch.compute_module_order(
-            file_paths, package_root, "apathetic_logging", file_to_include
+            file_paths,
+            package_root,
+            "apathetic_logging",
+            file_to_include,
+            detected_packages=detected_packages,
         )
 
         namespace_path = next(p for p in file_paths if p.name == "namespace.py")

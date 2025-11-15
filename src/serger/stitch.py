@@ -712,8 +712,8 @@ def process_comments(text: str, mode: CommentsMode) -> str:  # noqa: C901, PLR09
         return "".join(result)
 
     # Pattern for ignore comments (case-insensitive)
-    # Matches: # noqa, # type: ignore, # pyright: ignore, # mypy: ignore,
-    # # ruff: noqa, # serger: no-move, etc.
+    # Matches: noqa, type: ignore, pyright: ignore, mypy: ignore,
+    # ruff noqa, serger: no-move, etc.
     # Note: This pattern matches the comment part AFTER the #
     ignore_pattern = re.compile(
         r"^\s*(noqa|type:\s*ignore|pyright:\s*ignore|mypy:\s*ignore|ruff:\s*noqa|serger:\s*no-move)",
@@ -1080,8 +1080,10 @@ def verify_all_modules_listed(
 def compute_module_order(  # noqa: C901, PLR0912, PLR0915
     file_paths: list[Path],
     package_root: Path,
-    package_name: str,
+    _package_name: str,
     file_to_include: dict[Path, IncludeResolved],
+    *,
+    detected_packages: set[str],
 ) -> list[Path]:
     """Compute correct module order based on import dependencies.
 
@@ -1091,8 +1093,9 @@ def compute_module_order(  # noqa: C901, PLR0912, PLR0915
     Args:
         file_paths: List of file paths in initial order
         package_root: Common root of all included files
-        package_name: Root package name
+        _package_name: Root package name (unused, kept for API consistency)
         file_to_include: Mapping of file path to its include (for dest access)
+        detected_packages: Pre-detected package names
 
     Returns:
         Topologically sorted list of file paths
@@ -1109,14 +1112,6 @@ def compute_module_order(  # noqa: C901, PLR0912, PLR0915
         module_name = derive_module_name(file_path, package_root, include)
         file_to_module[file_path] = module_name
         module_to_file[module_name] = file_path
-
-    # Detect all packages from module names (for multi-package support)
-    detected_packages: set[str] = {package_name}  # Always include configured package
-    # Iterate in sorted order for reproducibility
-    for module_name in sorted(file_to_module.values()):
-        if "." in module_name:
-            pkg = module_name.split(".", 1)[0]
-            detected_packages.add(pkg)
 
     # Build dependency graph using derived module names
     # file_paths is already sorted from collect_included_files, so dict insertion
@@ -1284,8 +1279,10 @@ def compute_module_order(  # noqa: C901, PLR0912, PLR0915
 def suggest_order_mismatch(
     order_paths: list[Path],
     package_root: Path,
-    package_name: str,
+    _package_name: str,
     file_to_include: dict[Path, IncludeResolved],
+    *,
+    detected_packages: set[str],
     topo_paths: list[Path] | None = None,
 ) -> None:
     """Warn if module order violates dependencies.
@@ -1293,8 +1290,9 @@ def suggest_order_mismatch(
     Args:
         order_paths: List of file paths in intended order
         package_root: Common root of all included files
-        package_name: Root package name
+        _package_name: Root package name (unused, kept for API consistency)
         file_to_include: Mapping of file path to its include (for dest access)
+        detected_packages: Pre-detected package names
         topo_paths: Optional pre-computed topological order. If provided,
                     skips recomputing the order. If None, computes it via
                     compute_module_order.
@@ -1302,7 +1300,11 @@ def suggest_order_mismatch(
     logger = get_app_logger()
     if topo_paths is None:
         topo_paths = compute_module_order(
-            order_paths, package_root, package_name, file_to_include
+            order_paths,
+            package_root,
+            _package_name,
+            file_to_include,
+            detected_packages=detected_packages,
         )
 
     # compare order_paths to topological sort
@@ -1473,6 +1475,58 @@ def _find_package_root_for_file(file_path: Path) -> Path | None:
         current_dir = parent
 
 
+def _detect_packages_from_files(
+    file_paths: list[Path],
+    package_name: str,
+) -> set[str]:
+    """Detect packages by walking up from files looking for __init__.py.
+
+    Follows Python's import rules: only detects regular packages (with
+    __init__.py files). Falls back to configured package_name if none detected.
+
+    Args:
+        file_paths: List of file paths to check
+        package_name: Configured package name (used as fallback)
+
+    Returns:
+        Set of detected package names (always includes package_name)
+    """
+    logger = get_app_logger()
+    detected: set[str] = set()
+
+    # Detect packages from __init__.py files
+    for file_path in file_paths:
+        pkg_root = _find_package_root_for_file(file_path)
+        if pkg_root:
+            # Extract package name from directory name
+            pkg_name = pkg_root.name
+            detected.add(pkg_name)
+            logger.trace(
+                "[PKG_DETECT] Detected package %s from %s (root: %s)",
+                pkg_name,
+                file_path,
+                pkg_root,
+            )
+
+    # Always include configured package (for fallback and multi-package scenarios)
+    detected.add(package_name)
+
+    if len(detected) == 1 and package_name in detected:
+        logger.debug(
+            "Package detection: No __init__.py files found, "
+            "using configured package '%s'",
+            package_name,
+        )
+    else:
+        logger.debug(
+            "Package detection: Found %d package(s): %s",
+            len(detected),
+            sorted(detected),
+        )
+
+    return detected
+
+
 def force_mtime_advance(path: Path, seconds: float = 1.0, max_tries: int = 50) -> None:
     """Reliably bump a file's mtime, preserving atime and nanosecond precision.
 
@@ -1512,8 +1566,9 @@ def force_mtime_advance(path: Path, seconds: float = 1.0, max_tries: int = 50) -
 def _collect_modules(
     file_paths: list[Path],
     package_root: Path,
-    package_name: str,
+    _package_name: str,
     file_to_include: dict[Path, IncludeResolved],
+    detected_packages: set[str],
     external_imports: ExternalImportMode = "top",
     internal_imports: InternalImportMode = "force_strip",
     comments_mode: CommentsMode = "keep",
@@ -1524,8 +1579,9 @@ def _collect_modules(
     Args:
         file_paths: List of file paths to stitch (in order)
         package_root: Common root of all included files
-        package_name: Root package name
+        _package_name: Root package name (unused, kept for API consistency)
         file_to_include: Mapping of file path to its include (for dest access)
+        detected_packages: Pre-detected package names
         external_imports: How to handle external imports
         internal_imports: How to handle internal imports
         comments_mode: How to handle comments in stitched output
@@ -1543,23 +1599,6 @@ def _collect_modules(
     # Reserve imports for shim system and main entry point
     all_imports.setdefault("import sys\n", None)  # For shim system and main()
     all_imports.setdefault("import types\n", None)  # For shim system (ModuleType)
-
-    # First pass: collect all module names to detect packages
-    all_module_names: list[str] = []
-    for file_path in file_paths:
-        if not file_path.exists():
-            logger.warning("Skipping missing file: %s", file_path)
-            continue
-        include = file_to_include.get(file_path)
-        module_name = derive_module_name(file_path, package_root, include)
-        all_module_names.append(module_name)
-
-    # Detect all packages from module names
-    detected_packages: set[str] = {package_name}  # Always include configured package
-    for module_name in all_module_names:
-        if "." in module_name:
-            pkg = module_name.split(".", 1)[0]
-            detected_packages.add(pkg)
 
     # Convert to sorted list for consistent behavior
     package_names_list = sorted(detected_packages)
@@ -1674,9 +1713,10 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     parts: list[str],
     order_names: list[str],
     all_function_names: set[str],
-    order_paths: list[Path] | None = None,
-    package_root: Path | None = None,
-    file_to_include: dict[Path, IncludeResolved] | None = None,
+    detected_packages: set[str],
+    _order_paths: list[Path] | None = None,
+    _package_root: Path | None = None,
+    _file_to_include: dict[Path, IncludeResolved] | None = None,
     license_header: str,
     version: str,
     commit: str,
@@ -1694,9 +1734,10 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         order_names: List of module names (for shim generation)
         all_function_names: Set of all function names from all modules
             (used to detect if main() function exists)
-        order_paths: Optional list of file paths corresponding to order_names
-        package_root: Optional common root of all included files
-        file_to_include: Optional mapping of file path to its include
+        detected_packages: Pre-detected package names
+        _order_paths: Optional list of file paths (unused, kept for API consistency)
+        _package_root: Optional common root (unused, kept for API consistency)
+        _file_to_include: Optional mapping (unused, kept for API consistency)
         license_header: License header text
         version: Version string
         commit: Commit hash
@@ -1734,127 +1775,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     # Note: If specific modules should be excluded, use the 'exclude' config option
     shim_names_raw = list(order_names)
 
-    # Detect packages by looking at file system structure (__init__.py files)
-    # This is more reliable than guessing from module names
-    # Map module names to their actual package roots
-    module_to_package_root: dict[str, Path | None] = {}
-    detected_packages: set[str] = {package_name}  # Always include configured package
-
-    if order_paths and package_root and file_to_include:
-        logger.trace(
-            "[PKG_DETECT] Detecting packages from file system structure "
-            "(__init__.py files)"
-        )
-        # Create mapping from module names to file paths
-        name_to_path: dict[str, Path] = {}
-        for file_path in order_paths:
-            include = file_to_include.get(file_path)
-            module_name = derive_module_name(file_path, package_root, include)
-            name_to_path[module_name] = file_path
-
-        # For each module, find its package root by walking up looking for __init__.py
-        for module_name in shim_names_raw:
-            if module_name in name_to_path:
-                file_path = name_to_path[module_name]
-                file_pkg_root = _find_package_root_for_file(file_path)
-                module_to_package_root[module_name] = file_pkg_root
-
-                # Determine if this file is from a different package
-                # A file is from a different package if its package root is:
-                # 1. Not the same as package_root, AND
-                # 2. Not a subdirectory of package_root
-                #    (i.e., it's a sibling or unrelated)
-                if file_pkg_root and file_pkg_root != package_root:
-                    try:
-                        # Check if file_pkg_root is a subdirectory of package_root
-                        rel_path = file_pkg_root.relative_to(package_root)
-                        # If it's a direct child (one level deep), it might be
-                        # a sibling package like pkg1/ and pkg2/ under a common root
-                        if len(rel_path.parts) == 1:
-                            # It's a direct child - check if it's a different package
-                            # by comparing the package root name to package_name
-                            pkg_name_from_path = file_pkg_root.name
-                            if (
-                                pkg_name_from_path
-                                and pkg_name_from_path != package_name
-                            ):
-                                logger.trace(
-                                    "[PKG_DETECT] Detected separate package %s "
-                                    "(sibling of %s) from file %s",
-                                    pkg_name_from_path,
-                                    package_name,
-                                    file_path,
-                                )
-                                detected_packages.add(pkg_name_from_path)
-                            else:
-                                logger.trace(
-                                    "[PKG_DETECT] %s is subpackage of %s "
-                                    "(file_pkg_root=%s, package_root=%s)",
-                                    module_name,
-                                    package_name,
-                                    file_pkg_root,
-                                    package_root,
-                                )
-                        # If it's deeper (len > 1), it's a subpackage
-                        else:
-                            logger.trace(
-                                "[PKG_DETECT] %s is nested subpackage of %s (depth=%d)",
-                                module_name,
-                                package_name,
-                                len(rel_path.parts),
-                            )
-                    except ValueError:
-                        # file_pkg_root is not under package_root,
-                        # so it's a different package
-                        # Extract package name from the file's package root
-                        pkg_name_from_path = file_pkg_root.name
-                        if pkg_name_from_path and pkg_name_from_path != package_name:
-                            logger.trace(
-                                "[PKG_DETECT] Detected separate package %s "
-                                "(unrelated to %s) from file %s",
-                                pkg_name_from_path,
-                                package_name,
-                                file_path,
-                            )
-                            detected_packages.add(pkg_name_from_path)
-                elif file_pkg_root == package_root:
-                    logger.trace(
-                        "[PKG_DETECT] %s is in main package %s",
-                        module_name,
-                        package_name,
-                    )
-                else:
-                    logger.trace(
-                        "[PKG_DETECT] %s: no package root found (file_pkg_root=None)",
-                        module_name,
-                    )
-
-    # Also detect packages from module names
-    # (as fallback when __init__.py detection fails)
-    # Only do this if we didn't successfully detect packages from file system
-    # (i.e., if module_to_package_root is empty or all values are None)
-    if not module_to_package_root or all(
-        v is None for v in module_to_package_root.values()
-    ):
-        logger.debug(
-            "Package detection: __init__.py files not found, "
-            "falling back to module name detection"
-        )
-        # Fallback: detect packages from module names
-        for module_name in shim_names_raw:
-            if "." in module_name:
-                pkg = module_name.split(".", 1)[0]
-                # Only add if it's clearly a different package (not a subpackage)
-                # We can't reliably distinguish, so be conservative and only add
-                # if it's different from package_name
-                if pkg != package_name:
-                    logger.trace(
-                        "[PKG_DETECT] Fallback: detected package %s "
-                        "from module name %s",
-                        pkg,
-                        module_name,
-                    )
-                    detected_packages.add(pkg)
+    # Use provided detected_packages (detected once and passed in)
 
     # Prepend package_name to create full module paths
     # Module names are relative to package_root, so we need to prepend package_name
@@ -2047,7 +1968,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         f"# Commit: {commit}\n"
         f"# Build Date: {build_date}\n"
         f"{repo_line}"
-        "\n# ruff: noqa: E402\n"
+        "\n# noqa: E402\n"
         "\n"
         f"{future_block}\n"
         '"""\n'
@@ -2196,6 +2117,17 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
 
     logger.info("Starting stitch process for package: %s", package_name)
 
+    # --- Package Detection (once, at the start) ---
+    # Use pre-detected packages from run_build (already excludes exclude_paths)
+    detected_packages_raw = config.get("detected_packages")
+    if detected_packages_raw is not None and isinstance(detected_packages_raw, set):
+        detected_packages = detected_packages_raw
+        logger.debug("Using pre-detected packages: %s", sorted(detected_packages))
+    else:
+        # Fallback: detect from order_paths (shouldn't happen in normal flow)
+        logger.debug("Detecting packages from order_paths (fallback)...")
+        detected_packages = _detect_packages_from_files(order_paths, package_name)
+
     # --- Validation Phase ---
     logger.debug("Validating module listing...")
     verify_all_modules_listed(file_paths, order_paths, exclude_paths)
@@ -2213,7 +2145,12 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
             elif isinstance(item, Path):  # pyright: ignore[reportUnnecessaryIsInstance]
                 topo_paths.append(item)
     suggest_order_mismatch(
-        order_paths, package_root, package_name, file_to_include, topo_paths
+        order_paths,
+        package_root,
+        package_name,
+        file_to_include,
+        detected_packages=detected_packages,
+        topo_paths=topo_paths,
     )
 
     # --- Collection Phase ---
@@ -2252,6 +2189,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         package_root,
         package_name,
         file_to_include,
+        detected_packages,
         external_imports,
         internal_imports,
         comments_mode,
@@ -2288,15 +2226,16 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     if not isinstance(repo_raw, str):
         repo_raw = ""
 
-    final_script, detected_packages = _build_final_script(
+    final_script, _detected_packages_returned = _build_final_script(
         package_name=package_name,
         all_imports=all_imports,
         parts=parts,
         order_names=derived_module_names,
         all_function_names=all_function_names,
-        order_paths=order_paths,
-        package_root=package_root,
-        file_to_include=file_to_include,
+        detected_packages=detected_packages,
+        _order_paths=order_paths,
+        _package_root=package_root,
+        _file_to_include=file_to_include,
         license_header=license_header,
         version=version,
         commit=commit,
@@ -2308,7 +2247,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
 
     # --- Verification ---
     logger.debug("Verifying assembled script...")
-    verify_no_broken_imports(final_script, detected_packages)
+    verify_no_broken_imports(final_script, sorted(detected_packages))
 
     # --- Output ---
     logger.debug("Writing output file: %s", out_path)

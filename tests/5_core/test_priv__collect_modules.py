@@ -22,7 +22,6 @@ def _setup_collect_test(
     Args:
         src_dir: Directory containing Python modules
         module_names: List of module names (will be converted to paths)
-        package_name: Package name for config
 
     Returns:
         Tuple of (file_paths, package_root, file_to_include)
@@ -58,13 +57,18 @@ class TestCollectModulesBasic:
                 src_dir, ["a", "b"]
             )
 
+            # Detect packages for the test
+            detected_packages = mod_stitch._detect_packages_from_files(
+                file_paths, "testpkg"
+            )
+
             (
                 module_sources,
                 _all_imports,
                 parts,
                 _derived_names,
             ) = mod_stitch._collect_modules(
-                file_paths, package_root, "testpkg", file_to_include
+                file_paths, package_root, "testpkg", file_to_include, detected_packages
             )
 
             assert "a.py" in module_sources
@@ -87,9 +91,18 @@ class TestCollectModulesBasic:
                 src_dir, ["a", "b"]
             )
 
+            # Detect packages for the test
+            detected_packages = mod_stitch._detect_packages_from_files(
+                file_paths, "testpkg"
+            )
+
             _module_sources, all_imports, _parts, _derived_names = (
                 mod_stitch._collect_modules(
-                    file_paths, package_root, "testpkg", file_to_include
+                    file_paths,
+                    package_root,
+                    "testpkg",
+                    file_to_include,
+                    detected_packages,
                 )
             )
 
@@ -110,9 +123,18 @@ class TestCollectModulesBasic:
                 src_dir, ["a"]
             )
 
+            # Detect packages for the test
+            detected_packages = mod_stitch._detect_packages_from_files(
+                file_paths, "testpkg"
+            )
+
             _module_sources, _all_imports, parts, _derived_names = (
                 mod_stitch._collect_modules(
-                    file_paths, package_root, "testpkg", file_to_include
+                    file_paths,
+                    package_root,
+                    "testpkg",
+                    file_to_include,
+                    detected_packages,
                 )
             )
 
@@ -135,9 +157,18 @@ class TestCollectModulesBasic:
             missing_path = (src_dir / "missing.py").resolve()
             file_paths.append(missing_path)
 
+            # Detect packages for the test
+            detected_packages = mod_stitch._detect_packages_from_files(
+                file_paths, "testpkg"
+            )
+
             module_sources, _all_imports, parts, _derived_names = (
                 mod_stitch._collect_modules(
-                    file_paths, package_root, "testpkg", file_to_include
+                    file_paths,
+                    package_root,
+                    "testpkg",
+                    file_to_include,
+                    detected_packages,
                 )
             )
 
@@ -164,9 +195,18 @@ class TestCollectModulesBasic:
                 src_dir, ["main"]
             )
 
+            # Detect packages for the test
+            detected_packages = mod_stitch._detect_packages_from_files(
+                file_paths, "testpkg"
+            )
+
             _module_sources, _all_imports, parts, _derived_names = (
                 mod_stitch._collect_modules(
-                    file_paths, package_root, "testpkg", file_to_include
+                    file_paths,
+                    package_root,
+                    "testpkg",
+                    file_to_include,
+                    detected_packages,
                 )
             )
 
@@ -188,9 +228,18 @@ class TestCollectModulesBasic:
                 src_dir, ["c", "a", "b"]
             )
 
+            # Detect packages for the test
+            detected_packages = mod_stitch._detect_packages_from_files(
+                file_paths, "testpkg"
+            )
+
             _module_sources, _all_imports, parts, _derived_names = (
                 mod_stitch._collect_modules(
-                    file_paths, package_root, "testpkg", file_to_include
+                    file_paths,
+                    package_root,
+                    "testpkg",
+                    file_to_include,
+                    detected_packages,
                 )
             )
 
@@ -229,9 +278,18 @@ class TestCollectModulesImportHandling:
                 src_dir, ["a", "b"]
             )
 
+            # Detect packages for the test
+            detected_packages = mod_stitch._detect_packages_from_files(
+                file_paths, "testpkg"
+            )
+
             _module_sources, all_imports, _parts, _derived_names = (
                 mod_stitch._collect_modules(
-                    file_paths, package_root, "testpkg", file_to_include
+                    file_paths,
+                    package_root,
+                    "testpkg",
+                    file_to_include,
+                    detected_packages,
                 )
             )
 
@@ -252,9 +310,18 @@ class TestCollectModulesImportHandling:
                 src_dir, ["a", "b"]
             )
 
+            # Detect packages for the test
+            detected_packages = mod_stitch._detect_packages_from_files(
+                file_paths, "testpkg"
+            )
+
             _module_sources, all_imports, _parts, _derived_names = (
                 mod_stitch._collect_modules(
-                    file_paths, package_root, "testpkg", file_to_include
+                    file_paths,
+                    package_root,
+                    "testpkg",
+                    file_to_include,
+                    detected_packages,
                 )
             )
 
@@ -278,9 +345,18 @@ class TestCollectModulesImportHandling:
                 src_dir, ["a"]
             )
 
+            # Detect packages for the test
+            detected_packages = mod_stitch._detect_packages_from_files(
+                file_paths, "testpkg"
+            )
+
             _module_sources, all_imports, _parts, _derived_names = (
                 mod_stitch._collect_modules(
-                    file_paths, package_root, "testpkg", file_to_include
+                    file_paths,
+                    package_root,
+                    "testpkg",
+                    file_to_include,
+                    detected_packages,
                 )
             )
 
@@ -305,8 +381,17 @@ class TestCollectModulesSources:
                 src_dir, ["a", "b"]
             )
 
+            # Detect packages for the test
+            detected_packages = mod_stitch._detect_packages_from_files(
+                file_paths, "testpkg"
+            )
+
             module_sources, _, _, _ = mod_stitch._collect_modules(
-                file_paths, package_root, "testpkg", file_to_include
+                file_paths,
+                package_root,
+                "testpkg",
+                file_to_include,
+                detected_packages,
             )
 
             assert isinstance(module_sources, dict)
@@ -326,8 +411,17 @@ class TestCollectModulesSources:
                 src_dir, ["main"]
             )
 
+            # Detect packages for the test
+            detected_packages = mod_stitch._detect_packages_from_files(
+                file_paths, "testpkg"
+            )
+
             module_sources, _, _, _ = mod_stitch._collect_modules(
-                file_paths, package_root, "testpkg", file_to_include
+                file_paths,
+                package_root,
+                "testpkg",
+                file_to_include,
+                detected_packages,
             )
 
             # Find the module source (key might be "main.py" or derived name)
@@ -346,8 +440,17 @@ class TestCollectModulesSources:
                 src_dir, ["a"]
             )
 
+            # Detect packages for the test
+            detected_packages = mod_stitch._detect_packages_from_files(
+                file_paths, "testpkg"
+            )
+
             _, _, parts, _ = mod_stitch._collect_modules(
-                file_paths, package_root, "testpkg", file_to_include
+                file_paths,
+                package_root,
+                "testpkg",
+                file_to_include,
+                detected_packages,
             )
 
             assert len(parts) == 1
@@ -364,13 +467,17 @@ class TestCollectModulesMultiPackage:
     """Test module collection with multiple packages."""
 
     def test_collect_multi_package_detects_all_packages(self) -> None:
-        """Should detect all packages from module names."""
+        """Should detect all packages from __init__.py files."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             pkg1_dir = tmp_path / "pkg1"
             pkg2_dir = tmp_path / "pkg2"
             pkg1_dir.mkdir()
             pkg2_dir.mkdir()
+
+            # Add __init__.py files to make them proper packages
+            (pkg1_dir / "__init__.py").write_text("")
+            (pkg2_dir / "__init__.py").write_text("")
 
             (pkg1_dir / "module1.py").write_text(
                 "from pkg2.module2 import func2\n\nA = 1\n"
@@ -388,9 +495,18 @@ class TestCollectModulesMultiPackage:
             file_to_include[file_paths[0]] = include1
             file_to_include[file_paths[1]] = include2
 
+            # Detect packages for the test
+            detected_packages = mod_stitch._detect_packages_from_files(
+                file_paths, "pkg1"
+            )
+
             _module_sources, all_imports, _parts, _derived_names = (
                 mod_stitch._collect_modules(
-                    file_paths, package_root, "pkg1", file_to_include
+                    file_paths,
+                    package_root,
+                    "pkg1",
+                    file_to_include,
+                    detected_packages,
                 )
             )
 
@@ -429,9 +545,18 @@ class TestCollectModulesMultiPackage:
                 )
                 file_to_include[file_path] = include
 
+            # Detect packages for the test
+            detected_packages = mod_stitch._detect_packages_from_files(
+                file_paths, "pkg1"
+            )
+
             _module_sources, all_imports, _parts, _derived_names = (
                 mod_stitch._collect_modules(
-                    file_paths, package_root, "pkg1", file_to_include
+                    file_paths,
+                    package_root,
+                    "pkg1",
+                    file_to_include,
+                    detected_packages,
                 )
             )
 
