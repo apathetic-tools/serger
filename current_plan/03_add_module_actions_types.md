@@ -41,7 +41,7 @@ ModuleActions = ModuleActionSimple | list[ModuleActionFull]
 - In `resolve_build_config()`, accept `module_actions` from config
 - Validate structure (basic validation - full validation comes later):
   - If dict: validate keys are strings, values are strings or None
-  - If list: validate each item has `source` key, validate action types
+  - If list: validate each item has `source` key, validate action types using `literal_to_set()` for Literal types
 - Store in `BuildConfigResolved` (normalized to list format, but don't parse yet)
 
 ### 4. Add Tests

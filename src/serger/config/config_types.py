@@ -16,6 +16,7 @@ StitchMode = Literal["raw", "class", "exec"]
 ModuleMode = Literal[
     "none", "multi", "force", "force_flat", "unify", "unify_preserve", "flat"
 ]
+ShimSetting = Literal["all", "public", "none"]
 CommentsMode = Literal["keep", "ignores", "inline", "strip"]
 # DocstringMode can be a simple string mode or a dict for per-location control
 DocstringModeSimple = Literal["keep", "strip", "public"]
@@ -130,6 +131,12 @@ class BuildConfig(TypedDict, total=False):
     # - "unify_preserve": Like unify but preserves structure when package matches
     # - "flat": Treat loose files as top-level modules (not under package)
     module_mode: ModuleMode
+    # Shim setting: controls whether shims are generated and which modules get shims
+    # - "all": Generate shims for all modules (default)
+    # - "public": Only generate shims for public modules
+    #   (future: based on _ prefix or __all__)
+    # - "none": Don't generate shims at all
+    shim: ShimSetting
     # Comments mode: how to handle comments in stitched output
     # - "keep": Keep all comments (default)
     # - "ignores": Only keep comments that specify ignore rules
@@ -182,6 +189,12 @@ class RootConfig(TypedDict, total=False):
     # - "unify_preserve": Like unify but preserves structure when package matches
     # - "flat": Treat loose files as top-level modules (not under package)
     module_mode: ModuleMode
+    # Shim setting default (cascades into builds)
+    # - "all": Generate shims for all modules (default)
+    # - "public": Only generate shims for public modules
+    #   (future: based on _ prefix or __all__)
+    # - "none": Don't generate shims at all
+    shim: ShimSetting
     # Comments mode default (cascades into builds)
     # - "keep": Keep all comments (default)
     # - "ignores": Only keep comments that specify ignore rules
@@ -231,6 +244,7 @@ class BuildConfigResolved(TypedDict):
     external_imports: ExternalImportMode  # How to handle external imports
     stitch_mode: StitchMode  # How to combine modules into a single file
     module_mode: ModuleMode  # How to generate import shims for single-file runtime
+    shim: ShimSetting  # Controls shim generation and which modules get shims
     comments_mode: CommentsMode  # How to handle comments in stitched output
     docstring_mode: DocstringMode  # How to handle docstrings in stitched output
 
