@@ -15,6 +15,7 @@ Serger builds must be **reproducible, deterministic, and idempotent**. This mean
      - Sets: `for item in sorted(my_set):`
      - Dict keys/values/items: `for key, value in sorted(my_dict.items()):`
      - Any collection where iteration order affects the final build output
+   - **When sorting is redundant**: If a list is already sorted and you only perform operations that preserve sorted order (e.g., deleting items, filtering), you don't need to sort again before iterating
    - This applies to:
      - Module ordering
      - Import collection and ordering
@@ -60,6 +61,31 @@ for mod_name, source in module_sources.items():
 # ✅ GOOD: Deterministic iteration
 for mod_name, source in sorted(module_sources.items()):
     # process module
+```
+
+**When sorting is redundant:**
+```python
+# ✅ GOOD: List already sorted, only deleting items preserves order
+sorted_list = sorted(original_collection)
+for item in sorted_list:
+    if should_keep(item):
+        process(item)
+# Later iteration - still sorted, no need to sort again
+for item in sorted_list:  # ✅ OK: still sorted after deletions
+    process_remaining(item)
+
+# ❌ BAD: Adding items without maintaining sort order
+sorted_list = sorted(original_collection)
+sorted_list.append(new_item)  # Breaks sorted order
+for item in sorted_list:  # ❌ Need to sort again
+    process(item)
+
+# ✅ GOOD: If you can guarantee the list is still sorted
+sorted_list = sorted(original_collection)
+# Only operations that preserve order (delete, filter, slice)
+filtered = [x for x in sorted_list if condition(x)]  # Still sorted
+for item in filtered:  # ✅ OK: filtered list maintains sort order
+    process(item)
 ```
 
 **Dependency Graph Ordering:**
@@ -383,6 +409,10 @@ Serger is a Python module stitcher that combines multiple source files into a si
   - `poetry run poe coverage` - Generate code coverage report (dual runtime coverage)
   - `poetry run poe check:fix` - Fix, type check, and test (run before committing)
   - `poetry run poe build:script` - Generate the single-file dist/serger.py
+  - `poetry run poe sync:ai:guidance` - Sync AI guidance files from `.ai/` to `.cursor/` and `.claude/`
+- **When modifying `.ai/` files**: After changing any file in `.ai/rules/` or `.ai/commands/`, you **must**:
+  1. Run `poetry run poe sync:ai:guidance` to sync changes to `.cursor/` and `.claude/`
+  2. Include the generated files (`.cursor/rules/*.mdc`, `.cursor/commands/*.md`, `.claude/CLAUDE.md`) as part of the same changeset/commit
 - **Before committing**: Run `poetry run poe check:fix` (this also regenerates `dist/serger.py` as needed)
 
 # Claude Extra
