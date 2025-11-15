@@ -23,6 +23,7 @@ I'm implementing the Module Actions feature for serger. The implementation plan 
 - Iteration 03 - Add `module_actions` types ✓
 - Iteration 03.5 - Resolve clarifying questions ✓
 - Iteration 04 - Validate and normalize `module_actions` config ✓
+- Iteration 05 - Create `module_actions.py` with parsing functions ✓
 
 **Current status**:
 - `ModuleActionType`, `ModuleActionMode`, `ModuleActionScope`, `ModuleActionAffects`, `ModuleActionCleanup` literal types added
@@ -40,9 +41,15 @@ I'm implementing the Module Actions feature for serger. The implementation plan 
   - `source_path` validated as non-empty string if present (basic validation)
   - All defaults applied: `action: "move"`, `mode: "preserve"`, `scope: "shim"`, `affects: "shims"`, `cleanup: "auto"`
 - Comprehensive tests added for all validation cases
+- Created `src/serger/module_actions.py` with `set_mode_generated_action_defaults()` helper function:
+  - Sets defaults for mode-generated actions: `action: "move"`, `mode: "preserve"`, `scope: "original"` (always), `affects: "shims"`, `cleanup: "auto"`
+  - Always sets `scope: "original"` for mode-generated actions (per Q3 decision)
+  - Preserves existing fields (except scope which is always overridden)
+  - Does not mutate input action
+- Comprehensive unit tests added in `tests/5_core/test_module_actions.py`
 - All checks passing (`poetry run poe check:fix`)
 
-**Next step**: Iteration 05 - Create `module_actions.py` with parsing functions.
+**Next step**: Iteration 06 - Add validation functions (upfront and incremental).
 
 **Iteration 03.5 complete**: All clarifying questions have been answered. See `current_plan/03.5_resolve_clarifying_questions.md` for the full decisions.
 
@@ -53,6 +60,3 @@ I'm implementing the Module Actions feature for serger. The implementation plan 
 - **Q5**: `dest` validation happens in iteration 04 (upfront validation)
 - **Q6**: `source_path` handling deferred to later iteration (basic validation only for now)
 - **Q7**: `shim: "public"` accepted as valid but treated same as `"all"` for now
-
-**Ready to proceed**: See `current_plan/05_create_module_actions_parsing.md` for implementation details. This iteration creates the core `module_actions.py` file with helper functions for processing module actions, focusing on setting defaults for mode-generated actions since user actions are already normalized in iteration 04.
-
