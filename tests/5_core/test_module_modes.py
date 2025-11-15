@@ -1,15 +1,15 @@
-# tests/5_core/test_shim_modes.py
-"""Unit tests for all shim_mode options."""
+# tests/5_core/test_module_modes.py
+"""Unit tests for all module_mode options."""
 
 from tests.utils.build_final_script import call_build_final_script
 
 
-class TestShimModeNone:
-    """Test shim_mode='none' - no shims generated."""
+class TestModuleModeNone:
+    """Test module_mode='none' - no shims generated."""
 
     def test_no_shims_generated(self) -> None:
         """Should not generate any shim code."""
-        result, _ = call_build_final_script(shim_mode="none")
+        result, _ = call_build_final_script(module_mode="none")
 
         assert "# --- import shims for single-file runtime ---" not in result
         assert "_create_pkg_module" not in result
@@ -17,8 +17,8 @@ class TestShimModeNone:
         assert "sys.modules" not in result or "import sys" in result
 
 
-class TestShimModeMulti:
-    """Test shim_mode='multi' - generate shims for all detected packages."""
+class TestModuleModeMulti:
+    """Test module_mode='multi' - generate shims for all detected packages."""
 
     def test_multi_package_shims(self) -> None:
         """Should generate shims for all detected packages."""
@@ -26,7 +26,7 @@ class TestShimModeMulti:
             package_name="mypkg",
             order_names=["pkg1.module1", "pkg2.module2"],
             detected_packages={"pkg1", "pkg2", "mypkg"},
-            shim_mode="multi",
+            module_mode="multi",
         )
 
         assert "# --- import shims for single-file runtime ---" in result
@@ -41,7 +41,7 @@ class TestShimModeMulti:
             package_name="mypkg",
             order_names=["utils", "core"],
             detected_packages={"mypkg"},
-            shim_mode="multi",
+            module_mode="multi",
         )
 
         assert "# --- import shims for single-file runtime ---" in result
@@ -50,8 +50,8 @@ class TestShimModeMulti:
         assert '"mypkg.core"' in normalized
 
 
-class TestShimModeForce:
-    """Test shim_mode='force' - replace root package but keep subpackages."""
+class TestModuleModeForce:
+    """Test module_mode='force' - replace root package but keep subpackages."""
 
     def test_force_replaces_root_keeps_subpackages(self) -> None:
         """Should replace root package but keep subpackages."""
@@ -59,7 +59,7 @@ class TestShimModeForce:
             package_name="mypkg",
             order_names=["pkg1.sub.module1", "pkg2.sub.module2"],
             detected_packages={"pkg1", "pkg2"},
-            shim_mode="force",
+            module_mode="force",
         )
 
         assert "# --- import shims for single-file runtime ---" in result
@@ -74,7 +74,7 @@ class TestShimModeForce:
             package_name="mypkg",
             order_names=["mypkg.utils", "other.sub"],
             detected_packages={"mypkg", "other"},
-            shim_mode="force",
+            module_mode="force",
         )
 
         normalized = result.replace("'", '"')
@@ -82,8 +82,8 @@ class TestShimModeForce:
         assert '"mypkg.sub"' in normalized
 
 
-class TestShimModeForceFlat:
-    """Test shim_mode='force_flat' - flatten everything to package."""
+class TestModuleModeForceFlat:
+    """Test module_mode='force_flat' - flatten everything to package."""
 
     def test_force_flat_flattens_all(self) -> None:
         """Should flatten all modules to direct children of package."""
@@ -91,7 +91,7 @@ class TestShimModeForceFlat:
             package_name="mypkg",
             order_names=["pkg1.sub.module1", "pkg2.sub.module2", "loose"],
             detected_packages={"pkg1", "pkg2"},
-            shim_mode="force_flat",
+            module_mode="force_flat",
         )
 
         assert "# --- import shims for single-file runtime ---" in result
@@ -107,15 +107,15 @@ class TestShimModeForceFlat:
             package_name="mypkg",
             order_names=["deep.nested.module"],
             detected_packages={"deep"},
-            shim_mode="force_flat",
+            module_mode="force_flat",
         )
 
         normalized = result.replace("'", '"')
         assert '"mypkg.module"' in normalized
 
 
-class TestShimModeUnify:
-    """Test shim_mode='unify' - place all packages under package, combine if matches."""
+class TestModuleModeUnify:
+    """Test module_mode='unify' - place all packages under package, combine if matches."""  # noqa: E501
 
     def test_unify_combines_matching_package(self) -> None:
         """Should combine when package matches detected package."""
@@ -123,7 +123,7 @@ class TestShimModeUnify:
             package_name="serger",
             order_names=["serger.utils", "apathetic_logs.logs"],
             detected_packages={"serger", "apathetic_logs"},
-            shim_mode="unify",
+            module_mode="unify",
         )
 
         normalized = result.replace("'", '"')
@@ -138,7 +138,7 @@ class TestShimModeUnify:
             package_name="mypkg",
             order_names=["pkg1.module1", "pkg2.module2", "loose"],
             detected_packages={"pkg1", "pkg2"},
-            shim_mode="unify",
+            module_mode="unify",
         )
 
         normalized = result.replace("'", '"')
@@ -147,8 +147,8 @@ class TestShimModeUnify:
         assert '"mypkg.loose"' in normalized
 
 
-class TestShimModeUnifyPreserve:
-    """Test shim_mode='unify_preserve' - like unify but preserves structure."""
+class TestModuleModeUnifyPreserve:
+    """Test module_mode='unify_preserve' - like unify but preserves structure."""
 
     def test_unify_preserve_preserves_structure(self) -> None:
         """Should preserve structure when package matches."""
@@ -156,7 +156,7 @@ class TestShimModeUnifyPreserve:
             package_name="serger",
             order_names=["serger.utils.text", "apathetic_logs.logs"],
             detected_packages={"serger", "apathetic_logs"},
-            shim_mode="unify_preserve",
+            module_mode="unify_preserve",
         )
 
         normalized = result.replace("'", '"')
@@ -171,15 +171,15 @@ class TestShimModeUnifyPreserve:
             package_name="mypkg",
             order_names=["loose"],
             detected_packages={"mypkg"},
-            shim_mode="unify_preserve",
+            module_mode="unify_preserve",
         )
 
         normalized = result.replace("'", '"')
         assert '"mypkg.loose"' in normalized
 
 
-class TestShimModeFlat:
-    """Test shim_mode='flat' - loose files as top-level modules."""
+class TestModuleModeFlat:
+    """Test module_mode='flat' - loose files as top-level modules."""
 
     def test_flat_keeps_loose_files_top_level(self) -> None:
         """Should keep loose files as top-level modules."""
@@ -187,7 +187,7 @@ class TestShimModeFlat:
             package_name="mypkg",
             order_names=["main", "utils", "pkg1.module1"],
             detected_packages={"pkg1"},
-            shim_mode="flat",
+            module_mode="flat",
         )
 
         normalized = result.replace("'", '"')
@@ -203,7 +203,7 @@ class TestShimModeFlat:
             package_name="mypkg",
             order_names=["main", "utils"],
             detected_packages={"mypkg"},
-            shim_mode="flat",
+            module_mode="flat",
         )
 
         normalized = result.replace("'", '"')

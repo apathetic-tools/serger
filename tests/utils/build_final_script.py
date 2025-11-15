@@ -15,7 +15,7 @@ def make_build_final_script_args(  # noqa: PLR0913
     order_names: list[str] | None = None,
     all_function_names: set[str] | None = None,
     detected_packages: set[str] | None = None,
-    shim_mode: str = "multi",
+    module_mode: str = "multi",
     license_header: str = "",
     version: str = "1.0.0",
     commit: str = "abc123",
@@ -33,7 +33,7 @@ def make_build_final_script_args(  # noqa: PLR0913
         order_names: List of module names (defaults to ["main"])
         all_function_names: Set of all function names (defaults to empty set)
         detected_packages: Pre-detected package names (defaults to {package_name})
-        shim_mode: How to generate import shims (defaults to "multi")
+        module_mode: How to generate import shims (defaults to "multi")
         license_header: License header text
         version: Version string
         commit: Commit hash
@@ -69,7 +69,7 @@ def make_build_final_script_args(  # noqa: PLR0913
         "order_names": order_names,
         "all_function_names": all_function_names,
         "detected_packages": detected_packages,
-        "shim_mode": shim_mode,
+        "module_mode": module_mode,
         "license_header": license_header,
         "version": version,
         "commit": commit,

@@ -1,5 +1,5 @@
-# tests/9_integration/test_shim_modes.py
-"""Integration tests for all shim_mode options."""
+# tests/9_integration/test_module_modes.py
+"""Integration tests for all module_mode options."""
 
 import importlib.util
 import sys
@@ -9,8 +9,8 @@ import serger.build as mod_build
 from tests.utils.buildconfig import make_build_cfg, make_include_resolved, make_resolved
 
 
-def test_shim_mode_none(tmp_path: Path) -> None:
-    """Test shim_mode='none' - no shims generated."""
+def test_module_mode_none(tmp_path: Path) -> None:
+    """Test module_mode='none' - no shims generated."""
     # Setup: Create a simple package
     pkg_dir = tmp_path / "mypkg"
     pkg_dir.mkdir()
@@ -26,8 +26,8 @@ def test_shim_mode_none(tmp_path: Path) -> None:
         package="mypkg",
         order=["mypkg/__init__.py", "mypkg/module.py"],
     )
-    # Set shim_mode to none
-    build_cfg["shim_mode"] = "none"
+    # Set module_mode to none
+    build_cfg["module_mode"] = "none"
 
     mod_build.run_build(build_cfg)
 
@@ -37,8 +37,8 @@ def test_shim_mode_none(tmp_path: Path) -> None:
     assert "_create_pkg_module" not in content
 
 
-def test_shim_mode_multi(tmp_path: Path) -> None:
-    """Test shim_mode='multi' - default behavior."""
+def test_module_mode_multi(tmp_path: Path) -> None:
+    """Test module_mode='multi' - default behavior."""
     # Setup: Create two packages
     pkg1_dir = tmp_path / "pkg1"
     pkg2_dir = tmp_path / "pkg2"
@@ -67,7 +67,7 @@ def test_shim_mode_multi(tmp_path: Path) -> None:
             "pkg2/mod2.py",
         ],
     )
-    build_cfg["shim_mode"] = "multi"
+    build_cfg["module_mode"] = "multi"
 
     mod_build.run_build(build_cfg)
 
@@ -97,8 +97,8 @@ def test_shim_mode_multi(tmp_path: Path) -> None:
     assert func2() == "pkg2"
 
 
-def test_shim_mode_force(tmp_path: Path) -> None:
-    """Test shim_mode='force' - replace root package but keep subpackages."""
+def test_module_mode_force(tmp_path: Path) -> None:
+    """Test module_mode='force' - replace root package but keep subpackages."""
     # Setup: Create packages with subpackages
     pkg1_dir = tmp_path / "pkg1"
     pkg2_dir = tmp_path / "pkg2"
@@ -129,7 +129,7 @@ def test_shim_mode_force(tmp_path: Path) -> None:
             "pkg2/sub/mod2.py",
         ],
     )
-    build_cfg["shim_mode"] = "force"
+    build_cfg["module_mode"] = "force"
 
     mod_build.run_build(build_cfg)
 
@@ -143,8 +143,8 @@ def test_shim_mode_force(tmp_path: Path) -> None:
     assert '"mypkg.pkg2.sub.mod2"' in normalized or '"mypkg.sub.mod2"' in normalized
 
 
-def test_shim_mode_force_flat(tmp_path: Path) -> None:
-    """Test shim_mode='force_flat' - flatten everything."""
+def test_module_mode_force_flat(tmp_path: Path) -> None:
+    """Test module_mode='force_flat' - flatten everything."""
     # Setup: Create nested package structure
     pkg_dir = tmp_path / "pkg1"
     pkg_dir.mkdir()
@@ -169,7 +169,7 @@ def test_shim_mode_force_flat(tmp_path: Path) -> None:
             "pkg1/sub/deep/module.py",
         ],
     )
-    build_cfg["shim_mode"] = "force_flat"
+    build_cfg["module_mode"] = "force_flat"
 
     mod_build.run_build(build_cfg)
 
@@ -179,8 +179,8 @@ def test_shim_mode_force_flat(tmp_path: Path) -> None:
     assert '"mypkg.module"' in normalized
 
 
-def test_shim_mode_unify(tmp_path: Path) -> None:
-    """Test shim_mode='unify' - place all under package, combine if matches."""
+def test_module_mode_unify(tmp_path: Path) -> None:
+    """Test module_mode='unify' - place all under package, combine if matches."""
     # Setup: Create packages where one matches configured package
     serger_dir = tmp_path / "serger"
     logs_dir = tmp_path / "apathetic_logs"
@@ -209,7 +209,7 @@ def test_shim_mode_unify(tmp_path: Path) -> None:
             "apathetic_logs/logs.py",
         ],
     )
-    build_cfg["shim_mode"] = "unify"
+    build_cfg["module_mode"] = "unify"
 
     mod_build.run_build(build_cfg)
 
@@ -221,8 +221,8 @@ def test_shim_mode_unify(tmp_path: Path) -> None:
     assert '"serger.apathetic_logs.logs"' in normalized
 
 
-def test_shim_mode_unify_preserve(tmp_path: Path) -> None:
-    """Test shim_mode='unify_preserve' - like unify but preserves structure."""
+def test_module_mode_unify_preserve(tmp_path: Path) -> None:
+    """Test module_mode='unify_preserve' - like unify but preserves structure."""
     # Setup: Similar to unify but with nested structure
     serger_dir = tmp_path / "serger"
     logs_dir = tmp_path / "apathetic_logs"
@@ -251,7 +251,7 @@ def test_shim_mode_unify_preserve(tmp_path: Path) -> None:
             "apathetic_logs/logs.py",
         ],
     )
-    build_cfg["shim_mode"] = "unify_preserve"
+    build_cfg["module_mode"] = "unify_preserve"
 
     mod_build.run_build(build_cfg)
 
@@ -263,8 +263,8 @@ def test_shim_mode_unify_preserve(tmp_path: Path) -> None:
     assert '"serger.apathetic_logs.logs"' in normalized
 
 
-def test_shim_mode_flat(tmp_path: Path) -> None:
-    """Test shim_mode='flat' - loose files as top-level modules."""
+def test_module_mode_flat(tmp_path: Path) -> None:
+    """Test module_mode='flat' - loose files as top-level modules."""
     # Setup: Create loose files and a package
     (tmp_path / "main.py").write_text("def main():\n    return 'main'\n")
     (tmp_path / "utils.py").write_text("def util():\n    return 'util'\n")
@@ -286,7 +286,7 @@ def test_shim_mode_flat(tmp_path: Path) -> None:
         package="mypkg",
         order=["main.py", "utils.py", "pkg1/__init__.py", "pkg1/module.py"],
     )
-    build_cfg["shim_mode"] = "flat"
+    build_cfg["module_mode"] = "flat"
 
     mod_build.run_build(build_cfg)
 
