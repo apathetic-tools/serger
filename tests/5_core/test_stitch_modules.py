@@ -1,10 +1,8 @@
 # tests/5_core/test_stitch_modules.py
 """Tests for stitch_modules orchestration function and helpers."""
 
-import os
 import py_compile
 import stat
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -15,6 +13,7 @@ import pytest
 import serger.build as mod_build
 import serger.config.config_types as mod_config_types
 import serger.stitch as mod_stitch
+from tests.utils import run_with_output
 from tests.utils.buildconfig import make_include_resolved
 
 
@@ -665,13 +664,10 @@ class TestStitchModulesAssignMode:
 
             # Verify it executes correctly
             # If assignments used sys.modules (not available yet), this would fail
-            result = subprocess.run(  # noqa: S603
+            result = run_with_output(
                 [sys.executable, str(out_path)],
                 check=False,
-                capture_output=True,
-                text=True,
                 cwd=tmp_path,
-                env=os.environ.copy(),
             )
             assert result.returncode == 0, (
                 f"Stitched file failed to execute:\n"
@@ -727,13 +723,10 @@ class TestStitchModulesAssignMode:
 
             # Verify it executes correctly
             # If assignments used sys.modules (not available yet), this would fail
-            result = subprocess.run(  # noqa: S603
+            result = run_with_output(
                 [sys.executable, str(out_path)],
                 check=False,
-                capture_output=True,
-                text=True,
                 cwd=tmp_path,
-                env=os.environ.copy(),
             )
             assert result.returncode == 0, (
                 f"Stitched file failed to execute (would fail with sys.modules):\n"
@@ -780,13 +773,10 @@ class TestStitchModulesAssignMode:
             assert "my_config = MyConfig()" in content
 
             # Verify it executes
-            result = subprocess.run(  # noqa: S603
+            result = run_with_output(
                 [sys.executable, str(out_path)],
                 check=False,
-                capture_output=True,
-                text=True,
                 cwd=tmp_path,
-                env=os.environ.copy(),
             )
             assert result.returncode == 0, (
                 f"Stitched file failed to execute:\n"
@@ -828,13 +818,10 @@ class TestStitchModulesAssignMode:
             assert "from .base import" not in content
 
             # Verify it executes
-            result = subprocess.run(  # noqa: S603
+            result = run_with_output(
                 [sys.executable, str(out_path)],
                 check=False,
-                capture_output=True,
-                text=True,
                 cwd=tmp_path,
-                env=os.environ.copy(),
             )
             assert result.returncode == 0, (
                 f"Stitched file failed to execute:\n"
@@ -880,13 +867,10 @@ class TestStitchModulesAssignMode:
             assert "TypeC = C" in content
 
             # Verify it executes
-            result = subprocess.run(  # noqa: S603
+            result = run_with_output(
                 [sys.executable, str(out_path)],
                 check=False,
-                capture_output=True,
-                text=True,
                 cwd=tmp_path,
-                env=os.environ.copy(),
             )
             assert result.returncode == 0, (
                 f"Stitched file failed to execute:\n"
@@ -932,13 +916,10 @@ class TestStitchModulesAssignMode:
             assert "def run():" in content
 
             # Verify it executes
-            result = subprocess.run(  # noqa: S603
+            result = run_with_output(
                 [sys.executable, str(out_path)],
                 check=False,
-                capture_output=True,
-                text=True,
                 cwd=tmp_path,
-                env=os.environ.copy(),
             )
             assert result.returncode == 0, (
                 f"Stitched file failed to execute:\n"
@@ -1011,13 +992,10 @@ class TestStitchModulesAssignMode:
             assert "Calc = Calculator" in content
 
             # Execute and verify output
-            result = subprocess.run(  # noqa: S603
+            result = run_with_output(
                 [sys.executable, str(out_path)],
                 check=False,
-                capture_output=True,
-                text=True,
                 cwd=tmp_path,
-                env=os.environ.copy(),
             )
 
             assert result.returncode == 0, (
@@ -1087,13 +1065,10 @@ class TestStitchModulesOtherImportModes:
             assert "from testpkg.utils import add" not in content
 
             # Execute and verify it works
-            result = subprocess.run(  # noqa: S603
+            result = run_with_output(
                 [sys.executable, str(out_path)],
                 check=False,
-                capture_output=True,
-                text=True,
                 cwd=tmp_path,
-                env=os.environ.copy(),
             )
 
             assert result.returncode == 0, (
