@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-from apathetic_utils import cast_hint, has_glob_chars, load_toml
+from apathetic_utils import cast_hint, has_glob_chars, literal_to_set, load_toml
 from serger.constants import (
     DEFAULT_CATEGORIES,
     DEFAULT_CATEGORY_ORDER,
@@ -19,6 +19,7 @@ from serger.constants import (
     DEFAULT_MODULE_MODE,
     DEFAULT_OUT_DIR,
     DEFAULT_RESPECT_GITIGNORE,
+    DEFAULT_SHIM,
     DEFAULT_STITCH_MODE,
     DEFAULT_STRICT_CONFIG,
     DEFAULT_USE_PYPROJECT,
@@ -40,6 +41,7 @@ from .config_types import (
     PostProcessingConfigResolved,
     RootConfig,
     RootConfigResolved,
+    ShimSetting,
     ToolConfig,
     ToolConfigResolved,
 )
@@ -966,6 +968,30 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
         resolved_cfg["module_mode"] = root_module_mode
     else:
         resolved_cfg["module_mode"] = DEFAULT_MODULE_MODE
+
+    # ------------------------------
+    # Shim setting
+    # ------------------------------
+    # Cascade: build-level → root-level → default
+    valid_shim_values = literal_to_set(ShimSetting)
+    build_shim = resolved_cfg.get("shim")
+    root_shim = (root_cfg or {}).get("shim")
+    if build_shim is not None:
+        # Validate value
+        if build_shim not in valid_shim_values:
+            valid_str = ", ".join(repr(v) for v in sorted(valid_shim_values))
+            msg = f"Invalid shim value: {build_shim!r}. Must be one of: {valid_str}"
+            raise ValueError(msg)
+        resolved_cfg["shim"] = build_shim
+    elif root_shim is not None:
+        # Validate value
+        if root_shim not in valid_shim_values:
+            valid_str = ", ".join(repr(v) for v in sorted(valid_shim_values))
+            msg = f"Invalid shim value: {root_shim!r}. Must be one of: {valid_str}"
+            raise ValueError(msg)
+        resolved_cfg["shim"] = root_shim
+    else:
+        resolved_cfg["shim"] = DEFAULT_SHIM
 
     # ------------------------------
     # Import handling

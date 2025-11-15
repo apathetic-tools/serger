@@ -2264,7 +2264,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     if stitch_mode not in valid_modes:
         msg = (
             f"Invalid stitch_mode: {stitch_mode!r}. "
-            f"Must be one of: {', '.join(sorted(cast('set[str]', valid_modes)))}"
+            f"Must be one of: {', '.join(sorted(valid_modes))}"
         )
         raise ValueError(msg)
 
@@ -2274,7 +2274,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     if module_mode not in valid_module_modes:
         msg = (
             f"Invalid module_mode: {module_mode!r}. "
-            f"Must be one of: {', '.join(sorted(cast('set[str]', valid_module_modes)))}"
+            f"Must be one of: {', '.join(sorted(valid_module_modes))}"
         )
         raise ValueError(msg)
 

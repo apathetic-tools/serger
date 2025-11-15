@@ -27,11 +27,11 @@ def _normalize_module_actions(
 - **List format**: Validate each action:
   - `source` is required and must be non-empty string
   - `dest` is required for `move`/`copy`, must not be present for `delete`
-  - `action` must be one of `"move"`, `"copy"`, `"delete"`, `"none"` (if present)
-  - `mode` must be one of `"preserve"`, `"flatten"` (if present)
-  - `scope` must be one of `"original"`, `"shim"` (if present)
-  - `affects` must be one of `"shims"`, `"stitching"`, `"both"` (if present)
-  - `cleanup` must be one of `"auto"`, `"error"`, `"ignore"` (if present)
+  - `action` must be in `literal_to_set(ModuleActionType)` (if present)
+  - `mode` must be in `literal_to_set(ModuleActionMode)` (if present)
+  - `scope` must be in `literal_to_set(ModuleActionScope)` (if present)
+  - `affects` must be in `literal_to_set(ModuleActionAffects)` (if present)
+  - `cleanup` must be in `literal_to_set(ModuleActionCleanup)` (if present)
   - `source_path` must be a non-empty string (if present)
 
 ### 3. Update `resolve_build_config()`

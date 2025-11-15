@@ -5,9 +5,11 @@
 import argparse
 from argparse import Namespace
 from pathlib import Path
+from typing import cast
 
 import pytest
 
+import apathetic_utils as mod_apathetic_utils
 import serger.config.config_resolve as mod_resolve
 import serger.config.config_types as mod_types
 import serger.logs as mod_logs
@@ -896,3 +898,175 @@ def test_resolve_build_config_out_with_parent_different_config_and_cwd(
     assert out["root"] == config_dir
     assert out["path"] == "../outputs/dist"
     assert out["origin"] == "config"
+
+
+# ---------------------------------------------------------------------------
+# Shim setting tests
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_build_config_shim_default_value(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Shim setting should default to 'all' if not specified."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved["shim"] == "all"
+
+
+def test_resolve_build_config_shim_from_build_config(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Shim setting from build config should be used."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"], shim="public")
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved["shim"] == "public"
+
+
+def test_resolve_build_config_shim_cascades_from_root(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Shim setting should cascade from root config if not in build config."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"])
+    root_cfg: mod_types.RootConfig = {"shim": "none"}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    assert resolved["shim"] == "none"
+
+
+def test_resolve_build_config_shim_build_overrides_root(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Build-level shim setting should override root-level."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"], shim="public")
+    root_cfg: mod_types.RootConfig = {"shim": "none"}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    assert resolved["shim"] == "public"
+
+
+def test_resolve_build_config_shim_validates_all_value(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Shim setting should accept 'all' as a valid value."""
+    # --- setup ---
+    valid_shim_values = mod_apathetic_utils.literal_to_set(mod_types.ShimSetting)
+    raw = make_build_input(include=["src/**"], shim="all")
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved["shim"] == "all"
+    assert "all" in valid_shim_values
+
+
+def test_resolve_build_config_shim_validates_public_value(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Shim setting should accept 'public' as a valid value."""
+    # --- setup ---
+    valid_shim_values = mod_apathetic_utils.literal_to_set(mod_types.ShimSetting)
+    raw = make_build_input(include=["src/**"], shim="public")
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved["shim"] == "public"
+    assert "public" in valid_shim_values
+
+
+def test_resolve_build_config_shim_validates_none_value(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Shim setting should accept 'none' as a valid value."""
+    # --- setup ---
+    valid_shim_values = mod_apathetic_utils.literal_to_set(mod_types.ShimSetting)
+    raw = make_build_input(include=["src/**"], shim="none")
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved["shim"] == "none"
+    assert "none" in valid_shim_values
+
+
+def test_resolve_build_config_shim_invalid_value_raises_error(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Shim setting should raise error for invalid values."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"], shim="invalid")
+    args = _args()
+
+    # --- execute and validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(ValueError, match="Invalid shim value"),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+
+def test_resolve_build_config_shim_invalid_root_value_raises_error(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Shim setting should raise error for invalid root config values."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"])
+    # Use cast to allow invalid value for testing validation
+    root_cfg = cast("mod_types.RootConfig", {"shim": "invalid"})
+    args = _args()
+
+    # --- execute and validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(ValueError, match="Invalid shim value"),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path, root_cfg)

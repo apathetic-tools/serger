@@ -21,7 +21,7 @@ ShimSetting = Literal["all", "public", "none"]
 - In `resolve_build_config()`, resolve `shim` setting:
   - Default: `"all"` if not specified
   - Cascade from root config if not in build config
-  - Validate value is one of `"all"`, `"public"`, `"none"`
+  - Validate value using `literal_to_set(ShimSetting)` to get valid values
 - Store resolved value in `BuildConfigResolved`
 
 ### 4. Add Tests
