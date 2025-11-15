@@ -34,6 +34,9 @@ Planned command-line flags for future releases:
 - can we make the main() detection smarter?
 - config setting for main
 - tie the import mode defaults to the stitch mode
+- Module actions glob pattern support: Phase 1 (simple wildcards in convenience dict)
+- Module actions glob pattern support: Phase 2 (globs in list format)
+- Module actions glob pattern support: Phase 3 (advanced patterns with multiple wildcards and named captures)
 
 ## 🧩 Joiner Scripts (Build System)
 Exploring bundling options for generating the single-file release:
