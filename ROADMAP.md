@@ -47,6 +47,7 @@ Exploring bundling options for generating the single-file release:
 - split large test files
 - is checking py_compiles overkill? should we also run it against the installed mode not just singlefile?
 - make sure for our config_types TypeDicts, we have a make_ factory in tests/utils that has sane defaults for all fields it can and named parameters for overriding each. that way a test can focus on just overiding the values it cares about. make sure our tests use the factories.
+- can we split integration into ones that check serger output and those that don't? what do our integration tests that only run in one runtime_mode do?
 
 ## 🧑‍💻 Development
 - implement stich mode: exec (see [docs/example_isolated_stiching.md](docs/example_isolated_stiching.md))
@@ -58,7 +59,6 @@ Exploring bundling options for generating the single-file release:
 - same config same output? are we imdemponent (sp?)
 - if we moved the sys.modules shims as we went, would that allow us to do imports as long as the order was correct?
 - should more of our config settings be available to be set via ENV?
-- check for secret hidden keys on our types that aren't in config_types like "_pyproject_version" that should actually be added.
 
 ## 🚀 Deployment
 - Deploy action when I tag a release should create a release and attach it to the tagged release.

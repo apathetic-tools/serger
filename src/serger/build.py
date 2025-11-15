@@ -437,10 +437,7 @@ def _extract_build_metadata(
     # Use version from resolved config if available (from pyproject.toml),
     # otherwise fall back to extracting it directly
     version_raw = build_cfg.get("_pyproject_version")
-    if version_raw and isinstance(version_raw, str):
-        version = version_raw
-    else:
-        version = extract_version(root_path / "pyproject.toml")
+    version = version_raw or extract_version(root_path / "pyproject.toml")
     commit = extract_commit(root_path)
     build_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 

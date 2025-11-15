@@ -35,3 +35,10 @@ alwaysApply: true
 - **Defensive checks**: Runtime checks like `isinstance()` with ignore comments are only acceptable as defensive checks when data comes from external sources (function parameters, config files, user input). Do NOT use for constants or values that are known and can be typed properly within the function.
   - **Acceptable**: `if not isinstance(package, str):  # pyright: ignore[reportUnnecessaryIsInstance]` when `package` comes from parsed config file
   - **Not acceptable**: `if isinstance(CONSTANT_VALUE, str):` when `CONSTANT_VALUE` is a module-level constant that can be properly typed
+
+#### TypedDict Maintenance
+- **Always update TypedDict definitions when adding properties**: When adding a new property to a dictionary that is typed as a TypedDict (or should be), **always** update the corresponding TypedDict class definition to include that property. This ensures type safety and prevents runtime errors.
+  - **Required**: If you add a field like `config["_new_field"] = value`, you must add `_new_field: NotRequired[Type]` (or `_new_field: Type` if required) to the TypedDict definition
+  - **Never use `type: ignore` comments** to bypass missing TypedDict fields - instead, add the field to the type definition
+  - **Example**: If adding `resolved_cfg["_pyproject_version"] = metadata.version`, add `_pyproject_version: NotRequired[str]` to the `BuildConfigResolved` TypedDict
+  - This applies to all TypedDict classes, including those in `config_types.py` and any other type definitions
