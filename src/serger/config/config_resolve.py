@@ -18,6 +18,7 @@ from serger.constants import (
     DEFAULT_INTERNAL_IMPORTS,
     DEFAULT_OUT_DIR,
     DEFAULT_RESPECT_GITIGNORE,
+    DEFAULT_SHIM_MODE,
     DEFAULT_STITCH_MODE,
     DEFAULT_STRICT_CONFIG,
     DEFAULT_USE_PYPROJECT,
@@ -857,7 +858,7 @@ def _resolve_output(
     return out_wrapped
 
 
-def resolve_build_config(  # noqa: PLR0912, PLR0915
+def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     build_cfg: BuildConfig,
     args: argparse.Namespace,
     config_dir: Path,
@@ -952,6 +953,19 @@ def resolve_build_config(  # noqa: PLR0912, PLR0915
     if not isinstance(stitch_mode, str):
         msg = "stitch_mode must be a string"
         raise TypeError(msg)
+
+    # ------------------------------
+    # Shim mode
+    # ------------------------------
+    # Cascade: build-level → root-level → default
+    build_shim_mode = resolved_cfg.get("shim_mode")
+    root_shim_mode = (root_cfg or {}).get("shim_mode")
+    if build_shim_mode is not None:
+        resolved_cfg["shim_mode"] = build_shim_mode
+    elif root_shim_mode is not None:
+        resolved_cfg["shim_mode"] = root_shim_mode
+    else:
+        resolved_cfg["shim_mode"] = DEFAULT_SHIM_MODE
 
     # ------------------------------
     # Import handling

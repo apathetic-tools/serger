@@ -13,6 +13,9 @@ OriginType = Literal["cli", "config", "plugin", "default", "code", "gitignore", 
 InternalImportMode = Literal["force_strip", "strip", "keep", "assign"]
 ExternalImportMode = Literal["force_top", "top", "keep", "force_strip", "strip"]
 StitchMode = Literal["raw", "class", "exec"]
+ShimMode = Literal[
+    "none", "multi", "force", "force_flat", "unify", "unify_preserve", "flat"
+]
 CommentsMode = Literal["keep", "ignores", "inline", "strip"]
 # DocstringMode can be a simple string mode or a dict for per-location control
 DocstringModeSimple = Literal["keep", "strip", "public"]
@@ -118,6 +121,15 @@ class BuildConfig(TypedDict, total=False):
     # - "class": Namespace files within classes (not yet implemented)
     # - "exec": Namespace files within module shims using exec() (not yet implemented)
     stitch_mode: StitchMode
+    # Shim mode: how to generate import shims for single-file runtime
+    # - "none": No shims generated
+    # - "multi": Generate shims for all detected packages (default)
+    # - "force": Replace root package but keep subpackages (e.g., pkg1.sub -> mypkg.sub)
+    # - "force_flat": Flatten everything to configured package (e.g., pkg1.sub -> mypkg)
+    # - "unify": Place all detected packages under package, combine if package matches
+    # - "unify_preserve": Like unify but preserves structure when package matches
+    # - "flat": Treat loose files as top-level modules (not under package)
+    shim_mode: ShimMode
     # Comments mode: how to handle comments in stitched output
     # - "keep": Keep all comments (default)
     # - "ignores": Only keep comments that specify ignore rules
@@ -161,6 +173,15 @@ class RootConfig(TypedDict, total=False):
     # - "class": Namespace files within classes (not yet implemented)
     # - "exec": Namespace files within module shims using exec() (not yet implemented)
     stitch_mode: StitchMode
+    # Shim mode default (cascades into builds)
+    # - "none": No shims generated
+    # - "multi": Generate shims for all detected packages (default)
+    # - "force": Replace root package but keep subpackages (e.g., pkg1.sub -> mypkg.sub)
+    # - "force_flat": Flatten everything to configured package (e.g., pkg1.sub -> mypkg)
+    # - "unify": Place all detected packages under package, combine if package matches
+    # - "unify_preserve": Like unify but preserves structure when package matches
+    # - "flat": Treat loose files as top-level modules (not under package)
+    shim_mode: ShimMode
     # Comments mode default (cascades into builds)
     # - "keep": Keep all comments (default)
     # - "ignores": Only keep comments that specify ignore rules
@@ -209,6 +230,7 @@ class BuildConfigResolved(TypedDict):
     internal_imports: InternalImportMode  # How to handle internal imports
     external_imports: ExternalImportMode  # How to handle external imports
     stitch_mode: StitchMode  # How to combine modules into a single file
+    shim_mode: ShimMode  # How to generate import shims for single-file runtime
     comments_mode: CommentsMode  # How to handle comments in stitched output
     docstring_mode: DocstringMode  # How to handle docstrings in stitched output
 

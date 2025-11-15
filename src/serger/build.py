@@ -589,6 +589,7 @@ def run_build(  # noqa: PLR0915, PLR0912
     post_processing = build_cfg["post_processing"]
     external_imports = build_cfg["external_imports"]
     stitch_mode = build_cfg["stitch_mode"]
+    shim_mode = build_cfg["shim_mode"]
     comments_mode = build_cfg["comments_mode"]
     docstring_mode = build_cfg["docstring_mode"]
 
@@ -602,6 +603,7 @@ def run_build(  # noqa: PLR0915, PLR0912
         "topo_paths": topo_paths,  # Pre-computed topological order (if auto-discovered)
         "external_imports": external_imports,
         "stitch_mode": stitch_mode,
+        "shim_mode": shim_mode,
         "comments_mode": comments_mode,
         "docstring_mode": docstring_mode,
         "detected_packages": detected_packages,  # Pre-detected packages

@@ -19,6 +19,7 @@ from .constants import (
     DEFAULT_EXTERNAL_IMPORTS,
     DEFAULT_INTERNAL_IMPORTS,
     DEFAULT_LOG_LEVEL,
+    DEFAULT_SHIM_MODE,
     DEFAULT_STITCH_MODE,
     DEFAULT_STRICT_CONFIG,
 )
@@ -145,6 +146,7 @@ def _create_build_config(
             "internal_imports": DEFAULT_INTERNAL_IMPORTS[DEFAULT_STITCH_MODE],
             "external_imports": DEFAULT_EXTERNAL_IMPORTS[DEFAULT_STITCH_MODE],
             "stitch_mode": DEFAULT_STITCH_MODE,
+            "shim_mode": DEFAULT_SHIM_MODE,
             "comments_mode": DEFAULT_COMMENTS_MODE,
             "docstring_mode": DEFAULT_DOCSTRING_MODE,
             "post_processing": cast(
