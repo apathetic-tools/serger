@@ -1714,6 +1714,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     order_names: list[str],
     all_function_names: set[str],
     detected_packages: set[str],
+    shim_mode: str,
     _order_paths: list[Path] | None = None,
     _package_root: Path | None = None,
     _file_to_include: dict[Path, IncludeResolved] | None = None,
@@ -1735,6 +1736,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         all_function_names: Set of all function names from all modules
             (used to detect if main() function exists)
         detected_packages: Pre-detected package names
+        shim_mode: How to generate import shims ("none", "multi", "force")
         _order_paths: Optional list of file paths (unused, kept for API consistency)
         _package_root: Optional common root (unused, kept for API consistency)
         _file_to_include: Optional mapping (unused, kept for API consistency)
@@ -1762,178 +1764,319 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     future_block = "".join(future_imports.keys())
     import_block = "".join(all_imports.keys())
 
-    # Generate import shims
-    # Group modules by their immediate parent package
-    # For "serger.utils.utils_text", the parent package is "serger.utils"
-    # For "serger.cli", the parent package is "serger"
-    # Include all modules (matching installed package behavior)
-    #
-    # IMPORTANT: Module names in order_names are relative to package_root
-    # (e.g., "utils.utils_text"), but shims need full paths
-    # (e.g., "serger.utils.utils_text").
-    # Prepend package_name to all module names for shim generation.
-    # Note: If specific modules should be excluded, use the 'exclude' config option
-    shim_names_raw = list(order_names)
+    # Generate import shims based on shim_mode
+    if shim_mode == "none":
+        # No shims generated
+        shim_text = ""
+    else:
+        # Group modules by their immediate parent package
+        # For "serger.utils.utils_text", the parent package is "serger.utils"
+        # For "serger.cli", the parent package is "serger"
+        # Include all modules (matching installed package behavior)
+        #
+        # IMPORTANT: Module names in order_names are relative to package_root
+        # (e.g., "utils.utils_text"), but shims need full paths
+        # (e.g., "serger.utils.utils_text").
+        # Prepend package_name to all module names for shim generation.
+        # Note: If specific modules should be excluded, use the 'exclude' config option
+        shim_names_raw = list(order_names)
 
-    # Use provided detected_packages (detected once and passed in)
-
-    # Prepend package_name to create full module paths
-    # Module names are relative to package_root, so we need to prepend package_name
-    # to get the full import path
-    # (e.g., "utils.utils_text" -> "serger.utils.utils_text")
-    # However, if module names already start with package_name or another package,
-    # don't double-prefix (for multi-package scenarios)
-    shim_names: list[str] = []
-    for name in shim_names_raw:
-        # If name already equals package_name, it's the root module itself
-        if name == package_name:
-            full_name = package_name
-        # If name already starts with package_name, use it as-is
-        elif name.startswith(f"{package_name}."):
-            full_name = name
-        # If name contains dots and starts with a different detected package,
-        # it's from another package (multi-package scenario) - use as-is
-        elif "." in name:
-            first_part = name.split(".", 1)[0]
-            # If first part is a detected package different from package_name,
-            # it's from another package - use as-is
-            if first_part in detected_packages and first_part != package_name:
+        # Prepend package_name to create full module paths
+        # Module names are relative to package_root, so we need to prepend package_name
+        # to get the full import path
+        # (e.g., "utils.utils_text" -> "serger.utils.utils_text")
+        shim_names: list[str] = []
+        for name in shim_names_raw:
+            if shim_mode == "force_flat":
+                # Force flat mode: flatten everything to package_name
+                # All modules become direct children of package_name
+                if name == package_name:
+                    full_name = package_name
+                elif name.startswith(f"{package_name}."):
+                    # Already under package_name, extract just the module name
+                    # e.g., "mypkg.sub.module" -> "mypkg.module"
+                    parts = name.split(".")
+                    if parts[0] == package_name:
+                        # Keep package_name and last component only
+                        full_name = f"{package_name}.{parts[-1]}"
+                    else:
+                        # Replace first part with package_name
+                        full_name = f"{package_name}.{parts[-1]}"
+                # Extract just the module name (last component)
+                elif "." in name:
+                    full_name = f"{package_name}.{name.split('.')[-1]}"
+                else:
+                    full_name = f"{package_name}.{name}"
+            elif shim_mode == "force":
+                # Force mode: replace root package but keep subpackages
+                # e.g., "pkg1.sub" -> "mypkg.sub", "pkg2.sub" -> "mypkg.sub"
+                if name == package_name:
+                    full_name = package_name
+                elif name.startswith(f"{package_name}."):
+                    # Already has package_name prefix, but might need to replace
+                    # nested packages. e.g., "mypkg.pkg1.sub" -> "mypkg.sub"
+                    rest = name[len(package_name) + 1 :]  # Remove "mypkg."
+                    if "." in rest:
+                        parts = rest.split(".")
+                        # Check if first part after package_name is a detected package
+                        if parts[0] in detected_packages and parts[0] != package_name:
+                            # Replace nested root package
+                            full_name = f"{package_name}.{'.'.join(parts[1:])}"
+                        else:
+                            full_name = name
+                    else:
+                        full_name = name
+                elif "." in name:
+                    # Replace the first component (root package) with package_name
+                    parts = name.split(".")
+                    # Check if first part is a detected package (but not package_name)
+                    if parts[0] in detected_packages and parts[0] != package_name:
+                        # Replace root package with package_name
+                        full_name = f"{package_name}.{'.'.join(parts[1:])}"
+                    else:
+                        # Not a detected package, prepend package_name
+                        full_name = f"{package_name}.{name}"
+                else:
+                    # Top-level module: prepend package_name
+                    full_name = f"{package_name}.{name}"
+            elif shim_mode == "unify":
+                # Unify mode: place all detected packages under package_name
+                # If package_name matches a detected package, combine them
+                # (no double prefix). Loose files attach directly to package_name
+                if name == package_name:
+                    full_name = package_name
+                elif name.startswith(f"{package_name}."):
+                    full_name = name
+                elif "." in name:
+                    first_part = name.split(".", 1)[0]
+                    # If first part is the package_name (detected package matches)
+                    if first_part == package_name:
+                        # Combine: keep as-is (no double prefix)
+                        full_name = name
+                    elif first_part in detected_packages:
+                        # Other detected package: prepend package_name
+                        full_name = f"{package_name}.{name}"
+                    else:
+                        # Not a detected package: prepend package_name
+                        full_name = f"{package_name}.{name}"
+                else:
+                    # Loose file: attach directly to package_name
+                    full_name = f"{package_name}.{name}"
+            elif shim_mode == "unify_preserve":
+                # Unify preserve mode: like unify but preserves structure
+                # when package matches. Loose files attach to package_name
+                if name == package_name:
+                    full_name = package_name
+                elif name.startswith(f"{package_name}."):
+                    full_name = name
+                elif "." in name:
+                    first_part = name.split(".", 1)[0]
+                    # If first part is the package_name (detected package matches)
+                    if first_part == package_name:
+                        # Preserve structure: keep as-is (no flattening)
+                        full_name = name
+                    elif first_part in detected_packages:
+                        # Other detected package: prepend package_name
+                        full_name = f"{package_name}.{name}"
+                    else:
+                        # Not a detected package: prepend package_name
+                        full_name = f"{package_name}.{name}"
+                else:
+                    # Loose file: attach to package_name as module file
+                    full_name = f"{package_name}.{name}"
+            elif shim_mode == "flat":
+                # Flat mode: treat loose files as top-level modules (not under package)
+                # Packages still get shims as usual
+                if name == package_name:
+                    full_name = package_name
+                elif name.startswith(f"{package_name}."):
+                    full_name = name
+                elif "." in name:
+                    # Has dots: treat as package structure, use multi mode logic
+                    first_part = name.split(".", 1)[0]
+                    if first_part in detected_packages and first_part != package_name:
+                        full_name = name
+                    else:
+                        full_name = f"{package_name}.{name}"
+                else:
+                    # Loose file: keep as top-level module (no package prefix)
+                    full_name = name
+            # Multi mode: use detected packages (current behavior)
+            # If name already equals package_name, it's the root module itself
+            elif name == package_name:
+                full_name = package_name
+            # If name already starts with package_name, use it as-is
+            elif name.startswith(f"{package_name}."):
                 full_name = name
+            # If name contains dots and starts with a different detected package,
+            # it's from another package (multi-package scenario) - use as-is
+            elif "." in name:
+                first_part = name.split(".", 1)[0]
+                # If first part is a detected package different from package_name,
+                # it's from another package - use as-is
+                if first_part in detected_packages and first_part != package_name:
+                    full_name = name
+                else:
+                    # Likely a subpackage - prepend package_name
+                    full_name = f"{package_name}.{name}"
             else:
-                # Likely a subpackage - prepend package_name
+                # Top-level module under package: prepend package_name
                 full_name = f"{package_name}.{name}"
-        else:
-            # Top-level module under package: prepend package_name
-            full_name = f"{package_name}.{name}"
-        shim_names.append(full_name)
+            shim_names.append(full_name)
 
-    # Group modules by their parent package
-    # parent_package -> list of (module_name, is_direct_child)
-    # is_direct_child means the module is directly under this package
-    # (not nested deeper)
-    packages: dict[str, list[tuple[str, bool]]] = {}
-    # parent_pkg -> [(module_name, is_direct)]
+        # Group modules by their parent package
+        # parent_package -> list of (module_name, is_direct_child)
+        # is_direct_child means the module is directly under this package
+        # (not nested deeper)
+        packages: dict[str, list[tuple[str, bool]]] = {}
+        # parent_pkg -> [(module_name, is_direct)]
+        # Track top-level modules for flat mode
+        top_level_modules: list[str] = []
 
-    for module_name in shim_names:
-        if "." not in module_name:
-            # Top-level module, parent is the root package
-            parent = package_name
-            is_direct = True
-        else:
-            # Find the parent package (everything except the last component)
+        for module_name in shim_names:
+            if "." not in module_name:
+                # Top-level module
+                if shim_mode == "flat":
+                    # In flat mode, top-level modules are not under any package
+                    top_level_modules.append(module_name)
+                else:
+                    # In other modes, parent is the root package
+                    parent = package_name
+                    is_direct = True
+                    if parent not in packages:
+                        packages[parent] = []
+                    packages[parent].append((module_name, is_direct))
+            else:
+                # Find the parent package (everything except the last component)
+                name_parts = module_name.split(".")
+                parent = ".".join(name_parts[:-1])
+                is_direct = True  # This module is directly under its parent
+
+                if parent not in packages:
+                    packages[parent] = []
+                packages[parent].append((module_name, is_direct))
+
+        # Collect all package names (both intermediate and top-level)
+        all_packages: set[str] = set()
+        for module_name in shim_names:
+            # Skip top-level modules in flat mode (they're not in packages)
+            if shim_mode == "flat" and "." not in module_name:
+                continue
             name_parts = module_name.split(".")
-            parent = ".".join(name_parts[:-1])
-            is_direct = True  # This module is directly under its parent
+            # Add all package prefixes
+            # (e.g., for "serger.utils.utils_text" add "serger" and "serger.utils")
+            for i in range(1, len(name_parts)):
+                pkg = ".".join(name_parts[:i])
+                all_packages.add(pkg)
+            # Also add the top-level package if module has dots
+            if "." in module_name:
+                all_packages.add(name_parts[0])
+        # Add root package if not already present (unless flat mode with no packages)
+        if shim_mode != "flat" or all_packages:
+            all_packages.add(package_name)
 
-        if parent not in packages:
-            packages[parent] = []
-        packages[parent].append((module_name, is_direct))
+        # Sort packages by depth (shallowest first) to create parents before children
+        sorted_packages = sorted(all_packages, key=lambda p: p.count("."))
 
-    # Collect all package names (both intermediate and top-level)
-    all_packages: set[str] = set()
-    for module_name in shim_names:
-        name_parts = module_name.split(".")
-        # Add all package prefixes
-        # (e.g., for "serger.utils.utils_text" add "serger" and "serger.utils")
-        for i in range(1, len(name_parts)):
-            pkg = ".".join(name_parts[:i])
-            all_packages.add(pkg)
-        # Also add the top-level package if module has dots
-        if "." in module_name:
-            all_packages.add(name_parts[0])
-    # Add root package if not already present
-    all_packages.add(package_name)
+        # Generate shims for each package
+        # Each package gets its own module object to maintain proper isolation
+        shim_blocks: list[str] = []
+        shim_blocks.append("# --- import shims for single-file runtime ---")
+        # Note: types and sys are imported at the top level (see all_imports)
 
-    # Sort packages by depth (shallowest first) to create parents before children
-    sorted_packages = sorted(all_packages, key=lambda p: p.count("."))
+        # Helper function to create/register package modules
+        shim_blocks.append("def _create_pkg_module(pkg_name: str) -> types.ModuleType:")
+        shim_blocks.append(
+            '    """Create or get a package module and set up parent relationships."""'
+        )
+        shim_blocks.append("    _mod = sys.modules.get(pkg_name)")
+        shim_blocks.append("    if not _mod:")
+        shim_blocks.append("        _mod = types.ModuleType(pkg_name)")
+        shim_blocks.append("        _mod.__package__ = pkg_name")
+        shim_blocks.append("        sys.modules[pkg_name] = _mod")
+        shim_blocks.append(
+            "    # Set up parent-child relationships for nested packages"
+        )
+        shim_blocks.append("    if '.' in pkg_name:")
+        shim_blocks.append("        _parent_pkg = '.'.join(pkg_name.split('.')[:-1])")
+        shim_blocks.append("        _child_name = pkg_name.split('.')[-1]")
+        shim_blocks.append("        _parent = sys.modules.get(_parent_pkg)")
+        shim_blocks.append("        if _parent:")
+        shim_blocks.append("            setattr(_parent, _child_name, _mod)")
+        shim_blocks.append("    return _mod")
+        shim_blocks.append("")
 
-    # Generate shims for each package
-    # Each package gets its own module object to maintain proper isolation
-    shim_blocks: list[str] = []
-    shim_blocks.append("# --- import shims for single-file runtime ---")
-    # Note: types and sys are imported at the top level (see all_imports)
+        shim_blocks.append(
+            "def _setup_pkg_modules(pkg_name: str, module_names: list[str]) -> None:"
+        )
+        shim_blocks.append(
+            '    """Set up package module attributes and register submodules."""'
+        )
+        shim_blocks.append("    _mod = sys.modules.get(pkg_name)")
+        shim_blocks.append("    if not _mod:")
+        shim_blocks.append("        return")
+        shim_blocks.append("    # Copy attributes from all modules under this package")
+        shim_blocks.append("    _globals = globals()")
+        shim_blocks.append("    for _key, _value in _globals.items():")
+        shim_blocks.append("        setattr(_mod, _key, _value)")
+        shim_blocks.append("    # Register all modules under this package")
+        shim_blocks.append("    for _name in module_names:")
+        shim_blocks.append("        sys.modules[_name] = _mod")
+        shim_blocks.append("    # Set submodules as attributes on parent package")
+        shim_blocks.append("    for _name in module_names:")
+        shim_blocks.append(
+            "        if _name != pkg_name and _name.startswith(pkg_name + '.'):"
+        )
+        shim_blocks.append("            _submodule_name = _name.split('.')[-1]")
+        shim_blocks.append("            if not hasattr(_mod, _submodule_name):")
+        shim_blocks.append("                setattr(_mod, _submodule_name, _mod)")
+        shim_blocks.append(
+            "            elif isinstance(getattr(_mod, _submodule_name, None), "
+            "types.ModuleType):"
+        )
+        shim_blocks.append("                setattr(_mod, _submodule_name, _mod)")
+        shim_blocks.append("")
 
-    # Helper function to create/register package modules
-    shim_blocks.append("def _create_pkg_module(pkg_name: str) -> types.ModuleType:")
-    shim_blocks.append(
-        '    """Create or get a package module and set up parent relationships."""'
-    )
-    shim_blocks.append("    _mod = sys.modules.get(pkg_name)")
-    shim_blocks.append("    if not _mod:")
-    shim_blocks.append("        _mod = types.ModuleType(pkg_name)")
-    shim_blocks.append("        _mod.__package__ = pkg_name")
-    shim_blocks.append("        sys.modules[pkg_name] = _mod")
-    shim_blocks.append("    # Set up parent-child relationships for nested packages")
-    shim_blocks.append("    if '.' in pkg_name:")
-    shim_blocks.append("        _parent_pkg = '.'.join(pkg_name.split('.')[:-1])")
-    shim_blocks.append("        _child_name = pkg_name.split('.')[-1]")
-    shim_blocks.append("        _parent = sys.modules.get(_parent_pkg)")
-    shim_blocks.append("        if _parent:")
-    shim_blocks.append("            setattr(_parent, _child_name, _mod)")
-    shim_blocks.append("    return _mod")
-    shim_blocks.append("")
+        # First pass: Create all package modules and set up parent-child relationships
+        shim_blocks.extend(
+            f"_create_pkg_module({pkg_name!r})" for pkg_name in sorted_packages
+        )
 
-    shim_blocks.append(
-        "def _setup_pkg_modules(pkg_name: str, module_names: list[str]) -> None:"
-    )
-    shim_blocks.append(
-        '    """Set up package module attributes and register submodules."""'
-    )
-    shim_blocks.append("    _mod = sys.modules.get(pkg_name)")
-    shim_blocks.append("    if not _mod:")
-    shim_blocks.append("        return")
-    shim_blocks.append("    # Copy attributes from all modules under this package")
-    shim_blocks.append("    _globals = globals()")
-    shim_blocks.append("    for _key, _value in _globals.items():")
-    shim_blocks.append("        setattr(_mod, _key, _value)")
-    shim_blocks.append("    # Register all modules under this package")
-    shim_blocks.append("    for _name in module_names:")
-    shim_blocks.append("        sys.modules[_name] = _mod")
-    shim_blocks.append("    # Set submodules as attributes on parent package")
-    shim_blocks.append("    for _name in module_names:")
-    shim_blocks.append(
-        "        if _name != pkg_name and _name.startswith(pkg_name + '.'):"
-    )
-    shim_blocks.append("            _submodule_name = _name.split('.')[-1]")
-    shim_blocks.append("            if not hasattr(_mod, _submodule_name):")
-    shim_blocks.append("                setattr(_mod, _submodule_name, _mod)")
-    shim_blocks.append(
-        "            elif isinstance(getattr(_mod, _submodule_name, None), "
-        "types.ModuleType):"
-    )
-    shim_blocks.append("                setattr(_mod, _submodule_name, _mod)")
-    shim_blocks.append("")
+        shim_blocks.append("")
 
-    # First pass: Create all package modules and set up parent-child relationships
-    shim_blocks.extend(
-        f"_create_pkg_module({pkg_name!r})" for pkg_name in sorted_packages
-    )
+        # Second pass: Copy attributes and register modules
+        # Process in any order since all modules are now created
+        for pkg_name in sorted_packages:
+            if pkg_name not in packages:
+                continue  # Skip packages that don't have any modules
 
-    shim_blocks.append("")
-
-    # Second pass: Copy attributes and register modules
-    # Process in any order since all modules are now created
-    for pkg_name in sorted_packages:
-        if pkg_name not in packages:
-            continue  # Skip packages that don't have any modules
-
-        # Sort module names for deterministic output
-        module_names_for_pkg = sorted([name for name, _ in packages[pkg_name]])
-        # Module names already have full paths (with package_name prefix),
-        # but ensure they're correctly formatted for registration
-        # If name equals pkg_name, it's the root module itself
-        full_module_names = [
-            (
-                name
-                if (name == pkg_name or name.startswith(f"{pkg_name}."))
-                else f"{pkg_name}.{name}"
+            # Sort module names for deterministic output
+            module_names_for_pkg = sorted([name for name, _ in packages[pkg_name]])
+            # Module names already have full paths (with package_name prefix),
+            # but ensure they're correctly formatted for registration
+            # If name equals pkg_name, it's the root module itself
+            full_module_names = [
+                (
+                    name
+                    if (name == pkg_name or name.startswith(f"{pkg_name}."))
+                    else f"{pkg_name}.{name}"
+                )
+                for name in module_names_for_pkg
+            ]
+            module_names_str = ", ".join(repr(name) for name in full_module_names)
+            shim_blocks.append(
+                f"_setup_pkg_modules({pkg_name!r}, [{module_names_str}])"
             )
-            for name in module_names_for_pkg
-        ]
-        module_names_str = ", ".join(repr(name) for name in full_module_names)
-        shim_blocks.append(f"_setup_pkg_modules({pkg_name!r}, [{module_names_str}])")
 
-    shim_text = "\n".join(shim_blocks)
+        # Handle top-level modules for flat mode
+        if shim_mode == "flat" and top_level_modules:
+            # Register top-level modules directly in sys.modules
+            shim_blocks.extend(
+                f"sys.modules[{module_name!r}] = globals()"
+                for module_name in sorted(top_level_modules)
+            )
+
+        shim_text = "\n".join(shim_blocks)
 
     # Generate formatted header line
     header_line = _format_header_line(
@@ -1988,9 +2131,11 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         f"__STITCH_SOURCE__ = {json.dumps(PROGRAM_PACKAGE)}\n"
         f"__package__ = {json.dumps(package_name)}\n"
         "\n"
-        "\n" + "\n".join(parts) + "\n"
-        f"{shim_text}\n"
-        f"{main_block}"
+        "\n"
+        + "\n".join(parts)
+        + "\n"
+        + (f"{shim_text}\n" if shim_text else "")
+        + f"{main_block}"
     )
 
     # Return script text and detected packages (sorted for consistency)
@@ -2052,6 +2197,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     order_paths_raw = config.get("order", [])
     exclude_paths_raw = config.get("exclude_names", [])
     stitch_mode_raw = config.get("stitch_mode", "raw")
+    shim_mode_raw = config.get("shim_mode", "multi")
 
     # Type guards for mypy/pyright
     if not isinstance(package_name_raw, str):
@@ -2065,6 +2211,9 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         raise TypeError(msg)
     if not isinstance(stitch_mode_raw, str):
         msg = "Config 'stitch_mode' must be a string"
+        raise TypeError(msg)
+    if not isinstance(shim_mode_raw, str):
+        msg = "Config 'shim_mode' must be a string"
         raise TypeError(msg)
 
     # Cast to known types after type guards
@@ -2104,6 +2253,24 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         msg = (
             f"Invalid stitch_mode: {stitch_mode!r}. "
             f"Must be one of: {', '.join(sorted(valid_modes))}"
+        )
+        raise ValueError(msg)
+
+    # Validate shim_mode
+    valid_shim_modes: set[str] = {
+        "none",
+        "multi",
+        "force",
+        "force_flat",
+        "unify",
+        "unify_preserve",
+        "flat",
+    }
+    shim_mode = shim_mode_raw
+    if shim_mode not in valid_shim_modes:
+        msg = (
+            f"Invalid shim_mode: {shim_mode!r}. "
+            f"Must be one of: {', '.join(sorted(valid_shim_modes))}"
         )
         raise ValueError(msg)
 
@@ -2234,6 +2401,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         order_names=derived_module_names,
         all_function_names=all_function_names,
         detected_packages=detected_packages,
+        shim_mode=shim_mode,
         _order_paths=order_paths,
         _package_root=package_root,
         _file_to_include=file_to_include,

@@ -8,6 +8,9 @@
 from collections import OrderedDict
 
 import serger.stitch as mod_stitch
+from tests.utils.build_final_script import (
+    call_build_final_script,
+)
 
 
 class TestBuildFinalScriptBasic:
@@ -15,42 +18,14 @@ class TestBuildFinalScriptBasic:
 
     def test_returns_string(self) -> None:
         """Should return a string."""
-        all_imports: OrderedDict[str, None] = OrderedDict()
-        all_imports["import sys\n"] = None
-
-        result, _ = mod_stitch._build_final_script(
-            package_name="testpkg",
-            all_imports=all_imports,
-            parts=["# === main.py ===\nMAIN = 1\n"],
-            order_names=["main"],
-            all_function_names=set(),
-            detected_packages={"testpkg"},
-            license_header="",
-            version="1.0.0",
-            commit="abc123",
-            build_date="2025-01-01",
-        )
+        result, _ = call_build_final_script()
 
         assert isinstance(result, str)
         assert len(result) > 0
 
     def test_includes_shebang(self) -> None:
         """Should start with shebang."""
-        all_imports: OrderedDict[str, None] = OrderedDict()
-        all_imports["import sys\n"] = None
-
-        result, _ = mod_stitch._build_final_script(
-            package_name="testpkg",
-            all_imports=all_imports,
-            parts=["# === main.py ===\nMAIN = 1\n"],
-            order_names=["main"],
-            all_function_names=set(),
-            detected_packages={"testpkg"},
-            license_header="",
-            version="1.0.0",
-            commit="abc123",
-            build_date="2025-01-01",
-        )
+        result, _ = call_build_final_script()
 
         assert result.startswith("#!/usr/bin/env python3\n")
 
@@ -67,6 +42,7 @@ class TestBuildFinalScriptBasic:
             order_names=["main"],
             all_function_names=set(),
             detected_packages={"testpkg"},
+            shim_mode="multi",
             license_header=license_text,
             version="1.0.0",
             commit="abc123",
@@ -87,6 +63,7 @@ class TestBuildFinalScriptBasic:
             order_names=["main"],
             all_function_names=set(),
             detected_packages={"testpkg"},
+            shim_mode="multi",
             license_header="",
             version="2.3.4",
             commit="def456",
@@ -113,6 +90,7 @@ class TestBuildFinalScriptMetadata:
             order_names=["main"],
             all_function_names=set(),
             detected_packages={"testpkg"},
+            shim_mode="multi",
             license_header="",
             version="3.2.1",
             commit="abc123",
@@ -133,6 +111,7 @@ class TestBuildFinalScriptMetadata:
             order_names=["main"],
             all_function_names=set(),
             detected_packages={"testpkg"},
+            shim_mode="multi",
             license_header="",
             version="1.0.0",
             commit="xyz789",
@@ -153,6 +132,7 @@ class TestBuildFinalScriptMetadata:
             order_names=["main"],
             all_function_names=set(),
             detected_packages={"testpkg"},
+            shim_mode="multi",
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -173,6 +153,7 @@ class TestBuildFinalScriptMetadata:
             order_names=["main"],
             all_function_names=set(),
             detected_packages={"testpkg"},
+            shim_mode="multi",
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -199,6 +180,7 @@ class TestBuildFinalScriptImports:
             order_names=["main"],
             all_function_names=set(),
             detected_packages={"testpkg"},
+            shim_mode="multi",
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -224,6 +206,7 @@ class TestBuildFinalScriptImports:
             order_names=["main"],
             all_function_names=set(),
             detected_packages={"testpkg"},
+            shim_mode="multi",
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -250,6 +233,7 @@ class TestBuildFinalScriptShims:
             order_names=["main"],
             all_function_names=set(),
             detected_packages={"testpkg"},
+            shim_mode="multi",
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -273,6 +257,7 @@ class TestBuildFinalScriptShims:
             order_names=["utils", "core"],
             all_function_names=set(),
             detected_packages={"mylib"},
+            shim_mode="multi",
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -306,6 +291,7 @@ class TestBuildFinalScriptShims:
             order_names=["public", "_private"],
             all_function_names=set(),
             detected_packages={"mylib"},
+            shim_mode="multi",
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -332,6 +318,7 @@ class TestBuildFinalScriptShims:
             order_names=["mod"],
             all_function_names=set(),
             detected_packages={"custompackage"},
+            shim_mode="multi",
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -360,6 +347,7 @@ class TestBuildFinalScriptParts:
             order_names=["a", "b", "c"],
             all_function_names=set(),
             detected_packages={"testpkg"},
+            shim_mode="multi",
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -389,6 +377,7 @@ class TestBuildFinalScriptParts:
             order_names=["c", "a", "b"],
             all_function_names=set(),
             detected_packages={"testpkg"},
+            shim_mode="multi",
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -416,6 +405,7 @@ class TestBuildFinalScriptDocstring:
             order_names=["main"],
             all_function_names=set(),
             detected_packages={"testpkg"},
+            shim_mode="multi",
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -437,6 +427,7 @@ class TestBuildFinalScriptDocstring:
             order_names=["main"],
             all_function_names=set(),
             detected_packages={"testpkg"},
+            shim_mode="multi",
             license_header="",
             version="5.6.7",
             commit="ghijkl",
@@ -464,6 +455,7 @@ class TestBuildFinalScriptMainShim:
             order_names=["main"],
             all_function_names={"main"},  # main() function exists
             detected_packages={"testpkg"},
+            shim_mode="multi",
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -486,6 +478,7 @@ class TestBuildFinalScriptMainShim:
             order_names=["utils"],
             all_function_names=set(),  # No main() function
             detected_packages={"testpkg"},
+            shim_mode="multi",
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -508,6 +501,7 @@ class TestBuildFinalScriptMainShim:
             order_names=["config"],
             all_function_names=set(),  # 'main' is a variable, not a function
             detected_packages={"testpkg"},
+            shim_mode="multi",
             license_header="",
             version="1.0.0",
             commit="abc123",
@@ -533,6 +527,7 @@ class TestBuildFinalScriptMainShim:
             order_names=["utils", "main"],
             all_function_names={"helper", "main"},  # main() function exists
             detected_packages={"testpkg"},
+            shim_mode="multi",
             license_header="",
             version="1.0.0",
             commit="abc123",

@@ -58,6 +58,7 @@ DEFAULT_EXTERNAL_IMPORTS: dict[str, str] = {
     "exec": "top",
 }
 DEFAULT_STITCH_MODE: str = "raw"  # Raw concatenation (default stitching mode)
+DEFAULT_SHIM_MODE: str = "multi"  # Generate shims for all detected packages
 DEFAULT_COMMENTS_MODE: str = "keep"  # Keep all comments (default comments mode)
 DEFAULT_DOCSTRING_MODE: str = "keep"  # Keep all docstrings (default docstring mode)
 

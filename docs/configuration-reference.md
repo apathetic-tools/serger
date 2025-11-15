@@ -25,6 +25,7 @@ These options apply globally and can cascade into individual builds:
 | `internal_imports` | `str` | `"force_strip"` | How to handle internal package imports (see [Import Handling](#import-handling)) |
 | `external_imports` | `str` | `"top"` | How to handle external imports (see [Import Handling](#import-handling)) |
 | `stitch_mode` | `str` | `"raw"` | How to combine modules into a single file (see [Stitch Modes](#stitch-modes)) |
+| `shim_mode` | `str` | `"multi"` | How to generate import shims for single-file runtime (see [Shim Modes](#shim-modes)) |
 | `comments_mode` | `str` | `"keep"` | How to handle comments in stitched output (see [Comment Handling](#comment-handling)) |
 | `docstring_mode` | `str \| dict` | `"keep"` | How to handle docstrings in stitched output (see [Docstring Handling](#docstring-handling)) |
 
@@ -46,6 +47,7 @@ Each build in the `builds` array can specify:
 | `internal_imports` | `str` | No | Override root-level `internal_imports` for this build |
 | `external_imports` | `str` | No | Override root-level `external_imports` for this build |
 | `stitch_mode` | `str` | No | Override root-level `stitch_mode` for this build (see [Stitch Modes](#stitch-modes)) |
+| `shim_mode` | `str` | No | Override root-level `shim_mode` for this build (see [Shim Modes](#shim-modes)) |
 | `comments_mode` | `str` | No | Override root-level `comments_mode` for this build (see [Comment Handling](#comment-handling)) |
 | `docstring_mode` | `str \| dict` | No | Override root-level `docstring_mode` for this build (see [Docstring Handling](#docstring-handling)) |
 
@@ -139,6 +141,54 @@ Serger supports different modes for combining multiple Python modules into a sin
 ```
 
 > **Note**: Currently, only `raw` mode is implemented. Attempting to use `class` or `exec` will raise a `NotImplementedError`. The default import handling modes are automatically selected based on the stitch mode, but you can override them if needed.
+
+## Shim Modes
+
+Serger provides control over how import shims are generated for the single-file runtime. Import shims allow external code to import modules from the stitched file as if they were separate files. Different shim modes control how module names are organized and whether packages are preserved or flattened.
+
+**Available modes:**
+
+| Mode | Description |
+|------|-------------|
+| `none` | No shims generated. The stitched file cannot be imported as a module. Use this when you only need a standalone script. |
+| `multi` | Generate shims for all detected packages (default). Each detected package gets its own shim, preserving the original package structure. For example, if you stitch `pkg1` and `pkg2`, both will be available as separate packages. |
+| `force` | Replace root package but keep subpackages. All detected package roots are replaced with the configured `package` name, but subpackages are preserved. For example, `pkg1.sub` and `pkg2.sub` both become `mypkg.sub`. |
+| `force_flat` | Flatten everything to configured package. All modules become direct children of the configured `package` name, removing all package hierarchy. For example, `pkg1.sub.module` becomes `mypkg.module`. |
+| `unify` | Place all detected packages under the configured package, combining if package matches. If the configured `package` matches a detected package, they are combined (no double prefix). Other detected packages are placed under the configured package. For example, with `package="serger"` and detected packages `{"serger", "apathetic_logs"}`, `serger.utils` stays as `serger.utils`, but `apathetic_logs.logs` becomes `serger.apathetic_logs.logs`. Loose files attach directly to the configured package. |
+| `unify_preserve` | Like `unify` but preserves structure when package matches. Similar to `unify`, but when the configured `package` matches a detected package, the full structure is preserved without any flattening. Loose files still attach to the configured package as module files. |
+| `flat` | Treat loose files as top-level modules (not under package). Loose files (files not in a package directory) are kept as top-level modules without the package prefix. Packages still get shims as usual. For example, `main.py` stays as `main`, not `mypkg.main`. |
+
+### Choosing a Shim Mode
+
+- **`multi`** (default): Use this for most cases. It preserves the original package structure and allows multiple packages to coexist in the stitched file.
+
+- **`none`**: Use when you only need a standalone executable script and don't need import shims.
+
+- **`force`**: Use when you want to unify multiple packages under a single package name while preserving subpackage structure.
+
+- **`force_flat`**: Use when you want to completely flatten the package hierarchy into a single namespace.
+
+- **`unify`**: Use when you want to collect all packages under a single root package, combining the configured package if it matches a detected package.
+
+- **`unify_preserve`**: Use when you want `unify` behavior but need to preserve the full structure of the configured package when it matches.
+
+- **`flat`**: Use when you want loose files to be accessible as top-level modules without package prefixes.
+
+### Example
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "out": "dist/mypkg.py",
+      "shim_mode": "multi"  // Generate shims for all detected packages
+    }
+  ],
+  "shim_mode": "multi"  // Default for all builds
+}
+```
 
 ## Comment Handling
 
