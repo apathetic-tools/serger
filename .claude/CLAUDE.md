@@ -398,6 +398,17 @@ Serger is a Python module stitcher that combines multiple source files into a si
   - **Example**: If adding `resolved_cfg["_pyproject_version"] = metadata.version`, add `_pyproject_version: NotRequired[str]` to the `BuildConfigResolved` TypedDict
   - This applies to all TypedDict classes, including those in `config_types.py` and any other type definitions
 
+#### Resolved TypedDict Pattern (config_types.py)
+- **"Resolved" TypedDicts should not use `NotRequired` for fields that can be resolved**: In `config_types.py`, TypedDicts with "Resolved" suffix (e.g., `BuildConfigResolved`, `PostProcessingConfigResolved`) represent fully resolved configurations. Fields that can be resolved (even to "empty" defaults) should **always be present**, not marked as `NotRequired`.
+  - **Use `NotRequired` only for**: Fields that are truly optional throughout the entire resolution process and may never be set (e.g., `package`, `order` for non-stitch builds, or `_pyproject_version` when pyproject.toml is not used)
+  - **Do NOT use `NotRequired` for**: Fields that can be resolved to a default value (empty list `[]`, empty dict `{}`, `False`, empty string `""`, etc.) - these should always be present in the resolved config
+  - **Rationale**: A "Resolved" TypedDict represents a fully resolved state. If a field can be resolved (even to an empty default), it should be present to maintain the "fully resolved" contract and simplify usage (no need to check `if "field" in config`)
+  - **Examples**:
+    - ✅ **Correct**: `module_actions: list[ModuleActionFull]` in `BuildConfigResolved` (always set to `[]` if not provided)
+    - ✅ **Correct**: `post_processing: PostProcessingConfigResolved` in `BuildConfigResolved` (always resolved with defaults)
+    - ✅ **Correct**: `package: NotRequired[str]` in `BuildConfigResolved` (only present for stitch builds)
+    - ❌ **Incorrect**: `module_actions: NotRequired[list[ModuleActionFull]]` in `BuildConfigResolved` (can be resolved to `[]`)
+
 # Workflow
 
 ### Execution and Workflow

@@ -2,7 +2,7 @@
 
 I'm implementing the Module Actions feature for serger. The implementation plan is in `current_plan/` with 14 iterations.
 
-**Start with Iteration 03**: `current_plan/03_add_module_actions_types.md`
+**Start with Iteration 04**: `current_plan/04_validate_module_actions_config.md`
 
 **Context**:
 - See `current_plan/00_overview.md` for the overall strategy and principles
@@ -19,13 +19,17 @@ I'm implementing the Module Actions feature for serger. The implementation plan 
 **Completed**:
 - Iteration 01 - Rename `shim_mode` → `module_mode` ✓
 - Iteration 02 - Add `shim` setting types ✓
+- Iteration 03 - Add `module_actions` types ✓
 
 **Current status**:
-- `ShimSetting` type added (`"all" | "public" | "none"`)
-- `shim` field added to `BuildConfig`, `RootConfig`, and `BuildConfigResolved`
-- Config resolution implemented with cascade and validation using `literal_to_set()`
-- Tests added for `shim` setting resolution
+- `ModuleActionType`, `ModuleActionMode`, `ModuleActionScope`, `ModuleActionAffects`, `ModuleActionCleanup` literal types added
+- `ModuleActionFull` TypedDict with all optional fields added
+- `ModuleActionSimple` and `ModuleActions` union types added
+- `module_actions` field added to `BuildConfig`, `RootConfig`, and `BuildConfigResolved`
+- `BuildConfigResolved.module_actions` is always present (empty list `[]` if not provided)
+- Basic validation in config resolution implemented (dict/list format validation, action type validation)
+- Tests added for type definitions and config acceptance
 - All checks passing (`poetry run poe check:fix`)
 
-Please implement Iteration 03: Add `module_actions` types.
+Please implement Iteration 04: Validate and resolve `module_actions` config.
 
