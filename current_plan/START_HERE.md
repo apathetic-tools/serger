@@ -1,6 +1,6 @@
 # Start Here: Module Actions Implementation
 
-**Next iteration**: Iteration 10 - `current_plan/10_integrate_module_actions_into_stitch.md`
+**Next iteration**: Iteration 11 - `current_plan/11_<next_iteration>.md`
 
 **Context**:
 - See `current_plan/00_overview.md` for overall strategy and principles
@@ -15,4 +15,6 @@
 - Add unit tests for each section as we go
 - **Review at end of iteration** - document any clarifying questions before proceeding
 
-**Completed**: Iterations 01, 02, 03, 03.5, 04, 05, 06, 07, 08, 09 ✓
+**Completed**: Iterations 01, 02, 03, 03.5, 04, 05, 06, 07, 08, 09, 10 ✓
+
+**Iteration 10 Summary**: Integrated module_actions into stitch logic, replacing shim_mode processing. Actions are now generated from module_mode and combined with user actions, applied in scope order (original first, then shim). Fixed force_flat mode to properly flatten all intermediate levels by generating actions for all first components of multi-level module names.

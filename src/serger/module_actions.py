@@ -600,31 +600,88 @@ def apply_module_actions(
     return result
 
 
-def _generate_force_actions(
+def _generate_force_actions(  # noqa: PLR0912
     detected_packages: set[str],
     package_name: str,
     mode: "ModuleActionMode",
+    *,
+    module_names: list[str] | None = None,
 ) -> list["ModuleActionFull"]:
     """Generate actions for force/force_flat modes.
+
+    For "preserve" mode: Only generates actions for top-level root packages.
+    For "flatten" mode: Generates actions for all first components of multi-level
+    module names to flatten all intermediate levels.
 
     Args:
         detected_packages: Set of all detected package names
         package_name: Target package name (excluded from actions)
         mode: "preserve" or "flatten"
+        module_names: Optional list of module names (required for flatten mode
+            to identify all first components that need flattening)
 
     Returns:
-        List of actions for root packages
+        List of actions for packages/modules to transform
     """
     actions: list[ModuleActionFull] = []
-    root_packages = {pkg for pkg in detected_packages if "." not in pkg}
-    for pkg in sorted(root_packages):
-        if pkg != package_name:
+
+    if mode == "flatten" and module_names is not None:
+        # For flatten mode, generate actions for all first components of
+        # multi-level module names to flatten all intermediate levels
+        first_components: set[str] = set()
+        for mod_name in module_names:
+            if "." in mod_name:
+                first_part = mod_name.split(".", 1)[0]
+                if first_part != package_name:
+                    first_components.add(first_part)
+
+        # Also include detected root packages that aren't package_name
+        root_packages = {pkg for pkg in detected_packages if "." not in pkg}
+        for pkg in root_packages:
+            if pkg != package_name:
+                first_components.add(pkg)
+
+        for component in sorted(first_components):
+            component_action: ModuleActionFull = {
+                "source": component,
+                "dest": package_name,
+                "mode": "flatten",
+            }
+            actions.append(set_mode_generated_action_defaults(component_action))
+    else:
+        # For preserve mode, only generate actions for top-level root packages
+        root_packages = {pkg for pkg in detected_packages if "." not in pkg}
+        # Filter to only top-level root packages (not nested under other packages)
+        top_level_packages: set[str] = set()
+        for pkg in root_packages:
+            if pkg == package_name:
+                continue
+            # Check if this package is nested under any other detected package
+            is_nested = False
+            for other_pkg in detected_packages:
+                # Check if pkg is nested under other_pkg
+                # e.g., if other_pkg="pkg1" and pkg="sub", check if "pkg1.sub"
+                # exists
+                if other_pkg not in (pkg, package_name) and (
+                    f"{other_pkg}.{pkg}" in detected_packages
+                    or any(
+                        mod.startswith(f"{other_pkg}.{pkg}.")
+                        for mod in detected_packages
+                    )
+                ):
+                    is_nested = True
+                    break
+            if not is_nested:
+                top_level_packages.add(pkg)
+
+        for pkg in sorted(top_level_packages):
             action: ModuleActionFull = {
                 "source": pkg,
                 "dest": package_name,
                 "mode": mode,
             }
             actions.append(set_mode_generated_action_defaults(action))
+
     return actions
 
 
@@ -657,6 +714,8 @@ def generate_actions_from_mode(
     module_mode: str,
     detected_packages: set[str],
     package_name: str,
+    *,
+    module_names: list[str] | None = None,
 ) -> list["ModuleActionFull"]:
     """Generate module_actions equivalent to a module_mode.
 
@@ -670,6 +729,8 @@ def generate_actions_from_mode(
         module_mode: Mode value ("force", "force_flat", "unify", "multi", etc.)
         detected_packages: Set of all detected package names
         package_name: Target package name (excluded from actions)
+        module_names: Optional list of module names (required for flatten mode
+            to identify all first components that need flattening)
 
     Returns:
         List of actions equivalent to the mode
@@ -681,7 +742,9 @@ def generate_actions_from_mode(
         return _generate_force_actions(detected_packages, package_name, "preserve")
 
     if module_mode == "force_flat":
-        return _generate_force_actions(detected_packages, package_name, "flatten")
+        return _generate_force_actions(
+            detected_packages, package_name, "flatten", module_names=module_names
+        )
 
     if module_mode in ("unify", "unify_preserve"):
         return _generate_unify_actions(detected_packages, package_name)
