@@ -886,6 +886,107 @@ license = "MIT"
     assert "_pyproject_version" not in resolved
 
 
+def test_resolve_build_config_root_pyproject_path_with_use_pyproject_false(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Root pyproject_path with use_pyproject: false should not use pyproject."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+version = "1.2.3"
+"""
+    )
+    raw = make_build_input(include=["src/**"])
+    root_cfg: mod_types.RootConfig = {
+        "builds": [raw],
+        "pyproject_path": "pyproject.toml",
+        "use_pyproject": False,
+    }
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    # Should not use pyproject even though path is set
+    assert "_pyproject_version" not in resolved
+    assert resolved.get("display_name") != "test-package"
+
+
+def test_resolve_build_config_build_pyproject_path_overrides_root_false(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Build pyproject_path enables pyproject even if root use_pyproject is false."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+version = "1.2.3"
+"""
+    )
+    raw = make_build_input(include=["src/**"], pyproject_path="pyproject.toml")
+    root_cfg: mod_types.RootConfig = {
+        "builds": [raw],
+        "use_pyproject": False,
+    }
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    # Build-level pyproject_path should enable it
+    assert resolved.get("_pyproject_version") == "1.2.3"
+    assert resolved.get("display_name") == "test-package"
+
+
+def test_resolve_build_config_build_use_pyproject_false_overrides_pyproject_path(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Build use_pyproject: false disables pyproject even if pyproject_path is set."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+version = "1.2.3"
+"""
+    )
+    raw = make_build_input(
+        include=["src/**"],
+        pyproject_path="pyproject.toml",
+        use_pyproject=False,
+    )
+    root_cfg: mod_types.RootConfig = {
+        "builds": [raw],
+        "use_pyproject": False,
+    }
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    # Build-level use_pyproject: false should disable it
+    assert "_pyproject_version" not in resolved
+    assert resolved.get("display_name") != "test-package"
+
+
 def test_resolve_build_config_package_from_pyproject_when_enabled(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
@@ -1110,6 +1211,107 @@ def test_resolve_build_config_authors_optional_in_resolved(
     # --- validate ---
     # Authors should not be present if not set anywhere
     assert "authors" not in resolved or resolved.get("authors") is None
+
+
+# ---------------------------------------------------------------------------
+# Version cascading tests
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_build_config_version_cascades_from_root(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Version should cascade from root config to all builds."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"])
+    root_cfg: mod_types.RootConfig = {
+        "builds": [raw],
+        "version": "1.2.3",
+    }
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    assert resolved.get("version") == "1.2.3"
+
+
+def test_resolve_build_config_version_build_overrides_root(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Version from build config should override root config."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"], version="2.0.0")
+    root_cfg: mod_types.RootConfig = {
+        "builds": [raw],
+        "version": "1.2.3",
+    }
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    assert resolved.get("version") == "2.0.0"
+
+
+def test_resolve_build_config_version_multi_build_cascades(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Version should cascade from root to all builds in multi-build configs."""
+    # --- setup ---
+    raw1 = make_build_input(include=["src1/**"])
+    raw2 = make_build_input(include=["src2/**"])
+    root_cfg: mod_types.RootConfig = {
+        "builds": [raw1, raw2],
+        "version": "1.2.3",
+    }
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved1 = mod_resolve.resolve_build_config(
+            raw1, args, tmp_path, tmp_path, root_cfg
+        )
+        resolved2 = mod_resolve.resolve_build_config(
+            raw2, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    # Both builds should get root-level version
+    assert resolved1.get("version") == "1.2.3"
+    assert resolved2.get("version") == "1.2.3"
+
+
+def test_resolve_build_config_version_optional_in_resolved(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Version should be optional in resolved config (NotRequired)."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"])
+    root_cfg: mod_types.RootConfig = {"builds": [raw]}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    # Version should not be present if not set anywhere
+    assert "version" not in resolved or resolved.get("version") is None
 
 
 # ---------------------------------------------------------------------------

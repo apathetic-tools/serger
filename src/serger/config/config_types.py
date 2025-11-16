@@ -132,6 +132,9 @@ class BuildConfig(TypedDict, total=False):
     use_pyproject: bool  # Whether to pull metadata from pyproject.toml
     pyproject_path: str  # Path to pyproject.toml (overrides root default)
 
+    # Version (hoisted from root config, overrides pyproject version)
+    version: str  # Version string (optional, falls back to pyproject.toml if not set)
+
     # Stitching configuration
     package: str  # Package name for imports (e.g., "serger")
     # Explicit module order for stitching (optional; auto-discovered if not provided)
@@ -203,6 +206,9 @@ class RootConfig(TypedDict, total=False):
     use_pyproject: bool  # Whether to pull metadata from pyproject.toml (default: true)
     pyproject_path: str  # Path to pyproject.toml (fallback for single builds)
 
+    # Version (hoisted to all builds, overrides pyproject version)
+    version: str  # Version string (optional, falls back to pyproject.toml if not set)
+
     # Stitching configuration defaults (cascade into builds)
     authors: str  # Authors for header (optional, can fallback to pyproject.toml)
 
@@ -268,6 +274,7 @@ class BuildConfigResolved(TypedDict):
     __meta__: MetaBuildConfigResolved
 
     # Internal metadata fields (not user-configurable)
+    version: NotRequired[str]  # Version from config (hoisted from root or build-level)
     _pyproject_version: NotRequired[str]  # Version extracted from pyproject.toml
 
     # Stitching fields (optional - present if this is a stitch build)

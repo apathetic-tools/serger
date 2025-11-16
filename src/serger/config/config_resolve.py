@@ -22,6 +22,7 @@ from serger.constants import (
     DEFAULT_SHIM,
     DEFAULT_STITCH_MODE,
     DEFAULT_STRICT_CONFIG,
+    DEFAULT_USE_PYPROJECT,
     DEFAULT_WATCH_INTERVAL,
 )
 from serger.logs import get_app_logger
@@ -228,10 +229,18 @@ def _should_use_pyproject(
     num_builds = len((root_cfg or {}).get("builds", []))
     is_configless = _is_configless_build(root_cfg, num_builds)
 
-    # For configless builds, use pyproject by default unless explicitly disabled
+    # Build-level explicit disablement always takes precedence
+    if build_use_pyproject is False:
+        return False
+
+    # Root-level explicit disablement takes precedence unless build overrides
+    # (build-level pyproject_path is considered an override)
+    if root_use_pyproject is False and build_pyproject_path is None:
+        return False
+
+    # For configless builds, use DEFAULT_USE_PYPROJECT (unless disabled above)
     if is_configless:
-        # Explicit disablement takes precedence
-        return not (build_use_pyproject is False or root_use_pyproject is False)
+        return DEFAULT_USE_PYPROJECT
 
     # For non-configless builds, require explicit enablement
     return (
@@ -1463,6 +1472,20 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # If neither is set, leave it unset (will be filled by pyproject.toml if available)
 
     # ------------------------------
+    # Version
+    # ------------------------------
+    # Cascade: build-level → root-level (no default, optional field)
+    # Falls back to _pyproject_version in _extract_build_metadata()
+    # if use_pyproject was enabled
+    build_version = resolved_cfg.get("version")
+    root_version = (root_cfg or {}).get("version")
+    if build_version is not None:
+        resolved_cfg["version"] = build_version
+    elif root_version is not None:
+        resolved_cfg["version"] = root_version
+    # If neither is set, leave it unset (will fall back to pyproject.toml if available)
+
+    # ------------------------------
     # Pyproject.toml metadata
     # ------------------------------
     _apply_pyproject_metadata(
@@ -1556,7 +1579,7 @@ def resolve_config(
     }
     if duplicates:
         # Format error message with all duplicates
-        error_parts = []
+        error_parts: list[str] = []
         for out_path, indices in sorted(duplicates.items()):
             indices_str = ", ".join(f"build #{i}" for i in indices)
             error_parts.append(f'  "{out_path}": {indices_str}')

@@ -15,7 +15,6 @@ from .stitch import (
     compute_module_order,
     detect_packages_from_files,
     extract_commit,
-    extract_version,
     stitch_modules,
 )
 from .utils.utils_validation import validate_required_keys
@@ -423,27 +422,34 @@ def find_package_root(file_paths: list[Path]) -> Path:
 
 def _extract_build_metadata(
     build_cfg: BuildConfigResolved,
-    root_path: Path,
+    project_root: Path,
+    git_root: Path | None = None,
 ) -> tuple[str, str, str]:
     """Extract version, commit, and build date for embedding.
 
     Args:
         build_cfg: Resolved build config
-        root_path: Project root path
+        project_root: Project root path (for finding pyproject.toml)
+        git_root: Git repository root path (for finding .git, defaults to project_root)
 
     Returns:
         Tuple of (version, commit, build_date)
     """
-    # _pyproject_version is optional, no validation needed
-    # Use version from resolved config if available (from pyproject.toml),
-    # otherwise fall back to extracting it directly
-    version_raw = build_cfg.get("_pyproject_version")
-    version = version_raw or extract_version(root_path / "pyproject.toml")
-    commit = extract_commit(root_path)
+    # Priority order for version:
+    # 1. version from config (hoisted from root or build-level)
+    # 2. _pyproject_version (extracted from pyproject.toml during resolution
+    #    if use_pyproject was enabled)
+    # 3. timestamp as fallback
+    version = build_cfg.get("version")
+    if not version:
+        version = build_cfg.get("_pyproject_version")
+    # Use git_root for commit extraction (package root), fallback to project_root
+    commit_path = git_root if git_root is not None else project_root
+    commit = extract_commit(commit_path)
     build_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     # If no version found, use timestamp as version
-    if version == "unknown":
+    if not version or version == "unknown":
         version = build_date
 
     return version, commit, build_date
@@ -675,8 +681,12 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
         "detected_packages": detected_packages,  # Pre-detected packages
     }
 
-    # Extract metadata for embedding (use package_root as root_path)
-    version, commit, build_date = _extract_build_metadata(build_cfg, package_root)
+    # Extract metadata for embedding
+    # Use config_root for finding pyproject.toml (project root), package_root for git
+    config_root = build_cfg["__meta__"]["config_root"]
+    version, commit, build_date = _extract_build_metadata(
+        build_cfg, config_root, package_root
+    )
 
     # Create parent directory if needed
     out_path.parent.mkdir(parents=True, exist_ok=True)
