@@ -19,3 +19,8 @@ alwaysApply: true
   1. Run `poetry run poe sync:ai:guidance` to sync changes to `.cursor/` and `.claude/`
   2. Include the generated files (`.cursor/rules/*.mdc`, `.cursor/commands/*.md`, `.claude/CLAUDE.md`) as part of the same changeset/commit
 - **Before committing**: Run `poetry run poe check:fix` (this also regenerates `dist/serger.py` as needed)
+- **Debugging failing tests**: Set `LOG_LEVEL=test` to output TRACE and DEBUG logs in failing tests, bypassing pytest's log capture. This is useful for debugging test failures:
+  ```bash
+  LOG_LEVEL=test poetry run poe test:pytest:installed tests/path/to/test.py::test_name -xvs
+  ```
+  The `test` log level is the most verbose and bypasses pytest's log capture, allowing you to see all TRACE and DEBUG logs even when tests fail.
