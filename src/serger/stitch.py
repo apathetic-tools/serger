@@ -1746,6 +1746,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     _order_paths: list[Path] | None = None,
     _package_root: Path | None = None,
     _file_to_include: dict[Path, IncludeResolved] | None = None,
+    _original_order_names_for_shims: list[str] | None = None,
     license_header: str,
     version: str,
     commit: str,
@@ -1804,7 +1805,13 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         # (e.g., "utils.utils_text"), but shims need full paths
         # (e.g., "serger.utils.utils_text").
         # Note: If specific modules should be excluded, use the 'exclude' config option
-        shim_names_raw = list(order_names)
+        # When files are filtered by affects: "stitching", use original module names
+        # for shim generation (shims should still be generated even if files are
+        # filtered from stitching)
+        if _original_order_names_for_shims is not None:
+            shim_names_raw = list(_original_order_names_for_shims)
+        else:
+            shim_names_raw = list(order_names)
 
         # Generate actions from module_mode if specified (and not "none"/"multi")
         # Actions should be applied to original module names BEFORE prepending
@@ -2397,6 +2404,9 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     # --- Apply affects: "stitching" actions to filter files ---
     # Before collecting modules, apply actions that affect stitching
     # to determine which files should be excluded
+    # IMPORTANT: We need to preserve original module names for shim generation
+    # even when files are filtered from stitching
+    original_order_names_for_shims: list[str] | None = None
     if module_actions:
         # Build module-to-file mapping from order_paths
         module_to_file_for_filtering: dict[str, Path] = {}
@@ -2404,6 +2414,10 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
             include = file_to_include.get(file_path)
             module_name = derive_module_name(file_path, package_root, include)
             module_to_file_for_filtering[module_name] = file_path
+
+        # Preserve original module names for shim generation
+        # (before filtering affects shim generation)
+        original_order_names_for_shims = list(module_to_file_for_filtering.keys())
 
         # Separate actions by affects value
         (
@@ -2435,35 +2449,53 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
                 )
                 filtered_order_paths: list[Path] = []
                 for file_path in order_paths:
-                    try:
-                        file_relative = file_path.relative_to(package_root)
-                    except ValueError:
-                        # File is not under package_root, skip filtering
-                        # (shouldn't happen in normal flow, but be safe)
-                        filtered_order_paths.append(file_path)
-                        continue
-                    file_str = str(file_relative).replace("\\", "/")
-                    # Check if file path contains any deleted source
-                    # (e.g., "pkg1/module.py" contains "pkg1")
+                    # Check if file belongs to a deleted package
+                    # package_root might be the package directory itself
+                    # (e.g., tmp_path/pkg1), so we need to check if the
+                    # package_root's name matches a deleted source, or if
+                    # the file path contains the deleted source
                     should_exclude = False
                     excluded_by = None
+
+                    # Check if package_root's name matches deleted_source
+                    # (package_root is the package directory, e.g., tmp_path/pkg1)
+                    package_root_name = package_root.name
                     for deleted_source in deleted_sources:
-                        # Check if file path starts with deleted_source/
-                        if file_str.startswith(f"{deleted_source}/"):
+                        if package_root_name == deleted_source:
+                            # All files under this package_root belong to deleted
+                            # package
                             should_exclude = True
                             excluded_by = deleted_source
                             break
-                        # Check if file path contains deleted_source as directory
-                        if f"/{deleted_source}/" in file_str:
-                            should_exclude = True
-                            excluded_by = deleted_source
-                            break
-                        # Check exact match for top-level files
-                        file_name = file_relative.name
-                        if file_name == f"{deleted_source}.py":
-                            should_exclude = True
-                            excluded_by = deleted_source
-                            break
+
+                    # Also check file path structure for nested packages
+                    # (e.g., if package_root is tmp_path but file is
+                    # tmp_path/pkg1/module.py)
+                    if not should_exclude:
+                        try:
+                            file_relative = file_path.relative_to(package_root.parent)
+                        except (ValueError, AttributeError):
+                            # Fallback: check absolute path
+                            file_str = str(file_path).replace("\\", "/")
+                            for deleted_source in deleted_sources:
+                                if f"/{deleted_source}/" in file_str:
+                                    should_exclude = True
+                                    excluded_by = deleted_source
+                                    break
+                        else:
+                            file_str = str(file_relative).replace("\\", "/")
+                            for deleted_source in deleted_sources:
+                                # Check if file path starts with deleted_source/
+                                if file_str.startswith(f"{deleted_source}/"):
+                                    should_exclude = True
+                                    excluded_by = deleted_source
+                                    break
+                                # Check if file path contains deleted_source as
+                                # directory
+                                if f"/{deleted_source}/" in file_str:
+                                    should_exclude = True
+                                    excluded_by = deleted_source
+                                    break
 
                     if not should_exclude:
                         filtered_order_paths.append(file_path)
@@ -2573,6 +2605,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         _order_paths=order_paths,
         _package_root=package_root,
         _file_to_include=file_to_include,
+        _original_order_names_for_shims=original_order_names_for_shims,
         license_header=license_header,
         version=version,
         commit=commit,

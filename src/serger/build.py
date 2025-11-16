@@ -590,8 +590,10 @@ def run_build(  # noqa: PLR0915, PLR0912
     external_imports = build_cfg["external_imports"]
     stitch_mode = build_cfg["stitch_mode"]
     module_mode = build_cfg["module_mode"]
+    shim = build_cfg.get("shim", "all")
     comments_mode = build_cfg["comments_mode"]
     docstring_mode = build_cfg["docstring_mode"]
+    module_actions = build_cfg.get("module_actions", [])
 
     stitch_config: dict[str, object] = {
         "package": package,
@@ -604,6 +606,8 @@ def run_build(  # noqa: PLR0915, PLR0912
         "external_imports": external_imports,
         "stitch_mode": stitch_mode,
         "module_mode": module_mode,
+        "shim": shim,
+        "module_actions": module_actions,
         "comments_mode": comments_mode,
         "docstring_mode": docstring_mode,
         "detected_packages": detected_packages,  # Pre-detected packages
