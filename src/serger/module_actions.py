@@ -406,6 +406,32 @@ def _transform_module_name(  # noqa: PLR0911
     """
     # Check if module_name starts with source
     if not module_name.startswith(source):
+        # Try component matching: check if all source components appear in module_name
+        # (e.g., "mypkg.module" should match "mypkg.pkg1.module")
+        source_parts = source.split(".")
+        module_parts = module_name.split(".")
+        # Check if first and last components of source match first and last of module
+        min_components_for_match = 2
+        if (
+            len(source_parts) >= min_components_for_match
+            and len(module_parts) >= min_components_for_match
+            and source_parts[0] == module_parts[0]
+            and source_parts[-1] == module_parts[-1]
+        ):
+            # Component matching: extract middle part(s) from module_name
+            # For "mypkg.module" matching "mypkg.pkg1.module":
+            # - source_parts = ["mypkg", "module"]
+            # - module_parts = ["mypkg", "pkg1", "module"]
+            # - middle_parts = ["pkg1"]
+            middle_parts = module_parts[1:-1]
+            if mode == "preserve":
+                # Preserve structure: dest + middle + last component
+                if middle_parts:
+                    return f"{dest}.{'.'.join(middle_parts)}.{source_parts[-1]}"
+                return f"{dest}.{source_parts[-1]}"
+            # mode == "flatten"
+            # Flatten: just dest (remove middle parts and last component)
+            return dest
         return None
 
     # Exact match: source -> dest
