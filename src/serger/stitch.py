@@ -1917,7 +1917,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         # Validate and apply scope: "shim" actions (incremental validation)
         if shim_scope_actions:
             for action in shim_scope_actions:
-                validate_action_source_exists(action, set(shim_names))
+                validate_action_source_exists(action, set(shim_names), scope="shim")
                 shim_names = apply_single_action(shim_names, action, detected_packages)
 
         # Group modules by their parent package

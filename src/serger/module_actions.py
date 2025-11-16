@@ -54,19 +54,26 @@ def set_mode_generated_action_defaults(
 def validate_action_source_exists(
     action: "ModuleActionFull",
     available_modules: set[str],
+    *,
+    scope: "ModuleActionScope | None" = None,
 ) -> None:
     """Validate that action source exists in available modules.
 
     Args:
         action: Action to validate
         available_modules: Set of available module names
+        scope: Optional scope for error message context
 
     Raises:
         ValueError: If source does not exist in available modules
     """
     source = action["source"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
     if source not in available_modules:
-        msg = f"Module action source '{source}' does not exist in available modules"
+        scope_str = f" (scope: '{scope}')" if scope else ""
+        msg = (
+            f"Module action source '{source}' does not exist in available modules"
+            f"{scope_str}"
+        )
         raise ValueError(msg)
 
 
@@ -75,6 +82,7 @@ def validate_action_dest(
     existing_modules: set[str],
     *,
     allowed_destinations: set[str] | None = None,
+    scope: "ModuleActionScope | None" = None,
 ) -> None:
     """Validate action destination (conflicts, required for move/copy, etc.).
 
@@ -84,17 +92,20 @@ def validate_action_dest(
         allowed_destinations: Optional set of destinations that are allowed
             even if they exist in existing_modules (e.g., target package for
             mode-generated actions). If None, no special exceptions.
+        scope: Optional scope for error message context
 
     Raises:
         ValueError: If destination is invalid
     """
     action_type = action.get("action", "move")
     dest = action.get("dest")
+    scope_str = f" (scope: '{scope}')" if scope else ""
 
     # Delete actions must not have dest
     if action_type == "delete" and dest is not None:
         msg = (
             f"Module action 'delete' must not have 'dest' field, but got dest='{dest}'"
+            f"{scope_str}"
         )
         raise ValueError(msg)
     if action_type == "delete":
@@ -105,7 +116,7 @@ def validate_action_dest(
         if dest is None:
             msg = (
                 f"Module action '{action_type}' requires 'dest' field, "
-                f"but it is missing"
+                f"but it is missing{scope_str}"
             )
             raise ValueError(msg)
 
@@ -120,7 +131,7 @@ def validate_action_dest(
         ):
             msg = (
                 f"Module action 'move' destination '{dest}' "
-                f"conflicts with existing module"
+                f"conflicts with existing module{scope_str}"
             )
             raise ValueError(msg)
 
@@ -334,7 +345,8 @@ def validate_module_actions(
 
     # Validate each action's source exists
     for action in filtered_actions:
-        validate_action_source_exists(action, available_modules)
+        action_scope = action.get("scope") or scope
+        validate_action_source_exists(action, available_modules, scope=action_scope)
 
     # Validate no circular moves first (before dest conflicts)
     # Circular moves can cause false dest conflicts
@@ -357,8 +369,12 @@ def validate_module_actions(
                     allowed_destinations.add(dest)
 
     for action in filtered_actions:
+        action_scope = action.get("scope") or scope
         validate_action_dest(
-            action, available_modules, allowed_destinations=allowed_destinations
+            action,
+            available_modules,
+            allowed_destinations=allowed_destinations,
+            scope=action_scope,
         )
 
     # Validate no conflicting operations
