@@ -1,8 +1,10 @@
 """Module actions processing for renaming, moving, copying, and deleting modules."""
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from serger.logs import get_app_logger
+from serger.utils.utils_modules import derive_module_name
 
 
 if TYPE_CHECKING:
@@ -11,6 +13,78 @@ if TYPE_CHECKING:
         ModuleActionMode,
         ModuleActionScope,
     )
+
+
+def extract_module_name_from_source_path(
+    source_path: Path,
+    package_root: Path,
+    expected_source: str,
+) -> str:
+    """Extract module name from source_path and verify it matches expected_source.
+
+    Args:
+        source_path: Path to Python file
+        package_root: Root directory for module name derivation
+        expected_source: Expected module name from action source field
+
+    Returns:
+        Extracted module name
+
+    Raises:
+        ValueError: If module name doesn't match expected_source or file is invalid
+    """
+    logger = get_app_logger()
+
+    # Validate file exists
+    if not source_path.exists():
+        msg = f"source_path file does not exist: {source_path}"
+        raise ValueError(msg)
+
+    # Validate is Python file
+    if source_path.suffix != ".py":
+        msg = f"source_path must be a Python file (.py extension), got: {source_path}"
+        raise ValueError(msg)
+
+    # Extract module name using derive_module_name
+    # Use None for include since source_path files don't have include metadata
+    extracted_module_name = derive_module_name(source_path, package_root, include=None)
+
+    # Verify extracted module name matches expected_source
+    # Allow exact match or derivable (e.g., if package is "internal" and file
+    # has module "internal.utils", source can be "internal.utils" or just "utils")
+    if extracted_module_name == expected_source:
+        # Exact match
+        logger.trace(
+            f"[source_path] Module name matches: "
+            f"{extracted_module_name} == {expected_source}"
+        )
+        return extracted_module_name
+
+    # Check if expected_source is a suffix of extracted_module_name
+    # (e.g., extracted="internal.utils", expected="utils")
+    # Also check if extracted_module_name ends with expected_source
+    # (e.g., extracted="other.utils", expected="utils")
+    if extracted_module_name.endswith((f".{expected_source}", expected_source)):
+        # Suffix match - this is allowed
+        logger.trace(
+            f"[source_path] Module name suffix matches: "
+            f"{extracted_module_name} ends with {expected_source}"
+        )
+        return extracted_module_name
+
+    # Check if extracted_module_name is a prefix of expected_source
+    # (e.g., extracted="utils", expected="internal.utils")
+    # This means the file has a shorter module name than expected
+    # We don't allow this - the file's module name should match or be longer
+    # (e.g., file has "internal.utils", source can be "internal.utils" or "utils")
+
+    # No match - raise error
+    msg = (
+        f"Module name extracted from source_path ({extracted_module_name}) "
+        f"does not match expected source ({expected_source}). "
+        f"File: {source_path}, package_root: {package_root}"
+    )
+    raise ValueError(msg)
 
 
 def set_mode_generated_action_defaults(

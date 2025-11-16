@@ -61,7 +61,7 @@ def is_running_under_pytest() -> bool:
     )
 
 
-def detect_runtime_mode() -> str:
+def detect_runtime_mode() -> str:  # noqa: PLR0911
     if getattr(sys, "frozen", False):
         return "frozen"
     if "__main__" in sys.modules and getattr(
@@ -70,8 +70,20 @@ def detect_runtime_mode() -> str:
         "",
     ).endswith(".pyz"):
         return "zipapp"
+    # Check for standalone mode in multiple locations
+    # 1. Current module's globals (for when called from within standalone script)
     if "__STANDALONE__" in globals():
         return "standalone"
+    # 2. Check package module's globals (when loaded via importlib)
+    # The standalone script is loaded as the "serger" package
+    pkg_mod = sys.modules.get("serger")
+    if pkg_mod is not None and hasattr(pkg_mod, "__STANDALONE__"):
+        return "standalone"
+    # 3. Check __main__ module's globals (for script execution)
+    if "__main__" in sys.modules:
+        main_mod = sys.modules["__main__"]
+        if hasattr(main_mod, "__STANDALONE__"):
+            return "standalone"
     return "installed"
 
 

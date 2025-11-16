@@ -19,6 +19,7 @@ import pytest
 
 import serger.meta as mod_meta
 from tests.utils import PROJ_ROOT
+from tests.utils.package_detection import find_all_packages_under_path
 
 from .test_trace import make_test_trace
 
@@ -90,10 +91,17 @@ def runtime_swap() -> bool:
         )
         raise pytest.UsageError(xmsg)
 
-    # Nuke any already-imported serger modules to avoid stale refs.
+    # Nuke any already-imported modules from src/ to avoid stale refs.
+    # Dynamically detect all packages under src/ instead of hardcoding names.
+    src_dir = PROJ_ROOT / "src"
+    packages_to_nuke = find_all_packages_under_path(src_dir)
+
     for name in list(sys.modules):
-        if name == "serger" or name.startswith("serger."):
-            del sys.modules[name]
+        # Check if module name matches any detected package or is a submodule
+        for pkg_name in packages_to_nuke:
+            if name == pkg_name or name.startswith(f"{pkg_name}."):
+                del sys.modules[name]
+                break
 
     # Load standalone script as the serger package.
     spec = importlib.util.spec_from_file_location(mod_meta.PROGRAM_PACKAGE, bin_path)

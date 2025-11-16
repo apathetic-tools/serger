@@ -1534,3 +1534,366 @@ def test_shim_none_with_module_actions(tmp_path: Path) -> None:
     assert "# --- import shims for single-file runtime ---" not in content
     # But module code should still be present
     assert "def func()" in content
+
+
+# --------------------------------------------------------------------------- #
+# source_path feature tests
+# --------------------------------------------------------------------------- #
+
+
+def test_source_path_re_includes_excluded_file(tmp_path: Path) -> None:
+    """Test that source_path can re-include an excluded file."""
+    # Setup: Create file structure
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    internal_dir = src_dir / "internal"
+    internal_dir.mkdir()
+    utils_file = internal_dir / "utils.py"
+    utils_file.write_text("def helper():\n    return 'helper'\n")
+
+    out_file = tmp_path / "output.py"
+    build_cfg = make_build_cfg(
+        tmp_path,
+        [make_include_resolved("src/**/*.py", tmp_path)],
+        respect_gitignore=False,
+        out=make_resolved("output.py", tmp_path),
+        package="mypkg",
+        exclude=[make_resolved("internal/**/*.py", tmp_path)],
+        order=["src/internal/utils.py"],
+    )
+    # Re-include via source_path
+    # Note: The module name at build time is "utils" (not "internal.utils")
+    # because the file is at src/internal/utils.py and package root is tmp_path
+    build_cfg["module_actions"] = [
+        {
+            "source": "utils",
+            "source_path": str(utils_file),
+            "dest": "public.utils",
+            "affects": "both",
+        }
+    ]
+
+    mod_build.run_build(build_cfg)
+
+    content = out_file.read_text()
+    # File should be stitched (re-included via source_path)
+    assert "def helper()" in content
+    assert "return 'helper'" in content
+
+
+def test_source_path_references_file_not_in_include_set(tmp_path: Path) -> None:
+    """Test that source_path can reference a file not in initial include set."""
+    # Setup: Create file structure
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    (src_dir / "main.py").write_text("def main(): pass\n")
+
+    other_dir = tmp_path / "other"
+    other_dir.mkdir()
+    utils_file = other_dir / "utils.py"
+    utils_file.write_text("def helper():\n    return 'helper'\n")
+
+    out_file = tmp_path / "output.py"
+    build_cfg = make_build_cfg(
+        tmp_path,
+        [make_include_resolved("src/**/*.py", tmp_path)],
+        respect_gitignore=False,
+        out=make_resolved("output.py", tmp_path),
+        package="mypkg",
+        order=["src/main.py"],
+    )
+    # Reference file not in include set via source_path
+    build_cfg["module_actions"] = [
+        {
+            "source": "utils",
+            "source_path": str(utils_file),
+            "dest": "mypkg.utils",
+            "affects": "stitching",
+        }
+    ]
+
+    mod_build.run_build(build_cfg)
+
+    content = out_file.read_text()
+    # File should be stitched (added via source_path)
+    assert "def helper()" in content
+
+
+def test_source_path_affects_stitching_adds_file(tmp_path: Path) -> None:
+    """Test that affects='stitching' with source_path adds file to stitching."""
+    # Setup: Create file structure
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    (src_dir / "main.py").write_text("def main(): pass\n")
+
+    other_dir = tmp_path / "other"
+    other_dir.mkdir()
+    utils_file = other_dir / "utils.py"
+    utils_file.write_text("def helper():\n    return 'helper'\n")
+
+    out_file = tmp_path / "output.py"
+    build_cfg = make_build_cfg(
+        tmp_path,
+        [make_include_resolved("src/**/*.py", tmp_path)],
+        respect_gitignore=False,
+        out=make_resolved("output.py", tmp_path),
+        package="mypkg",
+        order=["src/main.py"],
+    )
+    build_cfg["module_actions"] = [
+        {
+            "source": "utils",
+            "source_path": str(utils_file),
+            "dest": "mypkg.utils",
+            "affects": "stitching",
+        }
+    ]
+
+    mod_build.run_build(build_cfg)
+
+    content = out_file.read_text()
+    # File should be stitched
+    assert "def helper()" in content
+
+
+def test_source_path_affects_shims_does_not_add_file(tmp_path: Path) -> None:
+    """Test that affects='shims' with source_path doesn't add file to stitching."""
+    # Setup: Create file structure
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    (src_dir / "main.py").write_text("def main(): pass\n")
+    # Also create utils.py in src so it's stitched and available for action
+    (src_dir / "utils.py").write_text("def helper():\n    return 'helper'\n")
+
+    other_dir = tmp_path / "other"
+    other_dir.mkdir()
+    other_utils_file = other_dir / "utils.py"
+    other_utils_file.write_text("def other_helper():\n    return 'other'\n")
+
+    out_file = tmp_path / "output.py"
+    build_cfg = make_build_cfg(
+        tmp_path,
+        [make_include_resolved("src/**/*.py", tmp_path)],
+        respect_gitignore=False,
+        out=make_resolved("output.py", tmp_path),
+        package="mypkg",
+        order=["src/main.py", "src/utils.py"],
+    )
+    # source_path points to a different file, but source matches stitched module
+    build_cfg["module_actions"] = [
+        {
+            "source": "utils",  # Matches stitched src/utils.py
+            "source_path": str(other_utils_file),  # Different file, not stitched
+            "dest": "mypkg.utils",
+            "affects": "shims",
+        }
+    ]
+
+    mod_build.run_build(build_cfg)
+
+    content = out_file.read_text()
+    # File from source_path should NOT be stitched (only affects shims)
+    assert "def other_helper()" not in content
+    # But the stitched utils.py should be present
+    assert "def helper()" in content
+
+
+def test_source_path_affects_both_adds_file(tmp_path: Path) -> None:
+    """Test that affects='both' with source_path adds file to stitching."""
+    # Setup: Create file structure
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    (src_dir / "main.py").write_text("def main(): pass\n")
+
+    other_dir = tmp_path / "other"
+    other_dir.mkdir()
+    utils_file = other_dir / "utils.py"
+    utils_file.write_text("def helper():\n    return 'helper'\n")
+
+    out_file = tmp_path / "output.py"
+    build_cfg = make_build_cfg(
+        tmp_path,
+        [make_include_resolved("src/**/*.py", tmp_path)],
+        respect_gitignore=False,
+        out=make_resolved("output.py", tmp_path),
+        package="mypkg",
+        order=["src/main.py"],
+    )
+    build_cfg["module_actions"] = [
+        {
+            "source": "utils",
+            "source_path": str(utils_file),
+            "dest": "mypkg.utils",
+            "affects": "both",
+        }
+    ]
+
+    mod_build.run_build(build_cfg)
+
+    content = out_file.read_text()
+    # File should be stitched
+    assert "def helper()" in content
+
+
+def test_source_path_already_included_file_no_duplicate(tmp_path: Path) -> None:
+    """Test that already included file doesn't create duplicate."""
+    # Setup: Create file structure
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    utils_file = src_dir / "utils.py"
+    utils_file.write_text("def helper():\n    return 'helper'\n")
+
+    out_file = tmp_path / "output.py"
+    build_cfg = make_build_cfg(
+        tmp_path,
+        [make_include_resolved("src/**/*.py", tmp_path)],
+        respect_gitignore=False,
+        out=make_resolved("output.py", tmp_path),
+        package="mypkg",
+        order=["src/utils.py"],
+    )
+    # File is already included, but also specified in source_path
+    build_cfg["module_actions"] = [
+        {
+            "source": "utils",
+            "source_path": str(utils_file),
+            "dest": "mypkg.utils",
+            "affects": "both",
+        }
+    ]
+
+    mod_build.run_build(build_cfg)
+
+    content = out_file.read_text()
+    # File should be stitched (no duplicate)
+    assert "def helper()" in content
+    # Count occurrences - should appear once
+    assert content.count("def helper()") == 1
+
+
+def test_source_path_overrides_exclude(tmp_path: Path) -> None:
+    """Test that source_path file is included despite exclude pattern."""
+    # Setup: Create file structure
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    internal_dir = src_dir / "internal"
+    internal_dir.mkdir()
+    utils_file = internal_dir / "utils.py"
+    utils_file.write_text("def helper():\n    return 'helper'\n")
+
+    out_file = tmp_path / "output.py"
+    build_cfg = make_build_cfg(
+        tmp_path,
+        [make_include_resolved("src/**/*.py", tmp_path)],
+        respect_gitignore=False,
+        out=make_resolved("output.py", tmp_path),
+        package="mypkg",
+        exclude=[make_resolved("internal/**/*.py", tmp_path)],
+        order=["src/internal/utils.py"],
+    )
+    # File is excluded, but re-included via source_path
+    # Note: The module name at build time is "utils" (not "internal.utils")
+    # because the file is at src/internal/utils.py and package root is tmp_path
+    build_cfg["module_actions"] = [
+        {
+            "source": "utils",
+            "source_path": str(utils_file),
+            "dest": "public.utils",
+            "affects": "both",
+        }
+    ]
+
+    mod_build.run_build(build_cfg)
+
+    content = out_file.read_text()
+    # File should be stitched (source_path overrides exclude)
+    assert "def helper()" in content
+
+
+def test_source_path_module_name_mismatch_error(tmp_path: Path) -> None:
+    """Test that module name mismatch raises error."""
+    # Setup: Create file structure
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    utils_file = src_dir / "utils.py"
+    utils_file.write_text("def helper(): pass\n")
+
+    build_cfg = make_build_cfg(
+        tmp_path,
+        [make_include_resolved("src/**/*.py", tmp_path)],
+        respect_gitignore=False,
+        out=make_resolved("output.py", tmp_path),
+        package="mypkg",
+        order=["src/utils.py"],
+    )
+    # Source doesn't match module name from file
+    build_cfg["module_actions"] = [
+        {
+            "source": "wrong.name",  # Doesn't match "utils" from file
+            "source_path": str(utils_file),
+            "dest": "mypkg.utils",
+            "affects": "both",
+        }
+    ]
+
+    # Should raise ValueError during config resolution
+    # Error message includes "validation failed" or "does not match expected source"
+    with pytest.raises(
+        ValueError, match=r"validation failed|does not match expected source"
+    ):
+        mod_build.run_build(build_cfg)
+
+
+def test_source_path_end_to_end_excluded_to_stitched(tmp_path: Path) -> None:
+    """Test end-to-end: excluded file → source_path action → stitched file → import."""
+    # Setup: Create file structure
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    internal_dir = src_dir / "internal"
+    internal_dir.mkdir()
+    utils_file = internal_dir / "utils.py"
+    utils_file.write_text("def helper():\n    return 'from_internal'\n")
+
+    out_file = tmp_path / "output.py"
+    build_cfg = make_build_cfg(
+        tmp_path,
+        [make_include_resolved("src/**/*.py", tmp_path)],
+        respect_gitignore=False,
+        out=make_resolved("output.py", tmp_path),
+        package="mypkg",
+        exclude=[make_resolved("internal/**/*.py", tmp_path)],
+        order=["src/internal/utils.py"],
+    )
+    # Re-include excluded file via source_path and transform it
+    # Note: The module name at build time is "utils" (not "internal.utils")
+    # because the file is at src/internal/utils.py and package root is tmp_path
+    build_cfg["module_actions"] = [
+        {
+            "source": "utils",  # Matches actual module name at build time
+            "source_path": str(utils_file),
+            "dest": "public.utils",
+            "affects": "both",
+            "scope": "original",  # Need original scope to transform stitched code
+        }
+    ]
+
+    mod_build.run_build(build_cfg)
+
+    # Verify file is stitched
+    content = out_file.read_text()
+    assert "def helper()" in content
+    assert "return 'from_internal'" in content
+
+    # Verify it can be imported
+    spec = importlib.util.spec_from_file_location("output", out_file)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    # Should be accessible as public.utils (transformed name)
+    assert hasattr(module, "public")
+    assert hasattr(module.public, "utils")
+    assert hasattr(module.public.utils, "helper")
+    result = module.public.utils.helper()
+    assert result == "from_internal"
