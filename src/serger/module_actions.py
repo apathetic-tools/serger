@@ -535,13 +535,18 @@ def _apply_delete_action(
 
     result: list[str] = []
     for module_name in module_names:
-        # Keep modules that don't start with source
-        # Check exact match or submodule (must have dot after source)
+        # Keep modules that don't match source
+        # Check exact match, starts with source., or source appears as component
         if module_name == source:
             # Exact match: delete it
             continue
         if module_name.startswith(f"{source}."):
             # Submodule: delete it
+            continue
+        # Check if source appears as a component in module_name
+        # (e.g., "mypkg.pkg1" contains "pkg1" as a component)
+        if source in module_name.split("."):
+            # Source is a component: delete it
             continue
         # Keep this module
         result.append(module_name)
@@ -890,11 +895,14 @@ def check_shim_stitching_mismatches(
             action_broken_shims: set[str] = set()
             for broken_shim in broken_shims:
                 # Check if broken shim matches source exactly
+                # Also check if source appears as a path component in broken_shim
+                # (e.g., "mypkg.pkg1.module" contains "pkg1" as a component)
                 if (
                     broken_shim == source
                     or broken_shim.endswith(f".{source}")
                     or f".{source}." in broken_shim
                     or broken_shim.startswith(f"{source}.")
+                    or source in broken_shim.split(".")
                 ):
                     action_broken_shims.add(broken_shim)
 
