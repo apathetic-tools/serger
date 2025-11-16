@@ -13,7 +13,6 @@ from apathetic_utils import (
     load_jsonc,
     plural,
     remove_path_in_error_message,
-    schema_from_typeddict,
 )
 from serger.logs import get_app_logger
 from serger.meta import (
@@ -21,7 +20,6 @@ from serger.meta import (
 )
 
 from .config_types import (
-    BuildConfig,
     RootConfig,
 )
 from .config_validate import validate_config
@@ -204,140 +202,31 @@ def load_config(config_path: Path) -> dict[str, Any] | list[Any] | None:
 def _parse_case_2_list_of_strings(
     raw_config: list[str],
 ) -> dict[str, Any]:
-    # --- Case 2: naked list of strings → single build's include ---
-    return {"builds": [{"include": list(raw_config)}]}
+    # --- Case 2: naked list of strings → flat config with include ---
+    return {"include": list(raw_config)}
 
 
-def _parse_case_3_list_of_dicts(
-    raw_config: list[dict[str, Any]],
-) -> dict[str, Any]:
-    # --- Case 3: naked list of dicts (no root) → multi-build shorthand ---
-    root: dict[str, Any]  # type it once
-    builds = [dict(b) for b in raw_config]
-
-    # Special case: watch_interval is app-wide and can only be defined once.
-    # Lift watch_interval from the first build that defines it, then remove it
-    # from ALL builds (it applies to the entire application, not per-build).
-    first_watch = next(
-        (b.get("watch_interval") for b in builds if "watch_interval" in b),
-        None,
-    )
-    # Standard hoisting: module_bases is hoisted from the first build as a root
-    # default, but other builds can keep their explicit module_bases settings
-    # to override the root default (per-build override).
-    first_module_bases_idx = next(
-        (i for i, b in enumerate(builds) if "module_bases" in b),
-        None,
-    )
-    first_module_bases = (
-        builds[first_module_bases_idx]["module_bases"]
-        if first_module_bases_idx is not None
-        else None
-    )
-    root = {"builds": builds}
-    if first_watch is not None:
-        root["watch_interval"] = first_watch
-        # Remove from ALL builds (app-wide setting, not per-build)
-        for b in builds:
-            b.pop("watch_interval", None)
-    if first_module_bases is not None and first_module_bases_idx is not None:
-        root["module_bases"] = first_module_bases
-        # Only remove from the first build (the one we hoisted from)
-        # Other builds keep their explicit module_bases to override the root default
-        builds[first_module_bases_idx].pop("module_bases", None)
-    return root
-
-
-def _parse_case_4_dict_multi_builds(
-    raw_config: dict[str, Any],
-    *,
-    build_val: Any,
-) -> dict[str, Any]:
-    # --- Case 4: dict with "build(s)" key → root with multi-builds ---
-    logger = get_app_logger()
-    root = dict(raw_config)  # preserve all user keys
-
-    # we might have a "builds" key that is a list, then nothing to do
-
-    # If user used "build" with a list → coerce, warn
-    if isinstance(build_val, list) and "builds" not in raw_config:
-        logger.warning("Config key 'build' was a list — treating as 'builds'.")
-        root["builds"] = build_val
-        root.pop("build", None)
-
-    return root
-
-
-def _parse_case_5_dict_single_build(
-    raw_config: dict[str, Any],
-    *,
-    builds_val: Any,
-) -> dict[str, Any]:
-    # --- Case 5: dict with "build(s)" key → root with single-build ---
-    logger = get_app_logger()
-    root = dict(raw_config)  # preserve all user keys
-
-    # If user used "builds" with a dict → coerce, warn
-    if isinstance(builds_val, dict):
-        logger.warning("Config key 'builds' was a dict — treating as 'build'.")
-        root["builds"] = [builds_val]
-        # keep the 'builds' key — it's now properly normalized
-    else:
-        root["builds"] = [dict(root.pop("build"))]
-
-    # no hoisting since they specified a root
-    return root
-
-
-def _parse_case_6_root_single_build(
+def _parse_case_flat_config(
     raw_config: dict[str, Any],
 ) -> dict[str, Any]:
-    # --- Case 6: single build fields (hoist only shared keys) ---
+    # --- Flat config: all fields at root level ---
     # The user gave a flat single-build config.
-    # We move only the overlapping fields (shared between Root and Build)
-    # up to the root; all build-only fields stay inside the build entry.
-    build = dict(raw_config)
-    hoisted: dict[str, Any] = {}
-
-    # Keys on both Root and Build are what we want to hoist up
-    root_keys = set(schema_from_typeddict(RootConfig))
-    build_keys = set(schema_from_typeddict(BuildConfig))
-    hoist_keys = root_keys & build_keys
-
-    # Move shared keys to the root
-    for k in hoist_keys:
-        if k in build:
-            hoisted[k] = build.pop(k)
-
-    # Preserve any extra unknown root-level fields from raw_config
-    for k, v in raw_config.items():
-        if k not in hoisted:
-            build.setdefault(k, v)
-
-    # Construct normalized root
-    root: dict[str, Any] = dict(hoisted)
-    root["builds"] = [build]
-
-    return root
+    # No hoisting needed - all fields are already at the root level.
+    return dict(raw_config)
 
 
-def parse_config(  # noqa: PLR0911
+def parse_config(
     raw_config: dict[str, Any] | list[Any] | None,
 ) -> dict[str, Any] | None:
     """Normalize user config into canonical RootConfig shape (no filesystem work).
 
     Accepted forms:
-      - #1 [] / {}                   → single build with `include` = []
-      - #2 ["src/**", "assets/**"]   → single build with those includes
-      - #3 [{...}, {...}]            → multi-build list
-      - #4 {"builds": [...]}         → multi-build config (returned shape)
-      - #5 {"build": {...}}          → single build config with root config
-      - #6 {...}                     → single build config
+      - None / [] / {}                → None (empty config)
+      - ["src/**", "assets/**"]       → flat config with those includes
+      - {...}                         → flat config (all fields at root level)
 
      After normalization:
-      - Always returns {"builds": [ ... ]} (at least one empty {} build).
-      - Root-level defaults may be present:
-          log_level, out, respect_gitignore, watch_interval.
+      - Returns flat dict with all fields at root level, or None for empty config.
       - Preserves all unknown keys for later validation.
     """
     # NOTE: This function only normalizes shape — it does NOT validate or restrict keys.
@@ -346,26 +235,30 @@ def parse_config(  # noqa: PLR0911
     logger = get_app_logger()
     logger.trace(f"[parse_config] Parsing {type(raw_config).__name__}")
 
-    # --- Case 1: empty config → one blank build ---
+    # --- Case 1: empty config → None ---
     # Includes None (empty file / config = None), [] (no builds), and {} (empty object)
     if not raw_config or raw_config == {}:  # handles None, [], {}
         return None
 
-    # --- Case 2: naked list of strings → single build's include ---
+    # --- Case 2: naked list of strings → flat config with include ---
     if isinstance(raw_config, list) and all(isinstance(x, str) for x in raw_config):
         logger.trace("[parse_config] Detected case: list of strings")
         return _parse_case_2_list_of_strings(raw_config)
 
-    # --- Case 3: naked list of dicts (no root) → multi-build shorthand ---
+    # --- Case 3: list of dicts → error (multi-build not supported) ---
     if isinstance(raw_config, list) and all(isinstance(x, dict) for x in raw_config):
-        logger.trace("[parse_config] Detected case: list of dicts")
-        return _parse_case_3_list_of_dicts(raw_config)
+        logger.trace("[parse_config] Detected case: list of dicts (multi-build)")
+        xmsg = (
+            "Multi-build configuration is not supported. "
+            "Please use a single flat configuration object."
+        )
+        raise TypeError(xmsg)
 
     # --- better error message for mixed lists ---
     if isinstance(raw_config, list):
         xmsg = (
             "Invalid mixed-type list: "
-            "all elements must be strings or all must be objects."
+            "all elements must be strings (for include patterns)."
         )
         raise TypeError(xmsg)
 
@@ -375,33 +268,13 @@ def parse_config(  # noqa: PLR0911
     if not isinstance(raw_config, dict):  # pyright: ignore[reportUnnecessaryIsInstance]
         xmsg = (
             f"Invalid top-level value: {type(raw_config).__name__} "
-            "(expected object, list of objects, or list of strings)",
+            "(expected object or list of strings)",
         )
         raise TypeError(xmsg)
 
-    builds_val = raw_config.get("builds")
-    build_val = raw_config.get("build")
-
-    # --- Case 4: dict with "build(s)" key → root with multi-builds ---
-    if isinstance(builds_val, list) or (
-        isinstance(build_val, list) and "builds" not in raw_config
-    ):
-        return _parse_case_4_dict_multi_builds(
-            raw_config,
-            build_val=build_val,
-        )
-
-    # --- Case 5: dict with "build(s)" key → root with single-build ---
-    if isinstance(build_val, dict) or isinstance(builds_val, dict):
-        return _parse_case_5_dict_single_build(
-            raw_config,
-            builds_val=builds_val,
-        )
-
-    # --- Case 6: single build fields (hoist only shared keys) ---
-    return _parse_case_6_root_single_build(
-        raw_config,
-    )
+    # --- Flat config: all fields at root level ---
+    # Note: build/builds keys will be rejected as unknown keys by validation
+    return _parse_case_flat_config(raw_config)
 
 
 def _validation_summary(

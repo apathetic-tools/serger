@@ -194,37 +194,45 @@ class BuildConfig(TypedDict, total=False):
 
 
 class RootConfig(TypedDict, total=False):
-    builds: list[BuildConfig]
+    # Build configuration fields (merged from BuildConfig)
+    include: list[str | IncludeConfig]
+    exclude: list[str]
 
-    # Defaults that cascade into each build
-    log_level: str
+    # Optional per-build overrides
+    strict_config: bool
     out: str
     respect_gitignore: bool
+    log_level: str
 
-    # runtime behavior
-    strict_config: bool
+    # Runtime behavior
     watch_interval: float
     post_processing: PostProcessingConfig  # Post-processing configuration
 
     # Pyproject.toml integration
-    use_pyproject: bool  # Whether to pull metadata from pyproject.toml (default: true)
-    pyproject_path: str  # Path to pyproject.toml (fallback for single builds)
+    use_pyproject: bool  # Whether to pull metadata from pyproject.toml
+    pyproject_path: str  # Path to pyproject.toml (overrides root default)
 
-    # Version (hoisted to all builds, overrides pyproject version)
+    # Version (overrides pyproject version)
     version: str  # Version string (optional, falls back to pyproject.toml if not set)
 
-    # Stitching configuration defaults (cascade into builds)
+    # Stitching configuration
+    package: str  # Package name for imports (e.g., "serger")
+    # Explicit module order for stitching (optional; auto-discovered if not provided)
+    order: list[str]
+    license_header: str  # License header text for stitched output
+    display_name: str  # Display name for header (defaults to package)
+    description: str  # Description for header (defaults to blank)
     authors: str  # Authors for header (optional, can fallback to pyproject.toml)
-
-    # Import handling defaults (cascade into builds)
+    repo: str  # Repository URL for header (optional)
+    # Import handling configuration
     internal_imports: InternalImportMode  # How to handle internal package imports
     external_imports: ExternalImportMode  # How to handle external imports
-    # Stitching mode default (cascades into builds)
+    # Stitching mode: how to combine modules into a single file
     # - "raw": Concatenate all files together (default)
     # - "class": Namespace files within classes (not yet implemented)
     # - "exec": Namespace files within module shims using exec() (not yet implemented)
     stitch_mode: StitchMode
-    # Module mode default (cascades into builds)
+    # Module mode: how to generate import shims for single-file runtime
     # - "none": No shims generated
     # - "multi": Generate shims for all detected packages (default)
     # - "force": Replace root package but keep subpackages (e.g., pkg1.sub -> mypkg.sub)
@@ -233,24 +241,24 @@ class RootConfig(TypedDict, total=False):
     # - "unify_preserve": Like unify but preserves structure when package matches
     # - "flat": Treat loose files as top-level modules (not under package)
     module_mode: ModuleMode
-    # Shim setting default (cascades into builds)
+    # Shim setting: controls whether shims are generated and which modules get shims
     # - "all": Generate shims for all modules (default)
     # - "public": Only generate shims for public modules
     #   (future: based on _ prefix or __all__)
     # - "none": Don't generate shims at all
     shim: ShimSetting
-    # Module actions default (cascades into builds): custom module transformations
+    # Module actions: custom module transformations (move, copy, delete)
     # - dict[str, str | None]: Simple format mapping source -> dest
     # - list[ModuleActionFull]: Full format with detailed options
     module_actions: NotRequired[ModuleActions]
-    # Comments mode default (cascades into builds)
+    # Comments mode: how to handle comments in stitched output
     # - "keep": Keep all comments (default)
     # - "ignores": Only keep comments that specify ignore rules
     #   (e.g., "noqa:", "type: ignore")
     # - "inline": Only keep inline comments (comments on the same line as code)
     # - "strip": Remove all comments
     comments_mode: CommentsMode
-    # Docstring mode default (cascades into builds)
+    # Docstring mode: how to handle docstrings in stitched output
     # - "keep": Keep all docstrings (default)
     # - "strip": Remove all docstrings
     # - "public": Keep only public docstrings (not prefixed with underscore)
@@ -259,8 +267,7 @@ class RootConfig(TypedDict, total=False):
     #   Each location value can be "keep", "strip", or "public"
     #   Omitted locations default to "keep"
     docstring_mode: DocstringMode
-    # Module bases default (cascades into builds): ordered list of directories
-    # where packages can be found
+    # Module bases: ordered list of directories where packages can be found
     # - str: Single directory (convenience, converted to list[str] on resolve)
     # - list[str]: Ordered list of directories (default: ["src"])
     module_bases: str | list[str]
@@ -310,9 +317,47 @@ class BuildConfigResolved(TypedDict):
 
 
 class RootConfigResolved(TypedDict):
-    builds: list[BuildConfigResolved]
+    # Build configuration fields (merged from BuildConfigResolved)
+    include: list[IncludeResolved]
+    exclude: list[PathResolved]
 
-    # runtime behavior
-    log_level: str
+    # Optional per-build overrides
     strict_config: bool
+    out: PathResolved
+    respect_gitignore: bool
+    log_level: str
+
+    # Runtime behavior
     watch_interval: float
+
+    # Runtime flag (CLI only, not persisted in normal configs)
+    dry_run: bool
+
+    # Global provenance (optional, for audit/debug)
+    __meta__: MetaBuildConfigResolved
+
+    # Internal metadata fields (not user-configurable)
+    version: NotRequired[str]  # Version from config
+    _pyproject_version: NotRequired[str]  # Version extracted from pyproject.toml
+
+    # Stitching fields (optional - present if this is a stitch build)
+    package: NotRequired[str]
+    order: NotRequired[list[str]]
+    license_header: NotRequired[str]
+    display_name: NotRequired[str]
+    description: NotRequired[str]
+    authors: NotRequired[str]
+    repo: NotRequired[str]
+    post_processing: PostProcessingConfigResolved  # Post-processing configuration
+    internal_imports: InternalImportMode  # How to handle internal imports
+    external_imports: ExternalImportMode  # How to handle external imports
+    stitch_mode: StitchMode  # How to combine modules into a single file
+    module_mode: ModuleMode  # How to generate import shims for single-file runtime
+    shim: ShimSetting  # Controls shim generation and which modules get shims
+    # Module transformations (normalized to list format, always present)
+    module_actions: list[ModuleActionFull]
+    comments_mode: CommentsMode  # How to handle comments in stitched output
+    docstring_mode: DocstringMode  # How to handle docstrings in stitched output
+    # Module bases: ordered list of directories where packages can be found
+    # (always present, resolved to list[str])
+    module_bases: list[str]
