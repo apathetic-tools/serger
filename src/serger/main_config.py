@@ -103,6 +103,33 @@ def _get_file_priority(file_path: Path) -> int:
     return 2
 
 
+def detect_function_parameters(
+    function_node: ast.FunctionDef | ast.AsyncFunctionDef,
+) -> bool:
+    """Detect if a function has any parameters.
+
+    Checks for positional parameters, *args, **kwargs, and default values.
+
+    Args:
+        function_node: AST node for the function definition
+
+    Returns:
+        True if function has any parameters, False otherwise
+    """
+    args = function_node.args
+
+    # Check for any type of parameter
+    return bool(
+        args.args  # Positional parameters
+        or args.vararg is not None  # *args
+        or args.kwarg is not None  # **kwargs
+        or args.kwonlyargs  # Keyword-only arguments
+        or (
+            args.kw_defaults and any(d is not None for d in args.kw_defaults)
+        )  # Keyword-only args with defaults
+    )
+
+
 def find_main_function(  # noqa: PLR0912
     *,
     config: "RootConfigResolved",

@@ -1,6 +1,7 @@
 # tests/5_core/test_main_config.py
 """Tests for main configuration parsing and logic."""
 
+import ast
 from pathlib import Path
 
 import serger.config as mod_config
@@ -489,3 +490,126 @@ def test_find_main_function_not_found(tmp_path: Path) -> None:
 
     # --- verify ---
     assert result is None
+
+
+# Tests for detect_function_parameters()
+
+
+def test_detect_function_parameters_no_params() -> None:
+    """Test detect_function_parameters with function having no parameters."""
+    # --- setup ---
+    source = "def main():\n    pass\n"
+    tree = ast.parse(source)
+    func_node = tree.body[0]
+    assert isinstance(func_node, ast.FunctionDef)
+
+    # --- execute ---
+    result = mod_main_config.detect_function_parameters(func_node)
+
+    # --- verify ---
+    assert result is False
+
+
+def test_detect_function_parameters_positional_args() -> None:
+    """Test detect_function_parameters with positional arguments."""
+    # --- setup ---
+    source = "def main(arg1, arg2):\n    pass\n"
+    tree = ast.parse(source)
+    func_node = tree.body[0]
+    assert isinstance(func_node, ast.FunctionDef)
+
+    # --- execute ---
+    result = mod_main_config.detect_function_parameters(func_node)
+
+    # --- verify ---
+    assert result is True
+
+
+def test_detect_function_parameters_star_args() -> None:
+    """Test detect_function_parameters with *args."""
+    # --- setup ---
+    source = "def main(*args):\n    pass\n"
+    tree = ast.parse(source)
+    func_node = tree.body[0]
+    assert isinstance(func_node, ast.FunctionDef)
+
+    # --- execute ---
+    result = mod_main_config.detect_function_parameters(func_node)
+
+    # --- verify ---
+    assert result is True
+
+
+def test_detect_function_parameters_star_star_kwargs() -> None:
+    """Test detect_function_parameters with **kwargs."""
+    # --- setup ---
+    source = "def main(**kwargs):\n    pass\n"
+    tree = ast.parse(source)
+    func_node = tree.body[0]
+    assert isinstance(func_node, ast.FunctionDef)
+
+    # --- execute ---
+    result = mod_main_config.detect_function_parameters(func_node)
+
+    # --- verify ---
+    assert result is True
+
+
+def test_detect_function_parameters_defaults() -> None:
+    """Test detect_function_parameters with default values."""
+    # --- setup ---
+    source = "def main(arg1='default'):\n    pass\n"
+    tree = ast.parse(source)
+    func_node = tree.body[0]
+    assert isinstance(func_node, ast.FunctionDef)
+
+    # --- execute ---
+    result = mod_main_config.detect_function_parameters(func_node)
+
+    # --- verify ---
+    assert result is True
+
+
+def test_detect_function_parameters_keyword_only() -> None:
+    """Test detect_function_parameters with keyword-only arguments."""
+    # --- setup ---
+    source = "def main(*, kwarg1):\n    pass\n"
+    tree = ast.parse(source)
+    func_node = tree.body[0]
+    assert isinstance(func_node, ast.FunctionDef)
+
+    # --- execute ---
+    result = mod_main_config.detect_function_parameters(func_node)
+
+    # --- verify ---
+    assert result is True
+
+
+def test_detect_function_parameters_combined() -> None:
+    """Test detect_function_parameters with combined parameter types."""
+    # --- setup ---
+    source = "def main(pos1, pos2='default', *args, kwonly, **kwargs):\n    pass\n"
+    tree = ast.parse(source)
+    func_node = tree.body[0]
+    assert isinstance(func_node, ast.FunctionDef)
+
+    # --- execute ---
+    result = mod_main_config.detect_function_parameters(func_node)
+
+    # --- verify ---
+    assert result is True
+
+
+def test_detect_function_parameters_async_function() -> None:
+    """Test detect_function_parameters with async function."""
+    # --- setup ---
+    source = "async def main(arg1):\n    pass\n"
+    tree = ast.parse(source)
+    func_node = tree.body[0]
+    assert isinstance(func_node, ast.AsyncFunctionDef)
+
+    # --- execute ---
+    result = mod_main_config.detect_function_parameters(func_node)
+
+    # --- verify ---
+    assert result is True
