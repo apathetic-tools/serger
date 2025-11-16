@@ -41,6 +41,8 @@ Planned command-line flags for future releases:
 - how do we store the intermitent module trees? the "source" and "shim" trees? do we map tree back to the original file module where we can find it?
 - can make trully minimal builds using pyproject.toml, when not to?
 - can make trully minimal builds when there is a src/ directory with only one package, when not to?
+- stitch mode that prefixes symbols with the package name to keep it flat and avoid collisions.
+- interactive mode to solve problems as they come up and make a config
 
 ## 🧩 Joiner Scripts (Build System)
 Exploring bundling options for generating the single-file release:
