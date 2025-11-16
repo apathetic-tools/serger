@@ -39,6 +39,7 @@ Planned command-line flags for future releases:
 - package can likely be resolved in single-builds. and in multi builds if not user provided we probably raised an error so we only move forward if it was provided.
 - evaluate the other NotRequired fields in resolved typedict to see if they are truly still optional or can be resolved or errored out before then.
 - how do we store the intermitent module trees? the "source" and "shim" trees? do we map tree back to the original file module where we can find it?
+- package default can be gotten from pyproject
 
 ## 🧩 Joiner Scripts (Build System)
 Exploring bundling options for generating the single-file release:

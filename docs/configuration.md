@@ -12,19 +12,11 @@ For a complete reference of all configuration options, see the [Configuration Re
 
 ## Config File Location
 
-Serger searches for configuration files in the following order:
-
-1. Explicit path from CLI (`--config` flag)
-2. Default candidates in the current working directory (and parent directories):
-   - `.serger.py`
-   - `.serger.jsonc`
-   - `.serger.json`
-
-The search walks up the directory tree from the current working directory until it finds a config file or reaches the filesystem root.
+Configuration files should typically live in your project root and be named `.serger.jsonc`. You can also use the `--config` CLI flag to specify a custom path, or place a `.serger.jsonc`, `.serger.json`, or `.serger.py` file at or above the current working directory.
 
 ## Config File Formats
 
-### JSON/JSONC Format
+### JSONC/JSON Format
 
 JSONC (JSON with comments) is recommended for readability:
 
@@ -33,44 +25,22 @@ JSONC (JSON with comments) is recommended for readability:
   "builds": [
     {
       "package": "mypkg",
+      "description": "A simple package example",
       "include": ["src/mypkg/**/*.py"],
-      "exclude": ["**/__init__.py", "**/__pycache__/**"],
-      "out": "dist/mypkg.py",
-      "display_name": "My Package",
-      "description": "A simple package example"
+      "exclude": [
+        "**/__pycache__/**",
+      ],
+      "out": "dist/mypkg.py"      
     }
   ]
 }
 ```
 
-### Python Format
+For the Python format, see the [Config File Formats](/configuration-reference#config-file-formats) section in the Configuration Reference. 
 
-Python configs allow for dynamic configuration:
+The `package` and `description` fields can be inferred from `pyproject.toml`.
 
-```python
-# .serger.py
-config = {
-    "builds": [
-        {
-            "package": "mypkg",
-            "include": ["src/mypkg/**/*.py"],
-            "exclude": ["**/__init__.py", "**/__pycache__/**"],
-            "out": "dist/mypkg.py",
-        }
-    ],
-}
-```
 
-Python configs can also use local imports:
-
-```python
-# .serger.py
-from helpers import get_build_config
-
-config = {
-    "builds": [get_build_config()],
-}
-```
 
 ## Essential Configuration Options
 
@@ -90,11 +60,11 @@ Each build in the `builds` array can specify:
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
 | `package` | `str` | Yes | Package name (used for import shims) |
+| `description` | `str` | No | Description for generated header |
 | `include` | `list[str]` | Yes* | Glob patterns for files to include |
 | `exclude` | `list[str]` | No | Glob patterns for files to exclude |
 | `out` | `str` | Yes* | Output file path (relative to project root) |
-| `display_name` | `str` | No | Display name for generated header |
-| `description` | `str` | No | Description for generated header |
+
 
 \* Required unless provided via CLI arguments
 

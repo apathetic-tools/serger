@@ -8,6 +8,70 @@ permalink: /configuration-reference
 
 Complete reference for all Serger configuration options. For a quick start guide, see [Configuration](/configuration).
 
+## Config File Location
+
+Serger searches for configuration files in the following order:
+
+1. Explicit path from CLI (`--config` flag)
+2. Default candidates in the current working directory (and parent directories):
+   - `.serger.py`
+   - `.serger.jsonc`
+   - `.serger.json`
+
+The search walks up the directory tree from the current working directory until it finds a config file or reaches the filesystem root.
+
+## Config File Formats
+
+Serger supports three configuration file formats: JSON, JSONC (JSON with comments), and Python.
+
+### JSON/JSONC Format
+
+JSONC (JSON with comments) is recommended for readability:
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/mypkg/**/*.py"],
+      "exclude": ["**/__init__.py", "**/__pycache__/**"],
+      "out": "dist/mypkg.py",
+      "display_name": "My Package",
+      "description": "A simple package example"
+    }
+  ]
+}
+```
+
+### Python Format
+
+Python configs allow for dynamic configuration:
+
+```python
+# .serger.py
+config = {
+    "builds": [
+        {
+            "package": "mypkg",
+            "include": ["src/mypkg/**/*.py"],
+            "exclude": ["**/__init__.py", "**/__pycache__/**"],
+            "out": "dist/mypkg.py",
+        }
+    ],
+}
+```
+
+Python configs can also use local imports:
+
+```python
+# .serger.py
+from helpers import get_build_config
+
+config = {
+    "builds": [get_build_config()],
+}
+```
+
 ## Root Configuration Options
 
 These options apply globally and can cascade into individual builds:
