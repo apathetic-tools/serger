@@ -1629,6 +1629,13 @@ def _collect_modules(
     # Convert to sorted list for consistent behavior
     package_names_list = sorted(detected_packages)
 
+    # Check if package_root is a package directory itself
+    # (when all files are in a single package, package_root is that package)
+    is_package_dir = (package_root / "__init__.py").exists()
+    package_name_from_root: str | None = None
+    if is_package_dir:
+        package_name_from_root = package_root.name
+
     for file_path in file_paths:
         if not file_path.exists():
             logger.warning("Skipping missing file: %s", file_path)
@@ -1637,6 +1644,18 @@ def _collect_modules(
         # Derive module name from file path
         include = file_to_include.get(file_path)
         module_name = derive_module_name(file_path, package_root, include)
+
+        # If package_root is a package directory, preserve package structure
+        if is_package_dir and package_name_from_root:
+            # Handle __init__.py special case: represents the package itself
+            if file_path.name == "__init__.py" and file_path.parent == package_root:
+                # Use package name as the module name (represents the package)
+                module_name = package_name_from_root
+            else:
+                # Prepend package name to preserve structure
+                # e.g., "core" -> "oldpkg.core"
+                module_name = f"{package_name_from_root}.{module_name}"
+
         derived_module_names.append(module_name)
 
         module_text = file_path.read_text(encoding="utf-8")
@@ -1795,6 +1814,80 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     future_block = "".join(future_imports.keys())
     import_block = "".join(all_imports.keys())
 
+    # Update module section headers in parts to use transformed names
+    # This must happen BEFORE shim generation, as headers are part of the stitched code
+    # Headers should be updated even when shims aren't generated (module_mode == "none")
+    # Process user-specified module_actions to update headers
+    # When scope: "original" is set, it affects original module names in stitched code
+    # (including headers), regardless of affects value
+    if module_actions:
+        # Filter for actions with scope: "original"
+        # (headers are part of original code structure, so scope: "original" applies)
+        original_scope_actions_for_headers = [
+            a for a in module_actions if a.get("scope") == "original"
+        ]
+        if original_scope_actions_for_headers:
+            # Apply actions to order_names to get transformed names for headers
+            transformed_order_names = apply_module_actions(
+                list(order_names), original_scope_actions_for_headers, detected_packages
+            )
+            logger.debug(
+                "Header update: order_names=%s, transformed_order_names=%s",
+                order_names,
+                transformed_order_names,
+            )
+            # Build mapping from order_names to transformed_order_names
+            # (for updating headers)
+            if len(transformed_order_names) != len(order_names):
+                logger.warning(
+                    "transformed_order_names length (%d) != order_names length (%d). "
+                    "Header update may be incomplete.",
+                    len(transformed_order_names),
+                    len(order_names),
+                )
+            for i, original_name in enumerate(order_names):
+                if i < len(transformed_order_names):
+                    transformed_name = transformed_order_names[i]
+                    if transformed_name != original_name:
+                        # Update header - search and replace in parts
+                        # Headers are created as "\n# === {module_name} ===\n"
+                        # "{module_body}\n\n"
+                        # Use simple string replacement (headers are on their own lines)
+                        header_pattern = f"# === {original_name} ==="
+                        new_header = f"# === {transformed_name} ==="
+                        logger.debug(
+                            "Header update: searching for pattern '%s' "
+                            "to replace with '%s'",
+                            header_pattern,
+                            new_header,
+                        )
+                        # Update all parts that contain this header
+                        # Replace all occurrences in each part
+                        replaced = False
+                        for j, part in enumerate(parts):
+                            if header_pattern in part:
+                                logger.debug(
+                                    "Found header pattern in part %d: %s",
+                                    j,
+                                    repr(part[:100]),
+                                )
+                                # Replace the header pattern with new header
+                                parts[j] = part.replace(header_pattern, new_header)
+                                logger.debug(
+                                    "Replaced header in part %d: %s",
+                                    j,
+                                    repr(parts[j][:100]),
+                                )
+                                replaced = True
+                        if not replaced:
+                            logger.debug(
+                                "Header pattern '%s' not found in parts for "
+                                "transformation to '%s'. Parts sample: %s",
+                                header_pattern,
+                                new_header,
+                                [repr(p[:50]) for p in parts[:5]],
+                            )
+
     # Generate import shims based on module_actions and shim setting
     # If shim == "none" or module_mode == "none", skip shim generation
     if shim == "none" or module_mode == "none":
@@ -1842,14 +1935,16 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
             both_actions,
         ) = separate_actions_by_affects(all_actions)
 
-        # For shim generation, use shims-only and both actions
-        shim_actions = shims_only_actions + both_actions
-
         # Separate shim actions by scope
+        # Note: Actions with scope: "original" must be applied BEFORE prepending
+        # package_name (they operate on original module names), so we include them
+        # from both shims_only_actions and both_actions
+        # Actions with scope: "shim" and affects: "shims" are applied after
+        # prepending (they operate on full module paths)
         original_scope_actions = [
-            a for a in shim_actions if a.get("scope") == "original"
+            a for a in shims_only_actions + both_actions if a.get("scope") == "original"
         ]
-        shim_scope_actions = [a for a in shim_actions if a.get("scope") == "shim"]
+        shim_scope_actions = [a for a in both_actions if a.get("scope") == "shim"]
 
         # Apply scope: "original" actions to original module names (before prepending)
         transformed_names = shim_names_raw
@@ -1886,6 +1981,8 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
             transformed_names = apply_module_actions(
                 transformed_names, original_scope_actions, detected_packages
             )
+            # Note: Header updates are now handled outside the shim generation block
+            # (before this conditional) so they work even when module_mode == "none"
 
         # Now prepend package_name to create full module paths
         # Module names are relative to package_root, so we need to prepend package_name
@@ -1947,7 +2044,124 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                 # Skip source validation for delete actions (they match flexibly)
                 action_type = action.get("action", "move")
                 if action_type != "delete":
-                    validate_action_source_exists(action, set(shim_names), scope="shim")
+                    # For move/copy actions, validate source exists
+                    # After mode transformations, source might need component matching
+                    # (e.g., "mypkg.module" might need to match "mypkg.pkg1.module")
+                    source = action.get("source")
+                    if source:
+                        if source not in shim_names:
+                            # Check if source matches any component in shim_names
+                            # For "mypkg.module", check if it matches
+                            # "mypkg.pkg1.module" by checking if all components
+                            # of source appear in module name
+                            source_parts = source.split(".")
+                            matching_modules = [
+                                name
+                                for name in shim_names
+                                if (
+                                    name == source
+                                    or name.startswith(f"{source}.")
+                                    or all(
+                                        part in name.split(".") for part in source_parts
+                                    )
+                                )
+                            ]
+                            if not matching_modules:
+                                available = sorted(shim_names)
+                                msg = (
+                                    f"Module action source '{source}' "
+                                    f"does not exist in available modules "
+                                    f"(scope: 'shim'). Available: {available}"
+                                )
+                                raise ValueError(msg)
+                            # Component matching found - skip exact validation
+                            # The action handler will use component matching
+                        else:
+                            # Exact match found - use standard validation
+                            validate_action_source_exists(
+                                action, set(shim_names), scope="shim"
+                            )
+                shim_names = apply_single_action(shim_names, action, detected_packages)
+
+        # Apply shims_only_actions after prepending package_name
+        # These actions only affect shim generation, so they're applied to
+        # the final shim_names list (after prepending package_name)
+        # This allows delete actions to match against full module paths like
+        # "mypkg.pkg1"
+        # Note: Exclude scope: "original" actions from shims_only_actions since
+        # they've already been applied in original_scope_actions (before prepending)
+        shims_only_actions_filtered = [
+            a for a in shims_only_actions if a.get("scope") != "original"
+        ]
+        if shims_only_actions_filtered:
+            for action in shims_only_actions_filtered:
+                # Skip source validation for delete actions (they match flexibly)
+                action_type = action.get("action", "move")
+                if action_type != "delete":
+                    # For non-delete actions, validate source exists
+                    # Note: source might be relative (scope: "original") or absolute
+                    # (scope: "shim"), so we need to handle both cases
+                    action_scope = action.get("scope", "shim")
+                    if action_scope == "shim":
+                        source = action.get("source")
+                        if source:
+                            if source not in shim_names:
+                                # Check if source matches any component in shim_names
+                                # For "mypkg.module", check if it matches
+                                # "mypkg.pkg1.module" by checking if all components
+                                # of source appear in the module name
+                                source_parts = source.split(".")
+                                matching_modules = [
+                                    name
+                                    for name in shim_names
+                                    if (
+                                        name == source
+                                        or name.startswith(f"{source}.")
+                                        or all(
+                                            part in name.split(".")
+                                            for part in source_parts
+                                        )
+                                    )
+                                ]
+                                if not matching_modules:
+                                    available = sorted(shim_names)
+                                    msg = (
+                                        f"Module action source '{source}' "
+                                        f"does not exist in available modules "
+                                        f"(scope: 'shim', affects: 'shims'). "
+                                        f"Available: {available}"
+                                    )
+                                    raise ValueError(msg)
+                                # Component matching found - skip exact validation
+                            else:
+                                # Exact match found - use standard validation
+                                validate_action_source_exists(
+                                    action, set(shim_names), scope="shim"
+                                )
+                    # For scope: "original", the source is relative, so we need to
+                    # check if it matches any component in shim_names
+                    # (e.g., source "pkg1" should match "mypkg.pkg1")
+                    elif action_scope == "original":
+                        source = action.get("source")
+                        if source:
+                            # Check if source appears as a component in any shim_name
+                            source_found = False
+                            for shim_name in shim_names:
+                                if (
+                                    shim_name == source
+                                    or shim_name.startswith(f"{source}.")
+                                    or source in shim_name.split(".")
+                                ):
+                                    source_found = True
+                                    break
+                            if not source_found:
+                                available = sorted(shim_names)
+                                msg = (
+                                    f"Module action source '{source}' does not exist "
+                                    f"in available modules (scope: 'original', "
+                                    f"affects: 'shims'). Available: {available}"
+                                )
+                                raise ValueError(msg)
                 shim_names = apply_single_action(shim_names, action, detected_packages)
 
         # Check for shim-stitching mismatches and apply cleanup

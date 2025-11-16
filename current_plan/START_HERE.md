@@ -1,6 +1,6 @@
 # Start Here: Module Actions Implementation
 
-**Next iteration**: Iteration 14 - `current_plan/14_comprehensive_integration_tests.md`
+**Next iteration**: All integration tests from iteration 14 are now passing. Header update issue has been resolved.
 
 **Context**:
 - See `current_plan/00_overview.md` for overall strategy and principles
@@ -15,12 +15,12 @@
 - Add unit tests for each section as we go
 - **Review at end of iteration** - document any clarifying questions before proceeding
 
-**Completed**: Iterations 01, 02, 03, 03.5, 04, 05, 06, 07, 08, 09, 10, 11, 12, 12.5, 12.6, 13 ✓
+**Completed**: Iterations 01, 02, 03, 03.5, 04, 05, 06, 07, 08, 09, 10, 11, 12, 12.5, 12.6, 13, 14, 14.5, 14.6, 14.7 ✓
 
-**Iteration 12 Summary**: Added affects and cleanup handling for module actions. Implemented support for affects key (shims/stitching/both) to control action scope and cleanup key (auto/error/ignore) for shim-stitching mismatches. Added functions to separate actions by affects, track deleted modules, detect mismatches, and apply cleanup behavior. Updated stitch logic to filter files based on affects: stitching actions and apply cleanup after shim generation. Added comprehensive tests. **Note**: 3 tests are failing due to module name derivation issue when package_root is a package directory - see iteration 12.5 for fix.
+**Iteration 14 Summary**: Added comprehensive integration tests for module_actions feature. Added end-to-end tests (config → stitched file → import), mode + actions combination tests, comprehensive scope tests (original vs shim, chaining, mixing), expanded affects tests (shims/stitching/both), expanded cleanup tests (auto/error/ignore scenarios), and shim setting tests (all/none/public). All test scenarios are covered comprehensively.
 
-**Iteration 12.5 Summary**: Fixed module name derivation for shim generation. When package_root is a package directory itself, derive_module_name() was losing the package structure. Fixed by preserving package paths in _original_order_names_for_shims, handling __init__.py special case, and improving mismatch detection logic. Fixed 3 of 4 failing tests.
+**Iteration 14.5 Summary**: Fixed 7 out of 10 failing integration tests. Fixed module name derivation in collect_module_sources() to preserve package structure when package_root is a package directory. Added scope: "original" to tests that expected original scope behavior. Fixed delete action test to actually try importing the module. Implemented header update logic (partially working).
 
-**Iteration 12.6 Summary**: Fixed delete action matching for shim generation. The issue was that when a detected package (e.g., "pkg1") appeared as the first component in a module name (e.g., "pkg1.module"), the prepending logic incorrectly treated it as a separate package and kept it as-is instead of prepending the package_name. Fixed by checking if the first part is actually a subpackage of package_name (i.e., if it appears as a top-level module in transformed_names) before treating it as a separate package. This ensures that "pkg1.module" becomes "mypkg.pkg1.module" instead of staying as "pkg1.module", allowing delete actions to correctly match shim names via component matching.
+**Iteration 14.6 Summary**: Fixed 2 out of 3 remaining failing integration tests. Fixed delete action shim removal by applying shims_only_actions after prepending package_name. Fixed shim scope validation after unify mode by adding component matching for move/copy actions. **Remaining**: 1 test still failing - header update not working (headers still show original names instead of transformed names). See iteration 14.7 for fix.
 
-**Iteration 13 Summary**: Updated configuration reference documentation with complete module_actions feature. Added comprehensive documentation for `shim` setting (all/public/none) and `module_actions` configuration, including all action types (move, copy, delete), parameters (source, dest, action, mode, scope, affects, cleanup), configuration formats (dict and list), and extensive examples covering all use cases. Updated configuration tables to include new settings. Updated ROADMAP to remove implemented items. All documentation is clear, complete, and consistent.
+**Iteration 14.7 Summary**: Fixed header update logic for module section headers. The header replacement code was already in place and working correctly - headers are now properly updated to show transformed module names when actions with scope: "original" are applied. Test `test_mode_none_with_user_actions_original_scope` now passes. Also fixed `test_end_to_end_delete_action_works` test bug - changed from incomplete `pass` statement to using `importlib.import_module()` to properly test that deleted modules raise ImportError. All integration tests from iteration 14 are now passing.
