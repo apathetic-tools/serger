@@ -14,6 +14,35 @@ For formatting guidelines, see the [DECISIONS.md Style Guide](./DECISIONS_STYLE_
 
 ---
 
+## 🎯 Only support Single-Builds
+<a id="dec15"></a>*DEC 15 — 2025-01-16*
+
+### Context
+
+Serger inherited multi-build support from pocket-build, where it made sense for orchestrating multiple build tasks. In serger's context as a focused module stitcher, multi-build support adds significant complexity to the codebase without proportional value. The feature complicates config parsing (requiring 6 different parsing cases), resolution logic (root vs build cascading), output formatting, watch mode coordination, and error handling. This complexity has become a barrier to implementing future features and maintaining code clarity.
+
+### Options Considered
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **Remove multi-build support** | ✅ Simpler codebase (~200+ lines removed)<br>✅ Clearer mental model (one config = one build)<br>✅ Simpler config parsing (6 cases → ~3)<br>✅ Better isolation (failures don't cascade)<br>✅ Standard Unix philosophy (compose via shell)<br>✅ More flexible (parallel builds, different environments) | ❌ Breaking change for existing users<br>❌ Requires multiple commands or wrapper scripts<br>❌ Multiple config files to maintain<br>❌ No shared defaults across builds |
+| **Keep multi-build support** | ✅ Single command execution<br>✅ Cross-platform (no shell scripts needed)<br>✅ Single config file<br>✅ Watch mode for all builds<br>✅ Shared configuration cascading<br>✅ Already implemented | ❌ Complex config parsing (6 cases)<br>❌ Per-build vs global logic throughout codebase<br>❌ Output formatting complexity<br>❌ Watch mode coordination complexity<br>❌ Validation complexity<br>❌ Mental model complexity (root vs build scoping) |
+| **Simplify multi-build (hybrid)** | ✅ Reduces some complexity<br>✅ Keeps convenience feature | ⚠️ Still adds complexity vs single-build<br>⚠️ Partial solution doesn't address root issues |
+
+### Decision
+
+**Remove multi-build support** and require users to run multiple `serger` commands (or use wrapper scripts) for multiple builds. This aligns with serger's focus as a single-purpose module stitcher and follows the Unix philosophy of "do one thing well" — composition via shell scripts or task runners is the appropriate solution for orchestration.
+
+The complexity multi-build adds (config parsing cases, cascading logic, watch mode coordination, per-build overrides) outweighs the convenience it provides. Users can achieve the same result with simple shell scripts, Makefiles, or task runners, which are standard tools in Python development workflows.
+
+<br/><br/>
+
+---
+
+---
+
+<br/><br/>
+
 ## 🚀 Aggressively Allow Defaults and Auto-Detection for Zero-Config Usage
 <a id="dec14"></a>*DEC 14 — 2025-11-16*
 
