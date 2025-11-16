@@ -16,6 +16,7 @@ from serger.constants import (
     DEFAULT_ENV_WATCH_INTERVAL,
     DEFAULT_EXTERNAL_IMPORTS,
     DEFAULT_INTERNAL_IMPORTS,
+    DEFAULT_MODULE_BASES,
     DEFAULT_MODULE_MODE,
     DEFAULT_OUT_DIR,
     DEFAULT_RESPECT_GITIGNORE,
@@ -1452,6 +1453,28 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
         resolved_cfg["docstring_mode"] = root_docstring_mode
     else:
         resolved_cfg["docstring_mode"] = DEFAULT_DOCSTRING_MODE
+
+    # ------------------------------
+    # Module bases
+    # ------------------------------
+    # Cascade: build-level → root-level → default
+    # Convert str to list[str] if needed
+    build_module_bases = resolved_cfg.get("module_bases")
+    root_module_bases = (root_cfg or {}).get("module_bases")
+    if build_module_bases is not None:
+        resolved_cfg["module_bases"] = (
+            [build_module_bases]
+            if isinstance(build_module_bases, str)
+            else build_module_bases
+        )
+    elif root_module_bases is not None:
+        resolved_cfg["module_bases"] = (
+            [root_module_bases]
+            if isinstance(root_module_bases, str)
+            else root_module_bases
+        )
+    else:
+        resolved_cfg["module_bases"] = DEFAULT_MODULE_BASES
 
     # ------------------------------
     # Post-processing

@@ -2260,3 +2260,114 @@ def test_resolve_build_config_module_actions_invalid_source_path_type_raises_err
         ),
     ):
         mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+
+def test_resolve_build_config_module_bases_defaults(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module bases should default to ['src'] if not specified."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved["module_bases"] == ["src"]
+
+
+def test_resolve_build_config_module_bases_build_level(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module bases should use build-level value when specified."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"], module_bases=["lib", "vendor"])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved["module_bases"] == ["lib", "vendor"]
+
+
+def test_resolve_build_config_module_bases_cascades_from_root(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module bases should cascade from root config if not in build config."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"])
+    root_cfg: mod_types.RootConfig = {"module_bases": ["lib", "vendor"]}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    assert resolved["module_bases"] == ["lib", "vendor"]
+
+
+def test_resolve_build_config_module_bases_build_overrides_root(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Build-level module bases should override root-level."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"], module_bases=["custom"])
+    root_cfg: mod_types.RootConfig = {"module_bases": ["lib", "vendor"]}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    assert resolved["module_bases"] == ["custom"]
+
+
+def test_resolve_build_config_module_bases_string_conversion(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module bases string should be converted to list[str] on resolve."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"], module_bases="lib")
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved["module_bases"] == ["lib"]
+
+
+def test_resolve_build_config_module_bases_string_cascades_from_root(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Module bases string from root should be converted to list[str] on resolve."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"])
+    root_cfg: mod_types.RootConfig = {"module_bases": "lib"}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    assert resolved["module_bases"] == ["lib"]

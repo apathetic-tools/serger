@@ -94,6 +94,7 @@ These options apply globally and can cascade into individual builds:
 | `module_actions` | `dict \| list` | - | Custom module transformations (see [Module Actions](#module-actions)) |
 | `comments_mode` | `str` | `"keep"` | How to handle comments in stitched output (see [Comment Handling](#comment-handling)) |
 | `docstring_mode` | `str \| dict` | `"keep"` | How to handle docstrings in stitched output (see [Docstring Handling](#docstring-handling)) |
+| `module_bases` | `str \| list[str]` | `["src"]` | Ordered list of directories where packages can be found (see [Module Bases](#module-bases)) |
 
 ## Build Configuration Options
 
@@ -121,6 +122,7 @@ Each build in the `builds` array can specify:
 | `module_actions` | `dict \| list` | No | Override root-level `module_actions` for this build (see [Module Actions](#module-actions)) |
 | `comments_mode` | `str` | No | Override root-level `comments_mode` for this build (see [Comment Handling](#comment-handling)) |
 | `docstring_mode` | `str \| dict` | No | Override root-level `docstring_mode` for this build (see [Docstring Handling](#docstring-handling)) |
+| `module_bases` | `str \| list[str]` | No | Override root-level `module_bases` for this build (see [Module Bases](#module-bases)) |
 
 \* Required unless provided via CLI arguments. 
 
@@ -936,6 +938,53 @@ External imports are imports from packages not being stitched (e.g., `import os`
   "external_imports": "top"            // Default for all builds
 }
 ```
+
+## Module Bases
+
+The `module_bases` setting specifies an ordered list of directories where Serger can find packages. This setting is used to determine where to search for Python packages when resolving module paths.
+
+### Configuration
+
+- **Type**: `str | list[str]`
+- **Default**: `["src"]`
+- **Can be set at**: Root level (cascades to all builds) or per-build (overrides root)
+
+### Examples
+
+**Single directory (string convenience):**
+```jsonc
+{
+  "module_bases": "lib"
+}
+```
+
+**Multiple directories (list):**
+```jsonc
+{
+  "module_bases": ["src", "lib", "vendor"]
+}
+```
+
+**Per-build override:**
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/mypkg/**/*.py"],
+      "out": "dist/mypkg.py",
+      "module_bases": ["src", "lib"]  // Overrides root-level setting
+    }
+  ],
+  "module_bases": ["src"]  // Default for all builds
+}
+```
+
+### Notes
+
+- The directories are searched in the order specified
+- This setting is currently reserved for future use and does not affect build behavior yet
+- When a string is provided, it is automatically converted to a list containing that single string during resolution
 
 ## Environment Variables
 

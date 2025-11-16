@@ -221,11 +221,21 @@ def _parse_case_3_list_of_dicts(
         (b.get("watch_interval") for b in builds if "watch_interval" in b),
         None,
     )
+    # Lift module_bases from the first build that defines it (convenience),
+    # then remove it from ALL builds to avoid ambiguity.
+    first_module_bases = next(
+        (b.get("module_bases") for b in builds if "module_bases" in b),
+        None,
+    )
     root = {"builds": builds}
     if first_watch is not None:
         root["watch_interval"] = first_watch
         for b in builds:
             b.pop("watch_interval", None)
+    if first_module_bases is not None:
+        root["module_bases"] = first_module_bases
+        for b in builds:
+            b.pop("module_bases", None)
     return root
 
 

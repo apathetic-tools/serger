@@ -187,6 +187,10 @@ class BuildConfig(TypedDict, total=False):
     #   Each location value can be "keep", "strip", or "public"
     #   Omitted locations default to "keep"
     docstring_mode: DocstringMode
+    # Module bases: ordered list of directories where packages can be found
+    # - str: Single directory (convenience, converted to list[str] on resolve)
+    # - list[str]: Ordered list of directories (default: ["src"])
+    module_bases: str | list[str]
 
 
 class RootConfig(TypedDict, total=False):
@@ -255,6 +259,11 @@ class RootConfig(TypedDict, total=False):
     #   Each location value can be "keep", "strip", or "public"
     #   Omitted locations default to "keep"
     docstring_mode: DocstringMode
+    # Module bases default (cascades into builds): ordered list of directories
+    # where packages can be found
+    # - str: Single directory (convenience, converted to list[str] on resolve)
+    # - list[str]: Ordered list of directories (default: ["src"])
+    module_bases: str | list[str]
 
 
 class BuildConfigResolved(TypedDict):
@@ -295,6 +304,9 @@ class BuildConfigResolved(TypedDict):
     module_actions: list[ModuleActionFull]
     comments_mode: CommentsMode  # How to handle comments in stitched output
     docstring_mode: DocstringMode  # How to handle docstrings in stitched output
+    # Module bases: ordered list of directories where packages can be found
+    # (always present, resolved to list[str])
+    module_bases: list[str]
 
 
 class RootConfigResolved(TypedDict):

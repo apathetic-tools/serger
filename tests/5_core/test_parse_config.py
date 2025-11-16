@@ -79,6 +79,36 @@ def test_parse_config_watch_interval_hoisting() -> None:
     assert "watch_interval" not in result["builds"][0]
 
 
+def test_parse_config_module_bases_hoisting() -> None:
+    # --- setup ---
+    module_bases = ["src", "lib"]
+
+    # --- execute ---
+    result = mod_config_loader.parse_config(
+        [{"include": ["src"], "out": "dist", "module_bases": module_bases}],
+    )
+
+    # --- verify ---
+    assert result is not None
+    assert result["module_bases"] == module_bases
+    assert "module_bases" not in result["builds"][0]
+
+
+def test_parse_config_module_bases_string_hoisting() -> None:
+    # --- setup ---
+    module_bases = "lib"
+
+    # --- execute ---
+    result = mod_config_loader.parse_config(
+        [{"include": ["src"], "out": "dist", "module_bases": module_bases}],
+    )
+
+    # --- verify ---
+    assert result is not None
+    assert result["module_bases"] == module_bases
+    assert "module_bases" not in result["builds"][0]
+
+
 def test_parse_config_coerces_build_list_to_builds(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
