@@ -1043,6 +1043,7 @@ def detect_name_collisions(
         "__all__",
         "__version__",
         "__author__",
+        "__authors__",
         "__path__",
         "__package__",
         "__commit__",
@@ -1772,6 +1773,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     build_date: str,
     display_name: str = "",
     description: str = "",
+    authors: str = "",
     repo: str = "",
 ) -> tuple[str, list[str]]:
     """Build the final stitched script.
@@ -1796,6 +1798,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         build_date: Build timestamp
         display_name: Optional display name for header
         description: Optional description for header
+        authors: Optional authors for header
         repo: Optional repository URL for header
 
     Returns:
@@ -2791,6 +2794,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         prefixed_lines = [f"# {line}" for line in lines]
         license_section = "\n".join(prefixed_lines) + "\n"
     repo_line = f"# Repo: {repo}\n" if repo else ""
+    authors_line = f"# Authors: {authors}\n" if authors else ""
 
     # Check if main() function exists in the stitched code
     # Use the pre-collected function names to avoid parsing again
@@ -2808,6 +2812,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         f"# Version: {version}\n"
         f"# Commit: {commit}\n"
         f"# Build Date: {build_date}\n"
+        f"{authors_line}"
         f"{repo_line}"
         "\n# noqa: E402\n"
         "\n"
@@ -2818,14 +2823,16 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         f"Version: {version}\n"
         f"Commit: {commit}\n"
         f"Built: {build_date}\n"
-        '"""\n\n'
+        + (f"Authors: {authors}\n" if authors else "")
+        + '"""\n\n'
         f"{import_block}\n"
         "\n"
         # constants come *after* imports to avoid breaking __future__ rules
         f"__version__ = {json.dumps(version)}\n"
         f"__commit__ = {json.dumps(commit)}\n"
         f"__build_date__ = {json.dumps(build_date)}\n"
-        f"__STANDALONE__ = True\n"
+        + (f"__AUTHORS__ = {json.dumps(authors)}\n" if authors else "")
+        + f"__STANDALONE__ = True\n"
         f"__STITCH_SOURCE__ = {json.dumps(PROGRAM_PACKAGE)}\n"
         f"__package__ = {json.dumps(package_name)}\n"
         "\n"
@@ -3233,6 +3240,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     # Extract display configuration
     display_name_raw = config.get("display_name", "")
     description_raw = config.get("description", "")
+    authors_raw = config.get("authors", "")
     repo_raw = config.get("repo", "")
 
     # Type guards
@@ -3240,6 +3248,8 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         display_name_raw = ""
     if not isinstance(description_raw, str):
         description_raw = ""
+    if not isinstance(authors_raw, str):
+        authors_raw = ""
     if not isinstance(repo_raw, str):
         repo_raw = ""
 
@@ -3263,6 +3273,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         build_date=build_date,
         display_name=display_name_raw,
         description=description_raw,
+        authors=authors_raw,
         repo=repo_raw,
     )
 

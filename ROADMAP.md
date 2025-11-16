@@ -39,7 +39,6 @@ Planned command-line flags for future releases:
 - package can likely be resolved in single-builds. and in multi builds if not user provided we probably raised an error so we only move forward if it was provided.
 - evaluate the other NotRequired fields in resolved typedict to see if they are truly still optional or can be resolved or errored out before then.
 - how do we store the intermitent module trees? the "source" and "shim" trees? do we map tree back to the original file module where we can find it?
-- authors with pyproject.toml fallback
 - can make trully minimal builds using pyproject.toml, when not to?
 - can make trully minimal builds when there is a src/ directory with only one package, when not to?
 

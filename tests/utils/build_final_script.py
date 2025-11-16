@@ -25,6 +25,7 @@ def make_build_final_script_args(  # noqa: PLR0913
     build_date: str = "2025-01-01",
     display_name: str = "",
     description: str = "",
+    authors: str = "",
     repo: str = "",
 ) -> dict[str, Any]:
     """Create arguments for _build_final_script with sensible defaults.
@@ -45,6 +46,7 @@ def make_build_final_script_args(  # noqa: PLR0913
         build_date: Build timestamp
         display_name: Optional display name for header
         description: Optional description for header
+        authors: Optional authors for header
         repo: Optional repository URL for header
 
     Returns:
@@ -86,6 +88,7 @@ def make_build_final_script_args(  # noqa: PLR0913
         "build_date": build_date,
         "display_name": display_name,
         "description": description,
+        "authors": authors,
         "repo": repo,
     }
 

@@ -531,6 +531,9 @@ name = "test-package"
 version = "1.2.3"
 description = "A test package"
 license = "MIT"
+authors = [
+    {name = "Test Author", email = "test@example.com"}
+]
 """
     )
     raw = make_build_input(include=["src/**"])
@@ -547,6 +550,7 @@ license = "MIT"
     assert resolved.get("display_name") == "test-package"
     assert resolved.get("package") == "test-package"
     assert resolved.get("description") == "A test package"
+    assert resolved.get("authors") == "Test Author <test@example.com>"
     assert resolved.get("license_header") == "MIT"
     assert resolved.get("_pyproject_version") == "1.2.3"
 
@@ -555,13 +559,17 @@ def test_resolve_build_config_single_build_respects_use_pyproject_false(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Single build should respect explicit use_pyproject: false."""
+    """Single build should respect explicit use_pyproject: false for all metadata."""
     # --- setup ---
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
         """[project]
 name = "test-package"
 version = "1.2.3"
+description = "A test package"
+authors = [
+    {name = "Alice", email = "alice@example.com"}
+]
 """
     )
     raw = make_build_input(include=["src/**"], use_pyproject=False)
@@ -575,10 +583,20 @@ version = "1.2.3"
         )
 
     # --- validate ---
+    # No metadata should be extracted when use_pyproject is false
     assert (
         "display_name" not in resolved or resolved.get("display_name") != "test-package"
     )
     assert "_pyproject_version" not in resolved
+    assert (
+        "description" not in resolved or resolved.get("description") != "A test package"
+    )
+    assert (
+        "authors" not in resolved
+        or resolved.get("authors") != "Alice <alice@example.com>"
+    )
+    # Package should not fallback to pyproject.toml name when use_pyproject is false
+    assert "package" not in resolved or resolved.get("package") != "test-package"
 
 
 def test_resolve_build_config_multi_build_requires_opt_in(
@@ -722,12 +740,16 @@ name = "pyproject-name"
 version = "1.0.0"
 description = "pyproject description"
 license = "MIT"
+authors = [
+    {name = "Pyproject Author", email = "pyproject@example.com"}
+]
 """
     )
     raw = make_build_input(
         include=["src/**"],
         display_name="config-name",
         description="config description",
+        authors="Config Author <config@example.com>",
     )
     root_cfg: mod_types.RootConfig = {"builds": [raw]}
     args = _args()
@@ -742,6 +764,7 @@ license = "MIT"
     # Explicitly set fields should not be overridden
     assert resolved.get("display_name") == "config-name"
     assert resolved.get("description") == "config description"
+    assert resolved.get("authors") == "Config Author <config@example.com>"
     # But version should still be extracted (stored as _pyproject_version)
     assert resolved.get("_pyproject_version") == "1.0.0"
 
@@ -809,6 +832,202 @@ version = "1.0.0"
     # Package should be extracted from pyproject.toml name
     assert resolved.get("package") == "my-package"
     assert resolved.get("display_name") == "my-package"
+
+
+# ---------------------------------------------------------------------------
+# Authors field tests
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_build_config_authors_from_pyproject(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Authors should be extracted from pyproject.toml when available."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+authors = [
+    {name = "Alice", email = "alice@example.com"},
+    {name = "Bob"}
+]
+"""
+    )
+    raw = make_build_input(include=["src/**"])
+    root_cfg: mod_types.RootConfig = {"builds": [raw]}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    assert resolved.get("authors") == "Alice <alice@example.com>, Bob"
+
+
+def test_resolve_build_config_authors_cascades_from_root(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Authors should cascade from root config to all builds."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"])
+    root_cfg: mod_types.RootConfig = {
+        "builds": [raw],
+        "authors": "Root Author <root@example.com>",
+    }
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    assert resolved.get("authors") == "Root Author <root@example.com>"
+
+
+def test_resolve_build_config_authors_build_overrides_root(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Build-level authors should override root-level."""
+    # --- setup ---
+    raw = make_build_input(
+        include=["src/**"], authors="Build Author <build@example.com>"
+    )
+    root_cfg: mod_types.RootConfig = {
+        "builds": [raw],
+        "authors": "Root Author <root@example.com>",
+    }
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    assert resolved.get("authors") == "Build Author <build@example.com>"
+
+
+def test_resolve_build_config_authors_multi_build_cascades(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Authors should cascade from root to all builds in multi-build configs."""
+    # --- setup ---
+    raw1 = make_build_input(include=["src1/**"])
+    raw2 = make_build_input(include=["src2/**"])
+    root_cfg: mod_types.RootConfig = {
+        "builds": [raw1, raw2],
+        "authors": "Root Author <root@example.com>",
+    }
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved1 = mod_resolve.resolve_build_config(
+            raw1, args, tmp_path, tmp_path, root_cfg
+        )
+        resolved2 = mod_resolve.resolve_build_config(
+            raw2, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    # Both builds should get root-level authors
+    assert resolved1.get("authors") == "Root Author <root@example.com>"
+    assert resolved2.get("authors") == "Root Author <root@example.com>"
+
+
+def test_resolve_build_config_authors_pyproject_fallback_after_cascade(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Authors should fallback to pyproject.toml if not in config or root."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+authors = [
+    {name = "Pyproject Author", email = "pyproject@example.com"}
+]
+"""
+    )
+    raw = make_build_input(include=["src/**"])
+    root_cfg: mod_types.RootConfig = {"builds": [raw]}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    # Should fallback to pyproject.toml authors
+    assert resolved.get("authors") == "Pyproject Author <pyproject@example.com>"
+
+
+def test_resolve_build_config_authors_root_overrides_pyproject(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Root-level authors should take precedence over pyproject.toml."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+authors = [
+    {name = "Pyproject Author", email = "pyproject@example.com"}
+]
+"""
+    )
+    raw = make_build_input(include=["src/**"])
+    root_cfg: mod_types.RootConfig = {
+        "builds": [raw],
+        "authors": "Root Author <root@example.com>",
+    }
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    # Root-level should take precedence
+    assert resolved.get("authors") == "Root Author <root@example.com>"
+
+
+def test_resolve_build_config_authors_optional_in_resolved(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Authors should be optional in resolved config (NotRequired)."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"])
+    root_cfg: mod_types.RootConfig = {"builds": [raw]}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    # Authors should not be present if not set anywhere
+    assert "authors" not in resolved or resolved.get("authors") is None
 
 
 # ---------------------------------------------------------------------------

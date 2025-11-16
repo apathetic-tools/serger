@@ -68,10 +68,44 @@ class PyprojectMetadata:
     version: str = ""
     description: str = ""
     license_text: str = ""
+    authors: str = ""
 
     def has_any(self) -> bool:
         """Check if any metadata was found."""
-        return bool(self.name or self.version or self.description or self.license_text)
+        return bool(
+            self.name
+            or self.version
+            or self.description
+            or self.license_text
+            or self.authors
+        )
+
+
+def _extract_authors_from_project(project: dict[str, Any]) -> str:
+    """Extract authors from project dict and format as string.
+
+    Args:
+        project: Project section from pyproject.toml
+
+    Returns:
+        Formatted authors string (empty if no authors found)
+    """
+    authors_text = ""
+    authors_val = project.get("authors", [])
+    if isinstance(authors_val, list) and authors_val:
+        author_parts: list[str] = []
+        for author in authors_val:  # pyright: ignore[reportUnknownVariableType]
+            if isinstance(author, dict):  # pyright: ignore[reportUnnecessaryIsInstance]
+                author_name = author.get("name", "")  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
+                author_email = author.get("email", "")  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
+                if isinstance(author_name, str) and author_name:
+                    if isinstance(author_email, str) and author_email:
+                        author_parts.append(f"{author_name} <{author_email}>")
+                    else:
+                        author_parts.append(author_name)
+        if author_parts:
+            authors_text = ", ".join(author_parts)
+    return authors_text
 
 
 def extract_pyproject_metadata(
@@ -79,13 +113,14 @@ def extract_pyproject_metadata(
 ) -> PyprojectMetadata | None:
     """Extract metadata from pyproject.toml file.
 
-    Extracts name, version, description, and license from the [project] section.
-    Uses load_toml() utility which supports Python 3.10 and 3.11+.
+    Extracts name, version, description, license, and authors from the
+    [project] section. Uses load_toml() utility which supports Python 3.10
+    and 3.11+.
 
     Args:
         pyproject_path: Path to pyproject.toml file
-        required: If True, raise RuntimeError when tomli is missing on Python 3.10.
-                  If False, return None when unavailable.
+        required: If True, raise RuntimeError when tomli is missing on
+                  Python 3.10. If False, return None when unavailable.
 
     Returns:
         PyprojectMetadata with extracted fields (empty strings if not found),
@@ -125,11 +160,15 @@ def extract_pyproject_metadata(
             filename = str(file_val) if file_val is not None else "LICENSE"  # pyright: ignore[reportUnknownArgumentType]
         license_text = f"See {filename} if distributed alongside this script"
 
+    # Extract authors
+    authors_text = _extract_authors_from_project(project)
+
     return PyprojectMetadata(
         name=name if isinstance(name, str) else "",
         version=version if isinstance(version, str) else "",
         description=description if isinstance(description, str) else "",
         license_text=license_text,
+        authors=authors_text,
     )
 
 
@@ -641,6 +680,9 @@ def _apply_metadata_fields(
 
     if metadata.description and not resolved_cfg.get("description"):
         resolved_cfg["description"] = metadata.description
+
+    if metadata.authors and not resolved_cfg.get("authors"):
+        resolved_cfg["authors"] = metadata.authors
 
     if metadata.license_text and not resolved_cfg.get("license_header"):
         resolved_cfg["license_header"] = metadata.license_text
@@ -1413,6 +1455,18 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # ------------------------------
     # Cascade: build-level → root-level → default
     resolved_cfg["post_processing"] = resolve_post_processing(build_cfg, root_cfg)
+
+    # ------------------------------
+    # Authors
+    # ------------------------------
+    # Cascade: build-level → root-level (no default, optional field)
+    build_authors = resolved_cfg.get("authors")
+    root_authors = (root_cfg or {}).get("authors")
+    if build_authors is not None:
+        resolved_cfg["authors"] = build_authors
+    elif root_authors is not None:
+        resolved_cfg["authors"] = root_authors
+    # If neither is set, leave it unset (will be filled by pyproject.toml if available)
 
     # ------------------------------
     # Pyproject.toml metadata
