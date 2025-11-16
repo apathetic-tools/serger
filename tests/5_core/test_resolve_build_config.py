@@ -545,6 +545,7 @@ license = "MIT"
 
     # --- validate ---
     assert resolved.get("display_name") == "test-package"
+    assert resolved.get("package") == "test-package"
     assert resolved.get("description") == "A test package"
     assert resolved.get("license_header") == "MIT"
     assert resolved.get("_pyproject_version") == "1.2.3"
@@ -743,6 +744,71 @@ license = "MIT"
     assert resolved.get("description") == "config description"
     # But version should still be extracted (stored as _pyproject_version)
     assert resolved.get("_pyproject_version") == "1.0.0"
+
+
+def test_resolve_build_config_configless_does_not_use_pyproject(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Configless builds should not use pyproject.toml fallbacks."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+version = "1.2.3"
+description = "A test package"
+license = "MIT"
+"""
+    )
+    raw = make_build_input(include=["src/**"])
+    # Configless build: minimal root_cfg with only builds
+    root_cfg: mod_types.RootConfig = {"builds": [{}]}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    # Configless builds should not extract pyproject.toml metadata
+    assert resolved.get("display_name") != "test-package"
+    assert resolved.get("package") != "test-package"
+    assert resolved.get("description") != "A test package"
+    assert resolved.get("license_header") != "MIT"
+    assert "_pyproject_version" not in resolved
+
+
+def test_resolve_build_config_package_fallback_from_pyproject(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Package should fallback to pyproject.toml name for single-build configs."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "my-package"
+version = "1.0.0"
+"""
+    )
+    # Build config without package field
+    raw = make_build_input(include=["src/**"])
+    root_cfg: mod_types.RootConfig = {"builds": [raw]}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    # Package should be extracted from pyproject.toml name
+    assert resolved.get("package") == "my-package"
+    assert resolved.get("display_name") == "my-package"
 
 
 # ---------------------------------------------------------------------------

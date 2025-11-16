@@ -133,12 +133,41 @@ def extract_pyproject_metadata(
     )
 
 
+def _is_configless_build(root_cfg: RootConfig | None, num_builds: int) -> bool:
+    """Check if this is a configless build (no config file).
+
+    Configless builds are detected by checking if root_cfg is minimal:
+    only has 'builds' with one empty build and no other meaningful fields.
+
+    Args:
+        root_cfg: Root config (may be None)
+        num_builds: Number of builds in root config
+
+    Returns:
+        True if this is a configless build, False otherwise
+    """
+    if root_cfg is None:
+        return True
+    if num_builds != 1:
+        return False
+    # Check if root_cfg is minimal (only has 'builds' with one empty build)
+    # This indicates a configless build created in cli.py
+    root_keys = set(root_cfg.keys())
+    if root_keys == {"builds"}:
+        builds = root_cfg.get("builds", [])
+        if len(builds) == 1 and not builds[0]:
+            return True
+    return False
+
+
 def _should_use_pyproject(
     build_cfg: BuildConfig,
     root_cfg: RootConfig | None,
     num_builds: int,
 ) -> bool:
     """Determine if pyproject.toml should be used for this build.
+
+    Pyproject.toml fallbacks only apply to single-build configs (not configless).
 
     Args:
         build_cfg: Build config
@@ -148,6 +177,10 @@ def _should_use_pyproject(
     Returns:
         True if pyproject.toml should be used, False otherwise
     """
+    # Configless builds should not use pyproject.toml fallbacks
+    if _is_configless_build(root_cfg, num_builds):
+        return False
+
     build_use_pyproject = build_cfg.get("use_pyproject")
     root_use_pyproject = (root_cfg or {}).get("use_pyproject")
     build_pyproject_path = build_cfg.get("pyproject_path")
@@ -165,14 +198,14 @@ def _should_use_pyproject(
         return build_opted_in
 
     # Single build: use root/default settings unless build explicitly opts out
+    result = DEFAULT_USE_PYPROJECT
     if isinstance(build_use_pyproject, bool):
-        return build_use_pyproject
-    if build_pyproject_path:
-        return True
-    # Use root setting or default
-    if isinstance(root_use_pyproject, bool):
-        return root_use_pyproject
-    return DEFAULT_USE_PYPROJECT
+        result = build_use_pyproject
+    elif build_pyproject_path:
+        result = True
+    elif isinstance(root_use_pyproject, bool):
+        result = root_use_pyproject
+    return result
 
 
 def _resolve_pyproject_path(
@@ -601,6 +634,10 @@ def _apply_metadata_fields(
 
     if metadata.name and not resolved_cfg.get("display_name"):
         resolved_cfg["display_name"] = metadata.name
+
+    # Package fallback from pyproject.toml name (only for stitch builds)
+    if metadata.name and not resolved_cfg.get("package"):
+        resolved_cfg["package"] = metadata.name
 
     if metadata.description and not resolved_cfg.get("description"):
         resolved_cfg["description"] = metadata.description

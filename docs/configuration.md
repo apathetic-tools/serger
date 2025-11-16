@@ -27,9 +27,7 @@ JSONC (JSON with comments) is recommended for readability:
       "package": "mypkg",
       "description": "A simple package example",
       "include": ["src/mypkg/**/*.py"],
-      "exclude": [
-        "**/__pycache__/**",
-      ],
+      "exclude": [],
       "out": "dist/mypkg.py"      
     }
   ]
@@ -38,7 +36,17 @@ JSONC (JSON with comments) is recommended for readability:
 
 For the Python format, see the [Config File Formats](/configuration-reference#config-file-formats) section in the Configuration Reference. 
 
-The `package` and `description` fields can be inferred from `pyproject.toml`.
+## Pyproject.toml Integration
+
+For single-build configs (not configless builds), Serger can automatically extract metadata from `pyproject.toml`:
+
+- `package` - from `[project] name`
+- `display_name` - from `[project] name`
+- `description` - from `[project] description`
+- `license_header` - from `[project] license`
+- `version` - from `[project] version` (stored as `_pyproject_version` for build metadata)
+
+These fallbacks only apply when a config file is present (not for configless CLI-only builds). See the [Configuration Reference](/configuration-reference) for details.
 
 
 
