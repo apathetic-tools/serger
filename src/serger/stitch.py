@@ -31,6 +31,7 @@ from .config import (
     ModuleActionFull,
     ModuleMode,
     PostProcessingConfigResolved,
+    RootConfigResolved,
     ShimSetting,
     StitchMode,
 )
@@ -44,6 +45,13 @@ from .constants import (
     DEFAULT_STITCH_MODE,
 )
 from .logs import get_app_logger
+from .main_config import (
+    MainBlock,
+    detect_function_parameters,
+    detect_main_blocks,
+    find_main_function,
+    select_main_block,
+)
 from .meta import PROGRAM_PACKAGE
 from .module_actions import (
     apply_cleanup_behavior,
@@ -1809,7 +1817,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     all_imports: OrderedDict[str, None],
     parts: list[str],
     order_names: list[str],
-    all_function_names: set[str],
+    _all_function_names: set[str],
     detected_packages: set[str],
     module_mode: str,
     module_actions: list[ModuleActionFull],
@@ -1826,6 +1834,10 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     description: str = "",
     authors: str = "",
     repo: str = "",
+    config: "RootConfigResolved | None" = None,
+    selected_main_block: MainBlock | None = None,
+    main_function_result: tuple[str, Path, str] | None = None,
+    module_sources: dict[str, str] | None = None,
 ) -> tuple[str, list[str]]:
     """Build the final stitched script.
 
@@ -1834,8 +1846,12 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         all_imports: Collected external imports
         parts: Module code sections
         order_names: List of module names (for shim generation)
-        all_function_names: Set of all function names from all modules
-            (used to detect if main() function exists)
+        _all_function_names: Set of all function names from all modules
+            (unused, kept for API consistency)
+        config: Resolved configuration with main_mode and main_name
+        selected_main_block: Selected __main__ block to use (if any)
+        main_function_result: Result from find_main_function() if found
+        module_sources: Mapping of module name to source code
         detected_packages: Pre-detected package names
         module_mode: How to generate import shims ("none", "multi", "force")
         module_actions: List of module actions (already normalized)
@@ -2847,14 +2863,71 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     repo_line = f"# Repo: {repo}\n" if repo else ""
     authors_line = f"# Authors: {authors}\n" if authors else ""
 
-    # Check if main() function exists in the stitched code
-    # Use the pre-collected function names to avoid parsing again
-    has_main = "main" in all_function_names
-
-    # Only add __main__ block if main() function exists
+    # Determine __main__ block to use
     main_block = ""
-    if has_main:
-        main_block = "\nif __name__ == '__main__':\n    sys.exit(main(sys.argv[1:]))\n"
+    main_mode = config.get("main_mode", "auto") if config else "auto"
+    main_name = config.get("main_name") if config else None
+
+    if main_mode == "auto":
+        # If we have a selected __main__ block, use it
+        if selected_main_block is not None:
+            logger.info(
+                "__main__ block...........selected from %s",
+                selected_main_block.file_path,
+            )
+            # Use the selected block content
+            main_block = f"\n{selected_main_block.content}\n"
+        elif main_function_result is not None:
+            # No existing block found, but we have a main function
+            # Generate our own __main__ block
+            function_name, _file_path, _module_path = main_function_result
+
+            # Get the function node to detect parameters
+            # We need to find it in module_sources
+            has_params = True  # Default to True (safe)
+            if module_sources is not None:
+                # Find the module that contains the function
+                module_key = f"{_module_path}.py"
+                if module_key in module_sources:
+                    source = module_sources[module_key]
+                    # Parse and find the function
+                    try:
+                        tree = ast.parse(source)
+                        for node in tree.body:
+                            if (
+                                isinstance(
+                                    node, (ast.FunctionDef, ast.AsyncFunctionDef)
+                                )
+                                and node.name == function_name
+                            ):
+                                has_params = detect_function_parameters(node)
+                                break
+                    except (SyntaxError, ValueError):
+                        pass
+
+            # Generate block based on parameters
+            if has_params:
+                main_block = (
+                    f"\nif __name__ == '__main__':\n"
+                    f"    sys.exit({function_name}(sys.argv[1:]))\n"
+                )
+            else:
+                main_block = (
+                    f"\nif __name__ == '__main__':\n    sys.exit({function_name}())\n"
+                )
+            logger.info("__main__ block...........inserted")
+        elif main_name is not None:
+            # main_name was specified but not found - this is an error
+            msg = (
+                f"main_name '{main_name}' was specified but the function "
+                "was not found in the stitched code"
+            )
+            raise RuntimeError(msg)
+        else:
+            # No main function found and main_name not specified
+            # This is a non-main build (acceptable)
+            logger.info("Main function...........not found (non-main build)")
+    # If main_mode == "none", don't add any __main__ block
 
     script_text = (
         "#!/usr/bin/env python3\n"
@@ -3305,6 +3378,50 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     logger.debug("Detecting name collisions...")
     detect_name_collisions(module_symbols)
 
+    # --- Main Function and __main__ Block Detection ---
+    # Detect all __main__ blocks from original file paths (before stripping)
+    logger.debug("Detecting __main__ blocks...")
+    all_main_blocks = detect_main_blocks(
+        file_paths=order_paths,
+        package_root=package_root,
+        file_to_include=file_to_include,
+        _detected_packages=detected_packages,
+    )
+
+    # Find main function
+    logger.debug("Finding main function...")
+    main_function_result = find_main_function(
+        config=cast("RootConfigResolved", config),
+        file_paths=order_paths,
+        module_sources=module_sources,
+        module_names=derived_module_names,
+        package_root=package_root,
+        file_to_include=file_to_include,
+        detected_packages=detected_packages,
+    )
+
+    # Log main function status
+    if main_function_result is not None:
+        function_name, _file_path, module_path = main_function_result
+        logger.info("Main function...........%s.%s()", module_path, function_name)
+
+    # Select which __main__ block to keep
+    selected_main_block = select_main_block(
+        main_blocks=all_main_blocks,
+        main_function_result=main_function_result,
+        file_paths=order_paths,
+        _module_names=derived_module_names,
+    )
+
+    # Log discarded blocks
+    if len(all_main_blocks) > 1:
+        discarded = [block for block in all_main_blocks if block != selected_main_block]
+        for block in discarded:
+            logger.info(
+                "__main__ block...........discarded from %s",
+                block.file_path,
+            )
+
     # --- Final Assembly ---
     # Extract display configuration
     display_name_raw = config.get("display_name", "")
@@ -3327,7 +3444,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         all_imports=all_imports,
         parts=parts,
         order_names=derived_module_names,
-        all_function_names=all_function_names,
+        _all_function_names=all_function_names,
         detected_packages=detected_packages,
         module_mode=module_mode,
         module_actions=module_actions,
@@ -3344,6 +3461,10 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         description=description_raw,
         authors=authors_raw,
         repo=repo_raw,
+        config=cast("RootConfigResolved", config),
+        selected_main_block=selected_main_block,
+        main_function_result=main_function_result,
+        module_sources=module_sources,
     )
 
     # --- Verification ---

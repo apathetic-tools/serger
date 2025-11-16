@@ -6,6 +6,8 @@ and managing __main__ block generation.
 """
 
 import ast
+import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -14,6 +16,21 @@ from serger.utils.utils_modules import derive_module_name
 
 if TYPE_CHECKING:
     from serger.config import IncludeResolved, RootConfigResolved
+
+
+@dataclass
+class MainBlock:
+    """Represents a detected __main__ block.
+
+    Attributes:
+        content: The full content of the __main__ block (including the if statement)
+        file_path: Path to the file containing the block
+        module_name: Module name derived from the file path
+    """
+
+    content: str
+    file_path: Path
+    module_name: str
 
 
 def parse_main_name(main_name: str | None) -> tuple[str | None, str]:
@@ -267,3 +284,223 @@ def find_main_function(  # noqa: PLR0912
 
     # Not found
     return None
+
+
+def _is_main_guard(node: ast.If) -> bool:  # noqa: PLR0911
+    """Check if an if statement is a __main__ guard.
+
+    Args:
+        node: AST If node to check
+
+    Returns:
+        True if this is a __main__ guard, False otherwise
+    """
+    # Check if condition is: __name__ == '__main__'
+    if not isinstance(node.test, ast.Compare):
+        return False
+
+    compare = node.test
+    if len(compare.ops) != 1:
+        return False
+
+    if not isinstance(compare.ops[0], ast.Eq):
+        return False
+
+    # Check left side is __name__
+    if not isinstance(compare.left, ast.Name):
+        return False
+    if compare.left.id != "__name__":
+        return False
+
+    # Check right side is '__main__' or "__main__"
+    if len(compare.comparators) != 1:
+        return False
+
+    comparator = compare.comparators[0]
+    if isinstance(comparator, ast.Constant):
+        return comparator.value == "__main__"
+
+    return False
+
+
+def detect_main_blocks(  # noqa: PLR0912
+    *,
+    file_paths: list[Path],
+    package_root: Path,
+    file_to_include: dict[Path, "IncludeResolved"],
+    _detected_packages: set[str],
+) -> list[MainBlock]:
+    """Detect all __main__ blocks in the provided file paths.
+
+    Args:
+        file_paths: List of file paths to check (in order)
+        package_root: Common root of all included files
+        file_to_include: Mapping of file path to its include
+        _detected_packages: Pre-detected package names
+            (unused, kept for API consistency)
+
+    Returns:
+        List of MainBlock objects, one for each detected __main__ block
+    """
+    main_blocks: list[MainBlock] = []
+
+    # Build mapping from module names to file paths
+    # Also handle package_root being a package directory itself
+    is_package_dir = (package_root / "__init__.py").exists()
+    package_name_from_root: str | None = None
+    if is_package_dir:
+        package_name_from_root = package_root.name
+
+    for file_path in file_paths:
+        if not file_path.exists():
+            continue
+
+        # Read file content
+        try:
+            source = file_path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+
+        # Parse AST to find __main__ blocks
+        try:
+            tree = ast.parse(source, filename=str(file_path))
+        except (SyntaxError, ValueError):
+            continue
+
+        # Find all top-level if statements that are __main__ guards
+        for node in tree.body:
+            if isinstance(node, ast.If) and _is_main_guard(node):
+                # Extract the block content from source
+                # Use line numbers from AST to extract exact text
+                if hasattr(node, "lineno") and hasattr(node, "end_lineno"):
+                    # Python 3.8+ has end_lineno
+                    start_line = node.lineno - 1  # 0-indexed
+                    end_line = node.end_lineno  # 1-indexed (exclusive)
+                    lines = source.splitlines(keepends=True)
+                    if (
+                        start_line < len(lines)
+                        and end_line is not None
+                        and end_line <= len(lines)
+                    ):
+                        block_lines = lines[start_line:end_line]
+                        block_content = "".join(block_lines).rstrip()
+                    else:
+                        # Fallback: use regex to find block
+                        block_content = _extract_main_block_regex(source)
+                else:
+                    # Python < 3.8 or no end_lineno: use regex fallback
+                    block_content = _extract_main_block_regex(source)
+
+                if block_content:
+                    # Derive module name
+                    include = file_to_include.get(file_path)
+                    module_name = derive_module_name(file_path, package_root, include)
+
+                    # If package_root is a package directory, preserve package structure
+                    if is_package_dir and package_name_from_root:
+                        # Handle __init__.py special case: represents the package itself
+                        if (
+                            file_path.name == "__init__.py"
+                            and file_path.parent == package_root
+                        ):
+                            module_name = package_name_from_root
+                        else:
+                            # Prepend package name to preserve structure
+                            module_name = f"{package_name_from_root}.{module_name}"
+
+                    main_blocks.append(
+                        MainBlock(
+                            content=block_content,
+                            file_path=file_path,
+                            module_name=module_name,
+                        )
+                    )
+                    # Only take the first __main__ block per file
+                    break
+
+    return main_blocks
+
+
+def _extract_main_block_regex(source: str) -> str:
+    """Extract __main__ block using regex (fallback method).
+
+    Args:
+        source: Source code to search
+
+    Returns:
+        Extracted block content, or empty string if not found
+    """
+    # Pattern matches: if __name__ == '__main__': ... (to end of file)
+    # Using (?s) for dotall mode (match newlines)
+    pattern = (
+        r"(?s)(if\s+__name__\s*==\s*[\"']__main__[\"']\s*:\s*\n.*?)"
+        r"(?=\n\n|\n[A-Za-z_#@]|\Z)"
+    )
+    match = re.search(pattern, source)
+    if match:
+        return match.group(1).rstrip()
+    return ""
+
+
+def select_main_block(
+    *,
+    main_blocks: list[MainBlock],
+    main_function_result: tuple[str, Path, str] | None,
+    file_paths: list[Path],
+    _module_names: list[str],
+) -> MainBlock | None:
+    """Select which __main__ block to keep based on priority.
+
+    Priority order:
+    1. Block in same module/file as main function
+    2. Block in same package as main function
+    3. Block in earliest include (by include order)
+
+    Args:
+        main_blocks: List of all detected __main__ blocks
+        main_function_result: Result from find_main_function()
+            (function_name, file_path, module_path) or None
+        file_paths: List of file paths in include order
+        _module_names: List of module names in include order
+            (unused, kept for API consistency)
+
+    Returns:
+        Selected MainBlock to keep, or None if no block should be kept
+    """
+    if not main_blocks:
+        return None
+
+    # If we have a main function, use it to determine priority
+    if main_function_result is not None:
+        _function_name, main_file_path, main_module_path = main_function_result
+
+        # Priority 1: Block in same module/file as main function
+        for block in main_blocks:
+            if block.file_path == main_file_path:
+                return block
+
+        # Priority 2: Block in same package as main function
+        # Extract package from main_module_path (everything before last dot)
+        if "." in main_module_path:
+            main_package = main_module_path.rsplit(".", 1)[0]
+            for block in main_blocks:
+                if block.module_name == main_package or block.module_name.startswith(
+                    f"{main_package}."
+                ):
+                    return block
+
+    # Priority 3: Block in earliest include (by include order)
+    # Build mapping from file paths to their index in include order
+    file_to_index = {file_path: i for i, file_path in enumerate(file_paths)}
+
+    # Find block with earliest file index
+    earliest_block: MainBlock | None = None
+    earliest_index = len(file_paths)  # Start with max index
+
+    for block in main_blocks:
+        block_index = file_to_index.get(block.file_path, len(file_paths))
+        if block_index < earliest_index:
+            earliest_index = block_index
+            earliest_block = block
+
+    return earliest_block

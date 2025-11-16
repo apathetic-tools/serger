@@ -613,3 +613,253 @@ def test_detect_function_parameters_async_function() -> None:
 
     # --- verify ---
     assert result is True
+
+
+# Tests for detect_main_blocks()
+
+
+def test_detect_main_blocks_single_block(tmp_path: Path) -> None:
+    """Test detect_main_blocks with a single __main__ block."""
+    # --- setup ---
+    file_path = tmp_path / "main.py"
+    file_path.write_text(
+        "def main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
+    )
+
+    # --- execute ---
+    blocks = mod_main_config.detect_main_blocks(
+        file_paths=[file_path],
+        package_root=tmp_path,
+        file_to_include={
+            file_path: {"path": "main.py", "root": tmp_path, "origin": "default"}
+        },
+        _detected_packages=set(),
+    )
+
+    # --- verify ---
+    assert len(blocks) == 1
+    assert blocks[0].file_path == file_path
+    assert "if __name__ == '__main__':" in blocks[0].content
+    assert blocks[0].module_name == "main"
+
+
+def test_detect_main_blocks_multiple_blocks(tmp_path: Path) -> None:
+    """Test detect_main_blocks with multiple __main__ blocks."""
+    # --- setup ---
+    file1 = tmp_path / "file1.py"
+    file1.write_text(
+        "def func1():\n    pass\n\nif __name__ == '__main__':\n    func1()\n"
+    )
+    file2 = tmp_path / "file2.py"
+    file2.write_text(
+        "def func2():\n    pass\n\nif __name__ == '__main__':\n    func2()\n"
+    )
+
+    # --- execute ---
+    blocks = mod_main_config.detect_main_blocks(
+        file_paths=[file1, file2],
+        package_root=tmp_path,
+        file_to_include={
+            file1: {"path": "file1.py", "root": tmp_path, "origin": "default"},
+            file2: {"path": "file2.py", "root": tmp_path, "origin": "default"},
+        },
+        _detected_packages=set(),
+    )
+
+    # --- verify ---
+    expected_block_count = 2
+    assert len(blocks) == expected_block_count
+    assert {b.file_path for b in blocks} == {file1, file2}
+
+
+def test_detect_main_blocks_no_blocks(tmp_path: Path) -> None:
+    """Test detect_main_blocks with no __main__ blocks."""
+    # --- setup ---
+    file_path = tmp_path / "main.py"
+    file_path.write_text("def main():\n    pass\n")
+
+    # --- execute ---
+    blocks = mod_main_config.detect_main_blocks(
+        file_paths=[file_path],
+        package_root=tmp_path,
+        file_to_include={
+            file_path: {"path": "main.py", "root": tmp_path, "origin": "default"}
+        },
+        _detected_packages=set(),
+    )
+
+    # --- verify ---
+    assert len(blocks) == 0
+
+
+def test_detect_main_blocks_with_package(tmp_path: Path) -> None:
+    """Test detect_main_blocks with package structure."""
+    # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    pkg_dir.mkdir()
+    file_path = pkg_dir / "main.py"
+    file_path.write_text(
+        "def main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
+    )
+
+    # --- execute ---
+    blocks = mod_main_config.detect_main_blocks(
+        file_paths=[file_path],
+        package_root=tmp_path,
+        file_to_include={
+            file_path: {"path": "mypkg/main.py", "root": tmp_path, "origin": "default"}
+        },
+        _detected_packages={"mypkg"},
+    )
+
+    # --- verify ---
+    assert len(blocks) == 1
+    assert blocks[0].module_name == "mypkg.main"
+
+
+def test_detect_main_blocks_double_quotes(tmp_path: Path) -> None:
+    """Test detect_main_blocks with double quotes in __main__ guard."""
+    # --- setup ---
+    file_path = tmp_path / "main.py"
+    file_path.write_text(
+        'def main():\n    pass\n\nif __name__ == "__main__":\n    main()\n'
+    )
+
+    # --- execute ---
+    blocks = mod_main_config.detect_main_blocks(
+        file_paths=[file_path],
+        package_root=tmp_path,
+        file_to_include={
+            file_path: {"path": "main.py", "root": tmp_path, "origin": "default"}
+        },
+        _detected_packages=set(),
+    )
+
+    # --- verify ---
+    assert len(blocks) == 1
+    assert blocks[0].file_path == file_path
+
+
+# Tests for select_main_block()
+
+
+def test_select_main_block_priority_same_file(tmp_path: Path) -> None:
+    """Test select_main_block prioritizes block in same file as main function."""
+    # --- setup ---
+    file1 = tmp_path / "file1.py"
+    file1.write_text(
+        "def main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
+    )
+    file2 = tmp_path / "file2.py"
+    file2.write_text(
+        "def other():\n    pass\n\nif __name__ == '__main__':\n    other()\n"
+    )
+
+    blocks = mod_main_config.detect_main_blocks(
+        file_paths=[file1, file2],
+        package_root=tmp_path,
+        file_to_include={
+            file1: {"path": "file1.py", "root": tmp_path, "origin": "default"},
+            file2: {"path": "file2.py", "root": tmp_path, "origin": "default"},
+        },
+        _detected_packages=set(),
+    )
+
+    # Main function is in file1
+    main_result = ("main", file1, "file1")
+
+    # --- execute ---
+    selected = mod_main_config.select_main_block(
+        main_blocks=blocks,
+        main_function_result=main_result,
+        file_paths=[file1, file2],
+        _module_names=["file1", "file2"],
+    )
+
+    # --- verify ---
+    assert selected is not None
+    assert selected.file_path == file1  # Should select block from same file
+
+
+def test_select_main_block_priority_same_package(tmp_path: Path) -> None:
+    """Test select_main_block prioritizes block in same package as main function."""
+    # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    pkg_dir.mkdir()
+    file1 = pkg_dir / "main.py"
+    file1.write_text("def main():\n    pass\n")
+    file2 = pkg_dir / "other.py"
+    file2.write_text("if __name__ == '__main__':\n    pass\n")
+
+    blocks = mod_main_config.detect_main_blocks(
+        file_paths=[file1, file2],
+        package_root=tmp_path,
+        file_to_include={
+            file1: {"path": "mypkg/main.py", "root": tmp_path, "origin": "default"},
+            file2: {"path": "mypkg/other.py", "root": tmp_path, "origin": "default"},
+        },
+        _detected_packages={"mypkg"},
+    )
+
+    # Main function is in file1 (mypkg.main)
+    main_result = ("main", file1, "mypkg.main")
+
+    # --- execute ---
+    selected = mod_main_config.select_main_block(
+        main_blocks=blocks,
+        main_function_result=main_result,
+        file_paths=[file1, file2],
+        _module_names=["mypkg.main", "mypkg.other"],
+    )
+
+    # --- verify ---
+    assert selected is not None
+    assert selected.file_path == file2  # Should select block from same package
+
+
+def test_select_main_block_priority_earliest_include(tmp_path: Path) -> None:
+    """Test select_main_block uses earliest include when no main function match."""
+    # --- setup ---
+    file1 = tmp_path / "file1.py"
+    file1.write_text("if __name__ == '__main__':\n    pass\n")
+    file2 = tmp_path / "file2.py"
+    file2.write_text("if __name__ == '__main__':\n    pass\n")
+
+    blocks = mod_main_config.detect_main_blocks(
+        file_paths=[file1, file2],
+        package_root=tmp_path,
+        file_to_include={
+            file1: {"path": "file1.py", "root": tmp_path, "origin": "default"},
+            file2: {"path": "file2.py", "root": tmp_path, "origin": "default"},
+        },
+        _detected_packages=set(),
+    )
+
+    # No main function
+    main_result = None
+
+    # --- execute ---
+    selected = mod_main_config.select_main_block(
+        main_blocks=blocks,
+        main_function_result=main_result,
+        file_paths=[file1, file2],
+        _module_names=["file1", "file2"],
+    )
+
+    # --- verify ---
+    assert selected is not None
+    assert selected.file_path == file1  # Should select earliest in include order
+
+
+def test_select_main_block_no_blocks() -> None:
+    """Test select_main_block returns None when no blocks provided."""
+    # --- execute ---
+    selected = mod_main_config.select_main_block(
+        main_blocks=[],
+        main_function_result=None,
+        file_paths=[],
+        _module_names=[],
+    )
+
+    # --- verify ---
+    assert selected is None
