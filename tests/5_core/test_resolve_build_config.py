@@ -2588,14 +2588,18 @@ def test_resolve_build_config_auto_include_does_not_set_when_package_not_found(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Auto-include should not set when package is not found in module_bases."""
+    """Auto-include should not set when package is not found in module_bases
+    and there are multiple modules."""
     # --- setup ---
     src_dir = tmp_path / "src"
     src_dir.mkdir()
-    pkg_dir = src_dir / "otherpkg"
-    make_test_package(pkg_dir)
+    pkg_dir1 = src_dir / "otherpkg"
+    make_test_package(pkg_dir1)
+    pkg_dir2 = src_dir / "anotherpkg"
+    make_test_package(pkg_dir2)
 
     # Config with package that doesn't exist in module_bases
+    # Multiple modules means we can't auto-detect (too ambiguous)
     raw = make_build_input(package="nonexistent", module_bases=["src"])
     args = _args()
 
@@ -2604,7 +2608,7 @@ def test_resolve_build_config_auto_include_does_not_set_when_package_not_found(
         resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # Should not auto-set includes when package not found
+    # Should not auto-set includes when package not found and multiple modules exist
     assert len(resolved["include"]) == 0
 
 
@@ -2612,14 +2616,18 @@ def test_resolve_build_config_auto_include_does_not_set_when_no_package(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Auto-include should not set when package is not provided."""
+    """Auto-include should not set when package is not provided
+    and there are multiple modules."""
     # --- setup ---
     src_dir = tmp_path / "src"
     src_dir.mkdir()
-    pkg_dir = src_dir / "mypkg"
-    make_test_package(pkg_dir)
+    pkg_dir1 = src_dir / "mypkg"
+    make_test_package(pkg_dir1)
+    pkg_dir2 = src_dir / "otherpkg"
+    make_test_package(pkg_dir2)
 
     # Config without package
+    # Multiple modules means we can't auto-detect (too ambiguous)
     raw = make_build_input(module_bases=["src"])
     args = _args()
 
@@ -2628,7 +2636,7 @@ def test_resolve_build_config_auto_include_does_not_set_when_no_package(
         resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # Should not auto-set includes when no package
+    # Should not auto-set includes when no package and multiple modules exist
     assert len(resolved["include"]) == 0
 
 
@@ -2706,6 +2714,93 @@ def test_resolve_build_config_auto_include_works_with_single_file_module(
     assert inc["path"] == "src/mymodule.py"
     assert inc["origin"] == "config"
     assert resolved.get("package") == "mymodule"
+
+
+def test_resolve_build_config_auto_detect_single_module_when_package_not_found(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Auto-detect single module when package is not found in module_bases."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    pkg_dir = src_dir / "mypkg"
+    make_test_package(pkg_dir)
+
+    # Config with package that doesn't exist in module_bases
+    # But there's exactly 1 module, so we should auto-detect it
+    raw = make_build_input(package="nonexistent", module_bases=["src"])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Should auto-detect the single module and set it as package
+    assert resolved.get("package") == "mypkg"
+    assert len(resolved["include"]) == 1
+    inc = resolved["include"][0]
+    assert inc["path"] == "src/mypkg/"
+    assert inc["origin"] == "config"
+
+
+def test_resolve_build_config_auto_detect_single_module_when_no_package(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Auto-detect single module when no package is provided."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    pkg_dir = src_dir / "mypkg"
+    make_test_package(pkg_dir)
+
+    # Config without package
+    # But there's exactly 1 module, so we should auto-detect it
+    raw = make_build_input(module_bases=["src"])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Should auto-detect the single module and set it as package
+    assert resolved.get("package") == "mypkg"
+    assert len(resolved["include"]) == 1
+    inc = resolved["include"][0]
+    assert inc["path"] == "src/mypkg/"
+    assert inc["origin"] == "config"
+
+
+def test_resolve_build_config_auto_detect_single_file_module_when_no_package(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Auto-detect single file module when no package is provided."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    module_file = src_dir / "mymodule.py"
+    module_file.write_text("def hello(): pass\n")
+
+    # Config without package
+    # But there's exactly 1 module file, so we should auto-detect it
+    raw = make_build_input(module_bases=["src"])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Should auto-detect the single module file and set it as package
+    assert resolved.get("package") == "mymodule"
+    assert len(resolved["include"]) == 1
+    inc = resolved["include"][0]
+    assert inc["path"] == "src/mymodule.py"
+    assert inc["origin"] == "config"
 
 
 def test_resolve_build_config_auto_include_works_with_pyproject_package(

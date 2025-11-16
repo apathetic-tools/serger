@@ -14,6 +14,50 @@ For formatting guidelines, see the [DECISIONS.md Style Guide](./DECISIONS_STYLE_
 
 ---
 
+## 🚀 Aggressively Allow Defaults and Auto-Detection for Zero-Config Usage
+<a id="dec14"></a>*DEC 14 — 2025-11-16*
+
+### Context
+
+Serger should "just work" when someone downloads it and runs it without any configuration files or CLI arguments. The goal is to enable a seamless, **zero-configuration experience** where users can immediately generate a stitched script from their Python package without needing to understand Serger's configuration system or provide explicit paths, package names, or output locations.
+
+When configuration is necessary, it should require the **least config possible** — only specifying what differs from sensible defaults, not re-stating everything explicitly.
+
+### Options Considered
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **Aggressive defaults and auto-detection** | ✅ Zero-configuration experience<br>✅ Lower barrier to entry<br>✅ Works immediately after installation<br>✅ Encourages exploration and adoption | ⚠️ May produce unexpected output if assumptions are wrong<br>⚠️ Less explicit control for advanced users |
+| **Require explicit configuration** | ✅ Clear, explicit behavior<br>✅ No ambiguity about what will happen<br>✅ Forces users to understand the tool | ❌ High barrier to entry<br>❌ Requires learning configuration format before first use<br>❌ Slower initial adoption |
+| **Minimal defaults with warnings** | ✅ Safe defaults<br>✅ Warns users about assumptions | ⚠️ Still requires user interaction<br>⚠️ Interrupts the "just works" experience |
+
+### Decision
+
+**Aggressively allow defaults and auto-detection** to enable **zero-configuration usage** and **minimal configuration** when needed. When no config file or CLI arguments are provided, Serger should:
+
+- **Auto-detect packages** from the project structure (scanning `src/` and other common directories)
+- **Auto-detect source files** using sensible defaults (e.g., `src/**/*.py`)
+- **Use safe default output paths** — specifically, `dist/<package>.py` is considered a safe default output location
+- **Auto-detect package names** from directory structure or `pyproject.toml`
+- **Apply sensible defaults** for all configuration options (stitch mode, import handling, post-processing, etc.)
+
+The output path `dist/<package>.py` is considered safe because:
+- The `dist/` directory is a standard Python convention for distribution artifacts
+- It's unlikely to conflict with source code
+- It's a clear, predictable location that users can easily find and understand
+- It aligns with common Python packaging workflows
+
+This approach prioritizes **immediate usability** over **explicit control**. When configuration is needed, users should only specify what differs from defaults — the **least config possible**. Advanced users can always override defaults with configuration files or CLI arguments, but new users should be able to run Serger and get useful output immediately, and users who need customization should only need to configure what's different.
+
+
+<br/><br/>
+
+---
+
+---
+
+<br/><br/>
+
 ## 🔧 Choose Post-Processing Tools: Ruff, Black, and isort
 <a id="dec13"></a>*DEC 13 — 2025-11-11*
 

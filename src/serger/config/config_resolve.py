@@ -1195,6 +1195,25 @@ def _get_first_level_modules_from_bases(
     return modules
 
 
+def _package_exists_in_module_bases(
+    package: str,
+    module_bases: list[str],
+    config_dir: Path,
+) -> bool:
+    """Check if a package exists in module_bases (first level only, not recursive).
+
+    Args:
+        package: Package name to check
+        module_bases: List of module base directory paths (relative or absolute)
+        config_dir: Config directory for resolving relative paths
+
+    Returns:
+        True if package is found as a first-level module/package in any module_base
+    """
+    first_level_modules = _get_first_level_modules_from_bases(module_bases, config_dir)
+    return package in first_level_modules
+
+
 def _resolve_includes(  # noqa: PLR0912
     resolved_cfg: dict[str, Any],
     *,
@@ -1639,8 +1658,7 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # Auto-set includes from package and module_bases
     # ------------------------------
     # If no includes were provided (configless or config has no includes),
-    # and we have a package that can be found in module_bases,
-    # automatically set includes to that package.
+    # automatically set includes based on package and module_bases.
     # This must run AFTER pyproject metadata is applied so package from
     # pyproject.toml is available.
     has_cli_includes = bool(
@@ -1656,70 +1674,152 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     package = resolved_cfg.get("package")
     module_bases_list = resolved_cfg.get("module_bases", [])
 
-    if (
+    # Check if we should attempt auto-detection
+    should_auto_detect = (
         not has_cli_includes
         and not has_config_includes
         and not has_explicit_config_includes
-        and package
         and module_bases_list
-    ):
-        # Get first-level modules from module_bases
-        first_level_modules = _get_first_level_modules_from_bases(
-            module_bases_list, config_dir
-        )
+    )
 
-        # Check if package is found in first-level modules
-        if package in first_level_modules:
-            logger.debug(
-                "Auto-setting includes to package '%s' found in module_bases: %s",
-                package,
-                module_bases_list,
-            )
+    if should_auto_detect:
+        # Condition 1: We have a package but it's NOT found in module_bases
+        # Condition 2: We don't have a package
+        # In both cases, find the first module_base with exactly 1 module
+        should_auto_detect_single_module = False
+        if package:
+            # Condition 1: Package exists but not found in module_bases
+            if not _package_exists_in_module_bases(
+                package, module_bases_list, config_dir
+            ):
+                should_auto_detect_single_module = True
+        else:
+            # Condition 2: No package
+            should_auto_detect_single_module = True
 
-            # Find which module_base contains the package
-            # Can be either a directory (package) or a .py file (module)
-            package_path: str | None = None
+        if should_auto_detect_single_module:
+            # Find the first module_base with exactly 1 module
+            detected_module: str | None = None
+            detected_base: str | None = None
             for base_str in module_bases_list:
-                base_path = (config_dir / base_str).resolve()
-                package_dir = base_path / package
-                package_file = base_path / f"{package}.py"
-
-                if package_dir.exists() and package_dir.is_dir():
-                    # Found the package directory
-                    # Create include path relative to config_dir
-                    rel_path = package_dir.relative_to(config_dir)
-                    package_path = str(rel_path)
-                    break
-                if package_file.exists() and package_file.is_file():
-                    # Found the package as a single-file module
-                    # Create include path relative to config_dir
-                    rel_path = package_file.relative_to(config_dir)
-                    package_path = str(rel_path)
+                base_modules = _get_first_level_modules_from_base(base_str, config_dir)
+                if len(base_modules) == 1:
+                    # Found a base with exactly 1 module
+                    detected_module = base_modules[0]
+                    detected_base = base_str
                     break
 
-            if package_path:
-                # Set includes to the package found in module_bases
-                # For directories, add trailing slash to ensure recursive matching
-                # (build.py handles directories with trailing slash as recursive)
-                package_path_str = str(package_path)
-                # Check if it's a directory (not a .py file) and add trailing slash
-                if (
-                    (config_dir / package_path_str).exists()
-                    and (config_dir / package_path_str).is_dir()
-                    and not package_path_str.endswith(".py")
-                    and not package_path_str.endswith("/")
-                ):
-                    # Add trailing slash for recursive directory matching
-                    package_path_str = f"{package_path_str}/"
-
-                root, rel = _normalize_path_with_root(package_path_str, config_dir)
-                auto_include = make_includeresolved(rel, root, "config")
-                resolved_cfg["include"] = [auto_include]
-                logger.trace(
-                    "[resolve_build_config] Auto-set include: %s (root: %s)",
-                    rel,
-                    root,
+            if detected_module and detected_base:
+                logger.debug(
+                    "Auto-detecting package '%s' from single module in "
+                    "module_base '%s' (from module_bases: %s)",
+                    detected_module,
+                    detected_base,
+                    module_bases_list,
                 )
+
+                # Set package to the detected module
+                resolved_cfg["package"] = detected_module
+
+                # Find the module in the detected base
+                # Can be either a directory (package) or a .py file (module)
+                base_path = (config_dir / detected_base).resolve()
+                module_dir = base_path / detected_module
+                module_file = base_path / f"{detected_module}.py"
+
+                module_path: str | None = None
+                if module_dir.exists() and module_dir.is_dir():
+                    # Found the module directory
+                    # Create include path relative to config_dir
+                    rel_path = module_dir.relative_to(config_dir)
+                    module_path = str(rel_path)
+                elif module_file.exists() and module_file.is_file():
+                    # Found the module as a single-file module
+                    # Create include path relative to config_dir
+                    rel_path = module_file.relative_to(config_dir)
+                    module_path = str(rel_path)
+
+                if module_path:
+                    # Set includes to the module found in module_bases
+                    # For directories, add trailing slash to ensure recursive matching
+                    # (build.py handles directories with trailing slash as recursive)
+                    module_path_str = str(module_path)
+                    # Check if it's a directory (not a .py file) and add trailing slash
+                    if (
+                        (config_dir / module_path_str).exists()
+                        and (config_dir / module_path_str).is_dir()
+                        and not module_path_str.endswith(".py")
+                        and not module_path_str.endswith("/")
+                    ):
+                        # Add trailing slash for recursive directory matching
+                        module_path_str = f"{module_path_str}/"
+
+                    root, rel = _normalize_path_with_root(module_path_str, config_dir)
+                    auto_include = make_includeresolved(rel, root, "config")
+                    resolved_cfg["include"] = [auto_include]
+                    logger.trace(
+                        "[resolve_build_config] Auto-set include: %s (root: %s)",
+                        rel,
+                        root,
+                    )
+            # If no base has exactly 1 module, don't auto-detect (too ambiguous)
+        elif package:
+            # Original logic: package exists and is found in module_bases
+            # Get first-level modules from module_bases for this check
+            first_level_modules = _get_first_level_modules_from_bases(
+                module_bases_list, config_dir
+            )
+            if package in first_level_modules:
+                logger.debug(
+                    "Auto-setting includes to package '%s' found in module_bases: %s",
+                    package,
+                    module_bases_list,
+                )
+
+                # Find which module_base contains the package
+                # Can be either a directory (package) or a .py file (module)
+                package_path: str | None = None
+                for base_str in module_bases_list:
+                    base_path = (config_dir / base_str).resolve()
+                    package_dir = base_path / package
+                    package_file = base_path / f"{package}.py"
+
+                    if package_dir.exists() and package_dir.is_dir():
+                        # Found the package directory
+                        # Create include path relative to config_dir
+                        rel_path = package_dir.relative_to(config_dir)
+                        package_path = str(rel_path)
+                        break
+                    if package_file.exists() and package_file.is_file():
+                        # Found the package as a single-file module
+                        # Create include path relative to config_dir
+                        rel_path = package_file.relative_to(config_dir)
+                        package_path = str(rel_path)
+                        break
+
+                if package_path:
+                    # Set includes to the package found in module_bases
+                    # For directories, add trailing slash to ensure recursive matching
+                    # (build.py handles directories with trailing slash as recursive)
+                    package_path_str = str(package_path)
+                    # Check if it's a directory (not a .py file) and add trailing slash
+                    if (
+                        (config_dir / package_path_str).exists()
+                        and (config_dir / package_path_str).is_dir()
+                        and not package_path_str.endswith(".py")
+                        and not package_path_str.endswith("/")
+                    ):
+                        # Add trailing slash for recursive directory matching
+                        package_path_str = f"{package_path_str}/"
+
+                    root, rel = _normalize_path_with_root(package_path_str, config_dir)
+                    auto_include = make_includeresolved(rel, root, "config")
+                    resolved_cfg["include"] = [auto_include]
+                    logger.trace(
+                        "[resolve_build_config] Auto-set include: %s (root: %s)",
+                        rel,
+                        root,
+                    )
 
     # ------------------------------
     # Attach provenance
