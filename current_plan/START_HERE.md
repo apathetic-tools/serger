@@ -15,6 +15,8 @@
 - Add unit tests for each section as we go
 - **Review at end of iteration** - document any clarifying questions before proceeding
 
-**Completed**: Iterations 01, 02, 03, 03.5, 04, 05, 06, 07, 08, 09, 10 ✓
+**Completed**: Iterations 01, 02, 03, 03.5, 04, 05, 06, 07, 08, 09, 10, 11 ✓
 
 **Iteration 10 Summary**: Integrated module_actions into stitch logic, replacing shim_mode processing. Actions are now generated from module_mode and combined with user actions, applied in scope order (original first, then shim). Fixed force_flat mode to properly flatten all intermediate levels by generating actions for all first components of multi-level module names.
+
+**Iteration 11 Summary**: Refined scope handling with proper validation timing and action ordering. Improved error messages to include scope information. Added integration tests for scope handling edge cases (incremental validation, mixed scopes, none mode with original scope). Verified that scope: "original" actions are validated upfront and scope: "shim" actions are validated incrementally.
