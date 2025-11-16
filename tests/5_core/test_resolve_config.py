@@ -132,3 +132,60 @@ def test_resolve_config_propagates_cli_log_level(
         assert resolved["log_level"].lower() == "trace"
         level = module_logger.level_name.lower()
         assert level.lower() == "trace"
+
+
+def test_resolve_config_duplicate_output_paths_raises_error(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Multiple builds with the same output path should raise ValueError."""
+    # --- setup ---
+    root: mod_types.RootConfig = {
+        "builds": [
+            make_build_input(include=["src1/**"], out="dist/out.py"),
+            make_build_input(include=["src2/**"], out="dist/out.py"),
+            make_build_input(include=["src3/**"], out="dist/other.py"),
+        ],
+    }
+    args = _args()
+
+    # --- execute ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(ValueError, match="Several builds have the same output path"),
+    ):
+        mod_resolve.resolve_config(root, args, tmp_path, tmp_path)
+
+
+def test_resolve_config_duplicate_output_paths_error_message(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Error message should list all duplicate output paths with build indices."""
+    # --- setup ---
+    root: mod_types.RootConfig = {
+        "builds": [
+            make_build_input(include=["src1/**"], out="dist/same.py"),
+            make_build_input(include=["src2/**"], out="dist/other.py"),
+            make_build_input(include=["src3/**"], out="dist/same.py"),
+            make_build_input(include=["src4/**"], out="dist/other.py"),
+        ],
+    }
+    args = _args()
+
+    # --- execute ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(
+            ValueError, match="Several builds have the same output path"
+        ) as exc_info,
+    ):
+        mod_resolve.resolve_config(root, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    error_msg = str(exc_info.value)
+    assert "Several builds have the same output path" in error_msg
+    assert "dist/other.py" in error_msg
+    assert "dist/same.py" in error_msg
+    assert "build #1" in error_msg or "build #2" in error_msg
+    assert "build #3" in error_msg or "build #4" in error_msg

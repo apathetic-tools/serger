@@ -22,7 +22,6 @@ from serger.constants import (
     DEFAULT_SHIM,
     DEFAULT_STITCH_MODE,
     DEFAULT_STRICT_CONFIG,
-    DEFAULT_USE_PYPROJECT,
     DEFAULT_WATCH_INTERVAL,
 )
 from serger.logs import get_app_logger
@@ -202,49 +201,45 @@ def _is_configless_build(root_cfg: RootConfig | None, num_builds: int) -> bool:
 def _should_use_pyproject(
     build_cfg: BuildConfig,
     root_cfg: RootConfig | None,
-    num_builds: int,
 ) -> bool:
     """Determine if pyproject.toml should be used for this build.
 
-    Pyproject.toml fallbacks only apply to single-build configs (not configless).
+    For configless builds, pyproject.toml is used by default (unless explicitly
+    disabled). For other builds, pyproject.toml is used if any of the following
+    are true:
+    - Root use_pyproject is True
+    - Root pyproject_path is explicitly set
+    - Build use_pyproject is True
+    - Build pyproject_path is explicitly set
 
     Args:
         build_cfg: Build config
         root_cfg: Root config (may be None)
-        num_builds: Number of builds in root config
 
     Returns:
         True if pyproject.toml should be used, False otherwise
     """
-    # Configless builds should not use pyproject.toml fallbacks
-    if _is_configless_build(root_cfg, num_builds):
-        return False
-
-    build_use_pyproject = build_cfg.get("use_pyproject")
     root_use_pyproject = (root_cfg or {}).get("use_pyproject")
+    root_pyproject_path = (root_cfg or {}).get("pyproject_path")
+    build_use_pyproject = build_cfg.get("use_pyproject")
     build_pyproject_path = build_cfg.get("pyproject_path")
 
-    # Determine if this build has opted in
-    build_opted_in = False
-    if isinstance(build_use_pyproject, bool):
-        build_opted_in = build_use_pyproject
-    elif build_pyproject_path:
-        # Specifying a path is an implicit opt-in
-        build_opted_in = True
+    # Check if this is a configless build
+    num_builds = len((root_cfg or {}).get("builds", []))
+    is_configless = _is_configless_build(root_cfg, num_builds)
 
-    if num_builds > 1:
-        # Multi-build: build must explicitly opt-in
-        return build_opted_in
+    # For configless builds, use pyproject by default unless explicitly disabled
+    if is_configless:
+        # Explicit disablement takes precedence
+        return not (build_use_pyproject is False or root_use_pyproject is False)
 
-    # Single build: use root/default settings unless build explicitly opts out
-    result = DEFAULT_USE_PYPROJECT
-    if isinstance(build_use_pyproject, bool):
-        result = build_use_pyproject
-    elif build_pyproject_path:
-        result = True
-    elif isinstance(root_use_pyproject, bool):
-        result = root_use_pyproject
-    return result
+    # For non-configless builds, require explicit enablement
+    return (
+        root_use_pyproject is True
+        or root_pyproject_path is not None
+        or build_use_pyproject is True
+        or build_pyproject_path is not None
+    )
 
 
 def _resolve_pyproject_path(
@@ -658,6 +653,9 @@ def _apply_metadata_fields(
 ) -> None:
     """Apply extracted metadata fields to resolved config.
 
+    Applies ALL fields from pyproject.toml when pyproject is enabled,
+    overwriting any existing values.
+
     Args:
         resolved_cfg: Mutable resolved config dict (modified in place)
         metadata: Extracted metadata
@@ -665,26 +663,24 @@ def _apply_metadata_fields(
     """
     logger = get_app_logger()
 
-    # Fill in missing fields (only if not already set in config)
-    if metadata.version and not resolved_cfg.get("version"):
+    # Apply all fields from pyproject.toml (overwrites existing values)
+    if metadata.version:
         # Note: version is not a build config field, but we'll store it
         # for use in build.py later
         resolved_cfg["_pyproject_version"] = metadata.version
 
-    if metadata.name and not resolved_cfg.get("display_name"):
+    if metadata.name:
         resolved_cfg["display_name"] = metadata.name
-
-    # Package fallback from pyproject.toml name (only for stitch builds)
-    if metadata.name and not resolved_cfg.get("package"):
+        # Package from pyproject.toml name
         resolved_cfg["package"] = metadata.name
 
-    if metadata.description and not resolved_cfg.get("description"):
+    if metadata.description:
         resolved_cfg["description"] = metadata.description
 
-    if metadata.authors and not resolved_cfg.get("authors"):
+    if metadata.authors:
         resolved_cfg["authors"] = metadata.authors
 
-    if metadata.license_text and not resolved_cfg.get("license_header"):
+    if metadata.license_text:
         resolved_cfg["license_header"] = metadata.license_text
 
     if metadata.has_any():
@@ -697,7 +693,6 @@ def _apply_pyproject_metadata(
     build_cfg: BuildConfig,
     root_cfg: RootConfig | None,
     config_dir: Path,
-    num_builds: int,
 ) -> None:
     """Extract and apply pyproject.toml metadata to resolved config.
 
@@ -709,9 +704,8 @@ def _apply_pyproject_metadata(
         build_cfg: Original build config
         root_cfg: Root config (may be None)
         config_dir: Config directory for path resolution
-        num_builds: Number of builds in the root config
     """
-    if not _should_use_pyproject(build_cfg, root_cfg, num_builds):
+    if not _should_use_pyproject(build_cfg, root_cfg):
         return
 
     pyproject_path = _resolve_pyproject_path(build_cfg, root_cfg, config_dir)
@@ -1471,13 +1465,11 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # ------------------------------
     # Pyproject.toml metadata
     # ------------------------------
-    num_builds = len((root_cfg or {}).get("builds", []))
     _apply_pyproject_metadata(
         resolved_cfg,
         build_cfg=build_cfg,
         root_cfg=root_cfg,
         config_dir=config_dir,
-        num_builds=num_builds,
     )
 
     # ------------------------------
@@ -1545,6 +1537,33 @@ def resolve_config(
     resolved_builds = [
         resolve_build_config(b, args, config_dir, cwd, root_cfg) for b in builds_input
     ]
+
+    # ------------------------------
+    # Validate duplicate output paths
+    # ------------------------------
+    out_to_build_indices: dict[str, list[int]] = {}
+    for idx, build in enumerate(resolved_builds, start=1):
+        out_path = str(build["out"]["path"])
+        if out_path not in out_to_build_indices:
+            out_to_build_indices[out_path] = []
+        out_to_build_indices[out_path].append(idx)
+
+    # Check for duplicates
+    duplicates = {
+        out_path: indices
+        for out_path, indices in out_to_build_indices.items()
+        if len(indices) > 1
+    }
+    if duplicates:
+        # Format error message with all duplicates
+        error_parts = []
+        for out_path, indices in sorted(duplicates.items()):
+            indices_str = ", ".join(f"build #{i}" for i in indices)
+            error_parts.append(f'  "{out_path}": {indices_str}')
+        error_msg = "Several builds have the same output path:\n" + "\n".join(
+            error_parts
+        )
+        raise ValueError(error_msg)
 
     resolved_root: RootConfigResolved = {
         "builds": resolved_builds,

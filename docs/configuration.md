@@ -38,15 +38,16 @@ For the Python format, see the [Config File Formats](/configuration-reference#co
 
 ## Pyproject.toml Integration
 
-For single-build configs (not configless builds), Serger can automatically extract metadata from `pyproject.toml`:
+Serger can automatically extract metadata from `pyproject.toml`:
 
-- `package` - from `[project] name`
-- `display_name` - from `[project] name`
-- `description` - from `[project] description`
-- `license_header` - from `[project] license`
-- `version` - from `[project] version` (stored as `_pyproject_version` for build metadata)
+- `package` - fallback from `[project] name`
+- `display_name` - fallback from `[project] name`
+- `description` - fallback from `[project] description`
+- `license_header` - fallback from `[project] license`
+- `authors` - fallback from `[project] authors`
+- `version` - fallback from `[project] version` (stored as `_pyproject_version` for build metadata)
 
-These fallbacks only apply when a config file is present (not for configless CLI-only builds). See the [Configuration Reference](/configuration-reference) for details.
+For configless builds, pyproject.toml is used by default. For builds with config files, use `use_pyproject: true` or set `pyproject_path` to enable. See the [Configuration Reference](/configuration-reference) for details.
 
 
 

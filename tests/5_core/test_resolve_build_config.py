@@ -518,11 +518,11 @@ def test_resolve_build_config_include_windows_drive_only(
 # ---------------------------------------------------------------------------
 
 
-def test_resolve_build_config_single_build_auto_uses_pyproject(
+def test_resolve_build_config_single_build_uses_pyproject_when_enabled(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Single build should automatically use pyproject.toml by default."""
+    """Single build should use pyproject.toml when explicitly enabled."""
     # --- setup ---
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
@@ -536,7 +536,7 @@ authors = [
 ]
 """
     )
-    raw = make_build_input(include=["src/**"])
+    raw = make_build_input(include=["src/**"], use_pyproject=True)
     root_cfg: mod_types.RootConfig = {"builds": [raw]}
     args = _args()
 
@@ -703,7 +703,7 @@ def test_resolve_build_config_path_resolution_root_level(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Root-level pyproject_path should be used when build opts in."""
+    """Root-level pyproject_path should enable pyproject for builds."""
     # --- setup ---
     root_pyproject = tmp_path / "root.toml"
     root_pyproject.write_text(
@@ -712,7 +712,7 @@ name = "root-package"
 version = "3.0.0"
 """
     )
-    raw = make_build_input(include=["src/**"], use_pyproject=True)
+    raw = make_build_input(include=["src/**"])
     root_cfg: mod_types.RootConfig = {"builds": [raw], "pyproject_path": "root.toml"}
     args = _args()
 
@@ -727,11 +727,52 @@ version = "3.0.0"
     assert resolved.get("_pyproject_version") == "3.0.0"
 
 
-def test_resolve_build_config_does_not_override_explicit_fields(
+def test_resolve_build_config_root_use_pyproject_enables_for_all_builds(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Should not override explicitly set fields in config."""
+    """Root-level use_pyproject=True should enable pyproject for all builds."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+version = "1.2.3"
+description = "A test package"
+"""
+    )
+    raw1 = make_build_input(include=["src1/**"])
+    raw2 = make_build_input(include=["src2/**"])
+    root_cfg: mod_types.RootConfig = {
+        "builds": [raw1, raw2],
+        "use_pyproject": True,
+    }
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved1 = mod_resolve.resolve_build_config(
+            raw1, args, tmp_path, tmp_path, root_cfg
+        )
+        resolved2 = mod_resolve.resolve_build_config(
+            raw2, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    # Both builds should get pyproject metadata
+    assert resolved1.get("display_name") == "test-package"
+    assert resolved1.get("package") == "test-package"
+    assert resolved1.get("_pyproject_version") == "1.2.3"
+    assert resolved2.get("display_name") == "test-package"
+    assert resolved2.get("package") == "test-package"
+    assert resolved2.get("_pyproject_version") == "1.2.3"
+
+
+def test_resolve_build_config_overrides_explicit_fields_when_pyproject_enabled(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Should override explicitly set fields when pyproject is enabled."""
     # --- setup ---
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
@@ -750,6 +791,7 @@ authors = [
         display_name="config-name",
         description="config description",
         authors="Config Author <config@example.com>",
+        use_pyproject=True,
     )
     root_cfg: mod_types.RootConfig = {"builds": [raw]}
     args = _args()
@@ -761,19 +803,20 @@ authors = [
         )
 
     # --- validate ---
-    # Explicitly set fields should not be overridden
-    assert resolved.get("display_name") == "config-name"
-    assert resolved.get("description") == "config description"
-    assert resolved.get("authors") == "Config Author <config@example.com>"
-    # But version should still be extracted (stored as _pyproject_version)
+    # When pyproject is enabled, all fields are overwritten
+    assert resolved.get("display_name") == "pyproject-name"
+    assert resolved.get("package") == "pyproject-name"
+    assert resolved.get("description") == "pyproject description"
+    assert resolved.get("authors") == "Pyproject Author <pyproject@example.com>"
+    assert resolved.get("license_header") == "MIT"
     assert resolved.get("_pyproject_version") == "1.0.0"
 
 
-def test_resolve_build_config_configless_does_not_use_pyproject(
+def test_resolve_build_config_configless_uses_pyproject_by_default(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Configless builds should not use pyproject.toml fallbacks."""
+    """Configless builds should use pyproject.toml by default."""
     # --- setup ---
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
@@ -782,6 +825,9 @@ name = "test-package"
 version = "1.2.3"
 description = "A test package"
 license = "MIT"
+authors = [
+    {name = "Test Author", email = "test@example.com"}
+]
 """
     )
     raw = make_build_input(include=["src/**"])
@@ -796,7 +842,43 @@ license = "MIT"
         )
 
     # --- validate ---
-    # Configless builds should not extract pyproject.toml metadata
+    # Configless builds should extract pyproject.toml metadata by default
+    assert resolved.get("display_name") == "test-package"
+    assert resolved.get("package") == "test-package"
+    assert resolved.get("description") == "A test package"
+    assert resolved.get("license_header") == "MIT"
+    assert resolved.get("authors") == "Test Author <test@example.com>"
+    assert resolved.get("_pyproject_version") == "1.2.3"
+
+
+def test_resolve_build_config_configless_can_disable_pyproject(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Configless builds can explicitly disable pyproject.toml."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+version = "1.2.3"
+description = "A test package"
+license = "MIT"
+"""
+    )
+    raw = make_build_input(include=["src/**"], use_pyproject=False)
+    # Configless build: minimal root_cfg with only builds
+    root_cfg: mod_types.RootConfig = {"builds": [{}]}
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(
+            raw, args, tmp_path, tmp_path, root_cfg
+        )
+
+    # --- validate ---
+    # Configless builds should not extract pyproject.toml metadata when disabled
     assert resolved.get("display_name") != "test-package"
     assert resolved.get("package") != "test-package"
     assert resolved.get("description") != "A test package"
@@ -804,11 +886,11 @@ license = "MIT"
     assert "_pyproject_version" not in resolved
 
 
-def test_resolve_build_config_package_fallback_from_pyproject(
+def test_resolve_build_config_package_from_pyproject_when_enabled(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Package should fallback to pyproject.toml name for single-build configs."""
+    """Package extracted from pyproject.toml name when pyproject enabled."""
     # --- setup ---
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
@@ -817,8 +899,8 @@ name = "my-package"
 version = "1.0.0"
 """
     )
-    # Build config without package field
-    raw = make_build_input(include=["src/**"])
+    # Build config without package field, but with pyproject enabled
+    raw = make_build_input(include=["src/**"], use_pyproject=True)
     root_cfg: mod_types.RootConfig = {"builds": [raw]}
     args = _args()
 
@@ -843,7 +925,7 @@ def test_resolve_build_config_authors_from_pyproject(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Authors should be extracted from pyproject.toml when available."""
+    """Authors should be extracted from pyproject.toml when pyproject is enabled."""
     # --- setup ---
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
@@ -855,7 +937,7 @@ authors = [
 ]
 """
     )
-    raw = make_build_input(include=["src/**"])
+    raw = make_build_input(include=["src/**"], use_pyproject=True)
     root_cfg: mod_types.RootConfig = {"builds": [raw]}
     args = _args()
 
@@ -946,11 +1028,11 @@ def test_resolve_build_config_authors_multi_build_cascades(
     assert resolved2.get("authors") == "Root Author <root@example.com>"
 
 
-def test_resolve_build_config_authors_pyproject_fallback_after_cascade(
+def test_resolve_build_config_authors_from_pyproject_when_enabled(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Authors should fallback to pyproject.toml if not in config or root."""
+    """Authors should be extracted from pyproject.toml when pyproject is enabled."""
     # --- setup ---
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
@@ -961,7 +1043,7 @@ authors = [
 ]
 """
     )
-    raw = make_build_input(include=["src/**"])
+    raw = make_build_input(include=["src/**"], use_pyproject=True)
     root_cfg: mod_types.RootConfig = {"builds": [raw]}
     args = _args()
 
@@ -972,15 +1054,15 @@ authors = [
         )
 
     # --- validate ---
-    # Should fallback to pyproject.toml authors
+    # Should use pyproject.toml authors when enabled
     assert resolved.get("authors") == "Pyproject Author <pyproject@example.com>"
 
 
-def test_resolve_build_config_authors_root_overrides_pyproject(
+def test_resolve_build_config_authors_root_used_when_pyproject_not_enabled(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Root-level authors should take precedence over pyproject.toml."""
+    """Root-level authors should be used when pyproject is not enabled."""
     # --- setup ---
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
@@ -1005,7 +1087,7 @@ authors = [
         )
 
     # --- validate ---
-    # Root-level should take precedence
+    # Root-level authors should be used when pyproject is not enabled
     assert resolved.get("authors") == "Root Author <root@example.com>"
 
 

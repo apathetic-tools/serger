@@ -84,8 +84,8 @@ These options apply globally and can cascade into individual builds:
 | `respect_gitignore` | `bool` | `true` | Whether to respect `.gitignore` when selecting files |
 | `strict_config` | `bool` | `true` | Whether to error on missing include patterns |
 | `watch_interval` | `float` | `1.0` | File watch interval in seconds (for `--watch` mode) |
-| `use_pyproject` | `bool` | `true` | Whether to pull metadata from `pyproject.toml` |
-| `pyproject_path` | `str` | - | Path to `pyproject.toml` (fallback for single builds) |
+| `use_pyproject` | `bool` | - | Whether to pull metadata from `pyproject.toml`. For configless builds, defaults to `true`. For builds with config files, must be explicitly set to `true` or `pyproject_path` must be set. |
+| `pyproject_path` | `str` | - | Path to `pyproject.toml` (relative to config directory). Setting this implicitly enables pyproject.toml usage. |
 | `internal_imports` | `str` | `"force_strip"` | How to handle internal package imports (see [Import Handling](#import-handling)) |
 | `external_imports` | `str` | `"top"` | How to handle external imports (see [Import Handling](#import-handling)) |
 | `stitch_mode` | `str` | `"raw"` | How to combine modules into a single file (see [Stitch Modes](#stitch-modes)) |
@@ -101,14 +101,17 @@ Each build in the `builds` array can specify:
 
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
-| `package` | `str` | Yes✝ | Package name (used for import shims) |
+| `package` | `str` | Yes✝ | Package name (used for import shims). Fallback from `pyproject.toml` `[project] name`. |
 | `include` | `list[str]` | Yes* | Glob patterns for files to include |
 | `exclude` | `list[str]` | No | Glob patterns for files to exclude |
 | `out` | `str` | Yes* | Output file path (relative to project root) |
-| `display_name` | `str` | No✝ | Display name for generated header |
-| `description` | `str` | No✝ | Description for generated header |
+| `display_name` | `str` | No✝ | Display name for generated header. Fallback from `pyproject.toml` `[project] name`. |
+| `description` | `str` | No✝ | Description for generated header. Fallback from `pyproject.toml` `[project] description`. |
 | `repo` | `str` | No | Repository URL for generated header |
-| `license_header` | `str` | No✝ | License text for generated header |
+| `license_header` | `str` | No✝ | License text for generated header. Fallback from `pyproject.toml` `[project] license`. |
+| `authors` | `str` | No✝ | Authors for generated header. Fallback from `pyproject.toml` `[project] authors`. |
+| `use_pyproject` | `bool` | No | Whether to pull metadata from `pyproject.toml`. For configless builds, defaults to `true`. For builds with config files, must be explicitly set to `true` or `pyproject_path` must be set. |
+| `pyproject_path` | `str` | No | Path to `pyproject.toml` (relative to config directory). Setting this implicitly enables pyproject.toml usage. |
 | `strict_config` | `bool` | No | Override root-level `strict_config` for this build |
 | `internal_imports` | `str` | No | Override root-level `internal_imports` for this build |
 | `external_imports` | `str` | No | Override root-level `external_imports` for this build |
@@ -121,7 +124,7 @@ Each build in the `builds` array can specify:
 
 \* Required unless provided via CLI arguments. 
 
-\✝ Can be infered from `pyproject.toml` file in single-build configs.
+\✝ Can fallback from `pyproject.toml` when pyproject.toml is enabled.
 
 ## Include and Exclude Patterns
 
