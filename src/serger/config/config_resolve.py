@@ -16,6 +16,8 @@ from serger.constants import (
     DEFAULT_ENV_WATCH_INTERVAL,
     DEFAULT_EXTERNAL_IMPORTS,
     DEFAULT_INTERNAL_IMPORTS,
+    DEFAULT_MAIN_MODE,
+    DEFAULT_MAIN_NAME,
     DEFAULT_MODULE_BASES,
     DEFAULT_MODULE_MODE,
     DEFAULT_OUT_DIR,
@@ -33,6 +35,7 @@ from serger.utils.utils_validation import validate_required_keys
 
 from .config_types import (
     IncludeResolved,
+    MainMode,
     MetaBuildConfigResolved,
     ModuleActionAffects,
     ModuleActionCleanup,
@@ -1532,6 +1535,31 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
         )
     else:
         resolved_cfg["module_bases"] = DEFAULT_MODULE_BASES
+
+    # ------------------------------
+    # Main mode
+    # ------------------------------
+    valid_main_mode_values = literal_to_set(MainMode)
+    if "main_mode" in resolved_cfg:
+        main_mode_val = resolved_cfg["main_mode"]
+        # Validate value
+        if main_mode_val not in valid_main_mode_values:
+            valid_str = ", ".join(repr(v) for v in sorted(valid_main_mode_values))
+            msg = (
+                f"Invalid main_mode value: {main_mode_val!r}. "
+                f"Must be one of: {valid_str}"
+            )
+            raise ValueError(msg)
+    else:
+        resolved_cfg["main_mode"] = DEFAULT_MAIN_MODE
+
+    # ------------------------------
+    # Main name
+    # ------------------------------
+    if "main_name" not in resolved_cfg:
+        resolved_cfg["main_name"] = DEFAULT_MAIN_NAME
+    # Note: main_name can be None or a string, no validation needed here
+    # (validation happens during parsing in later phases)
 
     # ------------------------------
     # Post-processing

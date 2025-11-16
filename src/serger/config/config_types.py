@@ -17,6 +17,7 @@ ModuleMode = Literal[
     "none", "multi", "force", "force_flat", "unify", "unify_preserve", "flat"
 ]
 ShimSetting = Literal["all", "public", "none"]
+MainMode = Literal["none", "auto"]
 # Module actions configuration types
 ModuleActionType = Literal["move", "copy", "delete", "none"]
 ModuleActionMode = Literal["preserve", "flatten"]
@@ -191,6 +192,14 @@ class BuildConfig(TypedDict, total=False):
     # - str: Single directory (convenience, converted to list[str] on resolve)
     # - list[str]: Ordered list of directories (default: ["src"])
     module_bases: str | list[str]
+    # Main function configuration
+    # - "none": Don't generate __main__ block
+    # - "auto": Automatically detect and generate __main__ block (default)
+    main_mode: NotRequired[MainMode]
+    # Main function name specification
+    # - None: Auto-detect main function (default)
+    # - str: Explicit main function specification (see docs for syntax)
+    main_name: NotRequired[str | None]
 
 
 class RootConfig(TypedDict, total=False):
@@ -314,6 +323,10 @@ class BuildConfigResolved(TypedDict):
     # Module bases: ordered list of directories where packages can be found
     # (always present, resolved to list[str])
     module_bases: list[str]
+    # Main function configuration (always present, resolved with defaults)
+    main_mode: MainMode
+    # Main function name specification (always present, resolved with defaults)
+    main_name: str | None
 
 
 class RootConfigResolved(TypedDict):
@@ -361,3 +374,7 @@ class RootConfigResolved(TypedDict):
     # Module bases: ordered list of directories where packages can be found
     # (always present, resolved to list[str])
     module_bases: list[str]
+    # Main function configuration (always present, resolved with defaults)
+    main_mode: MainMode
+    # Main function name specification (always present, resolved with defaults)
+    main_name: str | None

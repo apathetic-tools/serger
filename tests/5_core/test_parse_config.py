@@ -96,3 +96,51 @@ def test_parse_config_rejects_invalid_root_type() -> None:
     msg = str(excinfo.value)
     assert "Invalid top-level value" in msg
     assert "expected object" in msg
+
+
+def test_parse_config_preserves_main_mode() -> None:
+    """main_mode should be preserved in parsed config."""
+    # --- setup ---
+    data: dict[str, Any] = {
+        "include": ["src"],
+        "main_mode": "none",
+    }
+
+    # --- execute ---
+    result = mod_config_loader.parse_config(data)
+
+    # --- verify ---
+    assert result is not None
+    assert result["main_mode"] == "none"
+
+
+def test_parse_config_preserves_main_name() -> None:
+    """main_name should be preserved in parsed config."""
+    # --- setup ---
+    data: dict[str, Any] = {
+        "include": ["src"],
+        "main_name": "mypkg.main",
+    }
+
+    # --- execute ---
+    result = mod_config_loader.parse_config(data)
+
+    # --- verify ---
+    assert result is not None
+    assert result["main_name"] == "mypkg.main"
+
+
+def test_parse_config_preserves_main_name_none() -> None:
+    """main_name=None should be preserved in parsed config."""
+    # --- setup ---
+    data: dict[str, Any] = {
+        "include": ["src"],
+        "main_name": None,
+    }
+
+    # --- execute ---
+    result = mod_config_loader.parse_config(data)
+
+    # --- verify ---
+    assert result is not None
+    assert result["main_name"] is None

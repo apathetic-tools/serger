@@ -2708,3 +2708,111 @@ def test_resolve_build_config_auto_include_works_with_pyproject_package(
     assert inc["path"] == "src/mypkg/"
     assert inc["origin"] == "config"
     assert resolved.get("package") == "mypkg"
+
+
+def test_resolve_build_config_main_mode_default_value(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """main_mode should default to 'auto' if not specified."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved["main_mode"] == "auto"
+
+
+def test_resolve_build_config_main_mode_from_config(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """main_mode from config should be used."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"], main_mode="none")
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved["main_mode"] == "none"
+
+
+def test_resolve_build_config_main_mode_invalid_value(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Invalid main_mode value should raise ValueError."""
+    # --- setup ---
+    raw: mod_types.RootConfig = {
+        "include": ["src/**"],
+        "main_mode": "invalid",  # type: ignore[typeddict-unknown-key]
+    }
+    args = _args()
+
+    # --- execute & validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(ValueError, match="Invalid main_mode value"),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+
+def test_resolve_build_config_main_name_default_value(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """main_name should default to None if not specified."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved["main_name"] is None
+
+
+def test_resolve_build_config_main_name_from_config(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """main_name from config should be used."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"], main_name="mypkg.main")
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved["main_name"] == "mypkg.main"
+
+
+def test_resolve_build_config_main_name_none_explicit(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Explicit main_name=None should be preserved."""
+    # --- setup ---
+    raw: mod_types.RootConfig = {
+        "include": ["src/**"],
+        "main_name": None,  # type: ignore[typeddict-unknown-key]
+    }
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved["main_name"] is None

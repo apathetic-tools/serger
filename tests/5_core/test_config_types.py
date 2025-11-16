@@ -164,6 +164,8 @@ def test_build_config_resolved_has_module_actions(tmp_path: Path) -> None:
             "categories": {},
         },
         "module_actions": [{"source": "old", "dest": "new"}],
+        "main_mode": "auto",
+        "main_name": None,
     }
     assert "module_actions" in resolved_cfg
     assert isinstance(resolved_cfg["module_actions"], list)

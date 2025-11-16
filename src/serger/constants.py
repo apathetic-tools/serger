@@ -63,6 +63,8 @@ DEFAULT_SHIM: str = "all"  # Generate shims for all modules (default shim settin
 DEFAULT_COMMENTS_MODE: str = "keep"  # Keep all comments (default comments mode)
 DEFAULT_DOCSTRING_MODE: str = "keep"  # Keep all docstrings (default docstring mode)
 DEFAULT_MODULE_BASES: list[str] = ["src"]  # Default directories to search for packages
+DEFAULT_MAIN_MODE: str = "auto"  # Automatically detect and generate __main__ block
+DEFAULT_MAIN_NAME: str | None = None  # Auto-detect main function (default)
 
 # --- post-processing defaults ---
 DEFAULT_CATEGORY_ORDER: list[str] = ["static_checker", "formatter", "import_sorter"]
