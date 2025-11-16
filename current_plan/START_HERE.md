@@ -1,6 +1,6 @@
 # Start Here: Module Actions Implementation
 
-**Next iteration**: Iteration 11 - `current_plan/11_<next_iteration>.md`
+**Next iteration**: Iteration 12 - `current_plan/12_add_affects_and_cleanup_handling.md`
 
 **Context**:
 - See `current_plan/00_overview.md` for overall strategy and principles

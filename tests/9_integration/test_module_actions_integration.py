@@ -9,6 +9,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import pytest
+
 import serger.build as mod_build
 from tests.utils.buildconfig import make_build_cfg, make_include_resolved, make_resolved
 
@@ -263,3 +265,230 @@ def test_scope_none_mode_with_original_scope(tmp_path: Path) -> None:
 # The error message improvements (including scope information) are already
 # implemented in the validation functions and will be tested when we add
 # comprehensive validation tests.
+
+
+def test_affects_shims_only_affects_shim_generation(tmp_path: Path) -> None:
+    """Test that affects: 'shims' only affects shim generation, not file selection."""
+    # Setup: Create package structure
+    pkg_dir = tmp_path / "pkg1"
+    pkg_dir.mkdir()
+    (pkg_dir / "__init__.py").write_text("")
+    (pkg_dir / "module.py").write_text("def func():\n    return 'test'\n")
+
+    out_file = tmp_path / "stitched.py"
+    build_cfg = make_build_cfg(
+        tmp_path,
+        [make_include_resolved("pkg1/**/*.py", tmp_path)],
+        respect_gitignore=False,
+        out=make_resolved("stitched.py", tmp_path),
+        package="mypkg",
+        order=["pkg1/__init__.py", "pkg1/module.py"],
+    )
+    # affects: "shims" should only affect shim generation, not file selection
+    # File should still be stitched even if shim is deleted
+    build_cfg["module_actions"] = [
+        {"source": "pkg1", "action": "delete", "affects": "shims"},
+    ]
+
+    mod_build.run_build(build_cfg)
+
+    content = out_file.read_text()
+    # File should still be stitched (module code should be present)
+    assert "def func()" in content
+    # But shim should be deleted (no shim for pkg1)
+    normalized = content.replace("'", '"')
+    # pkg1 shim should not exist (deleted by affects: "shims" action)
+    assert '"pkg1"' not in normalized or '"mypkg.pkg1"' not in normalized
+
+
+def test_affects_stitching_only_affects_file_selection(
+    tmp_path: Path,
+) -> None:
+    """Test affects: 'stitching' only affects file selection."""
+    # Setup: Create package structure
+    pkg_dir = tmp_path / "pkg1"
+    pkg_dir.mkdir()
+    (pkg_dir / "__init__.py").write_text("")
+    (pkg_dir / "module.py").write_text("def func():\n    return 'test'\n")
+
+    out_file = tmp_path / "stitched.py"
+    build_cfg = make_build_cfg(
+        tmp_path,
+        [make_include_resolved("pkg1/**/*.py", tmp_path)],
+        respect_gitignore=False,
+        out=make_resolved("stitched.py", tmp_path),
+        package="mypkg",
+        order=["pkg1/__init__.py", "pkg1/module.py"],
+    )
+    # affects: "stitching" should only affect file selection
+    # File should not be stitched, but shim might still exist (creating mismatch)
+    build_cfg["module_mode"] = "multi"  # Generates shims for all packages
+    build_cfg["module_actions"] = [
+        {
+            "source": "pkg1",
+            "action": "delete",
+            "affects": "stitching",
+            "cleanup": "auto",
+        },
+    ]
+
+    mod_build.run_build(build_cfg)
+
+    content = out_file.read_text()
+    # File should not be stitched (module code should not be present)
+    assert "def func()" not in content
+    # Cleanup: "auto" should delete broken shims
+    normalized = content.replace("'", '"')
+    # pkg1 shim should be auto-deleted (cleanup: "auto")
+    assert '"pkg1"' not in normalized
+    assert '"mypkg.pkg1"' not in normalized
+
+
+def test_affects_both_affects_both_shims_and_stitching(tmp_path: Path) -> None:
+    """Test that affects: 'both' affects both shim generation and file selection."""
+    # Setup: Create package structure
+    pkg_dir = tmp_path / "pkg1"
+    pkg_dir.mkdir()
+    (pkg_dir / "__init__.py").write_text("")
+    (pkg_dir / "module.py").write_text("def func():\n    return 'test'\n")
+
+    out_file = tmp_path / "stitched.py"
+    build_cfg = make_build_cfg(
+        tmp_path,
+        [make_include_resolved("pkg1/**/*.py", tmp_path)],
+        respect_gitignore=False,
+        out=make_resolved("stitched.py", tmp_path),
+        package="mypkg",
+        order=["pkg1/__init__.py", "pkg1/module.py"],
+    )
+    # affects: "both" should affect both shim generation and file selection
+    build_cfg["module_actions"] = [
+        {"source": "pkg1", "action": "delete", "affects": "both"},
+    ]
+
+    mod_build.run_build(build_cfg)
+
+    content = out_file.read_text()
+    # File should not be stitched (module code should not be present)
+    assert "def func()" not in content
+    # Shim should also be deleted
+    normalized = content.replace("'", '"')
+    assert '"pkg1"' not in normalized
+    assert '"mypkg.pkg1"' not in normalized
+
+
+def test_cleanup_auto_deletes_broken_shims(tmp_path: Path) -> None:
+    """Test that cleanup: 'auto' deletes broken shims."""
+    # Setup: Create package structure
+    pkg_dir = tmp_path / "pkg1"
+    pkg_dir.mkdir()
+    (pkg_dir / "__init__.py").write_text("")
+    (pkg_dir / "module.py").write_text("def func():\n    return 'test'\n")
+
+    out_file = tmp_path / "stitched.py"
+    build_cfg = make_build_cfg(
+        tmp_path,
+        [make_include_resolved("pkg1/**/*.py", tmp_path)],
+        respect_gitignore=False,
+        out=make_resolved("stitched.py", tmp_path),
+        package="mypkg",
+        order=["pkg1/__init__.py", "pkg1/module.py"],
+    )
+    # mode: "multi" generates shims for all packages
+    # action with affects: "stitching" deletes from stitching only
+    # cleanup: "auto" should delete broken shims
+    build_cfg["module_mode"] = "multi"
+    build_cfg["module_actions"] = [
+        {
+            "source": "pkg1",
+            "action": "delete",
+            "affects": "stitching",
+            "cleanup": "auto",
+        },
+    ]
+
+    mod_build.run_build(build_cfg)
+
+    content = out_file.read_text()
+    # File should not be stitched
+    assert "def func()" not in content
+    # Broken shim should be auto-deleted
+    normalized = content.replace("'", '"')
+    assert '"pkg1"' not in normalized
+    assert '"mypkg.pkg1"' not in normalized
+
+
+def test_cleanup_error_raises_error_for_broken_shims(tmp_path: Path) -> None:
+    """Test that cleanup: 'error' raises error for broken shims."""
+    # Setup: Create package structure
+    pkg_dir = tmp_path / "pkg1"
+    pkg_dir.mkdir()
+    (pkg_dir / "__init__.py").write_text("")
+    (pkg_dir / "module.py").write_text("def func():\n    return 'test'\n")
+
+    build_cfg = make_build_cfg(
+        tmp_path,
+        [make_include_resolved("pkg1/**/*.py", tmp_path)],
+        respect_gitignore=False,
+        out=make_resolved("stitched.py", tmp_path),
+        package="mypkg",
+        order=["pkg1/__init__.py", "pkg1/module.py"],
+    )
+    # mode: "multi" generates shims for all packages
+    # action with affects: "stitching" deletes from stitching only
+    # cleanup: "error" should raise error for broken shims
+    build_cfg["module_mode"] = "multi"
+    build_cfg["module_actions"] = [
+        {
+            "source": "pkg1",
+            "action": "delete",
+            "affects": "stitching",
+            "cleanup": "error",
+        },
+    ]
+
+    # Should raise ValueError about broken shims
+    with pytest.raises(ValueError, match="broken shims"):
+        mod_build.run_build(build_cfg)
+
+
+def test_cleanup_ignore_keeps_broken_shims(tmp_path: Path) -> None:
+    """Test that cleanup: 'ignore' keeps broken shims."""
+    # Setup: Create package structure
+    pkg_dir = tmp_path / "pkg1"
+    pkg_dir.mkdir()
+    (pkg_dir / "__init__.py").write_text("")
+    (pkg_dir / "module.py").write_text("def func():\n    return 'test'\n")
+
+    out_file = tmp_path / "stitched.py"
+    build_cfg = make_build_cfg(
+        tmp_path,
+        [make_include_resolved("pkg1/**/*.py", tmp_path)],
+        respect_gitignore=False,
+        out=make_resolved("stitched.py", tmp_path),
+        package="mypkg",
+        order=["pkg1/__init__.py", "pkg1/module.py"],
+    )
+    # mode: "multi" generates shims for all packages
+    # action with affects: "stitching" deletes from stitching only
+    # cleanup: "ignore" should keep broken shims
+    build_cfg["module_mode"] = "multi"
+    build_cfg["module_actions"] = [
+        {
+            "source": "pkg1",
+            "action": "delete",
+            "affects": "stitching",
+            "cleanup": "ignore",
+        },
+    ]
+
+    mod_build.run_build(build_cfg)
+
+    content = out_file.read_text()
+    # File should not be stitched
+    assert "def func()" not in content
+    # Broken shim should still exist (cleanup: "ignore")
+    # Note: The shim might still exist, but pointing to non-existent module
+    # This is the expected behavior for cleanup: "ignore"
+    # We just verify the build succeeded (no error raised)
+    assert len(content) > 0

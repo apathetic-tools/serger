@@ -2,6 +2,8 @@
 
 from typing import TYPE_CHECKING
 
+from serger.logs import get_app_logger
+
 
 if TYPE_CHECKING:
     from serger.config.config_types import (
@@ -777,3 +779,177 @@ def generate_actions_from_mode(
         f"'unify', 'unify_preserve', 'flat'"
     )
     raise ValueError(msg)
+
+
+def separate_actions_by_affects(
+    actions: list["ModuleActionFull"],
+) -> tuple[
+    list["ModuleActionFull"], list["ModuleActionFull"], list["ModuleActionFull"]
+]:
+    """Separate actions by affects value.
+
+    Args:
+        actions: List of actions to separate
+
+    Returns:
+        Tuple of (shims_only_actions, stitching_only_actions, both_actions)
+    """
+    shims_only: list[ModuleActionFull] = []
+    stitching_only: list[ModuleActionFull] = []
+    both: list[ModuleActionFull] = []
+
+    for action in actions:
+        affects = action.get("affects", "shims")
+        if affects == "shims":
+            shims_only.append(action)
+        elif affects == "stitching":
+            stitching_only.append(action)
+        elif affects == "both":
+            both.append(action)
+        else:
+            # Default to shims for backward compatibility
+            shims_only.append(action)
+
+    return shims_only, stitching_only, both
+
+
+def get_deleted_modules_from_actions(
+    actions: list["ModuleActionFull"],
+    initial_modules: list[str],
+    _detected_packages: set[str],
+) -> set[str]:
+    """Get set of modules that are deleted by actions.
+
+    Applies delete actions to determine which modules are removed.
+
+    Args:
+        actions: List of actions to apply
+        initial_modules: Initial list of module names
+        detected_packages: Set of detected package names (for context)
+
+    Returns:
+        Set of module names that are deleted
+    """
+    # Start with all initial modules
+    current_modules = set(initial_modules)
+
+    # Apply delete actions to track what gets deleted
+    for action in actions:
+        action_type = action.get("action", "move")
+        if action_type == "delete":
+            source = action["source"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+            # Remove source and all submodules
+            to_remove: set[str] = set()
+            for mod in current_modules:
+                if mod == source or mod.startswith(f"{source}."):
+                    to_remove.add(mod)
+            current_modules -= to_remove
+
+    # Return the difference (what was deleted)
+    initial_set = set(initial_modules)
+    return initial_set - current_modules
+
+
+def check_shim_stitching_mismatches(
+    shim_modules: set[str],
+    stitched_modules: set[str],
+    actions: list["ModuleActionFull"],
+) -> list[tuple["ModuleActionFull", set[str]]]:
+    """Check for shims pointing to modules deleted from stitching.
+
+    Args:
+        shim_modules: Set of module names that have shims
+        stitched_modules: Set of module names that are in stitched code
+        actions: List of actions that were applied
+
+    Returns:
+        List of tuples (action, broken_shims) where broken_shims is the set
+        of shim module names that point to deleted modules
+    """
+    mismatches: list[tuple[ModuleActionFull, set[str]]] = []
+
+    # Find modules that have shims but are not in stitched code
+    broken_shims = shim_modules - stitched_modules
+
+    if not broken_shims:
+        return mismatches
+
+    # For each action, check if it could have caused the mismatch
+    # (i.e., if it deleted from stitching but not from shims)
+    for action in actions:
+        affects = action.get("affects", "shims")
+        action_type = action.get("action", "move")
+
+        # Only actions that affect stitching (but not shims) can cause mismatches
+        if affects in ("stitching", "both") and action_type == "delete":
+            source = action["source"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+            # Check if any broken shims match this action's source
+            action_broken_shims: set[str] = set()
+            for broken_shim in broken_shims:
+                # Check if broken shim matches source or is a submodule
+                if broken_shim == source or broken_shim.startswith(f"{source}."):
+                    action_broken_shims.add(broken_shim)
+
+            if action_broken_shims:
+                mismatches.append((action, action_broken_shims))
+
+    return mismatches
+
+
+def apply_cleanup_behavior(
+    mismatches: list[tuple["ModuleActionFull", set[str]]],
+    shim_modules: set[str],
+) -> tuple[set[str], list[str]]:
+    """Apply cleanup behavior for shim-stitching mismatches.
+
+    Args:
+        mismatches: List of tuples (action, broken_shims) from
+            check_shim_stitching_mismatches
+        shim_modules: Set of all shim module names (will be modified)
+
+    Returns:
+        Tuple of (updated_shim_modules, warnings) where warnings is a list
+        of warning messages
+
+    Raises:
+        ValueError: If cleanup: "error" and mismatches exist
+    """
+    logger = get_app_logger()
+    warnings: list[str] = []
+    shims_to_remove: set[str] = set()
+
+    for action, broken_shims in mismatches:
+        cleanup = action.get("cleanup", "auto")
+        source = action["source"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+
+        if cleanup == "error":
+            # Raise error with clear message
+            broken_list = sorted(broken_shims)
+            affects_val = action.get("affects", "shims")
+            msg = (
+                f"Module action on '{source}' with affects='{affects_val}' "
+                f"and cleanup='error' created broken shims pointing to "
+                f"deleted modules: {', '.join(broken_list)}"
+            )
+            raise ValueError(msg)
+
+        if cleanup == "auto":
+            # Auto-delete broken shims
+            shims_to_remove.update(broken_shims)
+            if broken_shims:
+                broken_list = sorted(broken_shims)
+                warning_msg = (
+                    f"Auto-deleting broken shims for action on '{source}': "
+                    f"{', '.join(broken_list)}"
+                )
+                warnings.append(warning_msg)
+                logger.warning(warning_msg)
+
+        elif cleanup == "ignore":
+            # Keep broken shims (no action)
+            pass
+
+    # Remove broken shims
+    updated_shims = shim_modules - shims_to_remove
+
+    return updated_shims, warnings
