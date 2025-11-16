@@ -1078,6 +1078,107 @@ def _normalize_path_with_root(
 # --------------------------------------------------------------------------- #
 
 
+def _get_first_level_modules_from_base(
+    base_str: str,
+    config_dir: Path,
+) -> list[str]:
+    """Get first-level module/package names from a single module_base directory.
+
+    Scans only the immediate children of the module_base directory (not
+    recursive). Returns a sorted list of package/module names.
+
+    Package detection logic:
+    - Directories with __init__.py are definitely packages (standard Python)
+    - Directories in module_bases are also considered packages (namespace
+      packages, mimics modern Python behavior)
+    - .py files at first level are modules
+
+    Args:
+        base_str: Module base directory path (relative or absolute)
+        config_dir: Config directory for resolving relative paths
+
+    Returns:
+        Sorted list of first-level module/package names found in the base
+    """
+    logger = get_app_logger()
+    modules: list[str] = []
+
+    # Resolve base path relative to config_dir
+    base_path = (config_dir / base_str).resolve()
+
+    if not base_path.exists() or not base_path.is_dir():
+        logger.trace(
+            "[get_first_level_modules] Skipping non-existent base: %s", base_path
+        )
+        return modules
+
+    # Get immediate children (first level only, not recursive)
+    try:
+        for item in sorted(base_path.iterdir()):
+            if item.is_dir():
+                # Check if directory has __init__.py (definitive package marker)
+                has_init = (item / "__init__.py").exists()
+                if has_init:
+                    # Standard Python package (has __init__.py)
+                    modules.append(item.name)
+                    logger.trace(
+                        "[get_first_level_modules] Found package (with __init__.py): "
+                        "%s in %s",
+                        item.name,
+                        base_path,
+                    )
+                else:
+                    # Directory in module_bases is considered a package
+                    # (namespace package, mimics modern Python)
+                    modules.append(item.name)
+                    logger.trace(
+                        "[get_first_level_modules] Found package (namespace): %s in %s",
+                        item.name,
+                        base_path,
+                    )
+            elif item.is_file() and item.suffix == ".py":
+                # Python file at first level is a module
+                module_name = item.stem
+                if module_name not in modules:
+                    modules.append(module_name)
+                    logger.trace(
+                        "[get_first_level_modules] Found module file: %s in %s",
+                        module_name,
+                        base_path,
+                    )
+    except PermissionError:
+        logger.trace("[get_first_level_modules] Permission denied for: %s", base_path)
+
+    return sorted(modules)
+
+
+def _get_first_level_modules_from_bases(
+    module_bases: list[str],
+    config_dir: Path,
+) -> list[str]:
+    """Get first-level module/package names from module_bases directories.
+
+    Scans only the immediate children of each module_base directory (not
+    recursive). Returns a list preserving the order of module_bases, with
+    modules from each base sorted but not deduplicated across bases.
+
+    Args:
+        module_bases: List of module base directory paths (relative or absolute)
+        config_dir: Config directory for resolving relative paths
+
+    Returns:
+        List of first-level module/package names found in module_bases,
+        preserving module_bases order
+    """
+    modules: list[str] = []
+
+    for base_str in module_bases:
+        base_modules = _get_first_level_modules_from_base(base_str, config_dir)
+        modules.extend(base_modules)
+
+    return modules
+
+
 def _resolve_includes(  # noqa: PLR0912
     resolved_cfg: dict[str, Any],
     *,
@@ -1517,6 +1618,92 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
         root_cfg=root_cfg,
         config_dir=config_dir,
     )
+
+    # ------------------------------
+    # Auto-set includes from package and module_bases
+    # ------------------------------
+    # If no includes were provided (configless or config has no includes),
+    # and we have a package that can be found in module_bases,
+    # automatically set includes to that package.
+    # This must run AFTER pyproject metadata is applied so package from
+    # pyproject.toml is available.
+    has_cli_includes = bool(
+        getattr(args, "include", None) or getattr(args, "add_include", None)
+    )
+    # Check if config has includes (empty list means no includes)
+    config_includes = resolved_cfg.get("include", [])
+    has_config_includes = len(config_includes) > 0
+    # Check if includes were explicitly set in original config
+    # (even if empty, explicit setting means don't auto-set)
+    # Note: RootConfig doesn't have include field, only BuildConfig does
+    has_explicit_config_includes = "include" in build_cfg
+    package = resolved_cfg.get("package")
+    module_bases_list = resolved_cfg.get("module_bases", [])
+
+    if (
+        not has_cli_includes
+        and not has_config_includes
+        and not has_explicit_config_includes
+        and package
+        and module_bases_list
+    ):
+        # Get first-level modules from module_bases
+        first_level_modules = _get_first_level_modules_from_bases(
+            module_bases_list, config_dir
+        )
+
+        # Check if package is found in first-level modules
+        if package in first_level_modules:
+            logger.debug(
+                "Auto-setting includes to package '%s' found in module_bases: %s",
+                package,
+                module_bases_list,
+            )
+
+            # Find which module_base contains the package
+            # Can be either a directory (package) or a .py file (module)
+            package_path: str | None = None
+            for base_str in module_bases_list:
+                base_path = (config_dir / base_str).resolve()
+                package_dir = base_path / package
+                package_file = base_path / f"{package}.py"
+
+                if package_dir.exists() and package_dir.is_dir():
+                    # Found the package directory
+                    # Create include path relative to config_dir
+                    rel_path = package_dir.relative_to(config_dir)
+                    package_path = str(rel_path)
+                    break
+                if package_file.exists() and package_file.is_file():
+                    # Found the package as a single-file module
+                    # Create include path relative to config_dir
+                    rel_path = package_file.relative_to(config_dir)
+                    package_path = str(rel_path)
+                    break
+
+            if package_path:
+                # Set includes to the package found in module_bases
+                # For directories, add trailing slash to ensure recursive matching
+                # (build.py handles directories with trailing slash as recursive)
+                package_path_str = str(package_path)
+                # Check if it's a directory (not a .py file) and add trailing slash
+                if (
+                    (config_dir / package_path_str).exists()
+                    and (config_dir / package_path_str).is_dir()
+                    and not package_path_str.endswith(".py")
+                    and not package_path_str.endswith("/")
+                ):
+                    # Add trailing slash for recursive directory matching
+                    package_path_str = f"{package_path_str}/"
+
+                root, rel = _normalize_path_with_root(package_path_str, config_dir)
+                auto_include = make_includeresolved(rel, root, "config")
+                resolved_cfg["include"] = [auto_include]
+                logger.trace(
+                    "[resolve_build_config] Auto-set include: %s (root: %s)",
+                    rel,
+                    root,
+                )
 
     # ------------------------------
     # Attach provenance

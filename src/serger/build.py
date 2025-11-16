@@ -621,7 +621,10 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
 
     # Detect packages once from final files (after all exclusions)
     logger.debug("Detecting packages from included files (after exclusions)...")
-    detected_packages = detect_packages_from_files(final_files, package)
+    module_bases = build_cfg.get("module_bases", [])
+    detected_packages = detect_packages_from_files(
+        final_files, package, module_bases=module_bases, config_dir=config_root
+    )
 
     # Resolve order paths (order is list[str] of paths, or None for auto-discovery)
     topo_paths: list[Path] | None = None
@@ -679,6 +682,8 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
         "comments_mode": comments_mode,
         "docstring_mode": docstring_mode,
         "detected_packages": detected_packages,  # Pre-detected packages
+        "module_bases": module_bases,  # For package detection fallback
+        "__meta__": build_cfg["__meta__"],  # For config_dir access in fallback
     }
 
     # Extract metadata for embedding

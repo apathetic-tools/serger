@@ -68,6 +68,7 @@ Exploring bundling options for generating the single-file release:
 - should more of our config settings be available to be set via ENV?
 - can we parse the AST just once and store everything we need to know for later?
 - might be able to optimize/cache package detection based on previous includes
+- now that we have a module_base, we can probably "Follow the imports" and add includes as we find them, they only need to give us the first include
 
 ## 🚀 Deployment
 - Deploy action when I tag a release should create a release and attach it to the tagged release.

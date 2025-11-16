@@ -69,12 +69,12 @@ class TestFindPackageRootForFile:
             # No __init__.py at root, so should return None
             assert result is None
 
-    def test_stops_at_first_missing_init_py(self) -> None:
-        """Should stop walking up when __init__.py is missing.
+    def test_walks_up_to_find_package(self) -> None:
+        """Should walk up to find package with __init__.py.
 
-        The function starts from the file's directory and walks up.
-        If the file's directory doesn't have __init__.py, it returns None
-        immediately (doesn't check parent). This is the current behavior.
+        The function starts from the file's directory and walks up until it finds
+        a directory with __init__.py. If outer/ has __init__.py, then
+        outer/inner/module.py is in the outer package.
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create structure: outer/__init__.py, outer/inner/ (no __init__.py)
@@ -89,12 +89,8 @@ class TestFindPackageRootForFile:
 
             result = mod_stitch._find_package_root_for_file(module_file)
 
-            # Current behavior: starts from inner/, finds no __init__.py,
-            # returns None immediately (doesn't check parent outer/)
-            # This is actually correct - inner/ is not a package, so the file
-            # is not in a package. The outer package would be detected if
-            # we had a file directly in outer/.
-            assert result is None
+            # Function walks up and finds outer/__init__.py, so outer/ is the package
+            assert result == outer_pkg
 
     def test_handles_init_py_in_same_directory(self) -> None:
         """Should find package when __init__.py is in same directory as file."""

@@ -1445,21 +1445,29 @@ def verify_no_broken_imports(final_text: str, package_names: list[str]) -> None:
         raise RuntimeError(msg)
 
 
-def _find_package_root_for_file(file_path: Path) -> Path | None:
-    """Find the package root for a file by walking up looking for __init__.py.
+def _find_package_root_for_file(
+    file_path: Path,
+    *,
+    module_bases: list[str] | None = None,
+    config_dir: Path | None = None,
+) -> Path | None:
+    """Find the package root for a file.
 
-    Starting from the file's directory, walks up the directory tree while
-    we find __init__.py files. The topmost directory with __init__.py is
-    the package root.
+    First checks for __init__.py files (definitive package marker).
+    If no __init__.py found and file is under a module_bases directory,
+    treats everything after the matching base prefix as a package structure.
 
     Args:
         file_path: Path to the Python file
+        module_bases: Optional list of module base directories
+        config_dir: Optional config directory for resolving relative module_bases
 
     Returns:
         Path to the package root directory, or None if not found
     """
     logger = get_app_logger()
-    current_dir = file_path.parent.resolve()
+    file_path_resolved = file_path.resolve()
+    current_dir = file_path_resolved.parent
     last_package_dir: Path | None = None
 
     logger.trace(
@@ -1468,7 +1476,8 @@ def _find_package_root_for_file(file_path: Path) -> Path | None:
         current_dir,
     )
 
-    # Walk up from the file's directory
+    # First, walk up looking for __init__.py (definitive package marker)
+    # __init__.py always takes precedence
     while True:
         # Check if current directory has __init__.py
         init_file = current_dir / "__init__.py"
@@ -1480,40 +1489,81 @@ def _find_package_root_for_file(file_path: Path) -> Path | None:
                 current_dir,
                 last_package_dir,
             )
-        else:
-            # This directory doesn't have __init__.py, so we've gone past the package
-            # Return the last directory that had __init__.py
+        # This directory doesn't have __init__.py
+        # If we found a package via __init__.py, return it
+        elif last_package_dir is not None:
             logger.trace(
                 "[PKG_ROOT] No __init__.py at %s, package root: %s",
                 current_dir,
                 last_package_dir,
             )
             return last_package_dir
+            # No __init__.py found yet, continue walking up
+            # (we'll check module_bases after this loop if needed)
 
         # Move up one level
         parent = current_dir.parent
         if parent == current_dir:
             # Reached filesystem root
-            logger.trace(
-                "[PKG_ROOT] Reached filesystem root, package root: %s",
-                last_package_dir,
-            )
-            return last_package_dir
+            if last_package_dir is not None:
+                logger.trace(
+                    "[PKG_ROOT] Reached filesystem root, package root: %s",
+                    last_package_dir,
+                )
+                return last_package_dir
+            # No __init__.py found, break to check module_bases
+            break
         current_dir = parent
+
+    # If no __init__.py found, check if file is under any module_bases directory
+    if module_bases and config_dir and last_package_dir is None:
+        config_dir_resolved = config_dir.resolve()
+        for base_str in module_bases:
+            base_path = (config_dir_resolved / base_str).resolve()
+            try:
+                # Check if file is under this base
+                rel_path = file_path_resolved.relative_to(base_path)
+                # If file is directly in base (e.g., src/mymodule.py), no package
+                if len(rel_path.parts) == 1:
+                    # Single file in base - not a package
+                    continue
+                # File is in a subdirectory of base (e.g., src/mypkg/submodule.py)
+                # The first part after base is the package
+                package_dir = base_path / rel_path.parts[0]
+                if package_dir.exists() and package_dir.is_dir():
+                    logger.trace(
+                        "[PKG_ROOT] Found package via module_bases: %s (base: %s)",
+                        package_dir,
+                        base_path,
+                    )
+                    return package_dir
+            except ValueError:
+                # File is not under this base, continue to next base
+                continue
+
+    # Return None if no package found
+    return last_package_dir
 
 
 def detect_packages_from_files(
     file_paths: list[Path],
     package_name: str,
+    *,
+    module_bases: list[str] | None = None,
+    config_dir: Path | None = None,
 ) -> set[str]:
-    """Detect packages by walking up from files looking for __init__.py.
+    """Detect packages from file paths.
 
-    Follows Python's import rules: only detects regular packages (with
-    __init__.py files). Falls back to configured package_name if none detected.
+    If files are under module_bases directories, treats everything after the
+    matching base prefix as a package structure (regardless of __init__.py).
+    Otherwise, follows Python's import rules: only detects regular packages
+    (with __init__.py files). Falls back to configured package_name if none detected.
 
     Args:
         file_paths: List of file paths to check
         package_name: Configured package name (used as fallback)
+        module_bases: Optional list of module base directories
+        config_dir: Optional config directory for resolving relative module_bases
 
     Returns:
         Set of detected package names (always includes package_name)
@@ -1521,9 +1571,11 @@ def detect_packages_from_files(
     logger = get_app_logger()
     detected: set[str] = set()
 
-    # Detect packages from __init__.py files
+    # Detect packages from files
     for file_path in file_paths:
-        pkg_root = _find_package_root_for_file(file_path)
+        pkg_root = _find_package_root_for_file(
+            file_path, module_bases=module_bases, config_dir=config_dir
+        )
         if pkg_root:
             # Extract package name from directory name
             pkg_name = pkg_root.name
@@ -1540,8 +1592,7 @@ def detect_packages_from_files(
 
     if len(detected) == 1 and package_name in detected:
         logger.debug(
-            "Package detection: No __init__.py files found, "
-            "using configured package '%s'",
+            "Package detection: No packages found, using configured package '%s'",
             package_name,
         )
     else:
@@ -3013,7 +3064,25 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     else:
         # Fallback: detect from order_paths (shouldn't happen in normal flow)
         logger.debug("Detecting packages from order_paths (fallback)...")
-        detected_packages = detect_packages_from_files(order_paths, package_name)
+        module_bases_raw = config.get("module_bases")
+        module_bases: list[str] | None = (
+            cast("list[str]", module_bases_raw)
+            if isinstance(module_bases_raw, list)
+            and all(isinstance(x, str) for x in module_bases_raw)  # pyright: ignore[reportUnknownVariableType]
+            else None
+        )
+        config_dir = None
+        meta = config.get("__meta__")
+        if meta and isinstance(meta, dict):
+            config_dir_raw = meta.get("config_root")  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+            if isinstance(config_dir_raw, Path):
+                config_dir = config_dir_raw
+        detected_packages = detect_packages_from_files(
+            order_paths,
+            package_name,
+            module_bases=module_bases,
+            config_dir=config_dir,
+        )
 
     # --- Validation Phase ---
     logger.debug("Validating module listing...")

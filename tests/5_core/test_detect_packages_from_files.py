@@ -151,3 +151,116 @@ class TestDetectPackagesFromFiles:
             # Results should be identical (sets are unordered, but contents same)
             assert result1 == result2
             assert sorted(result1) == sorted(result2)
+
+    def test_detects_package_via_module_bases_without_init(self) -> None:
+        """Should detect package via module_bases even without __init__.py."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir)
+            src_dir = config_dir / "src"
+            src_dir.mkdir()
+            # Package directory without __init__.py (namespace package)
+            pkg_dir = src_dir / "mypkg"
+            pkg_dir.mkdir()
+            module_file = pkg_dir / "module.py"
+            module_file.write_text("# module\n")
+
+            result = mod_stitch.detect_packages_from_files(
+                [module_file],
+                "default",
+                module_bases=["src"],
+                config_dir=config_dir,
+            )
+
+            # Should detect "mypkg" via module_bases even without __init__.py
+            assert "mypkg" in result
+            assert "default" in result
+
+    def test_init_py_takes_precedence_over_module_bases(self) -> None:
+        """__init__.py should take precedence over module_bases detection."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir)
+            src_dir = config_dir / "src"
+            src_dir.mkdir()
+            # Package directory with __init__.py (should use this, not module_bases)
+            pkg_dir = src_dir / "mypkg"
+            pkg_dir.mkdir()
+            (pkg_dir / "__init__.py").write_text("# package\n")
+            module_file = pkg_dir / "module.py"
+            module_file.write_text("# module\n")
+
+            result = mod_stitch.detect_packages_from_files(
+                [module_file],
+                "default",
+                module_bases=["src"],
+                config_dir=config_dir,
+            )
+
+            # Should detect "mypkg" via __init__.py (not module_bases)
+            assert "mypkg" in result
+            assert "default" in result
+
+    def test_module_bases_only_applies_to_files_under_base(self) -> None:
+        """module_bases should only apply to files under the base, not elsewhere."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir)
+            src_dir = config_dir / "src"
+            src_dir.mkdir()
+            # File under module_bases (should use module_bases logic)
+            pkg1_dir = src_dir / "pkg1"
+            pkg1_dir.mkdir()
+            file1 = pkg1_dir / "module1.py"
+            file1.write_text("# module1\n")
+
+            # File outside module_bases (should require __init__.py)
+            other_dir = config_dir / "other"
+            other_dir.mkdir()
+            pkg2_dir = other_dir / "pkg2"
+            pkg2_dir.mkdir()
+            # No __init__.py, so should not be detected
+            file2 = pkg2_dir / "module2.py"
+            file2.write_text("# module2\n")
+
+            result = mod_stitch.detect_packages_from_files(
+                [file1, file2],
+                "default",
+                module_bases=["src"],
+                config_dir=config_dir,
+            )
+
+            # Should detect "pkg1" via module_bases, but not "pkg2" (outside base)
+            assert "pkg1" in result
+            assert "pkg2" not in result
+            assert "default" in result
+
+    def test_module_bases_with_multiple_bases(self) -> None:
+        """Should detect packages from multiple module_bases."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir)
+            src_dir = config_dir / "src"
+            lib_dir = config_dir / "lib"
+            src_dir.mkdir()
+            lib_dir.mkdir()
+
+            # Package in first base
+            pkg1_dir = src_dir / "pkg1"
+            pkg1_dir.mkdir()
+            file1 = pkg1_dir / "module1.py"
+            file1.write_text("# module1\n")
+
+            # Package in second base
+            pkg2_dir = lib_dir / "pkg2"
+            pkg2_dir.mkdir()
+            file2 = pkg2_dir / "module2.py"
+            file2.write_text("# module2\n")
+
+            result = mod_stitch.detect_packages_from_files(
+                [file1, file2],
+                "default",
+                module_bases=["src", "lib"],
+                config_dir=config_dir,
+            )
+
+            # Should detect both packages via their respective module_bases
+            assert "pkg1" in result
+            assert "pkg2" in result
+            assert "default" in result

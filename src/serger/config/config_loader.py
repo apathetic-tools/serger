@@ -240,7 +240,7 @@ def _parse_case_3_list_of_dicts(
         # Remove from ALL builds (app-wide setting, not per-build)
         for b in builds:
             b.pop("watch_interval", None)
-    if first_module_bases is not None:
+    if first_module_bases is not None and first_module_bases_idx is not None:
         root["module_bases"] = first_module_bases
         # Only remove from the first build (the one we hoisted from)
         # Other builds keep their explicit module_bases to override the root default

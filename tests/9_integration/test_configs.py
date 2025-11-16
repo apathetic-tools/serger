@@ -26,7 +26,9 @@ def test_main_no_config(
     assert code == 1
     captured = capsys.readouterr()
     out = (captured.out + captured.err).lower()
-    assert "no build config found" in out
+    # After removing early bailout, configless builds proceed and fail later
+    # with "no include patterns found" instead of "no build config found"
+    assert "no include patterns found" in out or "no build config found" in out
 
 
 def test_main_with_config(
@@ -132,7 +134,7 @@ def test_main_invalid_config(tmp_path: Path) -> None:
             "[]",
             [],
             1,
-            "No build config found",
+            "no include patterns found",
             "empty_list_shorthand",
         ),
         # Empty builds with strict_config=false - warn only
@@ -210,7 +212,7 @@ def test_main_invalid_config(tmp_path: Path) -> None:
             "{}",
             [],
             1,
-            "No build config found",
+            "no include patterns found",
             "empty_object_config",
         ),
         # Config with only log_level, no builds - error (default strict=true)

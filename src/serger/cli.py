@@ -16,7 +16,6 @@ from .config import (
     BuildConfigResolved,
     RootConfig,
     RootConfigResolved,
-    can_run_configless,
     load_and_validate_config,
     resolve_config,
 )
@@ -26,7 +25,6 @@ from .constants import (
 )
 from .logs import get_app_logger
 from .meta import (
-    PROGRAM_CONFIG,
     PROGRAM_DISPLAY,
     PROGRAM_SCRIPT,
 )
@@ -413,16 +411,10 @@ def _load_and_resolve_config(
     cwd = Path.cwd().resolve()
     config_dir = config_path.parent if config_path else cwd
 
-    # --- Configless early bailout ---
-    if root_cfg is None and not can_run_configless(args):
-        logger.error(
-            "No build config found (.%s.json) and no includes provided.",
-            PROGRAM_CONFIG,
-        )
-        xmsg = "No config file or CLI includes provided"
-        raise RuntimeError(xmsg)
-
     # --- CLI-only mode fallback ---
+    # Remove early bailout check - let downstream logic (auto-include, file
+    # collection) handle validation. This allows pyproject.toml-based configless
+    # builds to proceed and fail with more appropriate error messages if needed.
     if root_cfg is None:
         logger.info("No config file found — using CLI-only mode.")
         root_cfg = cast_hint(RootConfig, {"builds": [{}]})

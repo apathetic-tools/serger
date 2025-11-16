@@ -13,7 +13,7 @@ import apathetic_utils as mod_apathetic_utils
 import serger.config.config_resolve as mod_resolve
 import serger.config.config_types as mod_types
 import serger.logs as mod_logs
-from tests.utils import make_build_input
+from tests.utils import make_build_input, make_test_package
 
 
 # ---------------------------------------------------------------------------
@@ -2371,3 +2371,373 @@ def test_resolve_build_config_module_bases_string_cascades_from_root(
 
     # --- validate ---
     assert resolved["module_bases"] == ["lib"]
+
+
+# ---------------------------------------------------------------------------
+# Auto-include from package and module_bases
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_build_config_auto_include_single_base_single_package(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Auto-include should set includes to package found in single base."""
+    # --- setup ---
+    # Create package structure: src/mypkg/
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    pkg_dir = src_dir / "mypkg"
+    make_test_package(pkg_dir)
+
+    # Config with package but no includes
+    raw = make_build_input(package="mypkg", module_bases=["src"])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert len(resolved["include"]) == 1
+    inc = resolved["include"][0]
+    assert inc["path"] == "src/mypkg/"
+    assert inc["origin"] == "config"
+    assert resolved.get("package") == "mypkg"
+
+
+def test_resolve_build_config_auto_include_multiple_bases_multiple_packages(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Auto-include should work with multiple bases and multiple packages."""
+    # --- setup ---
+    # Create packages in different bases
+    src_dir = tmp_path / "src"
+    lib_dir = tmp_path / "lib"
+    src_dir.mkdir()
+    lib_dir.mkdir()
+    src_pkg = src_dir / "srcpkg"
+    lib_pkg = lib_dir / "libpkg"
+    make_test_package(src_pkg)
+    make_test_package(lib_pkg)
+
+    # Config with package matching first base
+    raw = make_build_input(package="srcpkg", module_bases=["src", "lib"])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert len(resolved["include"]) == 1
+    inc = resolved["include"][0]
+    assert inc["path"] == "src/srcpkg/"
+    assert inc["origin"] == "config"
+    assert resolved.get("package") == "srcpkg"
+
+
+def test_resolve_build_config_auto_include_same_package_first_match_wins(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """When same package exists in multiple bases, first match wins."""
+    # --- setup ---
+    # Create same package name in different bases
+    src_dir = tmp_path / "src"
+    lib_dir = tmp_path / "lib"
+    src_dir.mkdir()
+    lib_dir.mkdir()
+    src_pkg = src_dir / "mypkg"
+    lib_pkg = lib_dir / "mypkg"
+    make_test_package(src_pkg)
+    make_test_package(lib_pkg)
+
+    # Config with package matching both bases
+    raw = make_build_input(package="mypkg", module_bases=["src", "lib"])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Should use first match (src/mypkg), not lib/mypkg
+    assert len(resolved["include"]) == 1
+    inc = resolved["include"][0]
+    assert inc["path"] == "src/mypkg/"
+    assert inc["origin"] == "config"
+    assert resolved.get("package") == "mypkg"
+
+
+def test_resolve_build_config_auto_include_multiple_packages_in_single_base(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Auto-include should work when multiple packages exist in single base."""
+    # --- setup ---
+    # Create multiple packages in same base
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    pkg1_dir = src_dir / "pkg1"
+    pkg2_dir = src_dir / "pkg2"
+    make_test_package(pkg1_dir)
+    make_test_package(pkg2_dir)
+
+    # Config with package matching one of them
+    raw = make_build_input(package="pkg2", module_bases=["src"])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert len(resolved["include"]) == 1
+    inc = resolved["include"][0]
+    assert inc["path"] == "src/pkg2/"
+    assert inc["origin"] == "config"
+    assert resolved.get("package") == "pkg2"
+
+
+def test_resolve_build_config_auto_include_does_not_override_existing_includes(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Auto-include should not override when includes are already provided."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    pkg_dir = src_dir / "mypkg"
+    make_test_package(pkg_dir)
+
+    # Config with includes already set
+    raw = make_build_input(
+        package="mypkg", module_bases=["src"], include=["src/other/**"]
+    )
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Should keep original includes, not auto-set
+    assert len(resolved["include"]) == 1
+    inc = resolved["include"][0]
+    assert inc["path"] == "src/other/**"
+    assert inc["origin"] == "config"
+
+
+def test_resolve_build_config_auto_include_does_not_override_cli_includes(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Auto-include should not override when CLI --include is provided."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    pkg_dir = src_dir / "mypkg"
+    make_test_package(pkg_dir)
+
+    # Config with package but no includes, CLI provides includes
+    raw = make_build_input(package="mypkg", module_bases=["src"])
+    args = _args(include=["cli_src/**"])
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Should use CLI includes, not auto-set
+    assert len(resolved["include"]) == 1
+    inc = resolved["include"][0]
+    assert inc["path"] == "cli_src/**"
+    assert inc["origin"] == "cli"
+
+
+def test_resolve_build_config_auto_include_does_not_override_add_include(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Auto-include should not override when --add-include is provided."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    pkg_dir = src_dir / "mypkg"
+    make_test_package(pkg_dir)
+
+    # Config with package but no includes, CLI provides add-include
+    raw = make_build_input(package="mypkg", module_bases=["src"])
+    args = _args(add_include=["extra/**"])
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Should use add-include, not auto-set
+    assert len(resolved["include"]) == 1
+    inc = resolved["include"][0]
+    assert inc["path"] == "extra/**"
+    assert inc["origin"] == "cli"
+
+
+def test_resolve_build_config_auto_include_does_not_set_when_package_not_found(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Auto-include should not set when package is not found in module_bases."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    pkg_dir = src_dir / "otherpkg"
+    make_test_package(pkg_dir)
+
+    # Config with package that doesn't exist in module_bases
+    raw = make_build_input(package="nonexistent", module_bases=["src"])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Should not auto-set includes when package not found
+    assert len(resolved["include"]) == 0
+
+
+def test_resolve_build_config_auto_include_does_not_set_when_no_package(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Auto-include should not set when package is not provided."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    pkg_dir = src_dir / "mypkg"
+    make_test_package(pkg_dir)
+
+    # Config without package
+    raw = make_build_input(module_bases=["src"])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Should not auto-set includes when no package
+    assert len(resolved["include"]) == 0
+
+
+def test_resolve_build_config_auto_include_does_not_set_when_explicit_empty_includes(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Auto-include should not set when includes are explicitly set to empty."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    pkg_dir = src_dir / "mypkg"
+    make_test_package(pkg_dir)
+
+    # Config with explicitly empty includes
+    raw = make_build_input(package="mypkg", module_bases=["src"], include=[])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Should respect explicit empty includes, not auto-set
+    assert len(resolved["include"]) == 0
+
+
+def test_resolve_build_config_auto_include_does_not_set_when_empty_module_bases(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Auto-include should not set when module_bases is empty."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    pkg_dir = src_dir / "mypkg"
+    make_test_package(pkg_dir)
+
+    # Config with empty module_bases (shouldn't happen in practice, but test it)
+    raw = make_build_input(package="mypkg", module_bases=[])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Should not auto-set includes when module_bases is empty
+    assert len(resolved["include"]) == 0
+
+
+def test_resolve_build_config_auto_include_works_with_single_file_module(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Auto-include should work when package is a single-file module (.py file)."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    # Create a single-file module (not a directory)
+    module_file = src_dir / "mymodule.py"
+    module_file.write_text('def hello():\n    return "world"\n', encoding="utf-8")
+
+    # Config with package matching the module file
+    raw = make_build_input(package="mymodule", module_bases=["src"])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert len(resolved["include"]) == 1
+    inc = resolved["include"][0]
+    assert inc["path"] == "src/mymodule.py"
+    assert inc["origin"] == "config"
+    assert resolved.get("package") == "mymodule"
+
+
+def test_resolve_build_config_auto_include_works_with_pyproject_package(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Auto-include should work when package comes from pyproject.toml."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    pkg_dir = src_dir / "mypkg"
+    make_test_package(pkg_dir)
+
+    # Create pyproject.toml with package name
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[project]\nname = "mypkg"\n',
+        encoding="utf-8",
+    )
+
+    # Config with use_pyproject enabled but no includes
+    raw = make_build_input(module_bases=["src"], use_pyproject=True)
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Should auto-set includes to package from pyproject.toml
+    assert len(resolved["include"]) == 1
+    inc = resolved["include"][0]
+    assert inc["path"] == "src/mypkg/"
+    assert inc["origin"] == "config"
+    assert resolved.get("package") == "mypkg"
