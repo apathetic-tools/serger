@@ -94,6 +94,35 @@ def test_parse_config_module_bases_hoisting() -> None:
     assert "module_bases" not in result["builds"][0]
 
 
+def test_parse_config_module_bases_hoisting_keeps_other_builds() -> None:
+    """Multi-build list should hoist module_bases from first build,
+    but other builds keep their explicit module_bases settings.
+    """
+    # --- setup ---
+    first_module_bases = ["src", "lib"]
+    second_module_bases = ["custom", "vendor"]
+
+    # --- execute ---
+    result = mod_config_loader.parse_config(
+        [
+            {"include": ["src"], "module_bases": first_module_bases},
+            {"include": ["lib"], "module_bases": second_module_bases},
+            {"include": ["tests"]},  # no module_bases, will use root default
+        ],
+    )
+
+    # --- verify ---
+    assert result is not None
+    # First build's module_bases hoisted to root
+    assert result["module_bases"] == first_module_bases
+    # First build no longer has module_bases (hoisted)
+    assert "module_bases" not in result["builds"][0]
+    # Second build keeps its explicit module_bases
+    assert result["builds"][1]["module_bases"] == second_module_bases
+    # Third build has no module_bases (will use root default)
+    assert "module_bases" not in result["builds"][2]
+
+
 def test_parse_config_module_bases_string_hoisting() -> None:
     # --- setup ---
     module_bases = "lib"

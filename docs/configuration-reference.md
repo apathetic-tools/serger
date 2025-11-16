@@ -83,7 +83,7 @@ These options apply globally and can cascade into individual builds:
 | `out` | `str` | - | Default output path (can be overridden per build) |
 | `respect_gitignore` | `bool` | `true` | Whether to respect `.gitignore` when selecting files |
 | `strict_config` | `bool` | `true` | Whether to error on missing include patterns |
-| `watch_interval` | `float` | `1.0` | File watch interval in seconds (for `--watch` mode) |
+| `watch_interval` | `float` | `1.0` | File watch interval in seconds (for `--watch` mode). App-wide setting (applies to all builds). |
 | `use_pyproject` | `bool` | - | Whether to pull metadata from `pyproject.toml`. For configless builds, defaults to `true`. For builds with config files, must be explicitly set to `true` or `pyproject_path` must be set. |
 | `pyproject_path` | `str` | - | Path to `pyproject.toml` (relative to config directory). Setting this implicitly enables pyproject.toml usage. |
 | `internal_imports` | `str` | `"force_strip"` | How to handle internal package imports (see [Import Handling](#import-handling)) |

@@ -215,27 +215,36 @@ def _parse_case_3_list_of_dicts(
     root: dict[str, Any]  # type it once
     builds = [dict(b) for b in raw_config]
 
-    # Lift watch_interval from the first build that defines it (convenience),
-    # then remove it from ALL builds to avoid ambiguity.
+    # Special case: watch_interval is app-wide and can only be defined once.
+    # Lift watch_interval from the first build that defines it, then remove it
+    # from ALL builds (it applies to the entire application, not per-build).
     first_watch = next(
         (b.get("watch_interval") for b in builds if "watch_interval" in b),
         None,
     )
-    # Lift module_bases from the first build that defines it (convenience),
-    # then remove it from ALL builds to avoid ambiguity.
-    first_module_bases = next(
-        (b.get("module_bases") for b in builds if "module_bases" in b),
+    # Standard hoisting: module_bases is hoisted from the first build as a root
+    # default, but other builds can keep their explicit module_bases settings
+    # to override the root default (per-build override).
+    first_module_bases_idx = next(
+        (i for i, b in enumerate(builds) if "module_bases" in b),
         None,
+    )
+    first_module_bases = (
+        builds[first_module_bases_idx]["module_bases"]
+        if first_module_bases_idx is not None
+        else None
     )
     root = {"builds": builds}
     if first_watch is not None:
         root["watch_interval"] = first_watch
+        # Remove from ALL builds (app-wide setting, not per-build)
         for b in builds:
             b.pop("watch_interval", None)
     if first_module_bases is not None:
         root["module_bases"] = first_module_bases
-        for b in builds:
-            b.pop("module_bases", None)
+        # Only remove from the first build (the one we hoisted from)
+        # Other builds keep their explicit module_bases to override the root default
+        builds[first_module_bases_idx].pop("module_bases", None)
     return root
 
 
