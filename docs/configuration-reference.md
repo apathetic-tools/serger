@@ -101,14 +101,14 @@ Each build in the `builds` array can specify:
 
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
-| `package` | `str` | Yes | Package name (used for import shims) |
+| `package` | `str` | Yes✝ | Package name (used for import shims) |
 | `include` | `list[str]` | Yes* | Glob patterns for files to include |
 | `exclude` | `list[str]` | No | Glob patterns for files to exclude |
 | `out` | `str` | Yes* | Output file path (relative to project root) |
-| `display_name` | `str` | No | Display name for generated header |
-| `description` | `str` | No | Description for generated header |
+| `display_name` | `str` | No✝ | Display name for generated header |
+| `description` | `str` | No✝ | Description for generated header |
 | `repo` | `str` | No | Repository URL for generated header |
-| `license_header` | `str` | No | License text for generated header |
+| `license_header` | `str` | No✝ | License text for generated header |
 | `strict_config` | `bool` | No | Override root-level `strict_config` for this build |
 | `internal_imports` | `str` | No | Override root-level `internal_imports` for this build |
 | `external_imports` | `str` | No | Override root-level `external_imports` for this build |
@@ -119,7 +119,9 @@ Each build in the `builds` array can specify:
 | `comments_mode` | `str` | No | Override root-level `comments_mode` for this build (see [Comment Handling](#comment-handling)) |
 | `docstring_mode` | `str \| dict` | No | Override root-level `docstring_mode` for this build (see [Docstring Handling](#docstring-handling)) |
 
-\* Required unless provided via CLI arguments
+\* Required unless provided via CLI arguments. 
+
+\✝ Can be infered from `pyproject.toml` file in single-build configs.
 
 ## Include and Exclude Patterns
 
