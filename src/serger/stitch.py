@@ -28,8 +28,10 @@ from .config import (
     ExternalImportMode,
     IncludeResolved,
     InternalImportMode,
+    ModuleActionFull,
     ModuleMode,
     PostProcessingConfigResolved,
+    ShimSetting,
     StitchMode,
 )
 from .constants import (
@@ -38,10 +40,19 @@ from .constants import (
     DEFAULT_EXTERNAL_IMPORTS,
     DEFAULT_INTERNAL_IMPORTS,
     DEFAULT_MODULE_MODE,
+    DEFAULT_SHIM,
     DEFAULT_STITCH_MODE,
 )
 from .logs import get_app_logger
 from .meta import PROGRAM_PACKAGE
+from .module_actions import (
+    apply_module_actions,
+    apply_single_action,
+    generate_actions_from_mode,
+    set_mode_generated_action_defaults,
+    validate_action_source_exists,
+    validate_module_actions,
+)
 from .utils import derive_module_name
 from .utils.utils_validation import validate_required_keys
 from .verify_script import post_stitch_processing
@@ -1727,6 +1738,8 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     all_function_names: set[str],
     detected_packages: set[str],
     module_mode: str,
+    module_actions: list[ModuleActionFull],
+    shim: ShimSetting,
     _order_paths: list[Path] | None = None,
     _package_root: Path | None = None,
     _file_to_include: dict[Path, IncludeResolved] | None = None,
@@ -1749,6 +1762,8 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
             (used to detect if main() function exists)
         detected_packages: Pre-detected package names
         module_mode: How to generate import shims ("none", "multi", "force")
+        module_actions: List of module actions (already normalized)
+        shim: Shim setting ("all", "public", "none")
         _order_paths: Optional list of file paths (unused, kept for API consistency)
         _package_root: Optional common root (unused, kept for API consistency)
         _file_to_include: Optional mapping (unused, kept for API consistency)
@@ -1776,129 +1791,92 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     future_block = "".join(future_imports.keys())
     import_block = "".join(all_imports.keys())
 
-    # Generate import shims based on module_mode
-    if module_mode == "none":
+    # Generate import shims based on module_actions and shim setting
+    # If shim == "none" or module_mode == "none", skip shim generation
+    if shim == "none" or module_mode == "none":
         # No shims generated
         shim_text = ""
     else:
-        # Group modules by their immediate parent package
-        # For "serger.utils.utils_text", the parent package is "serger.utils"
-        # For "serger.cli", the parent package is "serger"
-        # Include all modules (matching installed package behavior)
-        #
         # IMPORTANT: Module names in order_names are relative to package_root
         # (e.g., "utils.utils_text"), but shims need full paths
         # (e.g., "serger.utils.utils_text").
-        # Prepend package_name to all module names for shim generation.
         # Note: If specific modules should be excluded, use the 'exclude' config option
         shim_names_raw = list(order_names)
 
-        # Prepend package_name to create full module paths
+        # Generate actions from module_mode if specified (and not "none"/"multi")
+        # Actions should be applied to original module names BEFORE prepending
+        # package_name
+        all_actions: list[ModuleActionFull] = []
+        if module_mode and module_mode not in ("none", "multi"):
+            auto_actions = generate_actions_from_mode(
+                module_mode,
+                detected_packages,
+                package_name,
+                module_names=shim_names_raw,
+            )
+            # Apply defaults to mode-generated actions (scope: "original" set here)
+            normalized_actions = [
+                set_mode_generated_action_defaults(action) for action in auto_actions
+            ]
+            all_actions.extend(normalized_actions)
+
+        # Add user-specified module_actions from BuildConfigResolved
+        # These are already fully normalized with scope: "shim" set (iteration 04)
+        if module_actions:  # Already list[ModuleActionFull] with all defaults applied
+            all_actions.extend(module_actions)
+
+        # Separate actions by scope
+        original_scope_actions = [
+            a for a in all_actions if a.get("scope") == "original"
+        ]
+        shim_scope_actions = [a for a in all_actions if a.get("scope") == "shim"]
+
+        # Apply scope: "original" actions to original module names (before prepending)
+        transformed_names = shim_names_raw
+        if original_scope_actions:
+            # Build available_modules set for validation
+            available_modules_for_validation = set(shim_names_raw)
+            # Add all action sources to available_modules since mode-generated
+            # actions only reference root packages that should exist
+            for action in original_scope_actions:
+                source = action.get("source")
+                if source:
+                    available_modules_for_validation.add(source)
+            # Also add package names from detected_packages that appear anywhere
+            # in module names (as a fallback for edge cases)
+            for pkg in detected_packages:
+                if pkg != package_name and pkg not in available_modules_for_validation:
+                    # Check if this package appears anywhere in module names
+                    for mod_name in shim_names_raw:
+                        if (
+                            f".{pkg}." in mod_name
+                            or mod_name.startswith(f"{pkg}.")
+                            or mod_name == pkg
+                            or mod_name.endswith(f".{pkg}")
+                        ):
+                            available_modules_for_validation.add(pkg)
+                            break
+            # Validate other constraints (dest conflicts, circular moves, etc.)
+            validate_module_actions(
+                original_scope_actions,
+                available_modules_for_validation,
+                detected_packages,
+                scope="original",
+            )
+            transformed_names = apply_module_actions(
+                transformed_names, original_scope_actions, detected_packages
+            )
+
+        # Now prepend package_name to create full module paths
         # Module names are relative to package_root, so we need to prepend package_name
         # to get the full import path
         # (e.g., "utils.utils_text" -> "serger.utils.utils_text")
+        # Note: flat mode has special handling for loose files (keeps them top-level)
         shim_names: list[str] = []
-        for name in shim_names_raw:
-            if module_mode == "force_flat":
-                # Force flat mode: flatten everything to package_name
-                # All modules become direct children of package_name
-                if name == package_name:
-                    full_name = package_name
-                elif name.startswith(f"{package_name}."):
-                    # Already under package_name, extract just the module name
-                    # e.g., "mypkg.sub.module" -> "mypkg.module"
-                    parts = name.split(".")
-                    if parts[0] == package_name:
-                        # Keep package_name and last component only
-                        full_name = f"{package_name}.{parts[-1]}"
-                    else:
-                        # Replace first part with package_name
-                        full_name = f"{package_name}.{parts[-1]}"
-                # Extract just the module name (last component)
-                elif "." in name:
-                    full_name = f"{package_name}.{name.split('.')[-1]}"
-                else:
-                    full_name = f"{package_name}.{name}"
-            elif module_mode == "force":
-                # Force mode: replace root package but keep subpackages
-                # e.g., "pkg1.sub" -> "mypkg.sub", "pkg2.sub" -> "mypkg.sub"
-                if name == package_name:
-                    full_name = package_name
-                elif name.startswith(f"{package_name}."):
-                    # Already has package_name prefix, but might need to replace
-                    # nested packages. e.g., "mypkg.pkg1.sub" -> "mypkg.sub"
-                    rest = name[len(package_name) + 1 :]  # Remove "mypkg."
-                    if "." in rest:
-                        parts = rest.split(".")
-                        # Check if first part after package_name is a detected package
-                        if parts[0] in detected_packages and parts[0] != package_name:
-                            # Replace nested root package
-                            full_name = f"{package_name}.{'.'.join(parts[1:])}"
-                        else:
-                            full_name = name
-                    else:
-                        full_name = name
-                elif "." in name:
-                    # Replace the first component (root package) with package_name
-                    parts = name.split(".")
-                    # Check if first part is a detected package (but not package_name)
-                    if parts[0] in detected_packages and parts[0] != package_name:
-                        # Replace root package with package_name
-                        full_name = f"{package_name}.{'.'.join(parts[1:])}"
-                    else:
-                        # Not a detected package, prepend package_name
-                        full_name = f"{package_name}.{name}"
-                else:
-                    # Top-level module: prepend package_name
-                    full_name = f"{package_name}.{name}"
-            elif module_mode == "unify":
-                # Unify mode: place all detected packages under package_name
-                # If package_name matches a detected package, combine them
-                # (no double prefix). Loose files attach directly to package_name
-                if name == package_name:
-                    full_name = package_name
-                elif name.startswith(f"{package_name}."):
-                    full_name = name
-                elif "." in name:
-                    first_part = name.split(".", 1)[0]
-                    # If first part is the package_name (detected package matches)
-                    if first_part == package_name:
-                        # Combine: keep as-is (no double prefix)
-                        full_name = name
-                    elif first_part in detected_packages:
-                        # Other detected package: prepend package_name
-                        full_name = f"{package_name}.{name}"
-                    else:
-                        # Not a detected package: prepend package_name
-                        full_name = f"{package_name}.{name}"
-                else:
-                    # Loose file: attach directly to package_name
-                    full_name = f"{package_name}.{name}"
-            elif module_mode == "unify_preserve":
-                # Unify preserve mode: like unify but preserves structure
-                # when package matches. Loose files attach to package_name
-                if name == package_name:
-                    full_name = package_name
-                elif name.startswith(f"{package_name}."):
-                    full_name = name
-                elif "." in name:
-                    first_part = name.split(".", 1)[0]
-                    # If first part is the package_name (detected package matches)
-                    if first_part == package_name:
-                        # Preserve structure: keep as-is (no flattening)
-                        full_name = name
-                    elif first_part in detected_packages:
-                        # Other detected package: prepend package_name
-                        full_name = f"{package_name}.{name}"
-                    else:
-                        # Not a detected package: prepend package_name
-                        full_name = f"{package_name}.{name}"
-                else:
-                    # Loose file: attach to package_name as module file
-                    full_name = f"{package_name}.{name}"
-            elif module_mode == "flat":
-                # Flat mode: treat loose files as top-level modules (not under package)
-                # Packages still get shims as usual
+        for name in transformed_names:
+            # Flat mode: treat loose files as top-level modules (not under package)
+            # Packages still get shims as usual
+            if module_mode == "flat":
                 if name == package_name:
                     full_name = package_name
                 elif name.startswith(f"{package_name}."):
@@ -1913,7 +1891,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                 else:
                     # Loose file: keep as top-level module (no package prefix)
                     full_name = name
-            # Multi mode: use detected packages (current behavior)
+            # Multi mode logic: use detected packages (default behavior)
             # If name already equals package_name, it's the root module itself
             elif name == package_name:
                 full_name = package_name
@@ -1935,6 +1913,12 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                 # Top-level module under package: prepend package_name
                 full_name = f"{package_name}.{name}"
             shim_names.append(full_name)
+
+        # Validate and apply scope: "shim" actions (incremental validation)
+        if shim_scope_actions:
+            for action in shim_scope_actions:
+                validate_action_source_exists(action, set(shim_names))
+                shim_names = apply_single_action(shim_names, action, detected_packages)
 
         # Group modules by their parent package
         # parent_package -> list of (module_name, is_direct_child)
@@ -2278,6 +2262,28 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         )
         raise ValueError(msg)
 
+    # Extract shim setting from config
+    shim_raw = config.get("shim", DEFAULT_SHIM)
+    if not isinstance(shim_raw, str):
+        msg = "Config 'shim' must be a string"
+        raise TypeError(msg)
+    valid_shim_settings = literal_to_set(ShimSetting)
+    shim = cast("ShimSetting", shim_raw)
+    if shim not in valid_shim_settings:
+        msg = (
+            f"Invalid shim setting: {shim!r}. "
+            f"Must be one of: {', '.join(sorted(valid_shim_settings))}"
+        )
+        raise ValueError(msg)
+
+    # Extract module_actions from config (already normalized in BuildConfigResolved)
+    module_actions_raw = config.get("module_actions", [])
+    if not isinstance(module_actions_raw, list):
+        msg = "Config 'module_actions' must be a list"
+        raise TypeError(msg)
+    # module_actions is already list[ModuleActionFull] with all defaults applied
+    module_actions = cast("list[ModuleActionFull]", module_actions_raw)
+
     # Check if non-raw modes are implemented
     if stitch_mode != "raw":
         msg = (
@@ -2410,6 +2416,8 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         all_function_names=all_function_names,
         detected_packages=detected_packages,
         module_mode=module_mode,
+        module_actions=module_actions,
+        shim=shim,
         _order_paths=order_paths,
         _package_root=package_root,
         _file_to_include=file_to_include,

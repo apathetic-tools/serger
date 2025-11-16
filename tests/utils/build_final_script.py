@@ -4,6 +4,7 @@
 from collections import OrderedDict
 from typing import Any
 
+import serger.config as mod_config
 import serger.stitch as mod_stitch
 
 
@@ -16,6 +17,8 @@ def make_build_final_script_args(  # noqa: PLR0913
     all_function_names: set[str] | None = None,
     detected_packages: set[str] | None = None,
     module_mode: str = "multi",
+    module_actions: list[mod_config.ModuleActionFull] | None = None,
+    shim: mod_config.ShimSetting = "all",
     license_header: str = "",
     version: str = "1.0.0",
     commit: str = "abc123",
@@ -34,6 +37,8 @@ def make_build_final_script_args(  # noqa: PLR0913
         all_function_names: Set of all function names (defaults to empty set)
         detected_packages: Pre-detected package names (defaults to {package_name})
         module_mode: How to generate import shims (defaults to "multi")
+        module_actions: List of module actions (defaults to empty list)
+        shim: Shim setting (defaults to "all")
         license_header: License header text
         version: Version string
         commit: Commit hash
@@ -62,6 +67,9 @@ def make_build_final_script_args(  # noqa: PLR0913
     if detected_packages is None:
         detected_packages = {package_name}
 
+    if module_actions is None:
+        module_actions = []
+
     return {
         "package_name": package_name,
         "all_imports": all_imports,
@@ -70,6 +78,8 @@ def make_build_final_script_args(  # noqa: PLR0913
         "all_function_names": all_function_names,
         "detected_packages": detected_packages,
         "module_mode": module_mode,
+        "module_actions": module_actions,
+        "shim": shim,
         "license_header": license_header,
         "version": version,
         "commit": commit,
