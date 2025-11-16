@@ -1,6 +1,9 @@
 # tests/5_core/test_main_config.py
 """Tests for main configuration parsing and logic."""
 
+from pathlib import Path
+
+import serger.config as mod_config
 import serger.main_config as mod_main_config
 
 
@@ -132,3 +135,357 @@ def test_parse_main_name_complex_module_path_with_function() -> None:
     # --- verify ---
     assert module_path == "a.b.c.d.e"
     assert function_name == "cli"
+
+
+# Tests for find_main_function()
+
+
+def test_find_main_function_main_mode_none(tmp_path: Path) -> None:
+    """Test find_main_function returns None when main_mode is 'none'."""
+    # --- setup ---
+    config: mod_config.RootConfigResolved = {
+        "include": [],
+        "exclude": [],
+        "strict_config": False,
+        "out": {"path": "out.py", "root": tmp_path, "origin": "default"},
+        "respect_gitignore": True,
+        "log_level": "INFO",
+        "watch_interval": 1.0,
+        "dry_run": False,
+        "__meta__": {
+            "cli_root": tmp_path,
+            "config_root": tmp_path,
+        },
+        "post_processing": {
+            "enabled": True,
+            "category_order": [],
+            "categories": {},
+        },
+        "internal_imports": "force_strip",
+        "external_imports": "top",
+        "stitch_mode": "raw",
+        "module_mode": "none",
+        "shim": "all",
+        "module_actions": [],
+        "comments_mode": "keep",
+        "docstring_mode": "keep",
+        "module_bases": ["src"],
+        "main_mode": "none",
+        "main_name": None,
+    }
+    file_path = tmp_path / "main.py"
+    file_path.write_text("def main():\n    pass\n")
+
+    # --- execute ---
+    result = mod_main_config.find_main_function(
+        config=config,
+        file_paths=[file_path],
+        module_sources={"main.py": "def main():\n    pass\n"},
+        module_names=["main"],
+        package_root=tmp_path,
+        file_to_include={
+            file_path: {"path": "main.py", "root": tmp_path, "origin": "default"}
+        },
+        detected_packages=set(),
+    )
+
+    # --- verify ---
+    assert result is None
+
+
+def test_find_main_function_with_main_name_module_path(tmp_path: Path) -> None:
+    """Test find_main_function with main_name specifying module path."""
+    # --- setup ---
+    config: mod_config.RootConfigResolved = {
+        "include": [],
+        "exclude": [],
+        "strict_config": False,
+        "out": {"path": "out.py", "root": tmp_path, "origin": "default"},
+        "respect_gitignore": True,
+        "log_level": "INFO",
+        "watch_interval": 1.0,
+        "dry_run": False,
+        "__meta__": {
+            "cli_root": tmp_path,
+            "config_root": tmp_path,
+        },
+        "post_processing": {
+            "enabled": True,
+            "category_order": [],
+            "categories": {},
+        },
+        "internal_imports": "force_strip",
+        "external_imports": "top",
+        "stitch_mode": "raw",
+        "module_mode": "none",
+        "shim": "all",
+        "module_actions": [],
+        "comments_mode": "keep",
+        "docstring_mode": "keep",
+        "module_bases": ["src"],
+        "main_mode": "auto",
+        "main_name": "mypkg.main",
+    }
+    pkg_dir = tmp_path / "mypkg"
+    pkg_dir.mkdir()
+    file_path = pkg_dir / "main.py"
+    file_path.write_text("def main():\n    pass\n")
+
+    # --- execute ---
+    result = mod_main_config.find_main_function(
+        config=config,
+        file_paths=[file_path],
+        module_sources={"mypkg.main.py": "def main():\n    pass\n"},
+        module_names=["mypkg.main"],
+        package_root=tmp_path,
+        file_to_include={
+            file_path: {"path": "mypkg/main.py", "root": tmp_path, "origin": "default"}
+        },
+        detected_packages={"mypkg"},
+    )
+
+    # --- verify ---
+    assert result is not None
+    function_name, source_file, module_path = result
+    assert function_name == "main"
+    assert source_file == file_path
+    assert module_path == "mypkg.main"
+
+
+def test_find_main_function_with_main_name_function_only(tmp_path: Path) -> None:
+    """Test find_main_function with main_name specifying function name only."""
+    # --- setup ---
+    config: mod_config.RootConfigResolved = {
+        "include": [],
+        "exclude": [],
+        "strict_config": False,
+        "out": {"path": "out.py", "root": tmp_path, "origin": "default"},
+        "respect_gitignore": True,
+        "log_level": "INFO",
+        "watch_interval": 1.0,
+        "dry_run": False,
+        "__meta__": {
+            "cli_root": tmp_path,
+            "config_root": tmp_path,
+        },
+        "post_processing": {
+            "enabled": True,
+            "category_order": [],
+            "categories": {},
+        },
+        "internal_imports": "force_strip",
+        "external_imports": "top",
+        "stitch_mode": "raw",
+        "module_mode": "none",
+        "shim": "all",
+        "module_actions": [],
+        "comments_mode": "keep",
+        "docstring_mode": "keep",
+        "module_bases": ["src"],
+        "main_mode": "auto",
+        "main_name": "cli",
+    }
+    file_path = tmp_path / "main.py"
+    file_path.write_text("def cli():\n    pass\n")
+
+    # --- execute ---
+    result = mod_main_config.find_main_function(
+        config=config,
+        file_paths=[file_path],
+        module_sources={"main.py": "def cli():\n    pass\n"},
+        module_names=["main"],
+        package_root=tmp_path,
+        file_to_include={
+            file_path: {"path": "main.py", "root": tmp_path, "origin": "default"}
+        },
+        detected_packages=set(),
+    )
+
+    # --- verify ---
+    assert result is not None
+    function_name, source_file, module_path = result
+    assert function_name == "cli"
+    assert source_file == file_path
+    assert module_path == "main"
+
+
+def test_find_main_function_with_package_config(tmp_path: Path) -> None:
+    """Test find_main_function with package config specified."""
+    # --- setup ---
+    config: mod_config.RootConfigResolved = {
+        "include": [],
+        "exclude": [],
+        "strict_config": False,
+        "out": {"path": "out.py", "root": tmp_path, "origin": "default"},
+        "respect_gitignore": True,
+        "log_level": "INFO",
+        "watch_interval": 1.0,
+        "dry_run": False,
+        "__meta__": {
+            "cli_root": tmp_path,
+            "config_root": tmp_path,
+        },
+        "post_processing": {
+            "enabled": True,
+            "category_order": [],
+            "categories": {},
+        },
+        "internal_imports": "force_strip",
+        "external_imports": "top",
+        "stitch_mode": "raw",
+        "module_mode": "none",
+        "shim": "all",
+        "module_actions": [],
+        "comments_mode": "keep",
+        "docstring_mode": "keep",
+        "module_bases": ["src"],
+        "main_mode": "auto",
+        "main_name": None,
+        "package": "mypkg",
+    }
+    pkg_dir = tmp_path / "mypkg"
+    pkg_dir.mkdir()
+    file_path = pkg_dir / "main.py"
+    file_path.write_text("def main():\n    pass\n")
+
+    # --- execute ---
+    result = mod_main_config.find_main_function(
+        config=config,
+        file_paths=[file_path],
+        module_sources={"mypkg.main.py": "def main():\n    pass\n"},
+        module_names=["mypkg.main"],
+        package_root=tmp_path,
+        file_to_include={
+            file_path: {"path": "mypkg/main.py", "root": tmp_path, "origin": "default"}
+        },
+        detected_packages={"mypkg"},
+    )
+
+    # --- verify ---
+    assert result is not None
+    function_name, source_file, module_path = result
+    assert function_name == "main"
+    assert source_file == file_path
+    assert module_path == "mypkg.main"
+
+
+def test_find_main_function_priority_main_py(tmp_path: Path) -> None:
+    """Test find_main_function prioritizes __main__.py over other files."""
+    # --- setup ---
+    config: mod_config.RootConfigResolved = {
+        "include": [],
+        "exclude": [],
+        "strict_config": False,
+        "out": {"path": "out.py", "root": tmp_path, "origin": "default"},
+        "respect_gitignore": True,
+        "log_level": "INFO",
+        "watch_interval": 1.0,
+        "dry_run": False,
+        "__meta__": {
+            "cli_root": tmp_path,
+            "config_root": tmp_path,
+        },
+        "post_processing": {
+            "enabled": True,
+            "category_order": [],
+            "categories": {},
+        },
+        "internal_imports": "force_strip",
+        "external_imports": "top",
+        "stitch_mode": "raw",
+        "module_mode": "none",
+        "shim": "all",
+        "module_actions": [],
+        "comments_mode": "keep",
+        "docstring_mode": "keep",
+        "module_bases": ["src"],
+        "main_mode": "auto",
+        "main_name": None,
+    }
+    pkg_dir = tmp_path / "mypkg"
+    pkg_dir.mkdir()
+    main_py = pkg_dir / "__main__.py"
+    main_py.write_text("def main():\n    pass\n")
+    other_py = pkg_dir / "other.py"
+    other_py.write_text("def main():\n    pass\n")
+
+    # --- execute ---
+    result = mod_main_config.find_main_function(
+        config=config,
+        file_paths=[other_py, main_py],  # other.py first in list
+        module_sources={
+            "mypkg.other.py": "def main():\n    pass\n",
+            "mypkg.__main__.py": "def main():\n    pass\n",
+        },
+        module_names=["mypkg.other", "mypkg.__main__"],
+        package_root=tmp_path,
+        file_to_include={
+            other_py: {"path": "mypkg/other.py", "root": tmp_path, "origin": "default"},
+            main_py: {
+                "path": "mypkg/__main__.py",
+                "root": tmp_path,
+                "origin": "default",
+            },
+        },
+        detected_packages={"mypkg"},
+    )
+
+    # --- verify ---
+    assert result is not None
+    function_name, source_file, module_path = result
+    assert function_name == "main"
+    assert source_file == main_py  # Should prefer __main__.py
+    assert module_path == "mypkg.__main__"
+
+
+def test_find_main_function_not_found(tmp_path: Path) -> None:
+    """Test find_main_function returns None when function not found."""
+    # --- setup ---
+    config: mod_config.RootConfigResolved = {
+        "include": [],
+        "exclude": [],
+        "strict_config": False,
+        "out": {"path": "out.py", "root": tmp_path, "origin": "default"},
+        "respect_gitignore": True,
+        "log_level": "INFO",
+        "watch_interval": 1.0,
+        "dry_run": False,
+        "__meta__": {
+            "cli_root": tmp_path,
+            "config_root": tmp_path,
+        },
+        "post_processing": {
+            "enabled": True,
+            "category_order": [],
+            "categories": {},
+        },
+        "internal_imports": "force_strip",
+        "external_imports": "top",
+        "stitch_mode": "raw",
+        "module_mode": "none",
+        "shim": "all",
+        "module_actions": [],
+        "comments_mode": "keep",
+        "docstring_mode": "keep",
+        "module_bases": ["src"],
+        "main_mode": "auto",
+        "main_name": None,
+    }
+    file_path = tmp_path / "main.py"
+    file_path.write_text("def other():\n    pass\n")
+
+    # --- execute ---
+    result = mod_main_config.find_main_function(
+        config=config,
+        file_paths=[file_path],
+        module_sources={"main.py": "def other():\n    pass\n"},
+        module_names=["main"],
+        package_root=tmp_path,
+        file_to_include={
+            file_path: {"path": "main.py", "root": tmp_path, "origin": "default"}
+        },
+        detected_packages=set(),
+    )
+
+    # --- verify ---
+    assert result is None
