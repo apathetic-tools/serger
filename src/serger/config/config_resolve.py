@@ -26,6 +26,7 @@ from serger.constants import (
     DEFAULT_WATCH_INTERVAL,
 )
 from serger.logs import get_app_logger
+from serger.module_actions import extract_module_name_from_source_path
 from serger.utils import make_includeresolved, make_pathresolved
 from serger.utils.utils_validation import validate_required_keys
 
@@ -204,6 +205,7 @@ def _resolve_pyproject_path(
 
 def _validate_and_normalize_module_actions(  # noqa: C901, PLR0912, PLR0915
     module_actions: ModuleActions,
+    config_dir: Path | None = None,
 ) -> list[ModuleActionFull]:
     """Validate and normalize module_actions to list format.
 
@@ -212,6 +214,8 @@ def _validate_and_normalize_module_actions(  # noqa: C901, PLR0912, PLR0915
 
     Args:
         module_actions: Either dict format (simple) or list format (full)
+        config_dir: Optional config directory for resolving relative source_path
+            paths. If None, paths are resolved relative to current working directory.
 
     Returns:
         Normalized list of ModuleActionFull with all fields present
@@ -364,7 +368,8 @@ def _validate_and_normalize_module_actions(  # noqa: C901, PLR0912, PLR0915
                     )
                     raise ValueError(msg)
 
-            # Validate source_path if present (basic validation only, per Q6)
+            # Validate source_path if present
+            source_path_resolved_str: str | None = None
             if "source_path" in action:
                 source_path_val = action["source_path"]
                 if not isinstance(source_path_val, str):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -379,6 +384,62 @@ def _validate_and_normalize_module_actions(  # noqa: C901, PLR0912, PLR0915
                         f"non-empty string if present"
                     )
                     raise ValueError(msg)
+
+                # Resolve to absolute path (relative to config_dir if provided)
+                if config_dir is not None:
+                    if Path(source_path_val).is_absolute():
+                        source_path_resolved = Path(source_path_val).resolve()
+                    else:
+                        source_path_resolved = (config_dir / source_path_val).resolve()
+                else:
+                    source_path_resolved = Path(source_path_val).resolve()
+
+                # Get affects value to determine if we need to validate file existence
+                affects_val = action.get("affects", "shims")
+                # Always validate module name matching (even for shims-only actions)
+                # but only validate file existence if affects includes "stitching"
+                if "stitching" in affects_val or affects_val == "both":
+                    # Validate file exists (if affects includes "stitching")
+                    if not source_path_resolved.exists():
+                        msg = (
+                            f"module_actions[{idx}]['source_path'] file "
+                            f"does not exist: {source_path_resolved}"
+                        )
+                        raise ValueError(msg)
+
+                    # Validate is Python file
+                    if source_path_resolved.suffix != ".py":
+                        msg = (
+                            f"module_actions[{idx}]['source_path'] must be a "
+                            f"Python file (.py extension), got: {source_path_resolved}"
+                        )
+                        raise ValueError(msg)
+
+                # Extract module name from file and verify it matches source
+                # Use file's parent directory as package root for validation
+                # (since source_path files may not be in normal include set)
+                # This validation happens for all affects values to ensure
+                # source matches
+                if (
+                    source_path_resolved.exists()
+                    and source_path_resolved.suffix == ".py"
+                ):
+                    package_root_for_validation = source_path_resolved.parent
+                    try:
+                        extract_module_name_from_source_path(
+                            source_path_resolved,
+                            package_root_for_validation,
+                            source_val,
+                        )
+                    except ValueError as e:
+                        msg = (
+                            f"module_actions[{idx}]['source_path'] "
+                            f"validation failed: {e!s}"
+                        )
+                        raise ValueError(msg) from e
+
+                # Store resolved absolute path for later use
+                source_path_resolved_str = str(source_path_resolved)
 
             # Validate dest based on action type (per Q5)
             dest_val = action.get("dest")
@@ -418,9 +479,23 @@ def _validate_and_normalize_module_actions(  # noqa: C901, PLR0912, PLR0915
             # Add dest only if present (required for move/copy, not for delete)
             if dest_val is not None:
                 normalized_action["dest"] = dest_val
-            # Add source_path only if present
+            # Add source_path only if present (store resolved absolute path)
             if "source_path" in action:
-                normalized_action["source_path"] = action["source_path"]
+                if source_path_resolved_str is not None:
+                    normalized_action["source_path"] = source_path_resolved_str
+                else:
+                    # This shouldn't happen, but handle it just in case
+                    source_path_val = action["source_path"]
+                    if config_dir is not None:
+                        if Path(source_path_val).is_absolute():
+                            source_path_resolved = Path(source_path_val).resolve()
+                        else:
+                            source_path_resolved = (
+                                config_dir / source_path_val
+                            ).resolve()
+                    else:
+                        source_path_resolved = Path(source_path_val).resolve()
+                    normalized_action["source_path"] = str(source_path_resolved)
 
             result_list.append(normalized_action)
 
@@ -1237,12 +1312,12 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     if build_module_actions is not None:
         # Validate and normalize to list format
         resolved_cfg["module_actions"] = _validate_and_normalize_module_actions(
-            build_module_actions
+            build_module_actions, config_dir=config_dir
         )
     elif root_module_actions is not None:
         # Validate and normalize to list format
         resolved_cfg["module_actions"] = _validate_and_normalize_module_actions(
-            root_module_actions
+            root_module_actions, config_dir=config_dir
         )
     else:
         # Always set to empty list in resolved config (fully resolved)

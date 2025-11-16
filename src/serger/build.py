@@ -449,7 +449,7 @@ def _extract_build_metadata(
     return version, commit, build_date
 
 
-def run_build(  # noqa: PLR0915, PLR0912
+def run_build(  # noqa: C901, PLR0915, PLR0912
     build_cfg: BuildConfigResolved,
 ) -> None:
     """Execute a single build task using a fully resolved config.
@@ -525,18 +525,70 @@ def run_build(  # noqa: PLR0915, PLR0912
         xmsg = "No files found matching include patterns"
         raise ValueError(xmsg)
 
-    # Get config root for resolving order paths
+    # Get config root for resolving order paths and validating module_actions
     validate_required_keys(
         build_cfg["__meta__"], {"config_root"}, "build_cfg['__meta__']"
     )
     config_root = build_cfg["__meta__"]["config_root"]
+
+    # Validate and normalize module_actions if present
+    # (needed when module_actions are set after config resolution, e.g., in tests)
+    # Import here to avoid circular dependency and private function usage
+    from serger.config.config_resolve import (  # noqa: PLC0415
+        _validate_and_normalize_module_actions,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    module_actions_raw = build_cfg.get("module_actions")
+    if module_actions_raw:
+        module_actions = _validate_and_normalize_module_actions(
+            module_actions_raw,
+            config_dir=config_root,
+        )
+        # Update build_cfg with validated actions
+        build_cfg["module_actions"] = module_actions
+    else:
+        module_actions = []
+
+    # Collect files from source_path in module_actions
+    source_path_files: set[Path] = set()
+    for action in module_actions:
+        if "source_path" in action:
+            affects_val = action.get("affects", "shims")
+            if "stitching" in affects_val or affects_val == "both":
+                source_path_str = action["source_path"]
+                source_path_resolved = Path(source_path_str).resolve()
+
+                # Validate file exists (should have been validated in config resolution)
+                if not source_path_resolved.exists():
+                    # This should not happen if validation worked, but check anyway
+                    msg = (
+                        f"source_path file does not exist: {source_path_resolved}. "
+                        f"This should have been caught during config validation."
+                    )
+                    raise ValueError(msg)
+
+                source_path_files.add(source_path_resolved)
+
+                # Add to file_to_include if not already present
+                if source_path_resolved not in file_to_include:
+                    # Create a synthetic IncludeResolved for this file
+                    # Use the file's parent directory as root
+                    synthetic_include: IncludeResolved = {
+                        "path": str(source_path_resolved),
+                        "root": source_path_resolved.parent,
+                        "origin": "code",  # Mark as code-generated
+                    }
+                    file_to_include[source_path_resolved] = synthetic_include
+
+    # Merge source_path files into included_files
+    all_included_files = sorted(set(included_files) | source_path_files)
 
     # Resolve exclude_names to paths (exclude_names is list[str] of paths)
     # Do this early so we can exclude them before package detection
     exclude_names_raw = build_cfg.get("exclude_names", [])
     exclude_paths: list[Path] = []
     if exclude_names_raw:
-        included_set = set(included_files)
+        included_set = set(all_included_files)
         for exclude_name in cast("list[str]", exclude_names_raw):
             # Resolve path (absolute or relative to config_root)
             if Path(exclude_name).is_absolute():
@@ -547,8 +599,12 @@ def run_build(  # noqa: PLR0915, PLR0912
                 exclude_paths.append(exclude_path)
 
     # Filter out excluded files to get final set for stitching
+    # Note: source_path files override excludes (they're added after initial collection)
+    # and should not be filtered out by exclude_paths
     exclude_set = set(exclude_paths)
-    final_files = [f for f in included_files if f not in exclude_set]
+    # Remove source_path files from exclude_set to ensure they're not filtered out
+    exclude_set -= source_path_files
+    final_files = [f for f in all_included_files if f not in exclude_set]
 
     if not final_files:
         xmsg = "No files remaining after exclusions"
@@ -567,6 +623,12 @@ def run_build(  # noqa: PLR0915, PLR0912
         # Use explicit order from config (filtered to final_files)
         order_paths = resolve_order_paths(order, final_files, config_root)
         logger.debug("Using explicit order from config (%d entries)", len(order_paths))
+        # Add source_path files that aren't already in order_paths
+        order_paths_set = set(order_paths)
+        for source_path_file in sorted(source_path_files):
+            if source_path_file not in order_paths_set:
+                order_paths.append(source_path_file)
+                logger.debug("Added source_path file to order: %s", source_path_file)
     else:
         # Auto-discover order via topological sort (using final_files)
         logger.info("Auto-discovering module order via topological sort...")
@@ -593,7 +655,7 @@ def run_build(  # noqa: PLR0915, PLR0912
     shim = build_cfg.get("shim", "all")
     comments_mode = build_cfg["comments_mode"]
     docstring_mode = build_cfg["docstring_mode"]
-    module_actions = build_cfg.get("module_actions", [])
+    # module_actions already validated and normalized above
 
     stitch_config: dict[str, object] = {
         "package": package,

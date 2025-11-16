@@ -1820,6 +1820,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     # Process user-specified module_actions to update headers
     # When scope: "original" is set, it affects original module names in stitched code
     # (including headers), regardless of affects value
+    transformed_order_names: list[str] | None = None
     if module_actions:
         # Filter for actions with scope: "original"
         # (headers are part of original code structure, so scope: "original" applies)
@@ -1887,6 +1888,54 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                                 new_header,
                                 [repr(p[:50]) for p in parts[:5]],
                             )
+
+    # Build name mapping for module structure setup
+    # Maps transformed full names -> original full names
+    # This is used by _setup_pkg_modules() to find modules by original name
+    # when they're registered with transformed names
+    name_mapping: dict[str, str] = {}
+    if transformed_order_names is not None:
+        logger.trace(
+            "Building name mapping: transformed_order_names=%s, order_names=%s",
+            transformed_order_names,
+            order_names,
+        )
+        # Build mapping from transformed to original names (both as full paths)
+        for i, original_name in enumerate(order_names):
+            if i < len(transformed_order_names):
+                transformed_name = transformed_order_names[i]
+                if transformed_name != original_name:
+                    # Convert both to full paths for name mapping
+                    # Always use full paths with package_name prefix for name mapping
+                    # Original name -> full path
+                    if original_name == package_name:
+                        original_full = package_name
+                    elif original_name.startswith(f"{package_name}."):
+                        original_full = original_name
+                    else:
+                        # Always prepend package_name for name mapping
+                        # (we need consistent full paths in the mapping)
+                        original_full = f"{package_name}.{original_name}"
+
+                    # Transformed name -> full path
+                    # Always use full paths with package_name prefix for name mapping
+                    if transformed_name == package_name:
+                        transformed_full = package_name
+                    elif transformed_name.startswith(f"{package_name}."):
+                        transformed_full = transformed_name
+                    else:
+                        # Always prepend package_name for name mapping
+                        transformed_full = f"{package_name}.{transformed_name}"
+
+                    # Map transformed -> original
+                    name_mapping[transformed_full] = original_full
+                    logger.trace(
+                        "Name mapping entry: %s -> %s (original: %s, transformed: %s)",
+                        transformed_full,
+                        original_full,
+                        original_name,
+                        transformed_name,
+                    )
 
     # Generate import shims based on module_actions and shim setting
     # If shim == "none" or module_mode == "none", skip shim generation
@@ -2223,7 +2272,78 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         # Track top-level modules for flat mode
         top_level_modules: list[str] = []
 
-        for module_name in shim_names:
+        # Use transformed_order_names for module structure if available
+        # (for actions with scope: "original", the module structure should use
+        # transformed names, not original names)
+        # However, if shim transformations have been applied, use final shim_names
+        # instead (which includes all transformations)
+        # shim_names is used for shim generation, but module structure should
+        # use transformed names when scope: "original" actions are applied
+        # transformed_order_names is initialized above (line 1829) and set if
+        # original_scope_actions_for_headers is not empty
+        module_names_for_structure = shim_names
+        logger.trace(
+            "Module structure setup: shim_names=%s, transformed_order_names=%s",
+            shim_names,
+            transformed_order_names,
+        )
+        # Only use transformed_order_names if no shim transformations were applied
+        # (shim_names already includes all transformations if shim actions exist)
+        has_shim_transformations = any(
+            a.get("scope") == "shim"
+            for a in (module_actions or [])
+            if a.get("affects", "shims") in ("shims", "both")
+        )
+        if transformed_order_names is not None and not has_shim_transformations:  # pyright: ignore[reportPossiblyUnboundVariable]
+            # transformed_order_names contains transformed module names
+            # (relative to package_root)
+            # We need to convert them to full module paths (with package_name prefix)
+            # to match the format of shim_names
+            transformed_full_names: list[str] = []
+            for name in transformed_order_names:  # pyright: ignore[reportPossiblyUnboundVariable]
+                # Apply same logic as shim name generation to get full path
+                if module_mode == "flat":
+                    if name == package_name:
+                        full_name = package_name
+                    elif name.startswith(f"{package_name}."):
+                        full_name = name
+                    elif "." in name:
+                        first_part = name.split(".", 1)[0]
+                        if (
+                            first_part in detected_packages
+                            and first_part != package_name
+                        ):
+                            full_name = name
+                        else:
+                            full_name = f"{package_name}.{name}"
+                    else:
+                        full_name = name
+                elif name == package_name:
+                    full_name = package_name
+                elif name.startswith(f"{package_name}."):
+                    full_name = name
+                elif "." in name:
+                    first_part = name.split(".", 1)[0]
+                    if first_part in detected_packages and first_part != package_name:
+                        full_name = name
+                    else:
+                        full_name = f"{package_name}.{name}"
+                else:
+                    full_name = f"{package_name}.{name}"
+                transformed_full_names.append(full_name)
+            module_names_for_structure = transformed_full_names
+            logger.trace(
+                "Using transformed names for structure: %s (package_name=%s)",
+                transformed_full_names,
+                package_name,
+            )
+
+        for module_name in module_names_for_structure:
+            logger.trace(
+                "Processing module for structure: %s (package_name=%s)",
+                module_name,
+                package_name,
+            )
             if "." not in module_name:
                 # Top-level module
                 if module_mode == "flat":
@@ -2236,6 +2356,12 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                     if parent not in packages:
                         packages[parent] = []
                     packages[parent].append((module_name, is_direct))
+                    logger.trace(
+                        "Added module %s to package %s (is_direct=%s)",
+                        module_name,
+                        parent,
+                        is_direct,
+                    )
             else:
                 # Find the parent package (everything except the last component)
                 name_parts = module_name.split(".")
@@ -2245,9 +2371,60 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                 if parent not in packages:
                     packages[parent] = []
                 packages[parent].append((module_name, is_direct))
+                logger.trace(
+                    "Added module %s to package %s (is_direct=%s)",
+                    module_name,
+                    parent,
+                    is_direct,
+                )
+
+        # Rebuild name mapping using final shim_names (after all transformations)
+        # This ensures the mapping reflects the final state after both original and
+        # shim transformations
+        if transformed_order_names is not None:
+            logger.trace(
+                "Rebuilding name mapping from final shim_names: shim_names=%s, "
+                "order_names=%s",
+                shim_names,
+                order_names,
+            )
+            # Build mapping from final transformed names to original names
+            # We need to match shim_names (final) back to order_names (original)
+            name_mapping.clear()
+            # Convert order_names to full paths for matching
+            original_full_paths: list[str] = []
+            for original_name in order_names:
+                if original_name == package_name:
+                    original_full = package_name
+                elif original_name.startswith(f"{package_name}."):
+                    original_full = original_name
+                else:
+                    original_full = f"{package_name}.{original_name}"
+                original_full_paths.append(original_full)
+
+            # Match shim_names to original_full_paths by position
+            # (assuming they're in the same order)
+            for i, final_name in enumerate(shim_names):
+                if i < len(original_full_paths):
+                    original_full = original_full_paths[i]
+                    if final_name != original_full:
+                        name_mapping[final_name] = original_full
+                        logger.trace(
+                            "Rebuilt name mapping: %s -> %s",
+                            final_name,
+                            original_full,
+                        )
 
         # Collect all package names (both intermediate and top-level)
+        # Use module_names_for_structure to include packages from transformed names
         all_packages: set[str] = set()
+        logger.trace(
+            "Collecting packages from shim_names=%s and module_names_for_structure=%s",
+            shim_names,
+            module_names_for_structure,
+        )
+        # Collect from both shim_names (for shim generation) and
+        # module_names_for_structure (for transformed structure)
         for module_name in shim_names:
             # Skip top-level modules in flat mode (they're not in packages)
             if module_mode == "flat" and "." not in module_name:
@@ -2261,12 +2438,32 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
             # Also add the top-level package if module has dots
             if "." in module_name:
                 all_packages.add(name_parts[0])
+        # Also collect packages from transformed structure
+        for module_name in module_names_for_structure:
+            # Skip top-level modules in flat mode (they're not in packages)
+            if module_mode == "flat" and "." not in module_name:
+                continue
+            name_parts = module_name.split(".")
+            # Add all package prefixes
+            for i in range(1, len(name_parts)):
+                pkg = ".".join(name_parts[:i])
+                all_packages.add(pkg)
+            # Also add the top-level package if module has dots
+            if "." in module_name:
+                all_packages.add(name_parts[0])
         # Add root package if not already present (unless flat mode with no packages)
         if module_mode != "flat" or all_packages:
             all_packages.add(package_name)
 
+        logger.trace(
+            "Collected packages: %s (package_name=%s)",
+            sorted(all_packages),
+            package_name,
+        )
+
         # Sort packages by depth (shallowest first) to create parents before children
         sorted_packages = sorted(all_packages, key=lambda p: p.count("."))
+        logger.trace("Sorted packages (by depth): %s", sorted_packages)
 
         # Generate shims for each package
         # Each package gets its own module object to maintain proper isolation
@@ -2297,7 +2494,10 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         shim_blocks.append("")
 
         shim_blocks.append(
-            "def _setup_pkg_modules(pkg_name: str, module_names: list[str]) -> None:"
+            "def _setup_pkg_modules("
+            "pkg_name: str, module_names: list[str], "
+            "name_mapping: dict[str, str] | None = None"
+            ") -> None:"
         )
         shim_blocks.append(
             '    """Set up package module attributes and register submodules."""'
@@ -2307,24 +2507,106 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         shim_blocks.append("        return")
         shim_blocks.append("    # Copy attributes from all modules under this package")
         shim_blocks.append("    _globals = globals()")
+        shim_blocks.append("    # Debug: log what's in globals for this package")
+        shim_blocks.append("    # Note: This copies all globals to the package module")
         shim_blocks.append("    for _key, _value in _globals.items():")
         shim_blocks.append("        setattr(_mod, _key, _value)")
+        shim_blocks.append(
+            "    # Set up package attributes for nested packages BEFORE registering"
+        )
+        shim_blocks.append(
+            "    # modules (so packages are available when modules are registered)"
+        )
+        shim_blocks.append("    _seen_packages: set[str] = set()")
+        shim_blocks.append("    for _name in module_names:")
+        shim_blocks.append(
+            "        if _name != pkg_name and _name.startswith(pkg_name + '.'):"
+        )
+        shim_blocks.append(
+            "            # Extract parent package (e.g., mypkg.public from"
+        )
+        shim_blocks.append("            # mypkg.public.utils)")
+        shim_blocks.append("            _name_parts = _name.split('.')")
+        shim_blocks.append("            if len(_name_parts) > 2:")
+        shim_blocks.append("                # Has at least one intermediate package")
+        shim_blocks.append("                _parent_pkg = '.'.join(_name_parts[:-1])")
+        shim_blocks.append(
+            "                if _parent_pkg.startswith(pkg_name + '.') and "
+            "_parent_pkg not in _seen_packages:"
+        )
+        shim_blocks.append("                    _seen_packages.add(_parent_pkg)")
+        shim_blocks.append(
+            "                    _pkg_obj = sys.modules.get(_parent_pkg)"
+        )
+        shim_blocks.append("                    if _pkg_obj and _pkg_obj != _mod:")
+        shim_blocks.append("                        # Set parent package as attribute")
+        shim_blocks.append("                        _pkg_attr_name = _name_parts[1]")
+        shim_blocks.append(
+            "                        if not hasattr(_mod, _pkg_attr_name):"
+        )
+        shim_blocks.append(
+            "                            setattr(_mod, _pkg_attr_name, _pkg_obj)"
+        )
         shim_blocks.append("    # Register all modules under this package")
         shim_blocks.append("    for _name in module_names:")
-        shim_blocks.append("        sys.modules[_name] = _mod")
+        shim_blocks.append("        # Try to find module by transformed name first")
+        shim_blocks.append("        _module_obj = sys.modules.get(_name)")
+        shim_blocks.append("        if not _module_obj and name_mapping:")
+        shim_blocks.append("            # If not found, try to find by original name")
+        shim_blocks.append("            _original_name = name_mapping.get(_name)")
+        shim_blocks.append("            if _original_name:")
+        shim_blocks.append(
+            "                _module_obj = sys.modules.get(_original_name)"
+        )
+        shim_blocks.append("                if not _module_obj:")
+        shim_blocks.append(
+            "                    # Also check globals() for module object"
+        )
+        shim_blocks.append("                    # Module objects might be in globals()")
+        shim_blocks.append("                    # with their original names")
+        shim_blocks.append(
+            "                    _last_part = _original_name.split('.')[-1]"
+        )
+        shim_blocks.append("                    _module_obj = _globals.get(_last_part)")
+        shim_blocks.append("                if _module_obj:")
+        shim_blocks.append("                    # Register with transformed name")
+        shim_blocks.append("                    sys.modules[_name] = _module_obj")
+        shim_blocks.append("        # If still not found, use package module")
+        shim_blocks.append("        if not _module_obj:")
+        shim_blocks.append("            sys.modules[_name] = _mod")
         shim_blocks.append("    # Set submodules as attributes on parent package")
         shim_blocks.append("    for _name in module_names:")
         shim_blocks.append(
             "        if _name != pkg_name and _name.startswith(pkg_name + '.'):"
         )
         shim_blocks.append("            _submodule_name = _name.split('.')[-1]")
+        shim_blocks.append("            # Try to get actual module object")
+        shim_blocks.append("            _module_obj = sys.modules.get(_name)")
+        shim_blocks.append("            if not _module_obj and name_mapping:")
+        shim_blocks.append("                _original_name = name_mapping.get(_name)")
+        shim_blocks.append("                if _original_name:")
+        shim_blocks.append(
+            "                    _module_obj = sys.modules.get(_original_name)"
+        )
+        shim_blocks.append("                    if not _module_obj:")
+        shim_blocks.append("                        # Also check globals()")
+        shim_blocks.append(
+            "                        _last_part = _original_name.split('.')[-1]"
+        )
+        shim_blocks.append(
+            "                        _module_obj = _globals.get(_last_part)"
+        )
+        shim_blocks.append(
+            "            # Use actual module object if found, otherwise package"
+        )
+        shim_blocks.append("            _target = _module_obj if _module_obj else _mod")
         shim_blocks.append("            if not hasattr(_mod, _submodule_name):")
-        shim_blocks.append("                setattr(_mod, _submodule_name, _mod)")
+        shim_blocks.append("                setattr(_mod, _submodule_name, _target)")
         shim_blocks.append(
             "            elif isinstance(getattr(_mod, _submodule_name, None), "
             "types.ModuleType):"
         )
-        shim_blocks.append("                setattr(_mod, _submodule_name, _mod)")
+        shim_blocks.append("                setattr(_mod, _submodule_name, _target)")
         shim_blocks.append("")
 
         # First pass: Create all package modules and set up parent-child relationships
@@ -2334,14 +2616,55 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
 
         shim_blocks.append("")
 
+        # Build name mapping dict as string for shim code
+        # Maps transformed full names -> original full names
+        name_mapping_str = (
+            "{"
+            + ", ".join(f"{k!r}: {v!r}" for k, v in sorted(name_mapping.items()))
+            + "}"
+            if name_mapping
+            else "None"
+        )
+        _max_name_mapping_log_length = 200
+        logger.trace(
+            "Name mapping for shim code: %s (dict size: %d)",
+            (
+                name_mapping_str[:_max_name_mapping_log_length]
+                if len(name_mapping_str) > _max_name_mapping_log_length
+                else name_mapping_str
+            ),
+            len(name_mapping),
+        )
+
         # Second pass: Copy attributes and register modules
         # Process in any order since all modules are now created
+        logger.trace("Packages dict: %s", packages)
         for pkg_name in sorted_packages:
+            logger.trace(
+                "Processing package %s (in packages dict: %s)",
+                pkg_name,
+                pkg_name in packages,
+            )
             if pkg_name not in packages:
-                continue  # Skip packages that don't have any modules
+                # Package has no direct modules, but might have subpackages
+                # We still need to set it up so it's accessible
+                logger.trace(
+                    "Package %s has no direct modules, but setting up anyway",
+                    pkg_name,
+                )
+                # Set up empty package - just register it
+                shim_blocks.append(
+                    f"_setup_pkg_modules({pkg_name!r}, [], {name_mapping_str})"
+                )
+                continue
 
             # Sort module names for deterministic output
             module_names_for_pkg = sorted([name for name, _ in packages[pkg_name]])
+            logger.trace(
+                "Setting up package %s with modules: %s",
+                pkg_name,
+                module_names_for_pkg,
+            )
             # Module names already have full paths (with package_name prefix),
             # but ensure they're correctly formatted for registration
             # If name equals pkg_name, it's the root module itself
@@ -2354,8 +2677,14 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                 for name in module_names_for_pkg
             ]
             module_names_str = ", ".join(repr(name) for name in full_module_names)
+            logger.trace(
+                "Calling _setup_pkg_modules for %s with modules: %s",
+                pkg_name,
+                full_module_names,
+            )
             shim_blocks.append(
-                f"_setup_pkg_modules({pkg_name!r}, [{module_names_str}])"
+                f"_setup_pkg_modules({pkg_name!r}, [{module_names_str}], "
+                f"{name_mapping_str})"
             )
 
         # Handle top-level modules for flat mode
@@ -2365,6 +2694,85 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                 f"sys.modules[{module_name!r}] = globals()"
                 for module_name in sorted(top_level_modules)
             )
+
+        # Set up root module to have access to top-level packages
+        # When transformed packages like mypkg.public exist, make public accessible
+        # at root level for convenience (module.public works, not just
+        # module.mypkg.public)
+        if transformed_order_names is not None and package_name:
+            logger.trace(
+                "Setting up root module access for transformed packages: "
+                "transformed_order_names=%s, package_name=%s, "
+                "all_packages=%s",
+                transformed_order_names,
+                package_name,
+                sorted(all_packages),
+            )
+            # Find top-level transformed packages (e.g., "public" from "mypkg.public")
+            for transformed_name in transformed_order_names:
+                if "." in transformed_name:
+                    # Extract first part (e.g., "public" from "public.utils")
+                    first_part = transformed_name.split(".", 1)[0]
+                    # Check if this is a package (has submodules)
+                    full_pkg_name = f"{package_name}.{first_part}"
+                    logger.trace(
+                        "Checking transformed package: first_part=%s, "
+                        "full_pkg_name=%s, in all_packages=%s",
+                        first_part,
+                        full_pkg_name,
+                        full_pkg_name in all_packages,
+                    )
+                    if full_pkg_name in all_packages:
+                        logger.trace(
+                            "Making transformed package %s accessible at root level",
+                            first_part,
+                        )
+                        logger.trace(
+                            "Adding shim blocks for root module access (current "
+                            "shim_blocks length: %d)",
+                            len(shim_blocks),
+                        )
+                        shim_blocks.append(
+                            f"# Make {first_part} accessible at root level"
+                        )
+                        logger.trace(
+                            "After adding comment (shim_blocks length: %d)",
+                            len(shim_blocks),
+                        )
+                        shim_blocks.append(
+                            f"_transformed_pkg = sys.modules.get({full_pkg_name!r})"
+                        )
+                        shim_blocks.append("if _transformed_pkg:")
+                        # Set on root package if it exists
+                        shim_blocks.append(
+                            f"    _root_pkg = sys.modules.get({package_name!r})"
+                        )
+                        shim_blocks.append(
+                            f"    if _root_pkg and not hasattr(_root_pkg, "
+                            f"{first_part!r}):"
+                        )
+                        shim_blocks.append(
+                            f"        setattr(_root_pkg, {first_part!r}, "
+                            f"_transformed_pkg)"
+                        )
+                        # Set in globals() for script execution
+                        shim_blocks.append(
+                            f"    globals()[{first_part!r}] = _transformed_pkg"
+                        )
+                        # Also set on current module for importlib compatibility
+                        # This ensures module.public works when imported via importlib
+                        shim_blocks.append("    try:")
+                        shim_blocks.append(
+                            "        _current_mod = sys.modules.get(__name__)"
+                        )
+                        shim_blocks.append("        if _current_mod:")
+                        shim_blocks.append(
+                            f"            setattr(_current_mod, {first_part!r}, "
+                            f"_transformed_pkg)"
+                        )
+                        shim_blocks.append("    except NameError:")
+                        shim_blocks.append("        # __name__ not set yet, skip")
+                        shim_blocks.append("        pass")
 
         shim_text = "\n".join(shim_blocks)
 
