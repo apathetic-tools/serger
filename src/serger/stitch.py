@@ -46,9 +46,12 @@ from .constants import (
 from .logs import get_app_logger
 from .meta import PROGRAM_PACKAGE
 from .module_actions import (
+    apply_cleanup_behavior,
     apply_module_actions,
     apply_single_action,
+    check_shim_stitching_mismatches,
     generate_actions_from_mode,
+    separate_actions_by_affects,
     set_mode_generated_action_defaults,
     validate_action_source_exists,
     validate_module_actions,
@@ -1825,11 +1828,21 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         if module_actions:  # Already list[ModuleActionFull] with all defaults applied
             all_actions.extend(module_actions)
 
-        # Separate actions by scope
+        # Separate actions by affects value
+        (
+            shims_only_actions,
+            _stitching_only_actions,
+            both_actions,
+        ) = separate_actions_by_affects(all_actions)
+
+        # For shim generation, use shims-only and both actions
+        shim_actions = shims_only_actions + both_actions
+
+        # Separate shim actions by scope
         original_scope_actions = [
-            a for a in all_actions if a.get("scope") == "original"
+            a for a in shim_actions if a.get("scope") == "original"
         ]
-        shim_scope_actions = [a for a in all_actions if a.get("scope") == "shim"]
+        shim_scope_actions = [a for a in shim_actions if a.get("scope") == "shim"]
 
         # Apply scope: "original" actions to original module names (before prepending)
         transformed_names = shim_names_raw
@@ -1919,6 +1932,56 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
             for action in shim_scope_actions:
                 validate_action_source_exists(action, set(shim_names), scope="shim")
                 shim_names = apply_single_action(shim_names, action, detected_packages)
+
+        # Check for shim-stitching mismatches and apply cleanup
+        # Build set of modules that are in stitched code
+        # (from order_names after filtering)
+        # order_names contains the module names that were actually stitched
+        # Convert to full module paths (with package_name prefix) for comparison
+        # This matches the format of shim_names
+        stitched_modules_full: set[str] = set()
+        for name in order_names:
+            # Apply same logic as shim name generation to get full path
+            if module_mode == "flat":
+                if name == package_name:
+                    full_name = package_name
+                elif name.startswith(f"{package_name}."):
+                    full_name = name
+                elif "." in name:
+                    first_part = name.split(".", 1)[0]
+                    if first_part in detected_packages and first_part != package_name:
+                        full_name = name
+                    else:
+                        full_name = f"{package_name}.{name}"
+                else:
+                    full_name = name
+            elif name == package_name:
+                full_name = package_name
+            elif name.startswith(f"{package_name}."):
+                full_name = name
+            elif "." in name:
+                first_part = name.split(".", 1)[0]
+                if first_part in detected_packages and first_part != package_name:
+                    full_name = name
+                else:
+                    full_name = f"{package_name}.{name}"
+            else:
+                full_name = f"{package_name}.{name}"
+            stitched_modules_full.add(full_name)
+
+        # Check for mismatches
+        shim_modules_set = set(shim_names)
+        mismatches = check_shim_stitching_mismatches(
+            shim_modules_set, stitched_modules_full, all_actions
+        )
+
+        # Apply cleanup behavior
+        if mismatches:
+            updated_shims, _warnings = apply_cleanup_behavior(
+                mismatches, shim_modules_set
+            )
+            # Update shim_names to reflect cleanup
+            shim_names = sorted(updated_shims)
 
         # Group modules by their parent package
         # parent_package -> list of (module_name, is_direct_child)
@@ -2330,6 +2393,95 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         detected_packages=detected_packages,
         topo_paths=topo_paths,
     )
+
+    # --- Apply affects: "stitching" actions to filter files ---
+    # Before collecting modules, apply actions that affect stitching
+    # to determine which files should be excluded
+    if module_actions:
+        # Build module-to-file mapping from order_paths
+        module_to_file_for_filtering: dict[str, Path] = {}
+        for file_path in order_paths:
+            include = file_to_include.get(file_path)
+            module_name = derive_module_name(file_path, package_root, include)
+            module_to_file_for_filtering[module_name] = file_path
+
+        # Separate actions by affects value
+        (
+            _shims_only_actions,
+            stitching_only_actions,
+            both_actions,
+        ) = separate_actions_by_affects(module_actions)
+
+        # Combine stitching-only and both actions
+        stitching_actions = stitching_only_actions + both_actions
+
+        if stitching_actions:
+            # Extract deleted package/module names from stitching actions
+            # Actions reference package names (e.g., "pkg1"), but we need to
+            # check file paths to see if they belong to deleted packages
+            deleted_sources: set[str] = set()
+            for action in stitching_actions:
+                action_type = action.get("action", "move")
+                if action_type == "delete":
+                    source = action["source"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+                    deleted_sources.add(source)
+
+            # Filter order_paths to exclude files belonging to deleted packages
+            if deleted_sources:
+                logger.debug(
+                    "Filtering files: excluding modules deleted by "
+                    "stitching actions: %s",
+                    sorted(deleted_sources),
+                )
+                filtered_order_paths: list[Path] = []
+                for file_path in order_paths:
+                    try:
+                        file_relative = file_path.relative_to(package_root)
+                    except ValueError:
+                        # File is not under package_root, skip filtering
+                        # (shouldn't happen in normal flow, but be safe)
+                        filtered_order_paths.append(file_path)
+                        continue
+                    file_str = str(file_relative).replace("\\", "/")
+                    # Check if file path contains any deleted source
+                    # (e.g., "pkg1/module.py" contains "pkg1")
+                    should_exclude = False
+                    excluded_by = None
+                    for deleted_source in deleted_sources:
+                        # Check if file path starts with deleted_source/
+                        if file_str.startswith(f"{deleted_source}/"):
+                            should_exclude = True
+                            excluded_by = deleted_source
+                            break
+                        # Check if file path contains deleted_source as directory
+                        if f"/{deleted_source}/" in file_str:
+                            should_exclude = True
+                            excluded_by = deleted_source
+                            break
+                        # Check exact match for top-level files
+                        file_name = file_relative.name
+                        if file_name == f"{deleted_source}.py":
+                            should_exclude = True
+                            excluded_by = deleted_source
+                            break
+
+                    if not should_exclude:
+                        filtered_order_paths.append(file_path)
+                    else:
+                        logger.debug(
+                            "Excluding file %s (deleted by stitching action: %s)",
+                            file_path,
+                            excluded_by,
+                        )
+                logger.debug(
+                    "File filtering: %d files before, %d files after",
+                    len(order_paths),
+                    len(filtered_order_paths),
+                )
+                order_paths = filtered_order_paths
+
+                # Also update derived_module_names if we're tracking it
+                # (derived_module_names will be recalculated in _collect_modules)
 
     # --- Collection Phase ---
     logger.debug("Collecting module sources...")
