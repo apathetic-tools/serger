@@ -167,12 +167,13 @@ def test_scope_shim_actions_validated_incrementally(tmp_path: Path) -> None:
         order=["oldpkg/__init__.py", "oldpkg/core.py"],
     )
     # Use force mode (generates scope: "original" action for oldpkg -> mypkg)
-    # Then add scope: "shim" action to rename mypkg.oldpkg -> mypkg.newpkg
+    # This transforms oldpkg to mypkg, oldpkg.core to mypkg.core
+    # Then add scope: "shim" action to rename mypkg -> mypkg.newpkg
     # This tests that scope: "shim" actions can reference results of
     # scope: "original" actions (incremental validation)
     build_cfg["module_mode"] = "force"
     build_cfg["module_actions"] = [
-        {"source": "mypkg.oldpkg", "dest": "mypkg.newpkg", "scope": "shim"},
+        {"source": "mypkg", "dest": "mypkg.newpkg", "scope": "shim"},
     ]
 
     mod_build.run_build(build_cfg)

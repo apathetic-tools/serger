@@ -1923,11 +1923,18 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
             elif "." in name:
                 first_part = name.split(".", 1)[0]
                 # If first part is a detected package different from package_name,
-                # it's from another package - use as-is
-                if first_part in detected_packages and first_part != package_name:
+                # check if it's actually a subpackage of package_name
+                # (i.e., if it appears as a top-level module in transformed_names)
+                if (
+                    first_part in detected_packages
+                    and first_part != package_name
+                    and first_part not in transformed_names
+                ):
+                    # First part is a separate package (not in our module list)
+                    # - use as-is
                     full_name = name
                 else:
-                    # Likely a subpackage - prepend package_name
+                    # Likely a subpackage of package_name - prepend package_name
                     full_name = f"{package_name}.{name}"
             else:
                 # Top-level module under package: prepend package_name
@@ -1937,7 +1944,10 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         # Validate and apply scope: "shim" actions (incremental validation)
         if shim_scope_actions:
             for action in shim_scope_actions:
-                validate_action_source_exists(action, set(shim_names), scope="shim")
+                # Skip source validation for delete actions (they match flexibly)
+                action_type = action.get("action", "move")
+                if action_type != "delete":
+                    validate_action_source_exists(action, set(shim_names), scope="shim")
                 shim_names = apply_single_action(shim_names, action, detected_packages)
 
         # Check for shim-stitching mismatches and apply cleanup
@@ -2409,15 +2419,34 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     original_order_names_for_shims: list[str] | None = None
     if module_actions:
         # Build module-to-file mapping from order_paths
+        # Check if package_root is a package directory itself
+        # (when all files are in a single package, package_root is that package)
+        is_package_dir = (package_root / "__init__.py").exists()
+        package_name_from_root: str | None = None
+        if is_package_dir:
+            package_name_from_root = package_root.name
+
         module_to_file_for_filtering: dict[str, Path] = {}
         for file_path in order_paths:
             include = file_to_include.get(file_path)
             module_name = derive_module_name(file_path, package_root, include)
+
+            # If package_root is a package directory, preserve package structure
+            if is_package_dir and package_name_from_root:
+                # Handle __init__.py special case: represents the package itself
+                if file_path.name == "__init__.py" and file_path.parent == package_root:
+                    # Use package name as the module name (represents the package)
+                    module_name = package_name_from_root
+                else:
+                    # Prepend package name to preserve structure
+                    # e.g., "core" -> "oldpkg.core"
+                    module_name = f"{package_name_from_root}.{module_name}"
+
             module_to_file_for_filtering[module_name] = file_path
 
         # Preserve original module names for shim generation
         # (before filtering affects shim generation)
-        original_order_names_for_shims = list(module_to_file_for_filtering.keys())
+        original_order_names_for_shims = sorted(module_to_file_for_filtering.keys())
 
         # Separate actions by affects value
         (
