@@ -125,7 +125,7 @@ def test_build_config_has_module_actions() -> None:
 def test_root_config_has_module_actions() -> None:
     """Test RootConfig includes module_actions field."""
     root_cfg: mod_types.RootConfig = {
-        "builds": [{"include": ["src/**"]}],
+        "include": ["src/**"],
         "module_actions": {"old": "new"},
     }
     assert "module_actions" in root_cfg

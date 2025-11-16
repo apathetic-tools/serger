@@ -1,5 +1,5 @@
 # tests/utils/buildconfig.py
-"""Shared test helpers for constructing fake BuildConfigResolved and related types."""
+"""Shared test helpers for constructing fake RootConfigResolved and related types."""
 
 import json
 from pathlib import Path
@@ -68,8 +68,11 @@ def make_build_cfg(  # noqa: PLR0913
     post_processing: mod_types.PostProcessingConfigResolved | None = None,
     package: str | None = None,
     order: list[str] | None = None,
-) -> mod_types.BuildConfigResolved:
-    """Return a fake, fully-populated BuildConfigResolved."""
+    watch_interval: float = 1.0,
+    module_actions: list[mod_types.ModuleActionFull] | None = None,
+    module_bases: list[str] | None = None,
+) -> mod_types.RootConfigResolved:
+    """Return a fake, fully-populated RootConfigResolved."""
     cfg: dict[str, object] = {
         "include": include,
         "exclude": exclude or [],
@@ -81,6 +84,7 @@ def make_build_cfg(  # noqa: PLR0913
         "log_level": log_level,
         "dry_run": dry_run,
         "strict_config": False,
+        "watch_interval": watch_interval,
         "stitch_mode": stitch_mode,
         "module_mode": module_mode,
         "shim": shim,
@@ -91,12 +95,14 @@ def make_build_cfg(  # noqa: PLR0913
         "post_processing": post_processing
         if post_processing is not None
         else make_post_processing_config_resolved(),
+        "module_actions": module_actions if module_actions is not None else [],
+        "module_bases": module_bases if module_bases is not None else ["src"],
     }
     if package is not None:
         cfg["package"] = package
     if order is not None:
         cfg["order"] = order
-    return cast("mod_types.BuildConfigResolved", cfg)
+    return cast("mod_types.RootConfigResolved", cfg)
 
 
 def make_build_input(
@@ -199,17 +205,17 @@ def make_post_processing_config_resolved(
 # ---------------------------------------------------------------------------
 
 
-def make_config_content(  # noqa: PLR0912
+def make_config_content(
     *,
     package: str | None = None,
     include: list[str] | None = None,
     exclude: list[str] | None = None,
     out: str | None = None,
-    builds: list[mod_types.BuildConfig] | mod_types.BuildConfig | None = None,
+    builds: mod_types.BuildConfig | None = None,
     fmt: str = "json",
     **root_options: Any,
 ) -> str:
-    """Generate config file content (JSON, JSONC, or Python) with the given builds.
+    """Generate config file content (JSON, JSONC, or Python) with flat config format.
 
     Args:
         package: Package name for stitching (required if builds not provided)
@@ -218,8 +224,8 @@ def make_config_content(  # noqa: PLR0912
         exclude: Exclude patterns (defaults to empty list)
         out: Output path (defaults to "dist/{package}.py"
             if package provided)
-        builds: Single build config dict or list of build config dicts (alternative to
-            individual params - if provided, other params are ignored)
+        builds: Single build config dict (alternative to individual params -
+            if provided, other params are ignored)
         fmt: Output format - "json", "jsonc", or "py" (default: "json")
         **root_options: Additional root-level config options (e.g., log_level)
 
@@ -236,32 +242,30 @@ def make_config_content(  # noqa: PLR0912
         ...     out="custom/dist.py",
         ...     include=["mypkg/**/*.py", "other/**/*.py"],
         ... )
-        >>> # Multiple builds
+        >>> # Using build dict
         >>> content = make_config_content(
-        ...     builds=[
-        ...         {"package": "pkg1", "out": "dist1"},
-        ...         {"package": "pkg2", "out": "dist2"},
-        ...     ],
+        ...     builds={"package": "pkg1", "out": "dist1"},
         ...     fmt="py",
         ...     log_level="debug",
         ... )
     """
-    # If builds provided, use them directly
+    # If builds provided, use it directly (single build only)
     if builds is not None:
-        builds_list = builds if isinstance(builds, list) else [builds]
+        build_cfg = builds
     else:
         # Build from individual parameters
         if package is None:
             xmsg = "Either 'package' or 'builds' must be provided"
             raise ValueError(xmsg)
 
-        build_cfg: dict[str, Any] = {"package": package}
+        build_cfg = {"package": package}
 
         # Set defaults based on package name
         if include is None:
             include = [f"{package}/**/*.py"]
         if include:
-            build_cfg["include"] = include
+            # Type cast: list[str] is valid for list[str | IncludeConfig]
+            build_cfg["include"] = include  # type: ignore[typeddict-item]
 
         if exclude is not None:
             build_cfg["exclude"] = exclude
@@ -271,23 +275,15 @@ def make_config_content(  # noqa: PLR0912
         if out:
             build_cfg["out"] = out
 
-        builds_list = [cast("mod_types.BuildConfig", build_cfg)]
-
-    # Construct root config
-    root_cfg: dict[str, Any] = {"builds": builds_list}
+    # Construct flat config (merge build_cfg with root_options)
+    root_cfg: dict[str, Any] = dict(build_cfg)
     root_cfg.update(root_options)
 
     # Generate content based on format
     if fmt == "py":
         # Python config file - write as Python code
-        builds_repr = repr(builds_list)
-        content = f"builds = {builds_repr}\n"
-        # Add root options if any
-        if root_options:
-            for key, value in root_options.items():
-                if key != "builds":
-                    value_repr = repr(value)
-                    content += f"{key} = {value_repr}\n"
+        config_repr = repr(root_cfg)
+        content = f"config = {config_repr}\n"
         return content
     if fmt == "jsonc":
         # JSONC (JSON with comments) - just write as JSON for simplicity

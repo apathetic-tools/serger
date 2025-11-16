@@ -32,14 +32,12 @@ def func():
         )
 
         config_content = make_config_content(
-            builds=[
-                make_build_input(
-                    include=[str(src_dir / "**/*.py")],
-                    out=str(out_dir / "output.py"),
-                    package="testpkg",
-                    comments_mode="keep",
-                )
-            ]
+            builds=make_build_input(
+                include=[str(src_dir / "**/*.py")],
+                out=str(out_dir / "output.py"),
+                package="testpkg",
+                comments_mode="keep",
+            )
         )
 
         config_path = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
@@ -109,14 +107,12 @@ def func():
         )
 
         config_content = make_config_content(
-            builds=[
-                make_build_input(
-                    include=[str(src_dir / "**/*.py")],
-                    out=str(out_dir / "output.py"),
-                    package="testpkg",
-                    comments_mode="strip",
-                )
-            ]
+            builds=make_build_input(
+                include=[str(src_dir / "**/*.py")],
+                out=str(out_dir / "output.py"),
+                package="testpkg",
+                comments_mode="strip",
+            )
         )
 
         config_path = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
@@ -185,14 +181,12 @@ def func():
         )
 
         config_content = make_config_content(
-            builds=[
-                make_build_input(
-                    include=[str(src_dir / "**/*.py")],
-                    out=str(out_dir / "output.py"),
-                    package="testpkg",
-                    comments_mode="ignores",
-                )
-            ]
+            builds=make_build_input(
+                include=[str(src_dir / "**/*.py")],
+                out=str(out_dir / "output.py"),
+                package="testpkg",
+                comments_mode="ignores",
+            )
         )
 
         config_path = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
@@ -262,14 +256,12 @@ def func():
         )
 
         config_content = make_config_content(
-            builds=[
-                make_build_input(
-                    include=[str(src_dir / "**/*.py")],
-                    out=str(out_dir / "output.py"),
-                    package="testpkg",
-                    comments_mode="inline",
-                )
-            ]
+            builds=make_build_input(
+                include=[str(src_dir / "**/*.py")],
+                out=str(out_dir / "output.py"),
+                package="testpkg",
+                comments_mode="inline",
+            )
         )
 
         config_path = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"

@@ -41,14 +41,12 @@ class Calculator:
         )
 
         config_content = make_config_content(
-            builds=[
-                make_build_input(
-                    include=[str(src_dir / "**/*.py")],
-                    out=str(out_dir / "output.py"),
-                    package="testpkg",
-                    docstring_mode="strip",
-                )
-            ]
+            builds=make_build_input(
+                include=[str(src_dir / "**/*.py")],
+                out=str(out_dir / "output.py"),
+                package="testpkg",
+                docstring_mode="strip",
+            )
         )
 
         config_path = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
@@ -143,14 +141,12 @@ class _InternalClass:
         )
 
         config_content = make_config_content(
-            builds=[
-                make_build_input(
-                    include=[str(src_dir / "**/*.py")],
-                    out=str(out_dir / "output.py"),
-                    package="testpkg",
-                    docstring_mode="public",
-                )
-            ]
+            builds=make_build_input(
+                include=[str(src_dir / "**/*.py")],
+                out=str(out_dir / "output.py"),
+                package="testpkg",
+                docstring_mode="public",
+            )
         )
 
         config_path = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"

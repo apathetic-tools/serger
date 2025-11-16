@@ -27,7 +27,7 @@ def test_collect_included_files_expands_patterns(tmp_path: Path) -> None:
     )
 
     # --- execute ---
-    files = mod_actions._collect_included_files([build])
+    files = mod_actions._collect_included_files(build)
 
     # --- verify ---
     assert set(files) == {(src / "a.py").resolve(), (src / "b.py").resolve()}
@@ -41,7 +41,7 @@ def test_collect_included_files_handles_nonexistent_paths(tmp_path: Path) -> Non
     )
 
     # --- execute ---
-    files = mod_actions._collect_included_files([build])
+    files = mod_actions._collect_included_files(build)
 
     # --- verify ---
     assert files == []  # no crash, empty result

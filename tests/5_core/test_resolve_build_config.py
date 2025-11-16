@@ -250,12 +250,11 @@ def test_resolve_build_config_with_absolute_include(tmp_path: Path) -> None:
 
 def test_resolve_build_config_inherits_root_gitignore_setting(tmp_path: Path) -> None:
     # --- setup ---
-    root_cfg: mod_types.RootConfig = {"respect_gitignore": False}
-    raw = make_build_input(include=["src/**"])
+    raw = make_build_input(include=["src/**"], respect_gitignore=False)
     args = _args()
 
     # --- execute ---
-    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path, root_cfg)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["respect_gitignore"] is False
@@ -263,11 +262,11 @@ def test_resolve_build_config_inherits_root_gitignore_setting(tmp_path: Path) ->
 
 def test_resolve_build_config_preserves_trailing_slash(tmp_path: Path) -> None:
     # --- setup ---
-    raw: mod_types.BuildConfig = {"include": ["src/"], "out": "dist"}
+    raw: mod_types.RootConfig = {"include": ["src/"], "out": "dist"}
     args = Namespace()  # empty placeholder
 
     # --- execute ---
-    result = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path, {})
+    result = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
     inc_path = result["include"][0]["path"]
 
     # --- validate ---
@@ -537,14 +536,11 @@ authors = [
 """
     )
     raw = make_build_input(include=["src/**"], use_pyproject=True)
-    root_cfg: mod_types.RootConfig = {"builds": [raw]}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved.get("display_name") == "test-package"
@@ -573,14 +569,11 @@ authors = [
 """
     )
     raw = make_build_input(include=["src/**"], use_pyproject=False)
-    root_cfg: mod_types.RootConfig = {"builds": [raw]}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # No metadata should be extracted when use_pyproject is false
@@ -613,15 +606,11 @@ version = "1.2.3"
 """
     )
     raw1 = make_build_input(include=["src1/**"], use_pyproject=False)
-    raw2 = make_build_input(include=["src2/**"])
-    root_cfg: mod_types.RootConfig = {"builds": [raw1, raw2]}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw1, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw1, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Should not use pyproject.toml when explicitly disabled
@@ -646,15 +635,11 @@ description = "A test package"
 """
     )
     raw1 = make_build_input(include=["src1/**"], use_pyproject=True)
-    raw2 = make_build_input(include=["src2/**"])
-    root_cfg: mod_types.RootConfig = {"builds": [raw1, raw2]}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw1, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw1, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved.get("display_name") == "test-package"
@@ -685,14 +670,11 @@ version = "1.0.0"
     raw = make_build_input(
         include=["src/**"], pyproject_path="custom.toml", use_pyproject=True
     )
-    root_cfg: mod_types.RootConfig = {"builds": [raw]}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved.get("display_name") == "custom-package"
@@ -712,15 +694,12 @@ name = "root-package"
 version = "3.0.0"
 """
     )
-    raw = make_build_input(include=["src/**"])
-    root_cfg: mod_types.RootConfig = {"builds": [raw], "pyproject_path": "root.toml"}
+    raw = make_build_input(include=["src/**"], pyproject_path="root.toml")
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved.get("display_name") == "root-package"
@@ -741,22 +720,14 @@ version = "1.2.3"
 description = "A test package"
 """
     )
-    raw1 = make_build_input(include=["src1/**"])
-    raw2 = make_build_input(include=["src2/**"])
-    root_cfg: mod_types.RootConfig = {
-        "builds": [raw1, raw2],
-        "use_pyproject": True,
-    }
+    raw1 = make_build_input(include=["src1/**"], use_pyproject=True)
+    raw2 = make_build_input(include=["src2/**"], use_pyproject=True)
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved1 = mod_resolve.resolve_build_config(
-            raw1, args, tmp_path, tmp_path, root_cfg
-        )
-        resolved2 = mod_resolve.resolve_build_config(
-            raw2, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved1 = mod_resolve.resolve_build_config(raw1, args, tmp_path, tmp_path)
+        resolved2 = mod_resolve.resolve_build_config(raw2, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Both builds should get pyproject metadata
@@ -793,14 +764,11 @@ authors = [
         authors="Config Author <config@example.com>",
         use_pyproject=True,
     )
-    root_cfg: mod_types.RootConfig = {"builds": [raw]}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # When pyproject is enabled, all fields are overwritten
@@ -832,14 +800,11 @@ authors = [
     )
     raw = make_build_input(include=["src/**"])
     # Configless build: minimal root_cfg with only builds
-    root_cfg: mod_types.RootConfig = {"builds": [{}]}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Configless builds should extract pyproject.toml metadata by default
@@ -868,14 +833,11 @@ license = "MIT"
     )
     raw = make_build_input(include=["src/**"], use_pyproject=False)
     # Configless build: minimal root_cfg with only builds
-    root_cfg: mod_types.RootConfig = {"builds": [{}]}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Configless builds should not extract pyproject.toml metadata when disabled
@@ -900,18 +862,11 @@ version = "1.2.3"
 """
     )
     raw = make_build_input(include=["src/**"])
-    root_cfg: mod_types.RootConfig = {
-        "builds": [raw],
-        "pyproject_path": "pyproject.toml",
-        "use_pyproject": False,
-    }
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Should not use pyproject even though path is set
@@ -933,17 +888,11 @@ version = "1.2.3"
 """
     )
     raw = make_build_input(include=["src/**"], pyproject_path="pyproject.toml")
-    root_cfg: mod_types.RootConfig = {
-        "builds": [raw],
-        "use_pyproject": False,
-    }
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Build-level pyproject_path should enable it
@@ -969,17 +918,11 @@ version = "1.2.3"
         pyproject_path="pyproject.toml",
         use_pyproject=False,
     )
-    root_cfg: mod_types.RootConfig = {
-        "builds": [raw],
-        "use_pyproject": False,
-    }
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Build-level use_pyproject: false should disable it
@@ -1002,14 +945,11 @@ version = "1.0.0"
     )
     # Build config without package field, but with pyproject enabled
     raw = make_build_input(include=["src/**"], use_pyproject=True)
-    root_cfg: mod_types.RootConfig = {"builds": [raw]}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Package should be extracted from pyproject.toml name
@@ -1039,14 +979,11 @@ authors = [
 """
     )
     raw = make_build_input(include=["src/**"], use_pyproject=True)
-    root_cfg: mod_types.RootConfig = {"builds": [raw]}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved.get("authors") == "Alice <alice@example.com>, Bob"
@@ -1059,17 +996,11 @@ def test_resolve_build_config_authors_cascades_from_root(
     """Authors should cascade from root config to all builds."""
     # --- setup ---
     raw = make_build_input(include=["src/**"])
-    root_cfg: mod_types.RootConfig = {
-        "builds": [raw],
-        "authors": "Root Author <root@example.com>",
-    }
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved.get("authors") == "Root Author <root@example.com>"
@@ -1084,17 +1015,11 @@ def test_resolve_build_config_authors_build_overrides_root(
     raw = make_build_input(
         include=["src/**"], authors="Build Author <build@example.com>"
     )
-    root_cfg: mod_types.RootConfig = {
-        "builds": [raw],
-        "authors": "Root Author <root@example.com>",
-    }
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved.get("authors") == "Build Author <build@example.com>"
@@ -1106,22 +1031,18 @@ def test_resolve_build_config_authors_multi_build_cascades(
 ) -> None:
     """Authors should cascade from root to all builds in multi-build configs."""
     # --- setup ---
-    raw1 = make_build_input(include=["src1/**"])
-    raw2 = make_build_input(include=["src2/**"])
-    root_cfg: mod_types.RootConfig = {
-        "builds": [raw1, raw2],
-        "authors": "Root Author <root@example.com>",
-    }
+    raw1 = make_build_input(
+        include=["src1/**"], authors="Root Author <root@example.com>"
+    )
+    raw2 = make_build_input(
+        include=["src2/**"], authors="Root Author <root@example.com>"
+    )
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved1 = mod_resolve.resolve_build_config(
-            raw1, args, tmp_path, tmp_path, root_cfg
-        )
-        resolved2 = mod_resolve.resolve_build_config(
-            raw2, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved1 = mod_resolve.resolve_build_config(raw1, args, tmp_path, tmp_path)
+        resolved2 = mod_resolve.resolve_build_config(raw2, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Both builds should get root-level authors
@@ -1145,14 +1066,11 @@ authors = [
 """
     )
     raw = make_build_input(include=["src/**"], use_pyproject=True)
-    root_cfg: mod_types.RootConfig = {"builds": [raw]}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Should use pyproject.toml authors when enabled
@@ -1175,17 +1093,11 @@ authors = [
 """
     )
     raw = make_build_input(include=["src/**"], use_pyproject=False)
-    root_cfg: mod_types.RootConfig = {
-        "builds": [raw],
-        "authors": "Root Author <root@example.com>",
-    }
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Root-level authors should be used when pyproject is explicitly disabled
@@ -1199,14 +1111,11 @@ def test_resolve_build_config_authors_optional_in_resolved(
     """Authors should be optional in resolved config (NotRequired)."""
     # --- setup ---
     raw = make_build_input(include=["src/**"])
-    root_cfg: mod_types.RootConfig = {"builds": [raw]}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Authors should not be present if not set anywhere
@@ -1225,17 +1134,11 @@ def test_resolve_build_config_version_cascades_from_root(
     """Version should cascade from root config to all builds."""
     # --- setup ---
     raw = make_build_input(include=["src/**"])
-    root_cfg: mod_types.RootConfig = {
-        "builds": [raw],
-        "version": "1.2.3",
-    }
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved.get("version") == "1.2.3"
@@ -1248,17 +1151,11 @@ def test_resolve_build_config_version_build_overrides_root(
     """Version from build config should override root config."""
     # --- setup ---
     raw = make_build_input(include=["src/**"], version="2.0.0")
-    root_cfg: mod_types.RootConfig = {
-        "builds": [raw],
-        "version": "1.2.3",
-    }
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved.get("version") == "2.0.0"
@@ -1270,22 +1167,14 @@ def test_resolve_build_config_version_multi_build_cascades(
 ) -> None:
     """Version should cascade from root to all builds in multi-build configs."""
     # --- setup ---
-    raw1 = make_build_input(include=["src1/**"])
-    raw2 = make_build_input(include=["src2/**"])
-    root_cfg: mod_types.RootConfig = {
-        "builds": [raw1, raw2],
-        "version": "1.2.3",
-    }
+    raw1 = make_build_input(include=["src1/**"], version="1.2.3")
+    raw2 = make_build_input(include=["src2/**"], version="1.2.3")
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved1 = mod_resolve.resolve_build_config(
-            raw1, args, tmp_path, tmp_path, root_cfg
-        )
-        resolved2 = mod_resolve.resolve_build_config(
-            raw2, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved1 = mod_resolve.resolve_build_config(raw1, args, tmp_path, tmp_path)
+        resolved2 = mod_resolve.resolve_build_config(raw2, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Both builds should get root-level version
@@ -1300,14 +1189,11 @@ def test_resolve_build_config_version_optional_in_resolved(
     """Version should be optional in resolved config (NotRequired)."""
     # --- setup ---
     raw = make_build_input(include=["src/**"])
-    root_cfg: mod_types.RootConfig = {"builds": [raw]}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Version should not be present if not set anywhere
@@ -1515,14 +1401,11 @@ def test_resolve_build_config_shim_cascades_from_root(
     """Shim setting should cascade from root config if not in build config."""
     # --- setup ---
     raw = make_build_input(include=["src/**"])
-    root_cfg: mod_types.RootConfig = {"shim": "none"}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["shim"] == "none"
@@ -1535,14 +1418,11 @@ def test_resolve_build_config_shim_build_overrides_root(
     """Build-level shim setting should override root-level."""
     # --- setup ---
     raw = make_build_input(include=["src/**"], shim="public")
-    root_cfg: mod_types.RootConfig = {"shim": "none"}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["shim"] == "public"
@@ -1628,9 +1508,8 @@ def test_resolve_build_config_shim_invalid_root_value_raises_error(
 ) -> None:
     """Shim setting should raise error for invalid root config values."""
     # --- setup ---
-    raw = make_build_input(include=["src/**"])
     # Use cast to allow invalid value for testing validation
-    root_cfg = cast("mod_types.RootConfig", {"shim": "invalid"})
+    raw = make_build_input(include=["src/**"], shim="invalid")
     args = _args()
 
     # --- execute and validate ---
@@ -1638,7 +1517,7 @@ def test_resolve_build_config_shim_invalid_root_value_raises_error(
         module_logger.use_level("info"),
         pytest.raises(ValueError, match="Invalid shim value"),
     ):
-        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path, root_cfg)
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
 
 # ---------------------------------------------------------------------------
@@ -1716,14 +1595,11 @@ def test_resolve_build_config_module_actions_cascades_from_root(
     """Module actions should cascade from root config with defaults applied."""
     # --- setup ---
     raw = make_build_input(include=["src/**"])
-    root_cfg: mod_types.RootConfig = {"module_actions": {"old": "new"}}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert "module_actions" in resolved
@@ -1750,14 +1626,11 @@ def test_resolve_build_config_module_actions_build_overrides_root(
     raw = make_build_input(
         include=["src/**"], module_actions={"build_old": "build_new"}
     )
-    root_cfg: mod_types.RootConfig = {"module_actions": {"root_old": "root_new"}}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert "module_actions" in resolved
@@ -2303,14 +2176,11 @@ def test_resolve_build_config_module_bases_cascades_from_root(
     """Module bases should cascade from root config if not in build config."""
     # --- setup ---
     raw = make_build_input(include=["src/**"])
-    root_cfg: mod_types.RootConfig = {"module_bases": ["lib", "vendor"]}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["module_bases"] == ["lib", "vendor"]
@@ -2323,14 +2193,11 @@ def test_resolve_build_config_module_bases_build_overrides_root(
     """Build-level module bases should override root-level."""
     # --- setup ---
     raw = make_build_input(include=["src/**"], module_bases=["custom"])
-    root_cfg: mod_types.RootConfig = {"module_bases": ["lib", "vendor"]}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["module_bases"] == ["custom"]
@@ -2360,14 +2227,11 @@ def test_resolve_build_config_module_bases_string_cascades_from_root(
     """Module bases string from root should be converted to list[str] on resolve."""
     # --- setup ---
     raw = make_build_input(include=["src/**"])
-    root_cfg: mod_types.RootConfig = {"module_bases": "lib"}
     args = _args()
 
     # --- execute ---
     with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(
-            raw, args, tmp_path, tmp_path, root_cfg
-        )
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["module_bases"] == ["lib"]

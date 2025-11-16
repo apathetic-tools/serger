@@ -180,12 +180,11 @@ def test_subpackage_function_not_overwritten(tmp_path: Path) -> None:
     config_dir = config_file.parent
     cwd = Path.cwd()
     empty_args = Namespace()
-    resolved_root = mod_config_resolve.resolve_config(
+    resolved_config = mod_config_resolve.resolve_config(
         root_cfg, empty_args, config_dir, cwd
     )
-    resolved_builds = resolved_root["builds"]
 
-    mod_build.run_all_builds(resolved_builds, dry_run=False)
+    mod_build.run_build(resolved_config)
 
     # Load and test the stitched file
     out_file = tmp_path / "stitched.py"
@@ -265,12 +264,11 @@ def test_submodule_name_conflicts_with_stdlib_module(tmp_path: Path) -> None:
     config_dir = config_file.parent
     cwd = Path.cwd()
     empty_args = Namespace()
-    resolved_root = mod_config_resolve.resolve_config(
+    resolved_config = mod_config_resolve.resolve_config(
         root_cfg, empty_args, config_dir, cwd
     )
-    resolved_builds = resolved_root["builds"]
 
-    mod_build.run_all_builds(resolved_builds, dry_run=False)
+    mod_build.run_build(resolved_config)
 
     # Load and test the stitched file
     out_file = tmp_path / "stitched.py"

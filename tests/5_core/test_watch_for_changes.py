@@ -74,7 +74,7 @@ def test_watch_for_changes_triggers_rebuild(
     # --- patch and execute ---
     monkeypatch.setattr(time, "sleep", fake_sleep)
     patch_everywhere(monkeypatch, mod_actions, "_collect_included_files", fake_collect)
-    mod_actions.watch_for_changes(fake_build, [build], interval=0.01)
+    mod_actions.watch_for_changes(fake_build, build, interval=0.01)
 
     # --- verify ---
     assert min_rebuild_cycles <= calls.count("rebuilt") <= max_rebuild_cycles
@@ -130,7 +130,7 @@ def test_watch_for_changes_exported_and_callable(
     # --- patch and execute ---
     monkeypatch.setattr(time, "sleep", fake_sleep)
     patch_everywhere(monkeypatch, mod_actions, "_collect_included_files", fake_collect)
-    mod_actions.watch_for_changes(fake_build, [build], interval=0.01)
+    mod_actions.watch_for_changes(fake_build, build, interval=0.01)
 
     # --- verify ---
     assert min_rebuild_cycles <= calls.count("rebuilt") <= max_rebuild_cycles
@@ -168,7 +168,7 @@ def test_watch_ignores_out_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
 
     # --- patch and execute ---
     monkeypatch.setattr(time, "sleep", fake_sleep)
-    mod_actions.watch_for_changes(fake_build, [build], interval=0.01)
+    mod_actions.watch_for_changes(fake_build, build, interval=0.01)
 
     # --- verify ---
     # Only the initial build should run, not retrigger from the out file
@@ -218,7 +218,7 @@ def test_watch_out_dir_files_collected_but_ignored(
 
     # --- patch and execute ---
     monkeypatch.setattr(time, "sleep", fake_sleep)
-    mod_actions.watch_for_changes(fake_build, [build], interval=0.01)
+    mod_actions.watch_for_changes(fake_build, build, interval=0.01)
 
     # --- verify ---
     # Only initial build, output file modifications should NOT trigger rebuild
@@ -278,7 +278,7 @@ def test_watch_detects_file_disappearance(
     # --- patch and execute ---
     monkeypatch.setattr(time, "sleep", fake_sleep)
     patch_everywhere(monkeypatch, mod_actions, "_collect_included_files", fake_collect)
-    mod_actions.watch_for_changes(fake_build, [build], interval=0.01)
+    mod_actions.watch_for_changes(fake_build, build, interval=0.01)
 
     # --- verify ---
     # Should get: initial build + rebuild when deletion is detected

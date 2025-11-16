@@ -11,7 +11,7 @@ import serger.logs as mod_logs
 
 def test_resolve_post_processing_defaults() -> None:
     """Should return default configuration when no config provided."""
-    build_cfg: mod_types.BuildConfig = {}
+    build_cfg: mod_types.RootConfig = {}
     root_cfg: mod_types.RootConfig | None = None
 
     resolved = mod_resolve.resolve_post_processing(build_cfg, root_cfg)
@@ -25,7 +25,7 @@ def test_resolve_post_processing_defaults() -> None:
 
 def test_resolve_post_processing_build_level_override() -> None:
     """Should use build-level config to override defaults."""
-    build_cfg: mod_types.BuildConfig = {
+    build_cfg: mod_types.RootConfig = {
         "post_processing": {
             "enabled": False,
             "category_order": ["formatter"],
@@ -49,9 +49,8 @@ def test_resolve_post_processing_build_level_override() -> None:
 
 def test_resolve_post_processing_root_level_override() -> None:
     """Should use root-level config when build-level is not provided."""
-    build_cfg: mod_types.BuildConfig = {}
+    build_cfg: mod_types.RootConfig = {}
     root_cfg: mod_types.RootConfig = {
-        "builds": [],
         "post_processing": {
             "enabled": False,
             "category_order": ["formatter"],
@@ -66,14 +65,13 @@ def test_resolve_post_processing_root_level_override() -> None:
 
 def test_resolve_post_processing_build_overrides_root() -> None:
     """Should prioritize build-level config over root-level."""
-    build_cfg: mod_types.BuildConfig = {
+    build_cfg: mod_types.RootConfig = {
         "post_processing": {
             "enabled": True,
             "category_order": ["static_checker"],
         },
     }
     root_cfg: mod_types.RootConfig = {
-        "builds": [],
         "post_processing": {
             "enabled": False,
             "category_order": ["formatter"],
@@ -91,7 +89,7 @@ def test_resolve_post_processing_warns_invalid_category(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Should warn on invalid category names in category_order."""
-    build_cfg: mod_types.BuildConfig = {
+    build_cfg: mod_types.RootConfig = {
         "post_processing": {
             "category_order": ["invalid_category", "formatter"],
         },
@@ -109,7 +107,7 @@ def test_resolve_post_processing_warns_invalid_category(
 
 def test_resolve_post_processing_empty_priority_disables_category() -> None:
     """Should disable category when priority is empty."""
-    build_cfg: mod_types.BuildConfig = {
+    build_cfg: mod_types.RootConfig = {
         "post_processing": {
             "categories": {
                 "formatter": {
@@ -128,7 +126,7 @@ def test_resolve_post_processing_empty_priority_disables_category() -> None:
 
 def test_resolve_post_processing_merges_tool_overrides() -> None:
     """Should merge tool overrides from defaults and user config."""
-    build_cfg: mod_types.BuildConfig = {
+    build_cfg: mod_types.RootConfig = {
         "post_processing": {
             "categories": {
                 "formatter": {
@@ -155,7 +153,7 @@ def test_resolve_post_processing_merges_tool_overrides() -> None:
 
 def test_resolve_post_processing_includes_all_categories() -> None:
     """Should include all categories even if not in category_order."""
-    build_cfg: mod_types.BuildConfig = {
+    build_cfg: mod_types.RootConfig = {
         "post_processing": {
             "category_order": ["formatter"],  # Only formatter in order
         },
@@ -174,7 +172,7 @@ def test_resolve_post_processing_includes_all_categories() -> None:
 
 def test_resolve_post_processing_category_enabled_flag() -> None:
     """Should respect category enabled flag."""
-    build_cfg: mod_types.BuildConfig = {
+    build_cfg: mod_types.RootConfig = {
         "post_processing": {
             "categories": {
                 "formatter": {
@@ -194,7 +192,7 @@ def test_resolve_post_processing_category_enabled_flag() -> None:
 
 def test_resolve_post_processing_custom_tool_instances() -> None:
     """Should handle custom tool instances with explicit commands."""
-    build_cfg: mod_types.BuildConfig = {
+    build_cfg: mod_types.RootConfig = {
         "post_processing": {
             "categories": {
                 "formatter": {
@@ -230,7 +228,7 @@ def test_resolve_post_processing_custom_tool_instances() -> None:
 
 def test_resolve_post_processing_root_tool_override_merged_with_build() -> None:
     """Should merge root and build tool overrides correctly."""
-    build_cfg: mod_types.BuildConfig = {
+    build_cfg: mod_types.RootConfig = {
         "post_processing": {
             "categories": {
                 "formatter": {
@@ -244,7 +242,6 @@ def test_resolve_post_processing_root_tool_override_merged_with_build() -> None:
         },
     }
     root_cfg: mod_types.RootConfig = {
-        "builds": [],
         "post_processing": {
             "categories": {
                 "formatter": {
@@ -275,7 +272,7 @@ def test_resolve_post_processing_root_tool_override_merged_with_build() -> None:
 
 def test_resolve_post_processing_category_order_preserved() -> None:
     """Should preserve category order from config."""
-    build_cfg: mod_types.BuildConfig = {
+    build_cfg: mod_types.RootConfig = {
         "post_processing": {
             "category_order": ["import_sorter", "formatter", "static_checker"],
         },
@@ -293,7 +290,7 @@ def test_resolve_post_processing_category_order_preserved() -> None:
 
 def test_resolve_post_processing_none_root_config() -> None:
     """Should handle None root config gracefully."""
-    build_cfg: mod_types.BuildConfig = {
+    build_cfg: mod_types.RootConfig = {
         "post_processing": {
             "enabled": False,
         },
@@ -306,7 +303,7 @@ def test_resolve_post_processing_none_root_config() -> None:
 
 def test_resolve_post_processing_custom_labels_in_user_config_priority() -> None:
     """Should handle custom labels in user config priority."""
-    build_cfg: mod_types.BuildConfig = {
+    build_cfg: mod_types.RootConfig = {
         "post_processing": {
             "categories": {
                 "formatter": {
@@ -355,7 +352,7 @@ def test_resolve_post_processing_custom_labels_in_default_categories() -> None:
 
     try:
         # User config doesn't override - should use defaults
-        build_cfg: mod_types.BuildConfig = {}
+        build_cfg: mod_types.RootConfig = {}
         root_cfg: mod_types.RootConfig | None = None
         resolved = mod_resolve.resolve_post_processing(build_cfg, root_cfg)
 
@@ -394,7 +391,7 @@ def test_resolve_post_processing_custom_label_fallback_from_defaults() -> None:
 
     try:
         # User config has custom label in priority but doesn't define it in tools
-        build_cfg: mod_types.BuildConfig = {
+        build_cfg: mod_types.RootConfig = {
             "post_processing": {
                 "categories": {
                     "formatter": {

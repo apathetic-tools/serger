@@ -187,10 +187,8 @@ def test_multi_package_stitching_via_config_file(tmp_path: Path) -> None:
     resolved_root = mod_config_resolve.resolve_config(
         root_cfg, empty_args, config_dir, cwd
     )
-    resolved_builds = resolved_root["builds"]
-
     # Execute build
-    mod_build.run_all_builds(resolved_builds, dry_run=False)
+    mod_build.run_build(resolved_root)
 
     # --- Verify output ---
     out_file = tmp_path / "stitched.py"
