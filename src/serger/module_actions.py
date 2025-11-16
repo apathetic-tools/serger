@@ -884,10 +884,18 @@ def check_shim_stitching_mismatches(
         if affects in ("stitching", "both") and action_type == "delete":
             source = action["source"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
             # Check if any broken shims match this action's source
+            # broken_shim is a full module path (e.g., "mypkg.pkg1.module"),
+            # source is a package/module name (e.g., "pkg1")
+            # We need to check if the broken shim belongs to the deleted package
             action_broken_shims: set[str] = set()
             for broken_shim in broken_shims:
-                # Check if broken shim matches source or is a submodule
-                if broken_shim == source or broken_shim.startswith(f"{source}."):
+                # Check if broken shim matches source exactly
+                if (
+                    broken_shim == source
+                    or broken_shim.endswith(f".{source}")
+                    or f".{source}." in broken_shim
+                    or broken_shim.startswith(f"{source}.")
+                ):
                     action_broken_shims.add(broken_shim)
 
             if action_broken_shims:
