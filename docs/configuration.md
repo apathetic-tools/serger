@@ -22,15 +22,11 @@ JSONC (JSON with comments) is recommended for readability:
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "description": "A simple package example",
-      "include": ["src/mypkg/**/*.py"],
-      "exclude": [],
-      "out": "dist/mypkg.py"      
-    }
-  ]
+  "package": "mypkg",
+  "description": "A simple package example",
+  "include": ["src/mypkg/**/*.py"],
+  "exclude": [],
+  "out": "dist/mypkg.py"
 }
 ```
 
@@ -53,26 +49,18 @@ For configless builds, pyproject.toml is used by default. For builds with config
 
 ## Essential Configuration Options
 
-### Root Options
+All configuration options are specified at the root level of the config file:
 
-These options apply globally and can cascade into individual builds:
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `builds` | `list[BuildConfig]` | `[]` | List of build configurations |
-| `out` | `str` | - | Default output path (can be overridden per build) |
-
-### Build Options
-
-Each build in the `builds` array can specify:
-
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `package` | `str` | Yes | Package name (used for import shims) |
-| `description` | `str` | No | Description for generated header |
-| `include` | `list[str]` | Yes* | Glob patterns for files to include |
-| `exclude` | `list[str]` | No | Glob patterns for files to exclude |
-| `out` | `str` | Yes* | Output file path (relative to project root) |
+| Option | Type | Required | Default | Description |
+|--------|------|----------|---------|-------------|
+| `package` | `str` | Yes* | - | Package name (used for import shims) |
+| `description` | `str` | No | - | Description for generated header |
+| `include` | `list[str]` | Yes* | - | Glob patterns for files to include |
+| `exclude` | `list[str]` | No | `[]` | Glob patterns for files to exclude |
+| `out` | `str` | Yes* | - | Output file path (relative to project root) |
+| `log_level` | `str` | No | `"info"` | Log verbosity level |
+| `strict_config` | `bool` | No | `true` | Whether to error on missing include patterns |
+| `respect_gitignore` | `bool` | No | `true` | Whether to respect `.gitignore` when selecting files |
 
 
 \* Required unless provided via CLI arguments
@@ -83,22 +71,18 @@ Patterns use glob syntax and are resolved relative to the project root:
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": [
-        "src/mypkg/**/*.py",      // All Python files in mypkg
-        "src/utils/**/*.py"       // All Python files in utils
-      ],
-      "exclude": [
-        "**/__init__.py",         // Exclude all __init__.py files
-        "**/__pycache__/**",      // Exclude cache directories
-        "**/test_*.py",           // Exclude test files
-        "**/*_test.py"            // Exclude test files (alternative pattern)
-      ],
-      "out": "dist/mypkg.py"
-    }
-  ]
+  "package": "mypkg",
+  "include": [
+    "src/mypkg/**/*.py",      // All Python files in mypkg
+    "src/utils/**/*.py"       // All Python files in utils
+  ],
+  "exclude": [
+    "**/__init__.py",         // Exclude all __init__.py files
+    "**/__pycache__/**",      // Exclude cache directories
+    "**/test_*.py",           // Exclude test files
+    "**/*_test.py"            // Exclude test files (alternative pattern)
+  ],
+  "out": "dist/mypkg.py"
 }
 ```
 
@@ -109,27 +93,6 @@ Patterns use glob syntax and are resolved relative to the project root:
 - `**/__init__.py` — All `__init__.py` files anywhere
 - `tests/**` — Everything in the `tests` directory
 
-## Multiple Builds
-
-You can define multiple builds in a single config file:
-
-```jsonc
-{
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/mypkg/**/*.py"],
-      "out": "dist/mypkg.py"
-    },
-    {
-      "package": "utils",
-      "include": ["src/utils/**/*.py"],
-      "out": "dist/utils.py"
-    }
-  ]
-}
-```
-
 ## Example: Simple Configuration
 
 Here's a simple example configuration file:
@@ -137,19 +100,15 @@ Here's a simple example configuration file:
 ```jsonc
 // .serger.jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "display_name": "My Package",
-      "description": "A simple package example",
-      "include": ["src/mypkg/**/*.py"],
-      "exclude": [
-        "**/__init__.py",
-        "**/__pycache__/**"
-      ],
-      "out": "dist/mypkg.py"
-    }
-  ]
+  "package": "mypkg",
+  "display_name": "My Package",
+  "description": "A simple package example",
+  "include": ["src/mypkg/**/*.py"],
+  "exclude": [
+    "**/__init__.py",
+    "**/__pycache__/**"
+  ],
+  "out": "dist/mypkg.py"
 }
 ```
 

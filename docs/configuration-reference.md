@@ -30,16 +30,12 @@ JSONC (JSON with comments) is recommended for readability:
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/mypkg/**/*.py"],
-      "exclude": ["**/__init__.py", "**/__pycache__/**"],
-      "out": "dist/mypkg.py",
-      "display_name": "My Package",
-      "description": "A simple package example"
-    }
-  ]
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "exclude": ["**/__init__.py", "**/__pycache__/**"],
+  "out": "dist/mypkg.py",
+  "display_name": "My Package",
+  "description": "A simple package example"
 }
 ```
 
@@ -50,14 +46,10 @@ Python configs allow for dynamic configuration:
 ```python
 # .serger.py
 config = {
-    "builds": [
-        {
-            "package": "mypkg",
-            "include": ["src/mypkg/**/*.py"],
-            "exclude": ["**/__init__.py", "**/__pycache__/**"],
-            "out": "dist/mypkg.py",
-        }
-    ],
+    "package": "mypkg",
+    "include": ["src/mypkg/**/*.py"],
+    "exclude": ["**/__init__.py", "**/__pycache__/**"],
+    "out": "dist/mypkg.py",
 }
 ```
 
@@ -67,62 +59,39 @@ Python configs can also use local imports:
 # .serger.py
 from helpers import get_build_config
 
-config = {
-    "builds": [get_build_config()],
-}
+config = get_build_config()
 ```
 
-## Root Configuration Options
+## Configuration Options
 
-These options apply globally and can cascade into individual builds:
+All configuration options are specified at the root level of the config file:
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `builds` | `list[BuildConfig]` | `[]` | List of build configurations |
-| `log_level` | `str` | `"info"` | Log verbosity: `trace`, `debug`, `info`, `warning`, `error` |
-| `out` | `str` | - | Default output path (can be overridden per build) |
-| `respect_gitignore` | `bool` | `true` | Whether to respect `.gitignore` when selecting files |
-| `strict_config` | `bool` | `true` | Whether to error on missing include patterns |
-| `watch_interval` | `float` | `1.0` | File watch interval in seconds (for `--watch` mode). App-wide setting (applies to all builds). |
-| `use_pyproject` | `bool` | - | Whether to pull metadata from `pyproject.toml`. For configless builds, defaults to `true`. For builds with config files, must be explicitly set to `true` or `pyproject_path` must be set. |
-| `pyproject_path` | `str` | - | Path to `pyproject.toml` (relative to config directory). Setting this implicitly enables pyproject.toml usage. |
-| `internal_imports` | `str` | `"force_strip"` | How to handle internal package imports (see [Import Handling](#import-handling)) |
-| `external_imports` | `str` | `"top"` | How to handle external imports (see [Import Handling](#import-handling)) |
-| `stitch_mode` | `str` | `"raw"` | How to combine modules into a single file (see [Stitch Modes](#stitch-modes)) |
-| `module_mode` | `str` | `"multi"` | How to generate import shims for single-file runtime (see [Module Modes](#module-modes)) |
-| `shim` | `str` | `"all"` | Controls shim generation (see [Shim Setting](#shim-setting)) |
-| `module_actions` | `dict \| list` | - | Custom module transformations (see [Module Actions](#module-actions)) |
-| `comments_mode` | `str` | `"keep"` | How to handle comments in stitched output (see [Comment Handling](#comment-handling)) |
-| `docstring_mode` | `str \| dict` | `"keep"` | How to handle docstrings in stitched output (see [Docstring Handling](#docstring-handling)) |
-| `module_bases` | `str \| list[str]` | `["src"]` | Ordered list of directories where packages can be found (see [Module Bases](#module-bases)) |
-
-## Build Configuration Options
-
-Each build in the `builds` array can specify:
-
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `package` | `str` | Yes✝ | Package name (used for import shims). Fallback from `pyproject.toml` `[project] name`. |
-| `include` | `list[str]` | Yes* | Glob patterns for files to include |
-| `exclude` | `list[str]` | No | Glob patterns for files to exclude |
-| `out` | `str` | Yes* | Output file path (relative to project root) |
-| `display_name` | `str` | No✝ | Display name for generated header. Fallback from `pyproject.toml` `[project] name`. |
-| `description` | `str` | No✝ | Description for generated header. Fallback from `pyproject.toml` `[project] description`. |
-| `repo` | `str` | No | Repository URL for generated header |
-| `license_header` | `str` | No✝ | License text for generated header. Fallback from `pyproject.toml` `[project] license`. |
-| `authors` | `str` | No✝ | Authors for generated header. Fallback from `pyproject.toml` `[project] authors`. |
-| `use_pyproject` | `bool` | No | Whether to pull metadata from `pyproject.toml`. For configless builds, defaults to `true`. For builds with config files, must be explicitly set to `true` or `pyproject_path` must be set. |
-| `pyproject_path` | `str` | No | Path to `pyproject.toml` (relative to config directory). Setting this implicitly enables pyproject.toml usage. |
-| `strict_config` | `bool` | No | Override root-level `strict_config` for this build |
-| `internal_imports` | `str` | No | Override root-level `internal_imports` for this build |
-| `external_imports` | `str` | No | Override root-level `external_imports` for this build |
-| `stitch_mode` | `str` | No | Override root-level `stitch_mode` for this build (see [Stitch Modes](#stitch-modes)) |
-| `module_mode` | `str` | No | Override root-level `module_mode` for this build (see [Module Modes](#module-modes)) |
-| `shim` | `str` | No | Override root-level `shim` for this build (see [Shim Setting](#shim-setting)) |
-| `module_actions` | `dict \| list` | No | Override root-level `module_actions` for this build (see [Module Actions](#module-actions)) |
-| `comments_mode` | `str` | No | Override root-level `comments_mode` for this build (see [Comment Handling](#comment-handling)) |
-| `docstring_mode` | `str \| dict` | No | Override root-level `docstring_mode` for this build (see [Docstring Handling](#docstring-handling)) |
-| `module_bases` | `str \| list[str]` | No | Override root-level `module_bases` for this build (see [Module Bases](#module-bases)) |
+| Option | Type | Required | Default | Description |
+|--------|------|----------|---------|-------------|
+| `package` | `str` | Yes✝ | - | Package name (used for import shims). Fallback from `pyproject.toml` `[project] name`. |
+| `include` | `list[str]` | Yes* | - | Glob patterns for files to include |
+| `exclude` | `list[str]` | No | `[]` | Glob patterns for files to exclude |
+| `out` | `str` | Yes* | - | Output file path (relative to project root) |
+| `display_name` | `str` | No✝ | - | Display name for generated header. Fallback from `pyproject.toml` `[project] name`. |
+| `description` | `str` | No✝ | - | Description for generated header. Fallback from `pyproject.toml` `[project] description`. |
+| `repo` | `str` | No | - | Repository URL for generated header |
+| `license_header` | `str` | No✝ | - | License text for generated header. Fallback from `pyproject.toml` `[project] license`. |
+| `authors` | `str` | No✝ | - | Authors for generated header. Fallback from `pyproject.toml` `[project] authors`. |
+| `log_level` | `str` | No | `"info"` | Log verbosity: `trace`, `debug`, `info`, `warning`, `error` |
+| `respect_gitignore` | `bool` | No | `true` | Whether to respect `.gitignore` when selecting files |
+| `strict_config` | `bool` | No | `true` | Whether to error on missing include patterns |
+| `watch_interval` | `float` | No | `1.0` | File watch interval in seconds (for `--watch` mode) |
+| `use_pyproject` | `bool` | No | - | Whether to pull metadata from `pyproject.toml`. For configless builds, defaults to `true`. For builds with config files, must be explicitly set to `true` or `pyproject_path` must be set. |
+| `pyproject_path` | `str` | No | - | Path to `pyproject.toml` (relative to config directory). Setting this implicitly enables pyproject.toml usage. |
+| `internal_imports` | `str` | No | `"force_strip"` | How to handle internal package imports (see [Import Handling](#import-handling)) |
+| `external_imports` | `str` | No | `"top"` | How to handle external imports (see [Import Handling](#import-handling)) |
+| `stitch_mode` | `str` | No | `"raw"` | How to combine modules into a single file (see [Stitch Modes](#stitch-modes)) |
+| `module_mode` | `str` | No | `"multi"` | How to generate import shims for single-file runtime (see [Module Modes](#module-modes)) |
+| `shim` | `str` | No | `"all"` | Controls shim generation (see [Shim Setting](#shim-setting)) |
+| `module_actions` | `dict \| list` | No | - | Custom module transformations (see [Module Actions](#module-actions)) |
+| `comments_mode` | `str` | No | `"keep"` | How to handle comments in stitched output (see [Comment Handling](#comment-handling)) |
+| `docstring_mode` | `str \| dict` | No | `"keep"` | How to handle docstrings in stitched output (see [Docstring Handling](#docstring-handling)) |
+| `module_bases` | `str \| list[str]` | No | `["src"]` | Ordered list of directories where packages can be found (see [Module Bases](#module-bases)) |
 
 \* Required unless provided via CLI arguments. 
 
@@ -134,22 +103,18 @@ Patterns use glob syntax and are resolved relative to the project root:
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": [
-        "src/mypkg/**/*.py",      // All Python files in mypkg
-        "src/utils/**/*.py"       // All Python files in utils
-      ],
-      "exclude": [
-        "**/__init__.py",         // Exclude all __init__.py files
-        "**/__pycache__/**",      // Exclude cache directories
-        "**/test_*.py",           // Exclude test files
-        "**/*_test.py"            // Exclude test files (alternative pattern)
-      ],
-      "out": "dist/mypkg.py"
-    }
-  ]
+  "package": "mypkg",
+  "include": [
+    "src/mypkg/**/*.py",      // All Python files in mypkg
+    "src/utils/**/*.py"       // All Python files in utils
+  ],
+  "exclude": [
+    "**/__init__.py",         // Exclude all __init__.py files
+    "**/__pycache__/**",      // Exclude cache directories
+    "**/test_*.py",           // Exclude test files
+    "**/*_test.py"            // Exclude test files (alternative pattern)
+  ],
+  "out": "dist/mypkg.py"
 }
 ```
 
@@ -159,27 +124,6 @@ Patterns use glob syntax and are resolved relative to the project root:
 - `src/mypkg/*.py` — All Python files directly in `src/mypkg`
 - `**/__init__.py` — All `__init__.py` files anywhere
 - `tests/**` — Everything in the `tests` directory
-
-## Multiple Builds
-
-You can define multiple builds in a single config file:
-
-```jsonc
-{
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/mypkg/**/*.py"],
-      "out": "dist/mypkg.py"
-    },
-    {
-      "package": "utils",
-      "include": ["src/utils/**/*.py"],
-      "out": "dist/utils.py"
-    }
-  ]
-}
-```
 
 ## Stitch Modes
 
@@ -203,15 +147,10 @@ Serger supports different modes for combining multiple Python modules into a sin
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/mypkg/**/*.py"],
-      "out": "dist/mypkg.py",
-      "stitch_mode": "raw"  // Use raw mode (default)
-    }
-  ],
-  "stitch_mode": "raw"  // Default for all builds
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "out": "dist/mypkg.py",
+  "stitch_mode": "raw"  // Use raw mode (default)
 }
 ```
 
@@ -253,15 +192,10 @@ Serger provides control over how import shims are generated for the single-file 
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "out": "dist/mypkg.py",
-      "module_mode": "multi"  // Generate shims for all detected packages
-    }
-  ],
-  "module_mode": "multi"  // Default for all builds
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "out": "dist/mypkg.py",
+  "module_mode": "multi"  // Generate shims for all detected packages
 }
 ```
 
@@ -289,29 +223,20 @@ The `shim` setting acts as a filter on top of `module_mode` and `module_actions`
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "out": "dist/mypkg.py",
-      "module_mode": "multi",
-      "shim": "all"  // Generate shims for all modules (default)
-    }
-  ],
-  "shim": "all"  // Default for all builds
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "out": "dist/mypkg.py",
+  "module_mode": "multi",
+  "shim": "all"  // Generate shims for all modules (default)
 }
 ```
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "out": "dist/mypkg.py",
-      "shim": "none"  // No shims - standalone script only
-    }
-  ]
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "out": "dist/mypkg.py",
+  "shim": "none"  // No shims - standalone script only
 }
 ```
 
@@ -333,17 +258,13 @@ For quick renames, you can use a simple dictionary mapping source module names t
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "out": "dist/mypkg.py",
-      "module_actions": {
-        "old_pkg": "new_pkg",        // Move old_pkg to new_pkg
-        "unwanted.module": null      // Delete unwanted.module
-      }
-    }
-  ]
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "out": "dist/mypkg.py",
+  "module_actions": {
+    "old_pkg": "new_pkg",        // Move old_pkg to new_pkg
+    "unwanted.module": null      // Delete unwanted.module
+  }
 }
 ```
 
@@ -358,14 +279,12 @@ For full control over all parameters, use the list format:
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "out": "dist/mypkg.py",
-      "module_actions": [
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "out": "dist/mypkg.py",
+  "module_actions": [
         {
-          "source": "old_pkg",
+  "source": "old_pkg",
           "dest": "new_pkg",
           "action": "move",
           "mode": "preserve",
@@ -373,7 +292,6 @@ For full control over all parameters, use the list format:
           "affects": "shims",
           "cleanup": "auto"
         }
-      ]
     }
   ]
 }
@@ -432,16 +350,12 @@ For full control over all parameters, use the list format:
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "out": "dist/mypkg.py",
-      "module_actions": {
-        "apathetic_logs": "grinch"
-      }
-    }
-  ]
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "out": "dist/mypkg.py",
+  "module_actions": {
+    "apathetic_logs": "grinch"
+  }
 }
 ```
 
@@ -451,19 +365,15 @@ This moves `apathetic_logs` to `grinch`, preserving subpackages (e.g., `apatheti
 
 ```jsonc
 {
-  "builds": [
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "out": "dist/mypkg.py",
+  "module_actions": [
     {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "out": "dist/mypkg.py",
-      "module_actions": [
-        {
-          "source": "pkg1.sub",
+  "source": "pkg1.sub",
           "dest": "mypkg",
           "action": "move",
-          "mode": "flatten"
-        }
-      ]
+      "mode": "flatten"
     }
   ]
 }
@@ -475,19 +385,15 @@ This flattens all modules under `pkg1.sub` directly into `mypkg` (e.g., `pkg1.su
 
 ```jsonc
 {
-  "builds": [
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "out": "dist/mypkg.py",
+  "module_actions": [
     {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "out": "dist/mypkg.py",
-      "module_actions": [
-        {
-          "source": "pkg1.sub.module",
+  "source": "pkg1.sub.module",
           "dest": "mypkg.utils",
           "action": "move",
-          "mode": "preserve"
-        }
-      ]
+      "mode": "preserve"
     }
   ]
 }
@@ -499,18 +405,14 @@ This moves a specific submodule to a new location while preserving its structure
 
 ```jsonc
 {
-  "builds": [
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "out": "dist/mypkg.py",
+  "module_actions": [
     {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "out": "dist/mypkg.py",
-      "module_actions": [
-        {
-          "source": "utils",
+  "source": "utils",
           "dest": "mypkg.utils",
           "action": "copy"
-        }
-      ]
     }
   ]
 }
@@ -522,17 +424,13 @@ This creates a copy of `utils` at `mypkg.utils` while keeping the original `util
 
 ```jsonc
 {
-  "builds": [
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "out": "dist/mypkg.py",
+  "module_actions": [
     {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "out": "dist/mypkg.py",
-      "module_actions": [
-        {
-          "source": "internal._private",
+  "source": "internal._private",
           "action": "delete"
-        }
-      ]
     }
   ]
 }
@@ -544,20 +442,16 @@ This removes `internal._private` from the output entirely.
 
 ```jsonc
 {
-  "builds": [
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "out": "dist/mypkg.py",
+  "module_mode": "force",  // Generates actions to replace root packages
+  "module_actions": [
     {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "out": "dist/mypkg.py",
-      "module_mode": "force",  // Generates actions to replace root packages
-      "module_actions": [
-        {
-          "source": "pkg1.sub",
+  "source": "pkg1.sub",
           "dest": "mypkg.custom",
           "action": "move",
-          "mode": "flatten"
-        }
-      ]
+      "mode": "flatten"
     }
   ]
 }
@@ -569,19 +463,15 @@ User-specified actions are applied after mode-generated actions, allowing you to
 
 ```jsonc
 {
-  "builds": [
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "out": "dist/mypkg.py",
+  "module_mode": "force",  // pkg1 -> mypkg
+  "module_actions": [
     {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "out": "dist/mypkg.py",
-      "module_mode": "force",  // pkg1 -> mypkg
-      "module_actions": [
-        {
-          "source": "pkg1",  // scope: "shim" (default) - operates on shim names
+  "source": "pkg1",  // scope: "shim" (default) - operates on shim names
           "dest": "custom",
           "action": "move"
-        }
-      ]
     }
   ]
 }
@@ -591,20 +481,17 @@ With `scope: "shim"` (default for user actions), the action operates on the shim
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "out": "dist/mypkg.py",
-      "module_mode": "force",
-      "module_actions": [
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "out": "dist/mypkg.py",
+  "module_mode": "force",
+  "module_actions": [
         {
-          "source": "pkg1",  // scope: "original" - operates on original names
+  "source": "pkg1",  // scope: "original" - operates on original names
           "dest": "custom",
           "action": "move",
           "scope": "original"
         }
-      ]
     }
   ]
 }
@@ -616,18 +503,15 @@ With `scope: "original"`, the action operates on the original module name before
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "out": "dist/mypkg.py",
-      "module_actions": [
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "out": "dist/mypkg.py",
+  "module_actions": [
         {
-          "source": "internal",
+  "source": "internal",
           "action": "delete",
           "affects": "shims"  // Only remove from shims, still stitch the files
         }
-      ]
     }
   ]
 }
@@ -637,18 +521,15 @@ This removes `internal` from shims but still stitches the files into the output.
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "out": "dist/mypkg.py",
-      "module_actions": [
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "out": "dist/mypkg.py",
+  "module_actions": [
         {
-          "source": "test_utils",
+  "source": "test_utils",
           "action": "delete",
           "affects": "stitching"  // Don't stitch files, but keep shims
         }
-      ]
     }
   ]
 }
@@ -658,19 +539,16 @@ This excludes `test_utils` files from stitching but keeps the shims (useful for 
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "out": "dist/mypkg.py",
-      "module_actions": [
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "out": "dist/mypkg.py",
+  "module_actions": [
         {
-          "source": "old_pkg",
+  "source": "old_pkg",
           "dest": "new_pkg",
           "action": "move",
           "affects": "both"  // Affects both shims and stitching
         }
-      ]
     }
   ]
 }
@@ -682,19 +560,16 @@ This moves `old_pkg` to `new_pkg` in both shims and stitching.
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "out": "dist/mypkg.py",
-      "module_actions": [
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "out": "dist/mypkg.py",
+  "module_actions": [
         {
-          "source": "internal",
+  "source": "internal",
           "action": "delete",
           "affects": "shims",
           "cleanup": "auto"  // Automatically handle mismatches
         }
-      ]
     }
   ]
 }
@@ -704,19 +579,16 @@ With `cleanup: "auto"`, if `internal` files are stitched but the shim is deleted
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "out": "dist/mypkg.py",
-      "module_actions": [
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "out": "dist/mypkg.py",
+  "module_actions": [
         {
-          "source": "internal",
+  "source": "internal",
           "action": "delete",
           "affects": "shims",
           "cleanup": "error"  // Raise error if mismatches detected
         }
-      ]
     }
   ]
 }
@@ -728,20 +600,17 @@ With `cleanup: "error"`, if there's a mismatch (e.g., files are stitched but shi
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "exclude": ["src/internal/**/*.py"],  // Excluded internal modules
-      "out": "dist/mypkg.py",
-      "module_actions": [
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "exclude": ["src/internal/**/*.py"],  // Excluded internal modules
+  "out": "dist/mypkg.py",
+  "module_actions": [
         {
-          "source": "utils",
+  "source": "utils",
           "source_path": "src/internal/utils.py",  // Re-include this file
           "dest": "public.utils",
           "affects": "both"  // Must include "stitching" to add file
         }
-      ]
     }
   ]
 }
@@ -751,20 +620,17 @@ This re-includes `src/internal/utils.py` (which was excluded) and makes it avail
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "exclude": ["src/internal/**/*.py"],
-      "out": "dist/mypkg.py",
-      "module_actions": [
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "exclude": ["src/internal/**/*.py"],
+  "out": "dist/mypkg.py",
+  "module_actions": [
         {
-          "source": "utils",
+  "source": "utils",
           "source_path": "src/internal/utils.py",
           "dest": "public.utils",
           "affects": "shims"  // Only affects shims, file NOT added
         }
-      ]
     }
   ]
 }
@@ -814,11 +680,9 @@ Serger provides control over how comments are handled in the stitched output. Yo
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/mypkg/**/*.py"],
-      "out": "dist/mypkg.py",
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "out": "dist/mypkg.py",
       "comments_mode": "ignores"  // Only keep linter/type checker ignore comments
     }
   ],
@@ -850,13 +714,11 @@ For fine-grained control, you can use a dictionary to specify different modes fo
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/mypkg/**/*.py"],
-      "out": "dist/mypkg.py",
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "out": "dist/mypkg.py",
       "docstring_mode": {
-        "module": "strip",    // Remove module-level docstrings
+  "module": "strip",    // Remove module-level docstrings
         "class": "keep",       // Keep class docstrings
         "function": "public",   // Keep only public function docstrings
         "method": "strip"     // Remove method docstrings
@@ -880,11 +742,9 @@ For fine-grained control, you can use a dictionary to specify different modes fo
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/mypkg/**/*.py"],
-      "out": "dist/mypkg.py",
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "out": "dist/mypkg.py",
       "docstring_mode": "public"  // Keep only public docstrings
     }
   ],
@@ -925,11 +785,9 @@ External imports are imports from packages not being stitched (e.g., `import os`
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/mypkg/**/*.py"],
-      "out": "dist/mypkg.py",
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "out": "dist/mypkg.py",
       "internal_imports": "force_strip",
       "external_imports": "top"
     }
@@ -968,11 +826,9 @@ The `module_bases` setting specifies an ordered list of directories where Serger
 **Per-build override:**
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/mypkg/**/*.py"],
-      "out": "dist/mypkg.py",
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "out": "dist/mypkg.py",
       "module_bases": ["src", "lib"]  // Overrides root-level setting
     }
   ],
@@ -1004,25 +860,23 @@ Here's a complete example configuration file:
 ```jsonc
 // .serger.jsonc
 {
-  "builds": [
-    {
-      // Main package build
-      "package": "serger",
+  // Main package build
+  "package": "serger",
       "display_name": "Serger",
       "description": "Stitch your module into a single file.",
       "repo": "https://github.com/apathetic-tools/serger",
       "license_header": "License: MIT-aNOAI\nFull text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",
-      "include": [
+  "include": [
         "src/apathetic_*/**/*.py",
         "src/serger/**/*.py"
       ],
-      "exclude": [
+  "exclude": [
         "__pycache__/**",
         "*.pyc",
         "**/__init__.py",
         "**/__main__.py"
       ],
-      "out": "dist/serger.py"
+  "out": "dist/serger.py"
     }
   ],
   "log_level": "info",

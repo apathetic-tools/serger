@@ -133,7 +133,7 @@ def _get_example_for_field(
 
     Args:
         field_path: The full field path
-            (e.g. "root.builds.*.include" or "root.watch_interval")
+            (e.g. "root.include" or "root.watch_interval")
         field_examples: Optional dict mapping field patterns to example values.
         If None, returns None (no examples available).
     """

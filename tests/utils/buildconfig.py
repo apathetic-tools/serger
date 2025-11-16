@@ -251,7 +251,7 @@ def make_config_content(
     """
     # If builds provided, use it directly (single build only)
     if builds is not None:
-        build_cfg = builds
+        build_cfg: dict[str, Any] = dict(builds)
     else:
         # Build from individual parameters
         if package is None:
@@ -264,8 +264,7 @@ def make_config_content(
         if include is None:
             include = [f"{package}/**/*.py"]
         if include:
-            # Type cast: list[str] is valid for list[str | IncludeConfig]
-            build_cfg["include"] = include  # type: ignore[typeddict-item]
+            build_cfg["include"] = include
 
         if exclude is not None:
             build_cfg["exclude"] = exclude

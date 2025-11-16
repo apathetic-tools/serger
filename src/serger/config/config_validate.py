@@ -11,11 +11,11 @@ from apathetic_schema import (
     flush_schema_aggregators,
     warn_keys_once,
 )
-from apathetic_utils import cast_hint, schema_from_typeddict
+from apathetic_utils import schema_from_typeddict
 from serger.constants import DEFAULT_STRICT_CONFIG
 from serger.logs import get_app_logger
 
-from .config_types import BuildConfig, RootConfig
+from .config_types import RootConfig
 
 
 # --- constants ------------------------------------------------------
@@ -33,18 +33,16 @@ ROOT_ONLY_MSG = "Ignored {keys} {ctx}: these options only apply at the root leve
 # Dict format: {field_pattern: example_value}
 # Wildcard patterns (with *) are supported for matching multiple fields
 FIELD_EXAMPLES: dict[str, str] = {
-    "root.builds.*.include": '["src/", "lib/"]',
-    "root.builds.*.out": '"dist/script.py"',
-    "root.builds.*.display_name": '"MyProject"',
-    "root.builds.*.description": '"A description of the project"',
-    "root.builds.*.repo": '"https://github.com/user/project"',
-    "root.builds.*.internal_imports": '"force_strip"',
-    "root.builds.*.external_imports": '"top"',
+    "root.include": '["src/", "lib/"]',
+    "root.out": '"dist/script.py"',
+    "root.display_name": '"MyProject"',
+    "root.description": '"A description of the project"',
+    "root.repo": '"https://github.com/user/project"',
+    "root.internal_imports": '"force_strip"',
+    "root.external_imports": '"top"',
     "root.watch_interval": "1.5",
     "root.log_level": '"debug"',
     "root.strict_config": "true",
-    "root.internal_imports": '"force_strip"',
-    "root.external_imports": '"top"',
 }
 
 
@@ -126,105 +124,24 @@ def _validate_root(
 def _validate_builds(
     parsed_cfg: dict[str, Any],
     *,
-    strict_arg: bool | None,
+    strict_arg: bool | None,  # noqa: ARG001
     summary: ValidationSummary,  # modified
     agg: SchemaErrorAggregator,  # modified
 ) -> ValidationSummary | None:
+    """Validate that 'builds' key is not present (multi-build not supported)."""
     logger = get_app_logger()
-    builds_raw: Any = parsed_cfg.get("builds", [])
-    logger.trace("[validate_builds] Validating builds")
+    logger.trace("[validate_builds] Checking for unsupported 'builds' key")
 
-    root_strict = summary.valid
-    if not isinstance(builds_raw, list):
+    if "builds" in parsed_cfg:
         collect_msg(
-            "`builds` must be a list of builds.",
+            "The 'builds' key is not supported. "
+            "Please use a single flat configuration object with all options "
+            "at the root level.",
             strict=True,
             summary=summary,
             is_error=True,
         )
         return _set_valid_and_return(summary=summary, agg=agg)
-
-    if not builds_raw:
-        msg = "No `builds` key defined"
-        if not (summary.errors or summary.strict_warnings):
-            msg = msg + ";  continuing with empty configuration"
-        else:
-            msg = msg + "."
-        collect_msg(
-            msg,
-            strict=False,
-            summary=summary,
-        )
-        return _set_valid_and_return(summary=summary, agg=agg)
-
-    builds = cast_hint(list[Any], builds_raw)
-    build_schema = schema_from_typeddict(BuildConfig)
-
-    for i, b in enumerate(builds):
-        logger.trace(f"[validate_builds] Checking build #{i + 1}")
-        if not isinstance(b, dict):
-            collect_msg(
-                f"Build #{i + 1} must be an object"
-                " with named keys (not a list or value)",
-                strict=True,
-                summary=summary,
-                is_error=True,
-            )
-            summary.valid = False
-            continue
-        b_dict = cast_hint(dict[str, Any], b)
-
-        # strict from arg, build, or root
-        strict_config = root_strict
-        strict_from_build: Any = b_dict.get("strict_config")
-        if strict_arg is not None:
-            strict_config = strict_arg
-        elif strict_arg is None and isinstance(strict_from_build, bool):
-            strict_config = strict_from_build
-
-        prewarn_build: set[str] = set()
-        ok, found = warn_keys_once(
-            "dry-run",
-            DRYRUN_KEYS,
-            b_dict,
-            f"in build #{i + 1}",
-            DRYRUN_MSG,
-            strict_config=strict_config,
-            summary=summary,
-            agg=agg,
-        )
-        prewarn_build |= found
-
-        ok, found = warn_keys_once(
-            "root-only",
-            ROOT_ONLY_KEYS,
-            b_dict,
-            f"in build #{i + 1}",
-            ROOT_ONLY_MSG,
-            strict_config=strict_config,
-            summary=summary,
-            agg=agg,
-        )
-        prewarn_build |= found
-
-        ok = check_schema_conformance(
-            b_dict,
-            build_schema,
-            f"in build #{i + 1}",
-            strict_config=strict_config,
-            summary=summary,
-            prewarn=prewarn_build,
-            base_path="root.builds.*",
-            field_examples=FIELD_EXAMPLES,
-        )
-        if not ok and not (summary.errors or summary.strict_warnings):
-            collect_msg(
-                f"Build #{i + 1} schema invalid",
-                strict=True,
-                summary=summary,
-                is_error=True,
-            )
-            summary.valid = False
 
     return None
 

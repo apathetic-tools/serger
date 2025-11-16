@@ -42,13 +42,12 @@ exit_code = main(["--include", "src/**/*.py", "--out", "dist/app.py"])
 exit_code = main()
 ```
 
-### `run_build(build_cfg: BuildConfigResolved, root_cfg: RootConfigResolved) -> None`
+### `run_build(config: RootConfigResolved) -> None`
 
-Execute a single build configuration.
+Execute a build with the given resolved configuration.
 
 **Parameters:**
-- `build_cfg`: Resolved build configuration
-- `root_cfg`: Resolved root configuration
+- `config`: Resolved configuration (single flat config)
 
 **Example:**
 ```python
@@ -57,14 +56,13 @@ from pathlib import Path
 
 # Resolve config
 config_path = Path(".serger.jsonc")
-root_cfg, resolved_builds = resolve_config(config_path)
+resolved_cfg = resolve_config(config_path)
 
-# Run first build
-if resolved_builds:
-    run_build(resolved_builds[0], root_cfg)
+# Run build
+run_build(resolved_cfg)
 ```
 
-### `resolve_config(...) -> tuple[RootConfigResolved, list[BuildConfigResolved]]`
+### `resolve_config(...) -> RootConfigResolved`
 
 Merge CLI arguments with config files and resolve all paths.
 
@@ -72,7 +70,7 @@ Merge CLI arguments with config files and resolve all paths.
 - Various parameters for config path, CLI args, etc.
 
 **Returns:**
-- Tuple of `(resolved_root_config, list_of_resolved_builds)`
+- Single resolved configuration (`RootConfigResolved`)
 
 **Example:**
 ```python
@@ -82,7 +80,7 @@ import argparse
 
 args = argparse.Namespace()
 config_path = Path(".serger.jsonc")
-root_cfg, builds = resolve_config(args, config_path)
+resolved_cfg = resolve_config(args, config_path)
 ```
 
 ### `get_metadata() -> Metadata`
@@ -104,41 +102,25 @@ print(f"Serger {meta.version} ({meta.commit})")
 
 ### `RootConfig`
 
-Root configuration dictionary type.
+Root configuration dictionary type. All configuration options are specified at the root level.
 
 ```python
 from serger import RootConfig
 
 config: RootConfig = {
-    "builds": [...],
+    "package": "mypkg",
+    "include": ["src/**/*.py"],
+    "exclude": ["**/__init__.py"],
+    "out": "dist/mypkg.py",
     "log_level": "info",
     "strict_config": True,
     "respect_gitignore": True,
 }
 ```
 
-### `BuildConfig`
-
-Individual build configuration dictionary type.
-
-```python
-from serger import BuildConfig
-
-build: BuildConfig = {
-    "package": "mypkg",
-    "include": ["src/**/*.py"],
-    "exclude": ["**/__init__.py"],
-    "out": "dist/mypkg.py",
-}
-```
-
-### `BuildConfigResolved`
-
-Resolved build configuration with all paths expanded.
-
 ### `RootConfigResolved`
 
-Resolved root configuration with all paths expanded.
+Resolved root configuration with all paths expanded. This is the type returned by `resolve_config()` and accepted by `run_build()`.
 
 ## Configuration Loading
 
@@ -285,13 +267,12 @@ def custom_build():
     
     # Resolve config
     config_path = Path(".serger.jsonc")
-    root_cfg, builds = resolve_config(config_path)
+    resolved_cfg = resolve_config(config_path)
     
-    # Run each build
-    for build in builds:
-        logger.info(f"Building {build['package']}...")
-        run_build(build, root_cfg)
-        logger.info(f"✓ Built {build['package']}")
+    # Run build
+    logger.info(f"Building {resolved_cfg['package']}...")
+    run_build(resolved_cfg)
+    logger.info(f"✓ Built {resolved_cfg['package']}")
     
     logger.info("Build complete!")
 

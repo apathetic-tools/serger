@@ -39,6 +39,7 @@ def test_parse_config_flat_config() -> None:
 
     # --- verify ---
     assert result == data
+    assert result is not None
     assert "builds" not in result
     assert "build" not in result
 
@@ -57,6 +58,7 @@ def test_parse_config_flat_config_with_unknown_fields() -> None:
 
     # --- verify ---
     assert result == data
+    assert result is not None
     assert "mystery" in result
     assert result["mystery"] is True
 

@@ -49,14 +49,10 @@ if __name__ == "__main__":
 **`.serger.jsonc`:**
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/mypkg/**/*.py"],
-      "exclude": ["**/__init__.py", "**/__pycache__/**"],
-      "out": "dist/mypkg.py"
-    }
-  ]
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "exclude": ["**/__init__.py", "**/__pycache__/**"],
+  "out": "dist/mypkg.py"
 }
 ```
 
@@ -68,66 +64,22 @@ python3 serger.py
 
 This creates `dist/mypkg.py` — a single-file executable.
 
-## Multiple Packages
-
-### Project Structure
-
-```
-myproject/
-├── src/
-│   ├── core/
-│   │   ├── __init__.py
-│   │   └── engine.py
-│   └── utils/
-│       ├── __init__.py
-│       └── helpers.py
-└── .serger.jsonc
-```
-
-### Configuration
-
-**`.serger.jsonc`:**
-```jsonc
-{
-  "builds": [
-    {
-      "package": "core",
-      "include": ["src/core/**/*.py"],
-      "exclude": ["**/__init__.py", "**/__pycache__/**"],
-      "out": "dist/core.py",
-      "display_name": "Core Engine"
-    },
-    {
-      "package": "utils",
-      "include": ["src/utils/**/*.py"],
-      "exclude": ["**/__init__.py", "**/__pycache__/**"],
-      "out": "dist/utils.py",
-      "display_name": "Utility Functions"
-    }
-  ]
-}
-```
-
 ## Excluding Test Files
 
 ### Configuration
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "exclude": [
-        "**/__init__.py",
-        "**/__pycache__/**",
-        "**/test_*.py",
-        "**/*_test.py",
-        "tests/**"
-      ],
-      "out": "dist/mypkg.py"
-    }
-  ]
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "exclude": [
+    "**/__init__.py",
+    "**/__pycache__/**",
+    "**/test_*.py",
+    "**/*_test.py",
+    "tests/**"
+  ],
+  "out": "dist/mypkg.py"
 }
 ```
 
@@ -161,7 +113,7 @@ else:
     base_config["out"] = "dist/mypkg-dev.py"
 
 config = {
-    "builds": [base_config],
+    **base_config,
     "log_level": "info" if build_type == "production" else "debug",
 }
 ```
@@ -183,26 +135,22 @@ Serger uses itself to build itself! Here's its configuration:
 **`.serger.jsonc`:**
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "serger",
-      "display_name": "Serger",
-      "description": "Stitch your module into a single file.",
-      "repo": "https://github.com/apathetic-tools/serger",
-      "license_header": "License: MIT-aNOAI\nFull text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",
-      "include": [
-        "src/apathetic_*/**/*.py",
-        "src/serger/**/*.py"
-      ],
-      "exclude": [
-        "__pycache__/**",
-        "*.pyc",
-        "**/__init__.py",
-        "**/__main__.py"
-      ],
-      "out": "dist/serger.py"
-    }
+  "package": "serger",
+  "display_name": "Serger",
+  "description": "Stitch your module into a single file.",
+  "repo": "https://github.com/apathetic-tools/serger",
+  "license_header": "License: MIT-aNOAI\nFull text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",
+  "include": [
+    "src/apathetic_*/**/*.py",
+    "src/serger/**/*.py"
   ],
+  "exclude": [
+    "__pycache__/**",
+    "*.pyc",
+    "**/__init__.py",
+    "**/__main__.py"
+  ],
+  "out": "dist/serger.py",
   "log_level": "info",
   "strict_config": true,
   "respect_gitignore": true
@@ -215,14 +163,10 @@ Serger uses itself to build itself! Here's its configuration:
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/**/*.py"],
-      "exclude": ["**/__init__.py", "**/__pycache__/**"],
-      "out": "dist/mypkg.py"
-    }
-  ],
+  "package": "mypkg",
+  "include": ["src/**/*.py"],
+  "exclude": ["**/__init__.py", "**/__pycache__/**"],
+  "out": "dist/mypkg.py",
   "watch_interval": 1.0
 }
 ```
@@ -281,12 +225,11 @@ def main():
     
     # Resolve config
     config_path = Path(".serger.jsonc")
-    root_cfg, builds = resolve_config(config_path)
+    resolved_cfg = resolve_config(config_path)
     
-    # Run builds
-    for build in builds:
-        logger.info(f"Building {build['package']}...")
-        run_build(build, root_cfg)
+    # Run build
+    logger.info(f"Building {resolved_cfg['package']}...")
+    run_build(resolved_cfg)
     
     logger.info("Build complete!")
 
@@ -294,24 +237,20 @@ if __name__ == "__main__":
     main()
 ```
 
-## Advanced: Multiple Output Formats
+## Advanced: Metadata and Headers
 
 ### Configuration
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/mypkg/**/*.py"],
-      "exclude": ["**/__init__.py", "**/__pycache__/**"],
-      "out": "dist/mypkg.py",
-      "display_name": "My Package",
-      "description": "A simple package",
-      "repo": "https://github.com/user/mypkg",
-      "license_header": "License: MIT"
-    }
-  ]
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "exclude": ["**/__init__.py", "**/__pycache__/**"],
+  "out": "dist/mypkg.py",
+  "display_name": "My Package",
+  "description": "A simple package",
+  "repo": "https://github.com/user/mypkg",
+  "license_header": "License: MIT"
 }
 ```
 

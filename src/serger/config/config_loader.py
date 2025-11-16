@@ -172,7 +172,7 @@ def load_config(config_path: Path) -> dict[str, Any] | list[Any] | None:
             if added_to_sys_path and sys.path[0] == parent_dir:
                 sys.path.pop(0)
 
-        for key in ("config", "builds", "includes"):
+        for key in ("config", "includes"):
             if key in config_globals:
                 result = config_globals[key]
                 if not isinstance(result, (dict, list, type(None))):
