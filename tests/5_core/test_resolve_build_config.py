@@ -852,7 +852,7 @@ def test_resolve_build_config_root_pyproject_path_with_use_pyproject_false(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Root pyproject_path with use_pyproject: false should not use pyproject."""
+    """Config with use_pyproject: false should not use pyproject."""
     # --- setup ---
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
@@ -861,7 +861,7 @@ name = "test-package"
 version = "1.2.3"
 """
     )
-    raw = make_build_input(include=["src/**"])
+    raw = make_build_input(include=["src/**"], use_pyproject=False)
     args = _args()
 
     # --- execute ---
@@ -869,7 +869,7 @@ version = "1.2.3"
         resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # Should not use pyproject even though path is set
+    # Should not use pyproject even though file exists
     assert "_pyproject_version" not in resolved
     assert resolved.get("display_name") != "test-package"
 
@@ -993,9 +993,9 @@ def test_resolve_build_config_authors_cascades_from_root(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Authors should cascade from root config to all builds."""
+    """Authors should be set when provided in config."""
     # --- setup ---
-    raw = make_build_input(include=["src/**"])
+    raw = make_build_input(include=["src/**"], authors="Root Author <root@example.com>")
     args = _args()
 
     # --- execute ---
@@ -1081,7 +1081,7 @@ def test_resolve_build_config_authors_root_used_when_pyproject_not_enabled(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Root-level authors should be used when pyproject is explicitly disabled."""
+    """Config authors should be used when pyproject is explicitly disabled."""
     # --- setup ---
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
@@ -1092,7 +1092,11 @@ authors = [
 ]
 """
     )
-    raw = make_build_input(include=["src/**"], use_pyproject=False)
+    raw = make_build_input(
+        include=["src/**"],
+        use_pyproject=False,
+        authors="Root Author <root@example.com>",
+    )
     args = _args()
 
     # --- execute ---
@@ -1100,7 +1104,7 @@ authors = [
         resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # Root-level authors should be used when pyproject is explicitly disabled
+    # Config authors should be used when pyproject is explicitly disabled
     assert resolved.get("authors") == "Root Author <root@example.com>"
 
 
@@ -1131,9 +1135,9 @@ def test_resolve_build_config_version_cascades_from_root(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Version should cascade from root config to all builds."""
+    """Version should be set when provided in config."""
     # --- setup ---
-    raw = make_build_input(include=["src/**"])
+    raw = make_build_input(include=["src/**"], version="1.2.3")
     args = _args()
 
     # --- execute ---
@@ -1398,7 +1402,7 @@ def test_resolve_build_config_shim_cascades_from_root(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Shim setting should cascade from root config if not in build config."""
+    """Shim setting should use default when not specified."""
     # --- setup ---
     raw = make_build_input(include=["src/**"])
     args = _args()
@@ -1408,7 +1412,8 @@ def test_resolve_build_config_shim_cascades_from_root(
         resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    assert resolved["shim"] == "none"
+    # Default shim is "all"
+    assert resolved["shim"] == "all"
 
 
 def test_resolve_build_config_shim_build_overrides_root(
@@ -1592,9 +1597,12 @@ def test_resolve_build_config_module_actions_cascades_from_root(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Module actions should cascade from root config with defaults applied."""
+    """Module actions should be set when provided in config with defaults applied."""
     # --- setup ---
-    raw = make_build_input(include=["src/**"])
+    raw = make_build_input(
+        include=["src/**"],
+        module_actions=[{"source": "old", "dest": "new", "action": "move"}],
+    )
     args = _args()
 
     # --- execute ---
@@ -2173,9 +2181,9 @@ def test_resolve_build_config_module_bases_cascades_from_root(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Module bases should cascade from root config if not in build config."""
+    """Module bases should be set when provided in config."""
     # --- setup ---
-    raw = make_build_input(include=["src/**"])
+    raw = make_build_input(include=["src/**"], module_bases=["lib", "vendor"])
     args = _args()
 
     # --- execute ---
@@ -2224,9 +2232,9 @@ def test_resolve_build_config_module_bases_string_cascades_from_root(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Module bases string from root should be converted to list[str] on resolve."""
+    """Module bases string should be converted to list[str] on resolve."""
     # --- setup ---
-    raw = make_build_input(include=["src/**"])
+    raw = make_build_input(include=["src/**"], module_bases="lib")
     args = _args()
 
     # --- execute ---

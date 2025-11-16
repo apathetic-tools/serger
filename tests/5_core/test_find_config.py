@@ -116,10 +116,10 @@ def test_find_config_searches_parent_directories(tmp_path: Path) -> None:
 
     # Create config files at different levels with distinct values
     root_config = root / f".{mod_meta.PROGRAM_CONFIG}.json"
-    root_config.write_text('{"builds": [{"out": "root_out"}]}')
+    root_config.write_text('{"out": "root_out"}')
 
     parent_config = parent / f".{mod_meta.PROGRAM_CONFIG}.json"
-    parent_config.write_text('{"builds": [{"out": "parent_out"}]}')
+    parent_config.write_text('{"out": "parent_out"}')
 
     args = Namespace(config=None)
 
@@ -142,10 +142,10 @@ def test_find_config_closest_wins_over_parent(tmp_path: Path) -> None:
 
     # Create config files with different values
     root_config = root / f".{mod_meta.PROGRAM_CONFIG}.json"
-    root_config.write_text('{"builds": [{"out": "root_dist"}]}')
+    root_config.write_text('{"out": "root_dist"}')
 
     parent_config = parent / f".{mod_meta.PROGRAM_CONFIG}.json"
-    parent_config.write_text('{"builds": [{"out": "parent_dist"}]}')
+    parent_config.write_text('{"out": "parent_dist"}')
 
     args = Namespace(config=None)
 

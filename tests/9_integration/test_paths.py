@@ -62,7 +62,9 @@ def test_configless_run_with_include_flag_and_out_file(
     config.write_text(
         json.dumps(
             {
-                "builds": [{"package": "mypkg", "include": [], "out": "bin/output.py"}],
+                "package": "mypkg",
+                "include": [],
+                "out": "bin/output.py",
             }
         ),
         encoding="utf-8",
@@ -103,13 +105,9 @@ def test_configless_run_with_add_include_flag(
     config.write_text(
         json.dumps(
             {
-                "builds": [
-                    {
-                        "package": "mypkg",
-                        "include": ["mypkg/__init__.py"],
-                        "out": "outdir",
-                    }
-                ],
+                "package": "mypkg",
+                "include": ["mypkg/__init__.py"],
+                "out": "outdir",
             }
         ),
         encoding="utf-8",
@@ -142,13 +140,9 @@ def test_custom_config_path(
     cfg.write_text(
         json.dumps(
             {
-                "builds": [
-                    {
-                        "package": "mypkg",
-                        "include": ["mypkg/**/*.py"],
-                        "out": "dist",
-                    }
-                ],
+                "package": "mypkg",
+                "include": ["mypkg/**/*.py"],
+                "out": "dist",
             }
         ),
         encoding="utf-8",
@@ -178,14 +172,10 @@ def test_out_flag_overrides_config_with_dir(
     config.write_text(
         json.dumps(
             {
-                "builds": [
-                    {
-                        "package": "mypkg",
-                        "include": ["mypkg/**/*.py"],
-                        "exclude": [],
-                        "out": "ignored",
-                    }
-                ],
+                "package": "mypkg",
+                "include": ["mypkg/**/*.py"],
+                "exclude": [],
+                "out": "ignored",
             }
         ),
         encoding="utf-8",
@@ -225,14 +215,10 @@ def test_out_flag_overrides_config_with_file(
     config.write_text(
         json.dumps(
             {
-                "builds": [
-                    {
-                        "package": "mypkg",
-                        "include": ["mypkg/**/*.py"],
-                        "exclude": [],
-                        "out": "ignored",
-                    }
-                ],
+                "package": "mypkg",
+                "include": ["mypkg/**/*.py"],
+                "exclude": [],
+                "out": "ignored",
             }
         ),
         encoding="utf-8",
@@ -270,13 +256,9 @@ def test_out_flag_relative_to_cwd(
     config.write_text(
         json.dumps(
             {
-                "builds": [
-                    {
-                        "package": "mypkg",
-                        "include": ["mypkg/**/*.py"],
-                        "out": "ignored",
-                    }
-                ],
+                "package": "mypkg",
+                "include": ["mypkg/**/*.py"],
+                "out": "ignored",
             }
         ),
         encoding="utf-8",
@@ -314,13 +296,9 @@ def test_config_out_relative_to_config_file_with_dir(
     config.write_text(
         json.dumps(
             {
-                "builds": [
-                    {
-                        "package": "mypkg",
-                        "include": ["mypkg/**/*.py"],
-                        "out": "dist",
-                    }
-                ],
+                "package": "mypkg",
+                "include": ["mypkg/**/*.py"],
+                "out": "dist",
             }
         ),
         encoding="utf-8",
@@ -358,13 +336,9 @@ def test_config_out_relative_to_config_file_with_file(
     config.write_text(
         json.dumps(
             {
-                "builds": [
-                    {
-                        "package": "mypkg",
-                        "include": ["mypkg/**/*.py"],
-                        "out": "bin/output.py",
-                    }
-                ],
+                "package": "mypkg",
+                "include": ["mypkg/**/*.py"],
+                "out": "bin/output.py",
             }
         ),
         encoding="utf-8",
@@ -404,15 +378,18 @@ def test_python_config_preferred_over_json(
     py_cfg = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.py"
     py_cfg.write_text(
         """
-builds = [
-    {"package": "pkg1", "include": ["pkg1/**/*.py"], "exclude": [], "out": "dist"}
-]
+config = {
+    "package": "pkg1",
+    "include": ["pkg1/**/*.py"],
+    "exclude": [],
+    "out": "dist"
+}
 """,
         encoding="utf-8",
     )
 
     json_dump = json.dumps(
-        {"builds": [{"package": "pkg2", "include": ["pkg2/**/*.py"], "out": "dist"}]},
+        {"package": "pkg2", "include": ["pkg2/**/*.py"], "out": "dist"},
     )
 
     jsonc_cfg = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.jsonc"
@@ -456,13 +433,9 @@ def test_json_and_jsonc_config_supported(
             """
         // comment allowed in JSONC
         {
-            "builds": [
-                {
-                    "package": "mypkg",
-                    "include": ["mypkg/**/*.py"],
-                    "out": "dist" // trailing comment
-                }
-            ]
+            "package": "mypkg",
+            "include": ["mypkg/**/*.py"],
+            "out": "dist" // trailing comment
         }
         """,
             encoding="utf-8",
@@ -471,13 +444,9 @@ def test_json_and_jsonc_config_supported(
         jsonc_cfg.write_text(
             json.dumps(
                 {
-                    "builds": [
-                        {
-                            "package": "mypkg",
-                            "include": ["mypkg/**/*.py"],
-                            "out": "dist",
-                        }
-                    ],
+                    "package": "mypkg",
+                    "include": ["mypkg/**/*.py"],
+                    "out": "dist",
                 }
             ),
             encoding="utf-8",
@@ -515,7 +484,7 @@ def test_absolute_include_and_out(
     # Create config with package field
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     config.write_text(
-        json.dumps({"builds": [{"package": "abs_pkg", "include": [], "out": "dist"}]}),
+        json.dumps({"package": "abs_pkg", "include": [], "out": "dist"}),
         encoding="utf-8",
     )
 
@@ -557,7 +526,7 @@ def test_relative_include_with_parent_reference(
     # Create config with package field
     config = cwd / f".{mod_meta.PROGRAM_CONFIG}.json"
     config.write_text(
-        json.dumps({"builds": [{"package": "mypkg", "include": [], "out": "dist"}]}),
+        json.dumps({"package": "mypkg", "include": [], "out": "dist"}),
         encoding="utf-8",
     )
 
@@ -590,13 +559,9 @@ def test_config_include_with_parent_reference(
     config.write_text(
         json.dumps(
             {
-                "builds": [
-                    {
-                        "package": "mypkg",
-                        "include": ["../shared/mypkg/**/*.py"],
-                        "out": "dist",
-                    }
-                ],
+                "package": "mypkg",
+                "include": ["../shared/mypkg/**/*.py"],
+                "out": "dist",
             }
         ),
         encoding="utf-8",
@@ -633,13 +598,9 @@ def test_out_flag_with_parent_reference(
     config.write_text(
         json.dumps(
             {
-                "builds": [
-                    {
-                        "package": "mypkg",
-                        "include": ["mypkg/**/*.py"],
-                        "out": "ignored",
-                    }
-                ],
+                "package": "mypkg",
+                "include": ["mypkg/**/*.py"],
+                "out": "ignored",
             }
         ),
         encoding="utf-8",
@@ -686,13 +647,9 @@ def test_config_out_with_parent_reference(
     config.write_text(
         json.dumps(
             {
-                "builds": [
-                    {
-                        "package": "mypkg",
-                        "include": ["mypkg/**/*.py"],
-                        "out": "../outputs/dist",
-                    }
-                ],
+                "package": "mypkg",
+                "include": ["mypkg/**/*.py"],
+                "out": "../outputs/dist",
             }
         ),
         encoding="utf-8",
@@ -733,7 +690,7 @@ def test_mixed_relative_and_absolute_includes(
     # Create config with package field (using first package name)
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     config.write_text(
-        json.dumps({"builds": [{"package": "rel_pkg", "include": [], "out": "dist"}]}),
+        json.dumps({"package": "rel_pkg", "include": [], "out": "dist"}),
         encoding="utf-8",
     )
 
@@ -769,7 +726,7 @@ def test_trailing_slash_include(
     # Create config with package field
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     config.write_text(
-        json.dumps({"builds": [{"package": "mypkg", "include": [], "out": "outdir"}]}),
+        json.dumps({"package": "mypkg", "include": [], "out": "outdir"}),
         encoding="utf-8",
     )
 
@@ -797,7 +754,7 @@ def test_absolute_out_does_not_create_relative_copy(
     # Create config with package field
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     config.write_text(
-        json.dumps({"builds": [{"package": "mypkg", "include": [], "out": "dist"}]}),
+        json.dumps({"package": "mypkg", "include": [], "out": "dist"}),
         encoding="utf-8",
     )
 
@@ -831,7 +788,7 @@ def test_dot_prefix_include(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
     # Create config with package field
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     config.write_text(
-        json.dumps({"builds": [{"package": "mypkg", "include": [], "out": "dist"}]}),
+        json.dumps({"package": "mypkg", "include": [], "out": "dist"}),
         encoding="utf-8",
     )
 
@@ -854,7 +811,7 @@ def test_trailing_slash_on_out(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     # Create config with package field
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     config.write_text(
-        json.dumps({"builds": [{"package": "mypkg", "include": [], "out": "dist"}]}),
+        json.dumps({"package": "mypkg", "include": [], "out": "dist"}),
         encoding="utf-8",
     )
 

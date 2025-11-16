@@ -26,14 +26,14 @@ def test_load_config_accepts_valid_list(tmp_path: Path) -> None:
     """Valid .py config defining a list should return that list."""
     # --- setup ---
     cfg = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.py"
-    cfg.write_text("builds = [{'out': 'dist'}]", encoding="utf-8")
+    cfg.write_text("includes = ['src/**', 'lib/**']", encoding="utf-8")
 
     # --- execute ---
     result = mod_config_loader.load_config(cfg)
 
     # --- verify ---
     assert isinstance(result, list)
-    assert result == [{"out": "dist"}]
+    assert result == ["src/**", "lib/**"]
 
 
 def test_load_config_returns_none_for_explicit_none(tmp_path: Path) -> None:

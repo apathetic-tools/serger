@@ -56,13 +56,9 @@ version = "1.0.0"
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     config.write_text(
         """{
-    "builds": [
-        {
-            "module_bases": ["src"],
-            "out": "dist",
-            "use_pyproject": true
-        }
-    ]
+    "module_bases": ["src"],
+    "out": "dist",
+    "use_pyproject": true
 }
 """,
         encoding="utf-8",
@@ -141,13 +137,9 @@ version = "1.0.0"
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     config.write_text(
         """{
-    "builds": [
-        {
-            "module_bases": ["src"],
-            "out": "dist",
-            "use_pyproject": true
-        }
-    ]
+    "module_bases": ["src"],
+    "out": "dist",
+    "use_pyproject": true
 }
 """,
         encoding="utf-8",

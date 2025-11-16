@@ -1400,6 +1400,12 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # Make a mutable copy
     resolved_cfg: dict[str, Any] = dict(build_cfg)
 
+    # Set log_level if not present (for tests that call resolve_build_config directly)
+    if "log_level" not in resolved_cfg:
+        root_log = None
+        log_level = logger.determine_log_level(args=args, root_log_level=root_log)
+        resolved_cfg["log_level"] = log_level
+
     # root provenance for all resolutions
     meta: MetaBuildConfigResolved = {
         "cli_root": cwd,

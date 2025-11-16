@@ -161,13 +161,9 @@ def test_subpackage_function_not_overwritten(tmp_path: Path) -> None:
     config_file = tmp_path / ".serger.jsonc"
     config_file.write_text(
         """{
-  "builds": [
-    {
-      "include": ["testpkg/**/*.py"],
-      "package": "testpkg",
-      "out": "stitched.py"
-    }
-  ]
+  "include": ["testpkg/**/*.py"],
+  "package": "testpkg",
+  "out": "stitched.py"
 }
 """
     )
@@ -245,13 +241,9 @@ def test_submodule_name_conflicts_with_stdlib_module(tmp_path: Path) -> None:
     config_file = tmp_path / ".serger.jsonc"
     config_file.write_text(
         """{
-  "builds": [
-    {
-      "include": ["testpkg/**/*.py"],
-      "package": "testpkg",
-      "out": "stitched.py"
-    }
-  ]
+  "include": ["testpkg/**/*.py"],
+  "package": "testpkg",
+  "out": "stitched.py"
 }
 """
     )

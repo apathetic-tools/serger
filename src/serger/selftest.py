@@ -172,7 +172,7 @@ def _create_build_config(
         raise RuntimeError(xmsg) from e
 
 
-def _execute_build(build_cfg: "RootConfigResolved") -> None:
+def _execute_selftest_build(build_cfg: "RootConfigResolved") -> None:
     """Execute stitch build in both dry-run and real modes.
 
     Args:
@@ -184,7 +184,9 @@ def _execute_build(build_cfg: "RootConfigResolved") -> None:
     # run_build will validate required keys, but we need package for this function
     validate_required_keys(build_cfg, {"package"}, "build_cfg")
     logger = get_app_logger()
-    logger.trace("[SELFTEST] _execute_build: package=%s", build_cfg.get("package"))
+    logger.trace(
+        "[SELFTEST] _execute_selftest_build: package=%s", build_cfg.get("package")
+    )
 
     for dry_run in (True, False):
         build_cfg["dry_run"] = dry_run
@@ -458,7 +460,7 @@ def run_selftest() -> bool:  # noqa: PLR0915
             # --- Phase 3: Execute build (both dry and real) ---
             phase_start = time.time()
             logger.debug("[SELFTEST] Phase 3: Executing stitch build")
-            _execute_build(build_cfg)
+            _execute_selftest_build(build_cfg)
             logger.debug(
                 "[SELFTEST] Phase 3 completed in %.3fs",
                 time.time() - phase_start,

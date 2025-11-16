@@ -181,13 +181,9 @@ def test_zero_config_auto_detect_package_not_found_in_module_bases(
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     config.write_text(
         """{
-    "builds": [
-        {
-            "package": "nonexistent",
-            "module_bases": ["src"],
-            "out": "dist"
-        }
-    ]
+    "package": "nonexistent",
+    "module_bases": ["src"],
+    "out": "dist"
 }
 """,
         encoding="utf-8",
@@ -255,12 +251,8 @@ def test_zero_config_no_auto_detect_when_all_bases_have_multiple_modules(
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     config.write_text(
         """{
-    "builds": [
-        {
-            "module_bases": ["src", "lib"],
-            "out": "dist"
-        }
-    ]
+    "module_bases": ["src", "lib"],
+    "out": "dist"
 }
 """,
         encoding="utf-8",
@@ -310,12 +302,8 @@ def test_zero_config_auto_detect_with_custom_module_bases(
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     config.write_text(
         """{
-    "builds": [
-        {
-            "module_bases": ["lib"],
-            "out": "dist"
-        }
-    ]
+    "module_bases": ["lib"],
+    "out": "dist"
 }
 """,
         encoding="utf-8",
@@ -387,12 +375,8 @@ def test_zero_config_auto_detect_picks_first_base_with_single_module(
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     config.write_text(
         """{
-    "builds": [
-        {
-            "module_bases": ["src", "lib"],
-            "out": "dist"
-        }
-    ]
+    "module_bases": ["src", "lib"],
+    "out": "dist"
 }
 """,
         encoding="utf-8",

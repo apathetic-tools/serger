@@ -57,7 +57,7 @@ def test_include_flag_overrides_config(
     assert "def foo" in content
     assert "def bar" in content
     assert "stitch completed" in out
-    assert "🎉 all builds complete" in out
+    assert "✅ stitch completed" in out
 
 
 def test_exclude_flag_overrides_config(
@@ -101,7 +101,7 @@ def test_exclude_flag_overrides_config(
     assert "def keep" in content
     assert "def ignore" not in content
     assert "stitch completed" in out
-    assert "🎉 all builds complete" in out
+    assert "✅ stitch completed" in out
 
 
 def test_add_include_extends_config(
@@ -149,7 +149,7 @@ def test_add_include_extends_config(
 
     # Output should confirm the build
     assert "stitch completed" in out
-    assert "🎉 all builds complete" in out
+    assert "✅ stitch completed" in out
 
 
 def test_add_exclude_extends_config(
@@ -199,4 +199,4 @@ def test_add_exclude_extends_config(
     assert "def ignore_log" not in content
 
     assert "stitch completed" in out
-    assert "🎉 all builds complete" in out
+    assert "✅ stitch completed" in out

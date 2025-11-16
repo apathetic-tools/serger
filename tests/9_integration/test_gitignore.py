@@ -66,7 +66,7 @@ def test_default_respects_gitignore(
     # skip_tmp.py should be excluded by gitignore
     assert "def skip()" not in stitched_content
     assert "stitch completed" in out
-    assert "🎉 all builds complete" in out
+    assert "✅ stitch completed" in out
 
 
 def test_config_disables_gitignore(
@@ -106,7 +106,7 @@ def test_config_disables_gitignore(
     stitched_content = stitched.read_text()
     assert "def test()" in stitched_content or "test_tmp" in stitched_content
     assert "stitch completed" in out
-    assert "🎉 all builds complete" in out
+    assert "✅ stitch completed" in out
 
 
 def test_build_enables_gitignore_even_if_root_disabled(
@@ -127,15 +127,10 @@ def test_build_enables_gitignore_even_if_root_disabled(
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     write_config_file(
         config,
-        builds=[
-            {
-                "package": "mypkg",
-                "include": ["mypkg/**/*.py"],
-                "out": "dist/mypkg.py",
-                "respect_gitignore": True,
-            },
-        ],
-        respect_gitignore=False,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+        respect_gitignore=True,
     )
 
     # --- patch and execute ---
@@ -154,7 +149,7 @@ def test_build_enables_gitignore_even_if_root_disabled(
     # skip_tmp.py should be excluded by gitignore (even though root disables it)
     assert "def skip()" not in stitched_content
     assert "stitch completed" in out
-    assert "🎉 all builds complete" in out
+    assert "✅ stitch completed" in out
 
 
 def test_cli_disables_gitignore_even_if_enabled_in_config(
@@ -194,7 +189,7 @@ def test_cli_disables_gitignore_even_if_enabled_in_config(
     assert "def keep()" in stitched_content
     assert "def ignore()" in stitched_content
     assert "stitch completed" in out
-    assert "🎉 all builds complete" in out
+    assert "✅ stitch completed" in out
 
 
 def test_cli_enables_gitignore_even_if_config_disables_it(
@@ -237,7 +232,7 @@ def test_cli_enables_gitignore_even_if_config_disables_it(
     # skip_tmp.py should be excluded by gitignore (CLI overrides config)
     assert "def skip()" not in stitched_content
     assert "stitch completed" in out
-    assert "🎉 all builds complete" in out
+    assert "✅ stitch completed" in out
 
 
 def test_gitignore_patterns_append_to_existing_excludes(
@@ -283,7 +278,7 @@ def test_gitignore_patterns_append_to_existing_excludes(
     # baz.py should be included
     assert "def baz()" in stitched_content
     assert "stitch completed" in out
-    assert "🎉 all builds complete" in out
+    assert "✅ stitch completed" in out
 
 
 def test_cli_gitignore_disable_then_enable(

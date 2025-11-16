@@ -3,7 +3,6 @@
 
 import json
 from pathlib import Path
-from typing import cast
 
 import pytest
 
@@ -57,7 +56,7 @@ def test_main_with_config(
     out = capsys.readouterr().out.lower()
     assert code == 0
     assert "stitch completed" in out
-    assert "🎉 all builds complete" in out
+    assert "✅ stitch completed" in out
 
 
 def test_dry_run_creates_no_files(tmp_path: Path) -> None:
@@ -123,7 +122,7 @@ def test_main_invalid_config(tmp_path: Path) -> None:
     [  # pyright: ignore[reportUnknownArgumentType]
         # Explicit include:[] means intentional empty - no warning
         (
-            {"builds": [{"include": [], "out": "dist"}]},
+            {"include": [], "out": "dist"},
             [],
             0,
             None,
@@ -137,25 +136,27 @@ def test_main_invalid_config(tmp_path: Path) -> None:
             "no include patterns found",
             "empty_list_shorthand",
         ),
-        # Empty builds with strict_config=false - warn only
+        # Empty builds with strict_config=false - should fail validation
         (
+            # Should fail - builds not supported
             {"strict_config": False, "builds": []},
             [],
-            0,
-            "No include patterns found",
+            1,
+            "builds",
             "empty_builds_strict_false",
         ),
-        # Empty builds with strict_config=true - error
+        # Empty builds with strict_config=true - should fail validation
         (
+            # Should fail - builds not supported
             {"strict_config": True, "builds": []},
             [],
             1,
-            "No include patterns found",
+            "builds",
             "empty_builds_strict_true",
         ),
         # Build missing include, strict_config=false - warn only
         (
-            {"strict_config": False, "builds": [{"out": "dist/mypkg.py"}]},
+            {"strict_config": False, "out": "dist/mypkg.py"},
             [],
             0,
             "No include patterns found",
@@ -163,7 +164,7 @@ def test_main_invalid_config(tmp_path: Path) -> None:
         ),
         # Build missing include, strict_config=true - error
         (
-            {"strict_config": True, "builds": [{"out": "dist/mypkg.py"}]},
+            {"strict_config": True, "out": "dist/mypkg.py"},
             [],
             1,
             "No include patterns found",
@@ -172,8 +173,8 @@ def test_main_invalid_config(tmp_path: Path) -> None:
         # Build overrides root strict=true to false - warn only
         (
             {
-                "strict_config": True,
-                "builds": [{"strict_config": False, "out": "dist/mypkg.py"}],
+                "strict_config": False,
+                "out": "dist/mypkg.py",
             },
             [],
             0,
@@ -183,8 +184,8 @@ def test_main_invalid_config(tmp_path: Path) -> None:
         # Build overrides root strict=false to true - error
         (
             {
-                "strict_config": False,
-                "builds": [{"strict_config": True, "out": "dist/mypkg.py"}],
+                "strict_config": True,
+                "out": "dist/mypkg.py",
             },
             [],
             1,
@@ -193,7 +194,7 @@ def test_main_invalid_config(tmp_path: Path) -> None:
         ),
         # Missing include but CLI provides --include - no warning
         (
-            {"builds": [{"out": "dist/mypkg.py"}]},
+            {"out": "dist/mypkg.py"},
             ["--include", "mypkg/**/*.py"],
             0,
             None,
@@ -201,7 +202,7 @@ def test_main_invalid_config(tmp_path: Path) -> None:
         ),
         # Missing include but CLI provides --add-include - no warning
         (
-            {"builds": [{"out": "dist/mypkg.py"}]},
+            {"out": "dist/mypkg.py"},
             ["--add-include", "mypkg/**/*.py"],
             0,
             None,
@@ -223,18 +224,17 @@ def test_main_invalid_config(tmp_path: Path) -> None:
             "No include patterns found",
             "only_log_level",
         ),
-        # Multiple builds, one has includes - no warning
+        # Multiple builds - should fail validation
         (
             {
                 "builds": [
                     {"include": ["mypkg/**/*.py"], "out": "dist1/mypkg.py"},
-                    # This one missing, but first has includes
                     {"out": "dist2/mypkg.py"},
                 ]
-            },
+            },  # Should fail - multi-build not supported
             [],
-            0,
-            None,
+            1,
+            "builds",
             "mixed_builds_one_has_includes",
         ),
     ],
@@ -256,16 +256,12 @@ def test_missing_includes_behavior(
     if "--include" in cli_args or "--add-include" in cli_args:
         pkg_dir = tmp_path / "mypkg"
         make_test_package(pkg_dir)
-    elif isinstance(config_content, dict) and config_content.get("builds"):
-        # Check if any build has includes - if so, create package
-        builds = config_content.get("builds", [])
-        if isinstance(builds, list):
-            builds_list = cast("list[dict[str, object]]", builds)
-            for build_item in builds_list:
-                if "include" in build_item and isinstance(build_item["include"], list):
-                    pkg_dir = tmp_path / "mypkg"
-                    make_test_package(pkg_dir)
-                    break
+    elif isinstance(config_content, dict) and "include" in config_content:
+        # Check if config has includes - if so, create package
+        includes = config_content.get("include", [])
+        if isinstance(includes, list) and includes:
+            pkg_dir = tmp_path / "mypkg"
+            make_test_package(pkg_dir)
 
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     if isinstance(config_content, str):

@@ -152,23 +152,19 @@ def test_multi_package_stitching_via_config_file(tmp_path: Path) -> None:
     config_file = tmp_path / ".serger.jsonc"
     config_file.write_text(
         """{
-  "builds": [
-    {
-      "include": [
-        "pkg1/**/*.py",
-        "pkg2/**/*.py"
-      ],
-      "exclude": [
-        "**/__init__.py"
-      ],
-      "package": "pkg1",
-      "order": [
-        "pkg1/foo.py",
-        "pkg2/bar.py"
-      ],
-      "out": "stitched.py"
-    }
-  ]
+  "include": [
+    "pkg1/**/*.py",
+    "pkg2/**/*.py"
+  ],
+  "exclude": [
+    "**/__init__.py"
+  ],
+  "package": "pkg1",
+  "order": [
+    "pkg1/foo.py",
+    "pkg2/bar.py"
+  ],
+  "out": "stitched.py"
 }
 """
     )

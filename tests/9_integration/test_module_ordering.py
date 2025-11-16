@@ -88,9 +88,7 @@ def serger_config(tmp_path: Path, test_package_structure: Path) -> Path:
     dist_dir.mkdir(exist_ok=True)
 
     config_content = f"""{{
-  "builds": [
-    {{
-      "package": "{pkg_name}",
+  "package": "{pkg_name}",
       "include": [
         "{test_package_structure}/**/*.py"
       ],
@@ -99,8 +97,6 @@ def serger_config(tmp_path: Path, test_package_structure: Path) -> Path:
         "*.pyc"
       ],
       "out": "{dist_dir / f"{pkg_name}.py"}"
-    }}
-  ]
 }}
 """
     config_file.write_text(config_content)
@@ -358,9 +354,7 @@ EXPORTED_VALUE = _apathetic_logging_ns.get_value()
     dist_dir = tmp_path / "dist"
     dist_dir.mkdir(exist_ok=True)
     config_content = f"""{{
-  "builds": [
-    {{
-      "package": "test_pkg",
+  "package": "test_pkg",
       "include": [
         "{pkg_dir}/**/*.py"
       ],
@@ -369,8 +363,6 @@ EXPORTED_VALUE = _apathetic_logging_ns.get_value()
         "*.pyc"
       ],
       "out": "{dist_dir / "test_pkg.py"}"
-    }}
-  ]
 }}
 """
     config_file.write_text(config_content)

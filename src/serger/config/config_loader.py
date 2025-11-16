@@ -125,7 +125,7 @@ def load_config(config_path: Path) -> dict[str, Any] | list[Any] | None:
     """Load configuration data from a file.
 
     Supports:
-      - Python configs: .py files exporting either `config`, `builds`, or `includes`
+      - Python configs: .py files exporting either `config` or `includes`
       - JSON/JSONC configs: .json, .jsonc files
 
     Returns:
@@ -185,7 +185,7 @@ def load_config(config_path: Path) -> dict[str, Any] | list[Any] | None:
                 # Explicitly narrow the loaded config to its expected union type.
                 return cast("dict[str, Any] | list[Any] | None", result)
 
-        xmsg = f"{config_path.name} did not define `config` or `builds` or `includes`"
+        xmsg = f"{config_path.name} did not define `config` or `includes`"
         raise ValueError(xmsg)
 
     # JSONC / JSON fallback

@@ -46,4 +46,5 @@ def test_installed_module_execution() -> None:
         f"Non-zero exit ({result.returncode}):\n{result.stderr}"
     )
     assert "Stitch completed" in result.stdout
-    assert "🎉 All builds complete" in result.stdout
+    assert "✅" in result.stdout
+    assert "completed" in result.stdout.lower()

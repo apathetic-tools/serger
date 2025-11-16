@@ -32,7 +32,7 @@ def test_watch_flag_invokes_watch_mode(
     """
     # --- setup ---
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    config.write_text('{"builds": [{"include": [], "out": "dist"}]}')
+    config.write_text('{"include": [], "out": "dist"}')
 
     called: dict[str, bool] = {}
 
@@ -59,7 +59,7 @@ def test_watch_uses_config_interval_when_flag_passed(
     # --- setup ---
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     config.write_text(
-        '{"watch_interval": 0.42, "builds": [{"include": [], "out": "dist"}]}',
+        '{"watch_interval": 0.42, "include": [], "out": "dist"}',
     )
 
     called: dict[str, float] = {}
@@ -67,7 +67,7 @@ def test_watch_uses_config_interval_when_flag_passed(
     # --- stubs ---
     def fake_watch(
         _rebuild_func: Callable[[], None],
-        _resolved_builds: list[mod_types.BuildConfigResolved],
+        _resolved: mod_types.RootConfigResolved,
         interval: float,
         *_args: Any,
         **_kwargs: Any,
@@ -96,7 +96,7 @@ def test_watch_falls_back_to_default_interval_when_no_config(
     """Ensure --watch uses DEFAULT_WATCH_INTERVAL when no config interval is defined."""
     # --- setup ---
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    config.write_text('{"builds": [{"include": [], "out": "dist"}]}')
+    config.write_text('{"include": [], "out": "dist"}')
 
     called: dict[str, float] = {}
 
