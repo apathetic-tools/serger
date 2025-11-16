@@ -603,7 +603,7 @@ def test_resolve_build_config_multi_build_requires_opt_in(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Multi-build should require explicit opt-in to use pyproject.toml."""
+    """Multi-build should not use pyproject.toml when explicitly disabled."""
     # --- setup ---
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
@@ -612,7 +612,7 @@ name = "test-package"
 version = "1.2.3"
 """
     )
-    raw1 = make_build_input(include=["src1/**"])
+    raw1 = make_build_input(include=["src1/**"], use_pyproject=False)
     raw2 = make_build_input(include=["src2/**"])
     root_cfg: mod_types.RootConfig = {"builds": [raw1, raw2]}
     args = _args()
@@ -624,7 +624,7 @@ version = "1.2.3"
         )
 
     # --- validate ---
-    # Should not use pyproject.toml without explicit opt-in
+    # Should not use pyproject.toml when explicitly disabled
     assert (
         "display_name" not in resolved or resolved.get("display_name") != "test-package"
     )
@@ -1163,7 +1163,7 @@ def test_resolve_build_config_authors_root_used_when_pyproject_not_enabled(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Root-level authors should be used when pyproject is not enabled."""
+    """Root-level authors should be used when pyproject is explicitly disabled."""
     # --- setup ---
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
@@ -1174,7 +1174,7 @@ authors = [
 ]
 """
     )
-    raw = make_build_input(include=["src/**"])
+    raw = make_build_input(include=["src/**"], use_pyproject=False)
     root_cfg: mod_types.RootConfig = {
         "builds": [raw],
         "authors": "Root Author <root@example.com>",
@@ -1188,7 +1188,7 @@ authors = [
         )
 
     # --- validate ---
-    # Root-level authors should be used when pyproject is not enabled
+    # Root-level authors should be used when pyproject is explicitly disabled
     assert resolved.get("authors") == "Root Author <root@example.com>"
 
 

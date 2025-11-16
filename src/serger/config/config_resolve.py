@@ -206,13 +206,9 @@ def _should_use_pyproject(
 ) -> bool:
     """Determine if pyproject.toml should be used for this build.
 
-    For configless builds, pyproject.toml is used by default (unless explicitly
-    disabled). For other builds, pyproject.toml is used if any of the following
-    are true:
-    - Root use_pyproject is True
-    - Root pyproject_path is explicitly set
-    - Build use_pyproject is True
-    - Build pyproject_path is explicitly set
+    Pyproject.toml is used by default (DEFAULT_USE_PYPROJECT) unless explicitly
+    disabled. Explicit enablement (use_pyproject=True or pyproject_path set)
+    always takes precedence and enables it even if it would otherwise be disabled.
 
     Args:
         build_cfg: Build config
@@ -243,13 +239,18 @@ def _should_use_pyproject(
     if is_configless:
         return DEFAULT_USE_PYPROJECT
 
-    # For non-configless builds, require explicit enablement
-    return (
+    # For non-configless builds, also use DEFAULT_USE_PYPROJECT unless explicitly
+    # disabled (but allow explicit enablement to override)
+    if (
         root_use_pyproject is True
         or root_pyproject_path is not None
         or build_use_pyproject is True
         or build_pyproject_path is not None
-    )
+    ):
+        return True
+
+    # Default to DEFAULT_USE_PYPROJECT for non-configless builds too
+    return DEFAULT_USE_PYPROJECT
 
 
 def _resolve_pyproject_path(
@@ -660,37 +661,47 @@ def _apply_metadata_fields(
     resolved_cfg: dict[str, Any],
     metadata: PyprojectMetadata,
     pyproject_path: Path,
+    *,
+    explicitly_requested: bool,
 ) -> None:
     """Apply extracted metadata fields to resolved config.
 
-    Applies ALL fields from pyproject.toml when pyproject is enabled,
-    overwriting any existing values.
+    When explicitly requested (use_pyproject=True), pyproject.toml values
+    overwrite config values. When used by default, only fills in missing
+    fields (config values take precedence).
 
     Args:
         resolved_cfg: Mutable resolved config dict (modified in place)
         metadata: Extracted metadata
         pyproject_path: Path to pyproject.toml (for logging)
+        explicitly_requested: True if pyproject was explicitly enabled
     """
     logger = get_app_logger()
 
-    # Apply all fields from pyproject.toml (overwrites existing values)
+    # Apply fields from pyproject.toml
     if metadata.version:
         # Note: version is not a build config field, but we'll store it
         # for use in build.py later
         resolved_cfg["_pyproject_version"] = metadata.version
 
     if metadata.name:
-        resolved_cfg["display_name"] = metadata.name
+        if explicitly_requested or "display_name" not in resolved_cfg:
+            resolved_cfg["display_name"] = metadata.name
         # Package from pyproject.toml name
-        resolved_cfg["package"] = metadata.name
+        if explicitly_requested or "package" not in resolved_cfg:
+            resolved_cfg["package"] = metadata.name
 
-    if metadata.description:
+    if metadata.description and (
+        explicitly_requested or "description" not in resolved_cfg
+    ):
         resolved_cfg["description"] = metadata.description
 
-    if metadata.authors:
+    if metadata.authors and (explicitly_requested or "authors" not in resolved_cfg):
         resolved_cfg["authors"] = metadata.authors
 
-    if metadata.license_text:
+    if metadata.license_text and (
+        explicitly_requested or "license_header" not in resolved_cfg
+    ):
         resolved_cfg["license_header"] = metadata.license_text
 
     if metadata.has_any():
@@ -724,7 +735,12 @@ def _apply_pyproject_metadata(
     metadata = _extract_pyproject_metadata_safe(
         pyproject_path, explicitly_requested=explicitly_requested
     )
-    _apply_metadata_fields(resolved_cfg, metadata, pyproject_path)
+    _apply_metadata_fields(
+        resolved_cfg,
+        metadata,
+        pyproject_path,
+        explicitly_requested=explicitly_requested,
+    )
 
 
 def _load_gitignore_patterns(path: Path) -> list[str]:
