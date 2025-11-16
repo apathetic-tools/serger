@@ -26,6 +26,8 @@ These options apply globally and can cascade into individual builds:
 | `external_imports` | `str` | `"top"` | How to handle external imports (see [Import Handling](#import-handling)) |
 | `stitch_mode` | `str` | `"raw"` | How to combine modules into a single file (see [Stitch Modes](#stitch-modes)) |
 | `module_mode` | `str` | `"multi"` | How to generate import shims for single-file runtime (see [Module Modes](#module-modes)) |
+| `shim` | `str` | `"all"` | Controls shim generation (see [Shim Setting](#shim-setting)) |
+| `module_actions` | `dict \| list` | - | Custom module transformations (see [Module Actions](#module-actions)) |
 | `comments_mode` | `str` | `"keep"` | How to handle comments in stitched output (see [Comment Handling](#comment-handling)) |
 | `docstring_mode` | `str \| dict` | `"keep"` | How to handle docstrings in stitched output (see [Docstring Handling](#docstring-handling)) |
 
@@ -48,6 +50,8 @@ Each build in the `builds` array can specify:
 | `external_imports` | `str` | No | Override root-level `external_imports` for this build |
 | `stitch_mode` | `str` | No | Override root-level `stitch_mode` for this build (see [Stitch Modes](#stitch-modes)) |
 | `module_mode` | `str` | No | Override root-level `module_mode` for this build (see [Module Modes](#module-modes)) |
+| `shim` | `str` | No | Override root-level `shim` for this build (see [Shim Setting](#shim-setting)) |
+| `module_actions` | `dict \| list` | No | Override root-level `module_actions` for this build (see [Module Actions](#module-actions)) |
 | `comments_mode` | `str` | No | Override root-level `comments_mode` for this build (see [Comment Handling](#comment-handling)) |
 | `docstring_mode` | `str \| dict` | No | Override root-level `docstring_mode` for this build (see [Docstring Handling](#docstring-handling)) |
 
@@ -189,6 +193,479 @@ Serger provides control over how import shims are generated for the single-file 
   "module_mode": "multi"  // Default for all builds
 }
 ```
+
+## Shim Setting
+
+The `shim` setting controls whether import shims are generated and which modules get shims. This setting works in conjunction with `module_mode` and `module_actions` to control the final shim structure.
+
+**Available values:**
+
+| Value | Description |
+|-------|-------------|
+| `all` | Generate shims for all modules (default). All modules that would normally get shims based on `module_mode` and `module_actions` will have shims generated. |
+| `public` | Only generate shims for public modules. Currently treated the same as `all` (future: will filter based on `_` prefix or `__all__`). |
+| `none` | Don't generate shims at all. The stitched file cannot be imported as a module. Use this when you only need a standalone script. |
+
+### Relationship with Module Mode and Module Actions
+
+The `shim` setting acts as a filter on top of `module_mode` and `module_actions`:
+
+1. **`module_mode`** determines the overall strategy for organizing shims (e.g., `multi`, `force`, `unify`)
+2. **`module_actions`** provides fine-grained control over specific module transformations
+3. **`shim`** controls whether shims are generated at all and which modules get shims
+
+### Example
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "out": "dist/mypkg.py",
+      "module_mode": "multi",
+      "shim": "all"  // Generate shims for all modules (default)
+    }
+  ],
+  "shim": "all"  // Default for all builds
+}
+```
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "out": "dist/mypkg.py",
+      "shim": "none"  // No shims - standalone script only
+    }
+  ]
+}
+```
+
+## Module Actions
+
+Module actions provide fine-grained control over module organization, allowing you to rename, move, copy, or delete specific parts of the module hierarchy. Module actions can affect shim generation, stitching, or both.
+
+**Key concepts:**
+- **Actions operate on modules**: Actions transform module names in the final output
+- **Can affect shims and/or stitching**: Use the `affects` key to control scope
+- **Works with `module_mode`**: `module_mode` generates convenience actions that are combined with your custom actions
+- **Two configuration formats**: Simple dict format for quick renames, or list format for full control
+
+### Configuration Formats
+
+#### Simple Dict Format
+
+For quick renames, you can use a simple dictionary mapping source module names to destination module names:
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "out": "dist/mypkg.py",
+      "module_actions": {
+        "old_pkg": "new_pkg",        // Move old_pkg to new_pkg
+        "unwanted.module": null      // Delete unwanted.module
+      }
+    }
+  ]
+}
+```
+
+**Behavior:**
+- `{"source": "dest"}` → Move `source` to `dest` (preserves subpackages)
+- `{"source": null}` → Delete `source` (removes from shims)
+- Defaults: `action: "move"`, `mode: "preserve"`, `scope: "shim"`, `affects: "shims"`, `cleanup: "auto"`
+
+#### List Format (Full Control)
+
+For full control over all parameters, use the list format:
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "out": "dist/mypkg.py",
+      "module_actions": [
+        {
+          "source": "old_pkg",
+          "dest": "new_pkg",
+          "action": "move",
+          "mode": "preserve",
+          "scope": "shim",
+          "affects": "shims",
+          "cleanup": "auto"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Action Types
+
+| Action | Description | Requires `dest`? |
+|--------|-------------|-----------------|
+| `move` | Rename/relocate a module (source no longer exists in output) | Yes |
+| `copy` | Duplicate a module to another location (source still exists) | Yes |
+| `delete` | Remove a module from output entirely | No |
+| `none` | Alias for `delete` | No |
+
+### Action Parameters
+
+#### Required Parameters
+
+- **`source`** (string, required): The source module name to transform. Can be a top-level package (e.g., `"pkg1"`) or a subpackage/module (e.g., `"pkg1.sub.module"`).
+
+#### Optional Parameters
+
+- **`dest`** (string, optional): The destination module name. Required for `move` and `copy` actions, not used for `delete` actions.
+
+- **`action`** (string, default: `"move"`): The action type. Valid values: `"move"`, `"copy"`, `"delete"`, `"none"`.
+
+- **`mode`** (string, default: `"preserve"`): How to handle subpackages:
+  - `"preserve"`: Keep subpackage structure (e.g., `pkg1.sub` → `newpkg.sub`)
+  - `"flatten"`: Flatten all subpackages onto destination (e.g., `pkg1.sub` → `newpkg`)
+
+- **`scope`** (string, default: `"shim"` for user actions, `"original"` for mode-generated): Which module name space to operate on:
+  - `"original"`: Operate on original module names (before any transformations)
+  - `"shim"`: Operate on shim module names (after `module_mode` transformations)
+
+- **`affects`** (string, default: `"shims"`): What the action affects:
+  - `"shims"`: Only affects shim generation (import shims)
+  - `"stitching"`: Only affects file stitching (which files are included)
+  - `"both"`: Affects both shims and stitching
+
+- **`cleanup`** (string, default: `"auto"`): How to handle shim-stitching mismatches (when `affects: "shims"` creates a shim but the file wasn't stitched, or vice versa):
+  - `"auto"`: Automatically handle mismatches (delete shims for unstitched files, skip stitching for deleted shims)
+  - `"error"`: Raise an error if mismatches are detected
+  - `"ignore"`: Ignore mismatches (may cause import errors at runtime)
+
+### Examples
+
+#### Simple Rename
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "out": "dist/mypkg.py",
+      "module_actions": {
+        "apathetic_logs": "grinch"
+      }
+    }
+  ]
+}
+```
+
+This moves `apathetic_logs` to `grinch`, preserving subpackages (e.g., `apathetic_logs.utils` → `grinch.utils`).
+
+#### Flatten Subpackage
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "out": "dist/mypkg.py",
+      "module_actions": [
+        {
+          "source": "pkg1.sub",
+          "dest": "mypkg",
+          "action": "move",
+          "mode": "flatten"
+        }
+      ]
+    }
+  ]
+}
+```
+
+This flattens all modules under `pkg1.sub` directly into `mypkg` (e.g., `pkg1.sub.module` → `mypkg.module`).
+
+#### Multi-Level Operations
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "out": "dist/mypkg.py",
+      "module_actions": [
+        {
+          "source": "pkg1.sub.module",
+          "dest": "mypkg.utils",
+          "action": "move",
+          "mode": "preserve"
+        }
+      ]
+    }
+  ]
+}
+```
+
+This moves a specific submodule to a new location while preserving its structure.
+
+#### Copy Operations
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "out": "dist/mypkg.py",
+      "module_actions": [
+        {
+          "source": "utils",
+          "dest": "mypkg.utils",
+          "action": "copy"
+        }
+      ]
+    }
+  ]
+}
+```
+
+This creates a copy of `utils` at `mypkg.utils` while keeping the original `utils` module.
+
+#### Delete Operations
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "out": "dist/mypkg.py",
+      "module_actions": [
+        {
+          "source": "internal._private",
+          "action": "delete"
+        }
+      ]
+    }
+  ]
+}
+```
+
+This removes `internal._private` from the output entirely.
+
+#### Mode + User Actions
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "out": "dist/mypkg.py",
+      "module_mode": "force",  // Generates actions to replace root packages
+      "module_actions": [
+        {
+          "source": "pkg1.sub",
+          "dest": "mypkg.custom",
+          "action": "move",
+          "mode": "flatten"
+        }
+      ]
+    }
+  ]
+}
+```
+
+User-specified actions are applied after mode-generated actions, allowing you to override or extend the convenience presets.
+
+#### Scope: "original" vs "shim"
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "out": "dist/mypkg.py",
+      "module_mode": "force",  // pkg1 -> mypkg
+      "module_actions": [
+        {
+          "source": "pkg1",  // scope: "shim" (default) - operates on shim names
+          "dest": "custom",
+          "action": "move"
+        }
+      ]
+    }
+  ]
+}
+```
+
+With `scope: "shim"` (default for user actions), the action operates on the shim name after `module_mode` transformations. So `pkg1` (which became `mypkg` via `module_mode: "force"`) is moved to `custom`.
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "out": "dist/mypkg.py",
+      "module_mode": "force",
+      "module_actions": [
+        {
+          "source": "pkg1",  // scope: "original" - operates on original names
+          "dest": "custom",
+          "action": "move",
+          "scope": "original"
+        }
+      ]
+    }
+  ]
+}
+```
+
+With `scope: "original"`, the action operates on the original module name before `module_mode` transformations. So `pkg1` is moved to `custom` before `module_mode: "force"` is applied.
+
+#### Affects: "shims" vs "stitching" vs "both"
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "out": "dist/mypkg.py",
+      "module_actions": [
+        {
+          "source": "internal",
+          "action": "delete",
+          "affects": "shims"  // Only remove from shims, still stitch the files
+        }
+      ]
+    }
+  ]
+}
+```
+
+This removes `internal` from shims but still stitches the files into the output.
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "out": "dist/mypkg.py",
+      "module_actions": [
+        {
+          "source": "test_utils",
+          "action": "delete",
+          "affects": "stitching"  // Don't stitch files, but keep shims
+        }
+      ]
+    }
+  ]
+}
+```
+
+This excludes `test_utils` files from stitching but keeps the shims (useful for testing scenarios).
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "out": "dist/mypkg.py",
+      "module_actions": [
+        {
+          "source": "old_pkg",
+          "dest": "new_pkg",
+          "action": "move",
+          "affects": "both"  // Affects both shims and stitching
+        }
+      ]
+    }
+  ]
+}
+```
+
+This moves `old_pkg` to `new_pkg` in both shims and stitching.
+
+#### Cleanup: "auto" vs "error" vs "ignore"
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "out": "dist/mypkg.py",
+      "module_actions": [
+        {
+          "source": "internal",
+          "action": "delete",
+          "affects": "shims",
+          "cleanup": "auto"  // Automatically handle mismatches
+        }
+      ]
+    }
+  ]
+}
+```
+
+With `cleanup: "auto"`, if `internal` files are stitched but the shim is deleted, the shim is automatically removed (no error).
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "out": "dist/mypkg.py",
+      "module_actions": [
+        {
+          "source": "internal",
+          "action": "delete",
+          "affects": "shims",
+          "cleanup": "error"  // Raise error if mismatches detected
+        }
+      ]
+    }
+  ]
+}
+```
+
+With `cleanup: "error"`, if there's a mismatch (e.g., files are stitched but shim is deleted), an error is raised.
+
+### Relationship with Module Mode
+
+`module_mode` provides convenience presets that generate actions internally. These mode-generated actions are combined with your user-specified `module_actions`:
+
+1. **Mode-generated actions** are created first (based on `module_mode` like `multi`, `force`, `unify`, etc.)
+2. **User-specified actions** are applied after mode-generated actions
+3. **User actions can override mode behavior** by operating on the same modules
+
+For example, `module_mode: "force"` generates actions to replace all detected package roots with the configured `package` name. You can then add custom actions to further transform specific modules.
+
+### Validation Rules
+
+Module actions are validated to ensure correctness:
+
+- **Source must exist**: The `source` module must exist in the available modules (based on `scope`)
+- **Dest conflicts**: For `move` and `copy` actions, `dest` cannot conflict with existing modules (unless it's the target of a previous action in the same batch)
+- **Dest required**: `dest` is required for `move` and `copy` actions
+- **Dest not allowed**: `dest` must not be specified for `delete` actions
+- **Scope consistency**: Actions with `scope: "original"` must reference original module names; actions with `scope: "shim"` must reference shim module names
+
+Invalid configurations will raise errors with clear messages indicating what went wrong.
 
 ## Comment Handling
 
