@@ -29,7 +29,6 @@ Planned command-line flags for future releases:
 - Add key to disable update checks directly in config
 - Provide a JSON Schema for validation and autocomplete
 - Module-level configuration (metadata, headers)
-- config setting for the module shims at the end
 - config setting for the main
 - can we make the main() detection smarter?
 - config setting for main
