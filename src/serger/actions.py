@@ -7,43 +7,39 @@ from contextlib import suppress
 from pathlib import Path
 
 from .build import collect_included_files
-from .config import BuildConfigResolved
+from .config import RootConfigResolved
 from .constants import DEFAULT_WATCH_INTERVAL
 from .logs import get_app_logger
 from .meta import Metadata
 from .utils.utils_validation import validate_required_keys
 
 
-def _collect_included_files(resolved_builds: list[BuildConfigResolved]) -> list[Path]:
-    """Flatten all include globs into a unique list of files.
+def _collect_included_files(resolved: RootConfigResolved) -> list[Path]:
+    """Collect all include globs into a unique list of files.
 
     Uses collect_included_files() from build.py for consistency.
     Watch mode respects excludes from config.
     """
-    all_files: list[Path] = []
-
-    for b in resolved_builds:
-        # include and exclude are optional, but if present they need validation
-        # Validation happens inside collect_included_files
-        includes = b.get("include", [])
-        excludes = b.get("exclude", [])
-        # Collect files for this build (watch mode respects excludes from config)
-        files, _file_to_include = collect_included_files(includes, excludes)
-        all_files.extend(files)
+    # include and exclude are optional, but if present they need validation
+    # Validation happens inside collect_included_files
+    includes = resolved.get("include", [])
+    excludes = resolved.get("exclude", [])
+    # Collect files (watch mode respects excludes from config)
+    files, _file_to_include = collect_included_files(includes, excludes)
 
     # Return unique sorted list
-    return sorted(set(all_files))
+    return sorted(set(files))
 
 
 def watch_for_changes(
     rebuild_func: Callable[[], None],
-    resolved_builds: list[BuildConfigResolved],
+    resolved: RootConfigResolved,
     interval: float = DEFAULT_WATCH_INTERVAL,
 ) -> None:
     """Poll file modification times and rebuild when changes are detected.
 
     Features:
-    - Skips files inside each build's output directory.
+    - Skips files inside the build's output directory.
     - Re-expands include patterns every loop to detect newly created files.
     - Polling interval defaults to 1 second (tune 0.5–2.0 for balance).
     Stops on KeyboardInterrupt.
@@ -54,21 +50,16 @@ def watch_for_changes(
     )
 
     # discover at start
-    included_files = _collect_included_files(resolved_builds)
+    included_files = _collect_included_files(resolved)
 
     mtimes: dict[Path, float] = {
         f: f.stat().st_mtime for f in included_files if f.exists()
     }
 
-    # Collect all output paths to ignore (can be directories or files)
-    out_paths: list[Path] = []
-    for b in resolved_builds:
-        validate_required_keys(b, {"out"}, "resolved_builds item")
-        validate_required_keys(
-            b["out"], {"path", "root"}, "resolved_builds item['out']"
-        )
-        out_path = (b["out"]["root"] / b["out"]["path"]).resolve()
-        out_paths.append(out_path)
+    # Collect output path to ignore (can be directory or file)
+    validate_required_keys(resolved, {"out"}, "resolved config")
+    validate_required_keys(resolved["out"], {"path", "root"}, "resolved['out']")
+    out_path = (resolved["out"]["root"] / resolved["out"]["path"]).resolve()
 
     rebuild_func()  # initial build
 
@@ -77,14 +68,14 @@ def watch_for_changes(
             time.sleep(interval)
 
             # 🔁 re-expand every tick so new/removed files are tracked
-            included_files = _collect_included_files(resolved_builds)
+            included_files = _collect_included_files(resolved)
 
             logger.trace(f"[watch] Checking {len(included_files)} files for changes")
 
             changed: list[Path] = []
             for f in included_files:
-                # skip files that are inside or equal to any output path
-                if any(f == out_p or f.is_relative_to(out_p) for out_p in out_paths):
+                # skip files that are inside or equal to the output path
+                if f == out_path or f.is_relative_to(out_path):
                     continue  # ignore output files/folders
                 old_m = mtimes.get(f)
                 if not f.exists():

@@ -22,6 +22,7 @@ from .constants import (
     DEFAULT_MODULE_MODE,
     DEFAULT_STITCH_MODE,
     DEFAULT_STRICT_CONFIG,
+    DEFAULT_WATCH_INTERVAL,
 )
 from .logs import get_app_logger
 from .meta import PROGRAM_DISPLAY, PROGRAM_SCRIPT
@@ -30,7 +31,7 @@ from .utils.utils_validation import validate_required_keys
 
 
 if TYPE_CHECKING:
-    from .config import BuildConfigResolved
+    from .config import RootConfigResolved
 
 # Expected exit code from test script (42 * 2 = 84)
 EXPECTED_EXIT_CODE = 84
@@ -91,7 +92,7 @@ def _create_test_package(pkg_dir: Path) -> None:
 
 def _create_build_config(
     test_pkg_dir: Path, out_file: Path, tmp_dir: Path
-) -> "BuildConfigResolved":
+) -> "RootConfigResolved":
     """Create build configuration for test package stitching.
 
     Args:
@@ -100,7 +101,7 @@ def _create_build_config(
         tmp_dir: Temporary directory root for path resolution
 
     Returns:
-        BuildConfigResolved configuration for stitching
+        RootConfigResolved configuration for stitching
 
     Raises:
         RuntimeError: If config construction fails (program bug)
@@ -141,6 +142,7 @@ def _create_build_config(
             "log_level": DEFAULT_LOG_LEVEL,
             "strict_config": DEFAULT_STRICT_CONFIG,
             "dry_run": False,
+            "watch_interval": DEFAULT_WATCH_INTERVAL,
             "__meta__": {"cli_root": tmp_dir, "config_root": tmp_dir},
             # Required fields with defaults
             "internal_imports": DEFAULT_INTERNAL_IMPORTS[DEFAULT_STITCH_MODE],
@@ -163,14 +165,14 @@ def _create_build_config(
             "testpkg",
             config["order"],
         )
-        return cast("BuildConfigResolved", config)
+        return cast("RootConfigResolved", config)
     except Exception as e:
         xmsg = f"Config construction failed: {e}"
         logger.trace("[SELFTEST] Config construction error: %s", e, exc_info=True)
         raise RuntimeError(xmsg) from e
 
 
-def _execute_build(build_cfg: "BuildConfigResolved") -> None:
+def _execute_build(build_cfg: "RootConfigResolved") -> None:
     """Execute stitch build in both dry-run and real modes.
 
     Args:

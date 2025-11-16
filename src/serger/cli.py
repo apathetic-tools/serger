@@ -11,9 +11,8 @@ from apathetic_logs import LEVEL_ORDER, safe_log
 from apathetic_utils import cast_hint, get_sys_version_info
 
 from .actions import get_metadata, watch_for_changes
-from .build import run_all_builds
+from .build import run_build
 from .config import (
-    BuildConfigResolved,
     RootConfig,
     RootConfigResolved,
     load_and_validate_config,
@@ -256,8 +255,7 @@ class _LoadedConfig:
 
     config_path: Path | None
     root_cfg: RootConfig
-    resolved_root: RootConfigResolved
-    resolved_builds: list[BuildConfigResolved]
+    resolved: RootConfigResolved
     config_dir: Path
     cwd: Path
 
@@ -282,67 +280,43 @@ def _initialize_logger(args: argparse.Namespace) -> None:
 
 def _validate_includes(
     root_cfg: RootConfig,
-    resolved_builds: list[BuildConfigResolved],
-    resolved_root: RootConfigResolved,
+    resolved: RootConfigResolved,
     args: argparse.Namespace,
 ) -> bool:
     """
-    Validate that builds have include patterns.
+    Validate that the build has include patterns.
 
     Returns True if validation passes, False if we should abort.
     Logs appropriate warnings/errors.
     """
     logger = get_app_logger()
 
-    # Check for builds with missing includes. Respect per-build strict_config:
-    # - If ANY build with no includes has strict_config=true → error (abort)
-    # - If ALL builds with no includes have strict_config=false → warning (continue)
-    # - If builds=[] and root strict_config=true → error
-    # - If builds=[] and root strict_config=false → warning
-    #
     # The presence of "include" key (even if empty) signals intentional choice:
-    #   [] or includes=[]                  → include:[] in build → no check
-    #   {"include": []}                    → include:[] in build → no check
-    #   {"builds": [{"include": []}]}      → include:[] in build → no check
+    #   {"include": []}                    → include:[] in config → no check
     #
     # Missing "include" key likely means forgotten:
     #   {} or ""                           → no include key → check
-    #   {"builds": []}                     → no include key → check
     #   {"log_level": "debug"}             → no include key → check
-    #   {"builds": [{"out": "dist"}]}      → no include key → check
-    original_builds = root_cfg.get("builds", [])
-    has_explicit_include_key = any(
-        isinstance(b, dict) and "include" in b  # pyright: ignore[reportUnnecessaryIsInstance]
-        for b in original_builds
-    )
+    has_explicit_include_key = "include" in root_cfg
 
-    # Check if any builds have missing includes (respecting CLI overrides)
+    # Check if CLI provides includes
     has_cli_includes = bool(
         getattr(args, "add_include", None) or getattr(args, "include", None)
     )
 
-    # Builds with no includes
-    builds_missing_includes = [b for b in resolved_builds if not b.get("include")]
+    # Check if config has no includes
+    config_missing_includes = not resolved.get("include")
 
-    # Check if ALL builds have no includes (including zero builds)
-    all_builds_missing = len(resolved_builds) == 0 or len(
-        builds_missing_includes
-    ) == len(resolved_builds)
-
-    if not has_explicit_include_key and not has_cli_includes and all_builds_missing:
+    if (
+        not has_explicit_include_key
+        and not has_cli_includes
+        and config_missing_includes
+    ):
         # Determine if we should error or warn based on strict_config
-        # If builds exist, check ANY build for strict_config=true
-        # If no builds, use root-level strict_config
-        if builds_missing_includes:
-            any_strict = any(
-                b.get("strict_config", True) for b in builds_missing_includes
-            )
-        else:
-            # No builds at all - use root strict_config
-            any_strict = resolved_root.get("strict_config", True)
+        any_strict = resolved.get("strict_config", True)
 
         if any_strict:
-            # Error: at least one build with missing includes is strict
+            # Error: config has no includes and strict_config=true
             logger.error(
                 "No include patterns found "
                 "(strict_config=true prevents continuing).\n"
@@ -351,7 +325,7 @@ def _validate_includes(
             )
             return False
 
-        # Warning: builds have no includes but all are non-strict
+        # Warning: config has no includes but strict_config=false
         logger.warning(
             "No include patterns found.\n"
             "   Use 'include' in your config or pass "
@@ -417,47 +391,41 @@ def _load_and_resolve_config(
     # builds to proceed and fail with more appropriate error messages if needed.
     if root_cfg is None:
         logger.info("No config file found — using CLI-only mode.")
-        root_cfg = cast_hint(RootConfig, {"builds": [{}]})
+        root_cfg = cast_hint(RootConfig, {})
 
     # --- Resolve config with args and defaults ---
-    resolved_root = resolve_config(root_cfg, args, config_dir, cwd)
-    resolved_builds = resolved_root["builds"]
+    resolved = resolve_config(root_cfg, args, config_dir, cwd)
 
     return _LoadedConfig(
         config_path=config_path,
         root_cfg=root_cfg,
-        resolved_root=resolved_root,
-        resolved_builds=resolved_builds,
+        resolved=resolved,
         config_dir=config_dir,
         cwd=cwd,
     )
 
 
-def _execute_builds(
-    resolved_builds: list[BuildConfigResolved],
-    resolved_root: RootConfigResolved,
+def _execute_build(
+    resolved: RootConfigResolved,
     args: argparse.Namespace,
     argv: list[str] | None,
 ) -> None:
-    """Execute builds either in watch mode or one-time mode."""
+    """Execute build either in watch mode or one-time mode."""
     watch_enabled = getattr(args, "watch", None) is not None or (
         "--watch" in (argv or [])
     )
 
+    resolved["dry_run"] = getattr(args, "dry_run", DEFAULT_DRY_RUN)
+
     if watch_enabled:
-        watch_interval = resolved_root["watch_interval"]
+        watch_interval = resolved["watch_interval"]
         watch_for_changes(
-            lambda: run_all_builds(
-                resolved_builds,
-                dry_run=getattr(args, "dry_run", DEFAULT_DRY_RUN),
-            ),
-            resolved_builds,
+            lambda: run_build(resolved),
+            resolved,
             interval=watch_interval,
         )
     else:
-        run_all_builds(
-            resolved_builds, dry_run=getattr(args, "dry_run", DEFAULT_DRY_RUN)
-        )
+        run_build(resolved)
 
 
 # --------------------------------------------------------------------------- #
@@ -484,9 +452,7 @@ def main(argv: list[str] | None = None) -> int:
         config = _load_and_resolve_config(args, parser)
 
         # --- Validate includes ---
-        if not _validate_includes(
-            config.root_cfg, config.resolved_builds, config.resolved_root, args
-        ):
+        if not _validate_includes(config.root_cfg, config.resolved, args):
             return 1
 
         # --- Dry-run notice ---
@@ -500,10 +466,9 @@ def main(argv: list[str] | None = None) -> int:
             logger.info("🔧 Running in CLI-only mode (no config file).")
         logger.info("📁 Config root: %s", config.config_dir)
         logger.info("📂 Invoked from: %s", config.cwd)
-        logger.info("🔧 Running %d build(s)\n", len(config.resolved_builds))
 
-        # --- Execute builds ---
-        _execute_builds(config.resolved_builds, config.resolved_root, args, argv)
+        # --- Execute build ---
+        _execute_build(config.resolved, args, argv)
 
     except (FileNotFoundError, ValueError, TypeError, RuntimeError) as e:
         # controlled termination

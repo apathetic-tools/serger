@@ -1,14 +1,13 @@
 # src/serger/build.py
 
 
-import contextlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
 
-from apathetic_utils import cast_hint, has_glob_chars, is_excluded_raw
+from apathetic_utils import has_glob_chars, is_excluded_raw
 
-from .config import BuildConfigResolved, IncludeResolved, PathResolved
+from .config import IncludeResolved, PathResolved, RootConfigResolved
 from .constants import DEFAULT_DRY_RUN
 from .logs import get_app_logger
 from .stitch import (
@@ -422,7 +421,7 @@ def find_package_root(file_paths: list[Path]) -> Path:
 
 
 def _extract_build_metadata(
-    build_cfg: BuildConfigResolved,
+    build_cfg: RootConfigResolved,
     project_root: Path,
     git_root: Path | None = None,
 ) -> tuple[str, str, str]:
@@ -463,7 +462,7 @@ def _extract_build_metadata(
 
 
 def run_build(  # noqa: C901, PLR0915, PLR0912
-    build_cfg: BuildConfigResolved,
+    build_cfg: RootConfigResolved,
 ) -> None:
     """Execute a single build task using a fully resolved config.
 
@@ -722,35 +721,3 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
     except RuntimeError as e:
         xmsg = f"Stitch build failed: {e}"
         raise RuntimeError(xmsg) from e
-
-
-def run_all_builds(
-    resolved_builds: list[BuildConfigResolved],
-    *,
-    dry_run: bool,
-) -> None:
-    logger = get_app_logger()
-    root_level = logger.level_name
-    logger.trace(f"[run_all_builds] Processing {len(resolved_builds)} build(s)")
-
-    for i, build_cfg in enumerate(resolved_builds, 1):
-        build_log_level = build_cfg.get("log_level")
-
-        build_cfg["dry_run"] = dry_run
-
-        # apply build-specific log level temporarily
-        needs_override = build_log_level and build_log_level != root_level
-        context = (
-            logger.use_level(cast_hint(str, build_log_level))
-            if needs_override
-            else contextlib.nullcontext()
-        )
-
-        with context:
-            if needs_override:
-                logger.debug("Overriding log level → %s", build_log_level)
-
-            logger.info("▶️  Build %d/%d", i, len(resolved_builds))
-            run_build(build_cfg)
-
-    logger.info("🎉 All builds complete.")

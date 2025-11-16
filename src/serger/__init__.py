@@ -16,7 +16,7 @@ Highlights:
 """
 
 from .actions import get_metadata, watch_for_changes
-from .build import run_all_builds, run_build
+from .build import run_build
 from .cli import main
 from .config import (
     BuildConfig,
@@ -67,7 +67,6 @@ __all__ = [  # noqa: RUF022
     "get_metadata",
     "watch_for_changes",
     # build
-    "run_all_builds",
     "run_build",
     # cli
     "main",

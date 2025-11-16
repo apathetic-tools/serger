@@ -12,7 +12,6 @@ import serger.config.config_types as mod_types
 import serger.constants as mod_constants
 import serger.constants as mod_mutate_const  # for monkeypatch
 import serger.logs as mod_logs
-from tests.utils import make_build_input
 
 
 # ---------------------------------------------------------------------------
@@ -49,14 +48,13 @@ def test_resolve_config_aggregates_builds_and_defaults(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Ensure resolve_config merges builds and assigns default values."""
+    """Ensure resolve_config resolves flat config and assigns default values."""
     # --- setup ---
     root: mod_types.RootConfig = {
-        "builds": [
-            make_build_input(include=["src/**"], out="dist"),
-            make_build_input(include=["lib/**"], out="libout"),
-        ],
+        "include": ["src/**"],
+        "out": "dist",
         "log_level": "warning",
+        "strict_config": False,
     }
     args = _args()
 
@@ -65,9 +63,8 @@ def test_resolve_config_aggregates_builds_and_defaults(
         resolved = mod_resolve.resolve_config(root, args, tmp_path, tmp_path)
 
     # --- validate ---
-    builds = resolved["builds"]
-    assert len(builds) == len(root["builds"])
-    assert all("include" in b for b in builds)
+    assert "include" in resolved
+    assert len(resolved["include"]) > 0
     assert resolved["log_level"].lower() in ("warning", "info")  # env/cli may override
     assert isinstance(resolved["watch_interval"], float)
     assert resolved["strict_config"] is False
@@ -80,7 +77,7 @@ def test_resolve_config_env_overrides(
 ) -> None:
     """Environment variables for watch interval and log level should override."""
     # --- setup ---
-    root: mod_types.RootConfig = {"builds": [{"include": ["src/**"], "out": "dist"}]}
+    root: mod_types.RootConfig = {"include": ["src/**"], "out": "dist"}
     args = _args()
     interval = 9.9
 
@@ -102,7 +99,7 @@ def test_resolve_config_invalid_env_watch_falls_back(
 ) -> None:
     """Invalid watch interval env var should log warning and use default."""
     # --- setup ---
-    root: mod_types.RootConfig = {"builds": [{"include": ["src/**"], "out": "dist"}]}
+    root: mod_types.RootConfig = {"include": ["src/**"], "out": "dist"}
     args = _args()
 
     # --- patch and execute ---
@@ -122,7 +119,7 @@ def test_resolve_config_propagates_cli_log_level(
     """CLI --log-level should propagate into resolved root and runtime."""
     # --- setup ---
     args = _args(log_level="trace")
-    root: mod_types.RootConfig = {"builds": [{"include": ["src/**"], "out": "dist"}]}
+    root: mod_types.RootConfig = {"include": ["src/**"], "out": "dist"}
 
     # --- patch and execute ---
     with module_logger.use_level("info"):
@@ -138,54 +135,15 @@ def test_resolve_config_duplicate_output_paths_raises_error(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Multiple builds with the same output path should raise ValueError."""
-    # --- setup ---
-    root: mod_types.RootConfig = {
-        "builds": [
-            make_build_input(include=["src1/**"], out="dist/out.py"),
-            make_build_input(include=["src2/**"], out="dist/out.py"),
-            make_build_input(include=["src3/**"], out="dist/other.py"),
-        ],
-    }
-    args = _args()
-
-    # --- execute ---
-    with (
-        module_logger.use_level("info"),
-        pytest.raises(ValueError, match="Several builds have the same output path"),
-    ):
-        mod_resolve.resolve_config(root, args, tmp_path, tmp_path)
+    """Duplicate output path validation removed - single build only."""
+    # This test is no longer applicable since we only support single builds
+    # Removing the test as duplicate output paths are no longer possible
 
 
 def test_resolve_config_duplicate_output_paths_error_message(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Error message should list all duplicate output paths with build indices."""
-    # --- setup ---
-    root: mod_types.RootConfig = {
-        "builds": [
-            make_build_input(include=["src1/**"], out="dist/same.py"),
-            make_build_input(include=["src2/**"], out="dist/other.py"),
-            make_build_input(include=["src3/**"], out="dist/same.py"),
-            make_build_input(include=["src4/**"], out="dist/other.py"),
-        ],
-    }
-    args = _args()
-
-    # --- execute ---
-    with (
-        module_logger.use_level("info"),
-        pytest.raises(
-            ValueError, match="Several builds have the same output path"
-        ) as exc_info,
-    ):
-        mod_resolve.resolve_config(root, args, tmp_path, tmp_path)
-
-    # --- validate ---
-    error_msg = str(exc_info.value)
-    assert "Several builds have the same output path" in error_msg
-    assert "dist/other.py" in error_msg
-    assert "dist/same.py" in error_msg
-    assert "build #1" in error_msg or "build #2" in error_msg
-    assert "build #3" in error_msg or "build #4" in error_msg
+    """Duplicate output path validation removed - single build only."""
+    # This test is no longer applicable since we only support single builds
+    # Removing the test as duplicate output paths are no longer possible

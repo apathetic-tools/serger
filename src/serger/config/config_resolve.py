@@ -32,8 +32,6 @@ from serger.utils import make_includeresolved, make_pathresolved
 from serger.utils.utils_validation import validate_required_keys
 
 from .config_types import (
-    BuildConfig,
-    BuildConfigResolved,
     IncludeResolved,
     MetaBuildConfigResolved,
     ModuleActionAffects,
@@ -173,35 +171,32 @@ def extract_pyproject_metadata(
     )
 
 
-def _is_configless_build(root_cfg: RootConfig | None, num_builds: int) -> bool:
+def _is_configless_build(root_cfg: RootConfig | None) -> bool:
     """Check if this is a configless build (no config file).
 
     Configless builds are detected by checking if root_cfg is minimal:
-    only has 'builds' with one empty build and no other meaningful fields.
+    has no include/exclude/out/package/order fields (set via CLI).
 
     Args:
         root_cfg: Root config (may be None)
-        num_builds: Number of builds in root config
 
     Returns:
         True if this is a configless build, False otherwise
     """
     if root_cfg is None:
         return True
-    if num_builds != 1:
-        return False
-    # Check if root_cfg is minimal (only has 'builds' with one empty build)
+    # Check if root_cfg is minimal (empty or only has minimal fields)
     # This indicates a configless build created in cli.py
     root_keys = set(root_cfg.keys())
-    if root_keys == {"builds"}:
-        builds = root_cfg.get("builds", [])
-        if len(builds) == 1 and not builds[0]:
-            return True
-    return False
+    # Configless builds have no include/exclude/out fields (set via CLI)
+    has_build_fields = any(
+        key in root_keys for key in ("include", "exclude", "out", "package", "order")
+    )
+    return not has_build_fields
 
 
 def _should_use_pyproject(
-    build_cfg: BuildConfig,
+    build_cfg: RootConfig,
     root_cfg: RootConfig | None,
 ) -> bool:
     """Determine if pyproject.toml should be used for this build.
@@ -223,8 +218,7 @@ def _should_use_pyproject(
     build_pyproject_path = build_cfg.get("pyproject_path")
 
     # Check if this is a configless build
-    num_builds = len((root_cfg or {}).get("builds", []))
-    is_configless = _is_configless_build(root_cfg, num_builds)
+    is_configless = _is_configless_build(root_cfg)
 
     # Build-level explicit disablement always takes precedence
     if build_use_pyproject is False:
@@ -254,7 +248,7 @@ def _should_use_pyproject(
 
 
 def _resolve_pyproject_path(
-    build_cfg: BuildConfig,
+    build_cfg: RootConfig,
     root_cfg: RootConfig | None,
     config_dir: Path,
 ) -> Path:
@@ -584,7 +578,7 @@ def _validate_and_normalize_module_actions(  # noqa: C901, PLR0912, PLR0915
 
 
 def _is_explicitly_requested(
-    build_cfg: BuildConfig,
+    build_cfg: RootConfig,
     root_cfg: RootConfig | None,
 ) -> bool:
     """Check if pyproject.toml was explicitly requested (not just default).
@@ -711,7 +705,7 @@ def _apply_metadata_fields(
 def _apply_pyproject_metadata(
     resolved_cfg: dict[str, Any],
     *,
-    build_cfg: BuildConfig,
+    build_cfg: RootConfig,
     root_cfg: RootConfig | None,
     config_dir: Path,
 ) -> None:
@@ -866,7 +860,7 @@ def _merge_post_processing(  # noqa: C901, PLR0912, PLR0915
 
 
 def resolve_post_processing(  # noqa: PLR0912
-    build_cfg: BuildConfig,
+    build_cfg: RootConfig,
     root_cfg: RootConfig | None,
 ) -> PostProcessingConfigResolved:
     """Resolve post-processing configuration with cascade and validation.
@@ -1390,19 +1384,18 @@ def _resolve_output(
 
 
 def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
-    build_cfg: BuildConfig,
+    build_cfg: RootConfig,
     args: argparse.Namespace,
     config_dir: Path,
     cwd: Path,
-    root_cfg: RootConfig | None = None,
-) -> BuildConfigResolved:
-    """Resolve a single BuildConfig into a BuildConfigResolved.
+) -> RootConfigResolved:
+    """Resolve a flat RootConfig into a RootConfigResolved.
 
     Applies CLI overrides, normalizes paths, merges gitignore behavior,
     and attaches provenance metadata.
     """
     logger = get_app_logger()
-    logger.trace("[resolve_build_config] Starting resolution for build config")
+    logger.trace("[resolve_build_config] Starting resolution for config")
 
     # Make a mutable copy
     resolved_cfg: dict[str, Any] = dict(build_cfg)
@@ -1430,7 +1423,7 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
         args=args,
         config_dir=config_dir,
         cwd=cwd,
-        root_cfg=root_cfg,
+        root_cfg=None,
     )
     logger.trace(
         f"[resolve_build_config] Resolved {len(resolved_cfg['exclude'])} exclude(s)"
@@ -1447,36 +1440,20 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # ------------------------------
     # Log level
     # ------------------------------
-    build_log = resolved_cfg.get("log_level")
-    root_log = (root_cfg or {}).get("log_level")
-    resolved_cfg["log_level"] = logger.determine_log_level(
-        args=args, root_log_level=root_log, build_log_level=build_log
-    )
+    # Log level is resolved in resolve_config() before calling this function
+    # This is a no-op placeholder - the value should already be set
+    # (resolve_config sets it and then calls this function)
 
     # ------------------------------
     # Strict config
     # ------------------------------
-    # Cascade: build-level → root-level → default
-    build_strict = resolved_cfg.get("strict_config")
-    root_strict = (root_cfg or {}).get("strict_config")
-    if isinstance(build_strict, bool):
-        resolved_cfg["strict_config"] = build_strict
-    elif isinstance(root_strict, bool):
-        resolved_cfg["strict_config"] = root_strict
-    else:
+    if "strict_config" not in resolved_cfg:
         resolved_cfg["strict_config"] = DEFAULT_STRICT_CONFIG
 
     # ------------------------------
     # Stitch mode (resolved first, used for import defaults)
     # ------------------------------
-    # Cascade: build-level → root-level → default
-    build_stitch_mode = resolved_cfg.get("stitch_mode")
-    root_stitch_mode = (root_cfg or {}).get("stitch_mode")
-    if build_stitch_mode is not None:
-        resolved_cfg["stitch_mode"] = build_stitch_mode
-    elif root_stitch_mode is not None:
-        resolved_cfg["stitch_mode"] = root_stitch_mode
-    else:
+    if "stitch_mode" not in resolved_cfg:
         resolved_cfg["stitch_mode"] = DEFAULT_STITCH_MODE
 
     # Get the resolved stitch_mode for use in import defaults
@@ -1488,55 +1465,30 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # ------------------------------
     # Module mode
     # ------------------------------
-    # Cascade: build-level → root-level → default
-    build_module_mode = resolved_cfg.get("module_mode")
-    root_module_mode = (root_cfg or {}).get("module_mode")
-    if build_module_mode is not None:
-        resolved_cfg["module_mode"] = build_module_mode
-    elif root_module_mode is not None:
-        resolved_cfg["module_mode"] = root_module_mode
-    else:
+    if "module_mode" not in resolved_cfg:
         resolved_cfg["module_mode"] = DEFAULT_MODULE_MODE
 
     # ------------------------------
     # Shim setting
     # ------------------------------
-    # Cascade: build-level → root-level → default
     valid_shim_values = literal_to_set(ShimSetting)
-    build_shim = resolved_cfg.get("shim")
-    root_shim = (root_cfg or {}).get("shim")
-    if build_shim is not None:
+    if "shim" in resolved_cfg:
+        shim_val = resolved_cfg["shim"]
         # Validate value
-        if build_shim not in valid_shim_values:
+        if shim_val not in valid_shim_values:
             valid_str = ", ".join(repr(v) for v in sorted(valid_shim_values))
-            msg = f"Invalid shim value: {build_shim!r}. Must be one of: {valid_str}"
+            msg = f"Invalid shim value: {shim_val!r}. Must be one of: {valid_str}"
             raise ValueError(msg)
-        resolved_cfg["shim"] = build_shim
-    elif root_shim is not None:
-        # Validate value
-        if root_shim not in valid_shim_values:
-            valid_str = ", ".join(repr(v) for v in sorted(valid_shim_values))
-            msg = f"Invalid shim value: {root_shim!r}. Must be one of: {valid_str}"
-            raise ValueError(msg)
-        resolved_cfg["shim"] = root_shim
     else:
         resolved_cfg["shim"] = DEFAULT_SHIM
 
     # ------------------------------
     # Module actions
     # ------------------------------
-    # Cascade: build-level → root-level → default (empty list if not provided)
-    build_module_actions = resolved_cfg.get("module_actions")
-    root_module_actions = (root_cfg or {}).get("module_actions")
-    if build_module_actions is not None:
+    if "module_actions" in resolved_cfg:
         # Validate and normalize to list format
         resolved_cfg["module_actions"] = _validate_and_normalize_module_actions(
-            build_module_actions, config_dir=config_dir
-        )
-    elif root_module_actions is not None:
-        # Validate and normalize to list format
-        resolved_cfg["module_actions"] = _validate_and_normalize_module_actions(
-            root_module_actions, config_dir=config_dir
+            resolved_cfg["module_actions"], config_dir=config_dir
         )
     else:
         # Always set to empty list in resolved config (fully resolved)
@@ -1545,69 +1497,32 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # ------------------------------
     # Import handling
     # ------------------------------
-    # Cascade: build-level → root-level → default (mode-dependent)
-    build_internal = resolved_cfg.get("internal_imports")
-    root_internal = (root_cfg or {}).get("internal_imports")
-    if build_internal is not None:
-        resolved_cfg["internal_imports"] = build_internal
-    elif root_internal is not None:
-        resolved_cfg["internal_imports"] = root_internal
-    else:
+    if "internal_imports" not in resolved_cfg:
         resolved_cfg["internal_imports"] = DEFAULT_INTERNAL_IMPORTS[stitch_mode]
 
-    build_external = resolved_cfg.get("external_imports")
-    root_external = (root_cfg or {}).get("external_imports")
-    if build_external is not None:
-        resolved_cfg["external_imports"] = build_external
-    elif root_external is not None:
-        resolved_cfg["external_imports"] = root_external
-    else:
+    if "external_imports" not in resolved_cfg:
         resolved_cfg["external_imports"] = DEFAULT_EXTERNAL_IMPORTS[stitch_mode]
 
     # ------------------------------
     # Comments mode
     # ------------------------------
-    # Cascade: build-level → root-level → default
-    build_comments_mode = resolved_cfg.get("comments_mode")
-    root_comments_mode = (root_cfg or {}).get("comments_mode")
-    if build_comments_mode is not None:
-        resolved_cfg["comments_mode"] = build_comments_mode
-    elif root_comments_mode is not None:
-        resolved_cfg["comments_mode"] = root_comments_mode
-    else:
+    if "comments_mode" not in resolved_cfg:
         resolved_cfg["comments_mode"] = DEFAULT_COMMENTS_MODE
 
     # ------------------------------
     # Docstring mode
     # ------------------------------
-    # Cascade: build-level → root-level → default
-    build_docstring_mode = resolved_cfg.get("docstring_mode")
-    root_docstring_mode = (root_cfg or {}).get("docstring_mode")
-    if build_docstring_mode is not None:
-        resolved_cfg["docstring_mode"] = build_docstring_mode
-    elif root_docstring_mode is not None:
-        resolved_cfg["docstring_mode"] = root_docstring_mode
-    else:
+    if "docstring_mode" not in resolved_cfg:
         resolved_cfg["docstring_mode"] = DEFAULT_DOCSTRING_MODE
 
     # ------------------------------
     # Module bases
     # ------------------------------
-    # Cascade: build-level → root-level → default
     # Convert str to list[str] if needed
-    build_module_bases = resolved_cfg.get("module_bases")
-    root_module_bases = (root_cfg or {}).get("module_bases")
-    if build_module_bases is not None:
+    if "module_bases" in resolved_cfg:
+        module_bases = resolved_cfg["module_bases"]
         resolved_cfg["module_bases"] = (
-            [build_module_bases]
-            if isinstance(build_module_bases, str)
-            else build_module_bases
-        )
-    elif root_module_bases is not None:
-        resolved_cfg["module_bases"] = (
-            [root_module_bases]
-            if isinstance(root_module_bases, str)
-            else root_module_bases
+            [module_bases] if isinstance(module_bases, str) else module_bases
         )
     else:
         resolved_cfg["module_bases"] = DEFAULT_MODULE_BASES
@@ -1615,34 +1530,20 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # ------------------------------
     # Post-processing
     # ------------------------------
-    # Cascade: build-level → root-level → default
-    resolved_cfg["post_processing"] = resolve_post_processing(build_cfg, root_cfg)
+    resolved_cfg["post_processing"] = resolve_post_processing(build_cfg, None)
 
     # ------------------------------
     # Authors
     # ------------------------------
-    # Cascade: build-level → root-level (no default, optional field)
-    build_authors = resolved_cfg.get("authors")
-    root_authors = (root_cfg or {}).get("authors")
-    if build_authors is not None:
-        resolved_cfg["authors"] = build_authors
-    elif root_authors is not None:
-        resolved_cfg["authors"] = root_authors
-    # If neither is set, leave it unset (will be filled by pyproject.toml if available)
+    # Optional field - if not set, will be filled by pyproject.toml if available
+    # No action needed here - value is already in resolved_cfg if present
 
     # ------------------------------
     # Version
     # ------------------------------
-    # Cascade: build-level → root-level (no default, optional field)
-    # Falls back to _pyproject_version in _extract_build_metadata()
+    # Optional field - falls back to _pyproject_version in _extract_build_metadata()
     # if use_pyproject was enabled
-    build_version = resolved_cfg.get("version")
-    root_version = (root_cfg or {}).get("version")
-    if build_version is not None:
-        resolved_cfg["version"] = build_version
-    elif root_version is not None:
-        resolved_cfg["version"] = root_version
-    # If neither is set, leave it unset (will fall back to pyproject.toml if available)
+    # No action needed here - value is already in resolved_cfg if present
 
     # ------------------------------
     # Pyproject.toml metadata
@@ -1650,7 +1551,7 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     _apply_pyproject_metadata(
         resolved_cfg,
         build_cfg=build_cfg,
-        root_cfg=root_cfg,
+        root_cfg=None,
         config_dir=config_dir,
     )
 
@@ -1669,7 +1570,6 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     has_config_includes = len(config_includes) > 0
     # Check if includes were explicitly set in original config
     # (even if empty, explicit setting means don't auto-set)
-    # Note: RootConfig doesn't have include field, only BuildConfig does
     has_explicit_config_includes = "include" in build_cfg
     package = resolved_cfg.get("package")
     module_bases_list = resolved_cfg.get("module_bases", [])
@@ -1825,7 +1725,7 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # Attach provenance
     # ------------------------------
     resolved_cfg["__meta__"] = meta
-    return cast_hint(BuildConfigResolved, resolved_cfg)
+    return cast_hint(RootConfigResolved, resolved_cfg)
 
 
 # --------------------------------------------------------------------------- #
@@ -1846,10 +1746,7 @@ def resolve_config(
     logger = get_app_logger()
     root_cfg = cast_hint(RootConfig, dict(root_input))
 
-    builds_input = root_cfg.get("builds", [])
-    logger.trace(
-        f"[resolve_config] Resolving root config with {len(builds_input)} build(s)"
-    )
+    logger.trace("[resolve_config] Resolving flat config")
 
     # ------------------------------
     # Watch interval
@@ -1873,52 +1770,21 @@ def resolve_config(
     # ------------------------------
     # Log level
     # ------------------------------
-    #  log_level: arg -> env -> build -> root -> default
     root_log = root_cfg.get("log_level")
     log_level = logger.determine_log_level(args=args, root_log_level=root_log)
 
     # --- sync runtime ---
     logger.setLevel(log_level)
 
-    # ------------------------------
-    # Resolve builds
-    # ------------------------------
-    resolved_builds = [
-        resolve_build_config(b, args, config_dir, cwd, root_cfg) for b in builds_input
-    ]
+    # Set log_level in config before resolving (resolve_build_config expects it)
+    root_cfg["log_level"] = log_level
 
     # ------------------------------
-    # Validate duplicate output paths
+    # Resolve single flat config
     # ------------------------------
-    out_to_build_indices: dict[str, list[int]] = {}
-    for idx, build in enumerate(resolved_builds, start=1):
-        out_path = str(build["out"]["path"])
-        if out_path not in out_to_build_indices:
-            out_to_build_indices[out_path] = []
-        out_to_build_indices[out_path].append(idx)
+    resolved = resolve_build_config(root_cfg, args, config_dir, cwd)
 
-    # Check for duplicates
-    duplicates = {
-        out_path: indices
-        for out_path, indices in out_to_build_indices.items()
-        if len(indices) > 1
-    }
-    if duplicates:
-        # Format error message with all duplicates
-        error_parts: list[str] = []
-        for out_path, indices in sorted(duplicates.items()):
-            indices_str = ", ".join(f"build #{i}" for i in indices)
-            error_parts.append(f'  "{out_path}": {indices_str}')
-        error_msg = "Several builds have the same output path:\n" + "\n".join(
-            error_parts
-        )
-        raise ValueError(error_msg)
+    # Add watch_interval to resolved config
+    resolved["watch_interval"] = watch_interval
 
-    resolved_root: RootConfigResolved = {
-        "builds": resolved_builds,
-        "strict_config": root_cfg.get("strict_config", False),
-        "watch_interval": watch_interval,
-        "log_level": log_level,
-    }
-
-    return resolved_root
+    return resolved
