@@ -139,6 +139,7 @@ class BuildConfig(TypedDict, total=False):
     license_header: str  # License header text for stitched output
     display_name: str  # Display name for header (defaults to package)
     description: str  # Description for header (defaults to blank)
+    authors: str  # Authors for header (optional, can fallback to pyproject.toml)
     repo: str  # Repository URL for header (optional)
     # Import handling configuration
     internal_imports: InternalImportMode  # How to handle internal package imports
@@ -201,6 +202,9 @@ class RootConfig(TypedDict, total=False):
     # Pyproject.toml integration
     use_pyproject: bool  # Whether to pull metadata from pyproject.toml (default: true)
     pyproject_path: str  # Path to pyproject.toml (fallback for single builds)
+
+    # Stitching configuration defaults (cascade into builds)
+    authors: str  # Authors for header (optional, can fallback to pyproject.toml)
 
     # Import handling defaults (cascade into builds)
     internal_imports: InternalImportMode  # How to handle internal package imports
@@ -272,6 +276,7 @@ class BuildConfigResolved(TypedDict):
     license_header: NotRequired[str]
     display_name: NotRequired[str]
     description: NotRequired[str]
+    authors: NotRequired[str]
     repo: NotRequired[str]
     post_processing: PostProcessingConfigResolved  # Post-processing configuration
     internal_imports: InternalImportMode  # How to handle internal imports

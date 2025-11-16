@@ -16,6 +16,9 @@ name = "test-package"
 version = "1.2.3"
 description = "A test package"
 license = "MIT"
+authors = [
+    {name = "Test Author", email = "test@example.com"}
+]
 """
         )
         f.flush()
@@ -28,6 +31,7 @@ license = "MIT"
         assert metadata.version == "1.2.3"
         assert metadata.description == "A test package"
         assert metadata.license_text == "MIT"
+        assert metadata.authors == "Test Author <test@example.com>"
     finally:
         path.unlink()
 
@@ -63,6 +67,7 @@ def test_extract_pyproject_metadata_missing_file() -> None:
     assert metadata.version == ""
     assert metadata.description == ""
     assert metadata.license_text == ""
+    assert metadata.authors == ""
     assert not metadata.has_any()
 
 
@@ -85,6 +90,7 @@ version = "1.0.0"
         assert metadata.version == "1.0.0"
         assert metadata.description == ""
         assert metadata.license_text == ""
+        assert metadata.authors == ""
     finally:
         path.unlink()
 
@@ -120,6 +126,115 @@ some_setting = "value"
         metadata = mod_config_resolve.extract_pyproject_metadata(path)
         assert metadata is not None
         assert not metadata.has_any()
+    finally:
+        path.unlink()
+
+
+def test_extract_pyproject_metadata_authors_single() -> None:
+    """Should extract single author with name only."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+        f.write(
+            """[project]
+name = "test-package"
+authors = [
+    {name = "John Doe"}
+]
+"""
+        )
+        f.flush()
+        path = Path(f.name)
+
+    try:
+        metadata = mod_config_resolve.extract_pyproject_metadata(path)
+        assert metadata is not None
+        assert metadata.authors == "John Doe"
+    finally:
+        path.unlink()
+
+
+def test_extract_pyproject_metadata_authors_with_email() -> None:
+    """Should extract author with name and email."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+        f.write(
+            """[project]
+name = "test-package"
+authors = [
+    {name = "Jane Smith", email = "jane@example.com"}
+]
+"""
+        )
+        f.flush()
+        path = Path(f.name)
+
+    try:
+        metadata = mod_config_resolve.extract_pyproject_metadata(path)
+        assert metadata is not None
+        assert metadata.authors == "Jane Smith <jane@example.com>"
+    finally:
+        path.unlink()
+
+
+def test_extract_pyproject_metadata_authors_multiple() -> None:
+    """Should extract multiple authors and format as comma-separated."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+        f.write(
+            """[project]
+name = "test-package"
+authors = [
+    {name = "Alice", email = "alice@example.com"},
+    {name = "Bob"},
+    {name = "Charlie", email = "charlie@example.com"}
+]
+"""
+        )
+        f.flush()
+        path = Path(f.name)
+
+    try:
+        metadata = mod_config_resolve.extract_pyproject_metadata(path)
+        assert metadata is not None
+        expected = "Alice <alice@example.com>, Bob, Charlie <charlie@example.com>"
+        assert metadata.authors == expected
+    finally:
+        path.unlink()
+
+
+def test_extract_pyproject_metadata_authors_empty_list() -> None:
+    """Should return empty authors string for empty authors list."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+        f.write(
+            """[project]
+name = "test-package"
+authors = []
+"""
+        )
+        f.flush()
+        path = Path(f.name)
+
+    try:
+        metadata = mod_config_resolve.extract_pyproject_metadata(path)
+        assert metadata is not None
+        assert metadata.authors == ""
+    finally:
+        path.unlink()
+
+
+def test_extract_pyproject_metadata_authors_missing() -> None:
+    """Should return empty authors string when authors field is missing."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+        f.write(
+            """[project]
+name = "test-package"
+version = "1.0.0"
+"""
+        )
+        f.flush()
+        path = Path(f.name)
+
+    try:
+        metadata = mod_config_resolve.extract_pyproject_metadata(path)
+        assert metadata is not None
+        assert metadata.authors == ""
     finally:
         path.unlink()
 

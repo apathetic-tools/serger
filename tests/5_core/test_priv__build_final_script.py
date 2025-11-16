@@ -78,6 +78,20 @@ class TestBuildFinalScriptBasic:
         assert "# Commit: def456" in result
         assert "# Build Date: 2025-06-15" in result
 
+    def test_includes_authors_comment(self) -> None:
+        """Should include authors comment when provided."""
+        result, _ = call_build_final_script(
+            authors="Alice <alice@example.com>, Bob",
+        )
+
+        assert "# Authors: Alice <alice@example.com>, Bob" in result
+
+    def test_omits_authors_comment_when_empty(self) -> None:
+        """Should omit authors comment when not provided."""
+        result, _ = call_build_final_script(authors="")
+
+        assert "# Authors:" not in result
+
 
 class TestBuildFinalScriptMetadata:
     """Test metadata embedding."""
@@ -150,6 +164,20 @@ class TestBuildFinalScriptMetadata:
         )
 
         assert '__build_date__ = "2025-12-25 15:30:00 UTC"' in result
+
+    def test_embeds_authors_constant(self) -> None:
+        """Should embed __AUTHORS__ constant when provided."""
+        result, _ = call_build_final_script(
+            authors="Alice <alice@example.com>, Bob",
+        )
+
+        assert '__AUTHORS__ = "Alice <alice@example.com>, Bob"' in result
+
+    def test_omits_authors_constant_when_empty(self) -> None:
+        """Should omit __AUTHORS__ constant when not provided."""
+        result, _ = call_build_final_script(authors="")
+
+        assert "__AUTHORS__" not in result
 
     def test_embeds_standalone_flag(self) -> None:
         """Should embed __STANDALONE__ = True flag."""

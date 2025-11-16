@@ -1129,7 +1129,7 @@ class TestStitchModulesMetadata:
     """Test metadata embedding in output."""
 
     def test_metadata_embedding(self) -> None:
-        """Should embed version, commit, and build date in output."""
+        """Should embed version, commit, build date, authors, and repo in output."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             src_dir = tmp_path / "src"
@@ -1141,6 +1141,8 @@ class TestStitchModulesMetadata:
             file_paths, package_root, file_to_include, config = _setup_stitch_test(
                 src_dir, ["main"]
             )
+            config["authors"] = "Alice <alice@example.com>, Bob"
+            config["repo"] = "https://example.com/repo"
 
             mod_stitch.stitch_modules(
                 config=config,
@@ -1155,12 +1157,19 @@ class TestStitchModulesMetadata:
             )
 
             content = out_path.read_text()
+            # Header comments
             assert "# License: MIT" in content
             assert "# Version: 2.1.3" in content
             assert "# Commit: def456" in content
             assert "# Build Date: 2025-06-15 10:30:00 UTC" in content
+            assert "# Authors: Alice <alice@example.com>, Bob" in content
+            assert "# Repo: https://example.com/repo" in content
+            # Docstring
+            assert "Authors: Alice <alice@example.com>, Bob" in content
+            # Constants
             assert '__version__ = "2.1.3"' in content
             assert '__commit__ = "def456"' in content
+            assert '__AUTHORS__ = "Alice <alice@example.com>, Bob"' in content
             assert "__STANDALONE__ = True" in content
 
     def test_license_header_optional(self) -> None:
