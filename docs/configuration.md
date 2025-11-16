@@ -39,8 +39,7 @@ JSONC (JSON with comments) is recommended for readability:
       "display_name": "My Package",
       "description": "A simple package example"
     }
-  ],
-  "log_level": "info"
+  ]
 }
 ```
 
@@ -59,7 +58,6 @@ config = {
             "out": "dist/mypkg.py",
         }
     ],
-    "log_level": "info",
 }
 ```
 
@@ -83,7 +81,6 @@ These options apply globally and can cascade into individual builds:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `builds` | `list[BuildConfig]` | `[]` | List of build configurations |
-| `log_level` | `str` | `"info"` | Log verbosity: `trace`, `debug`, `info`, `warning`, `error` |
 | `out` | `str` | - | Default output path (can be overridden per build) |
 
 ### Build Options
@@ -173,8 +170,7 @@ Here's a simple example configuration file:
       ],
       "out": "dist/mypkg.py"
     }
-  ],
-  "log_level": "info"
+  ]
 }
 ```
 
