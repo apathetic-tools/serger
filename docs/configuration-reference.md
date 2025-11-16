@@ -347,6 +347,14 @@ For full control over all parameters, use the list format:
   - `"error"`: Raise an error if mismatches are detected
   - `"ignore"`: Ignore mismatches (may cause import errors at runtime)
 
+- **`source_path`** (string, optional): Filesystem path to a Python file that should be re-included or referenced. Use this when:
+  - A file was excluded but you want to include it via an action
+  - You want to reference a module from a different location
+  - The module name extracted from the file must match the `source` parameter (or be derivable from it)
+  - Only works when `affects` includes `"stitching"` or `"both"` (files are only added to stitching when `affects` includes stitching)
+  - If the file is already included, it won't be duplicated
+  - If the file was excluded, `source_path` overrides the exclude for that specific file
+
 ### Examples
 
 #### Simple Rename
@@ -645,6 +653,54 @@ With `cleanup: "auto"`, if `internal` files are stitched but the shim is deleted
 
 With `cleanup: "error"`, if there's a mismatch (e.g., files are stitched but shim is deleted), an error is raised.
 
+#### Re-including Excluded Files with source_path
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "exclude": ["src/internal/**/*.py"],  // Excluded internal modules
+      "out": "dist/mypkg.py",
+      "module_actions": [
+        {
+          "source": "utils",
+          "source_path": "src/internal/utils.py",  // Re-include this file
+          "dest": "public.utils",
+          "affects": "both"  // Must include "stitching" to add file
+        }
+      ]
+    }
+  ]
+}
+```
+
+This re-includes `src/internal/utils.py` (which was excluded) and makes it available as `public.utils`. The file is added to stitching because `affects: "both"` includes stitching.
+
+```jsonc
+{
+  "builds": [
+    {
+      "package": "mypkg",
+      "include": ["src/**/*.py"],
+      "exclude": ["src/internal/**/*.py"],
+      "out": "dist/mypkg.py",
+      "module_actions": [
+        {
+          "source": "utils",
+          "source_path": "src/internal/utils.py",
+          "dest": "public.utils",
+          "affects": "shims"  // Only affects shims, file NOT added
+        }
+      ]
+    }
+  ]
+}
+```
+
+With `affects: "shims"`, the file is **not** added to stitching. The action only affects shim generation, so `source_path` is ignored for file inclusion (but still validated for module name matching).
+
 ### Relationship with Module Mode
 
 `module_mode` provides convenience presets that generate actions internally. These mode-generated actions are combined with your user-specified `module_actions`:
@@ -664,6 +720,7 @@ Module actions are validated to ensure correctness:
 - **Dest required**: `dest` is required for `move` and `copy` actions
 - **Dest not allowed**: `dest` must not be specified for `delete` actions
 - **Scope consistency**: Actions with `scope: "original"` must reference original module names; actions with `scope: "shim"` must reference shim module names
+- **source_path validation**: If `source_path` is specified, the file must exist and be a Python file (`.py` extension). The module name extracted from the file must match the `source` parameter (or be derivable from it). If `affects` includes `"stitching"` or `"both"`, the file must exist at the specified path.
 
 Invalid configurations will raise errors with clear messages indicating what went wrong.
 
