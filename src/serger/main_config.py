@@ -356,6 +356,45 @@ def _is_main_guard(node: ast.If) -> bool:  # noqa: PLR0911
     return False
 
 
+def _extract_main_guards(source: str) -> list[tuple[int, int | None]]:
+    """Extract line ranges for __main__ guard blocks.
+
+    This is a "dumb extraction" function that only extracts line ranges.
+    It does not extract block content - that's handled by the usage function.
+
+    Args:
+        source: Python source code to analyze
+
+    Returns:
+        List of (start_line, end_line) tuples where:
+        - start_line: 1-indexed line number where the guard starts
+        - end_line: 1-indexed line number (exclusive) where the guard ends,
+          or None if end_lineno is not available (Python < 3.8)
+    """
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return []
+
+    guards: list[tuple[int, int | None]] = []
+
+    # Find all top-level if statements that are __main__ guards
+    for node in tree.body:
+        if isinstance(node, ast.If) and _is_main_guard(node):
+            if hasattr(node, "lineno") and hasattr(node, "end_lineno"):
+                # Python 3.8+ has end_lineno
+                start_line = node.lineno  # 1-indexed
+                end_line = node.end_lineno  # 1-indexed (exclusive)
+                guards.append((start_line, end_line))
+            elif hasattr(node, "lineno"):
+                # Python < 3.8 or no end_lineno
+                start_line = node.lineno  # 1-indexed
+                guards.append((start_line, None))
+            # If no lineno, skip (shouldn't happen in valid AST)
+
+    return guards
+
+
 def detect_main_blocks(  # noqa: PLR0912
     *,
     file_paths: list[Path],
@@ -394,62 +433,54 @@ def detect_main_blocks(  # noqa: PLR0912
         except (OSError, UnicodeDecodeError):
             continue
 
-        # Parse AST to find __main__ blocks
-        try:
-            tree = ast.parse(source, filename=str(file_path))
-        except (SyntaxError, ValueError):
-            continue
+        # Extract main guard line ranges (parses AST once)
+        guard_ranges = _extract_main_guards(source)
 
-        # Find all top-level if statements that are __main__ guards
-        for node in tree.body:
-            if isinstance(node, ast.If) and _is_main_guard(node):
-                # Extract the block content from source
-                # Use line numbers from AST to extract exact text
-                if hasattr(node, "lineno") and hasattr(node, "end_lineno"):
-                    # Python 3.8+ has end_lineno
-                    start_line = node.lineno - 1  # 0-indexed
-                    end_line = node.end_lineno  # 1-indexed (exclusive)
-                    lines = source.splitlines(keepends=True)
-                    if (
-                        start_line < len(lines)
-                        and end_line is not None
-                        and end_line <= len(lines)
-                    ):
-                        block_lines = lines[start_line:end_line]
-                        block_content = "".join(block_lines).rstrip()
-                    else:
-                        # Fallback: use regex to find block
-                        block_content = _extract_main_block_regex(source)
+        # Extract block content from line ranges (usage logic)
+        for start_line, end_line in guard_ranges:
+            # Convert 1-indexed line numbers to 0-indexed for slicing
+            start_idx = start_line - 1  # 0-indexed
+            block_content: str | None = None
+
+            if end_line is not None:
+                # Python 3.8+ has end_lineno
+                lines = source.splitlines(keepends=True)
+                if start_idx < len(lines) and end_line <= len(lines):
+                    block_lines = lines[start_idx:end_line]
+                    block_content = "".join(block_lines).rstrip()
                 else:
-                    # Python < 3.8 or no end_lineno: use regex fallback
+                    # Fallback: use regex to find block
                     block_content = _extract_main_block_regex(source)
+            else:
+                # Python < 3.8 or no end_lineno: use regex fallback
+                block_content = _extract_main_block_regex(source)
 
-                if block_content:
-                    # Derive module name
-                    include = file_to_include.get(file_path)
-                    module_name = derive_module_name(file_path, package_root, include)
+            if block_content:
+                # Derive module name
+                include = file_to_include.get(file_path)
+                module_name = derive_module_name(file_path, package_root, include)
 
-                    # If package_root is a package directory, preserve package structure
-                    if is_package_dir and package_name_from_root:
-                        # Handle __init__.py special case: represents the package itself
-                        if (
-                            file_path.name == "__init__.py"
-                            and file_path.parent == package_root
-                        ):
-                            module_name = package_name_from_root
-                        else:
-                            # Prepend package name to preserve structure
-                            module_name = f"{package_name_from_root}.{module_name}"
+                # If package_root is a package directory, preserve package structure
+                if is_package_dir and package_name_from_root:
+                    # Handle __init__.py special case: represents the package itself
+                    if (
+                        file_path.name == "__init__.py"
+                        and file_path.parent == package_root
+                    ):
+                        module_name = package_name_from_root
+                    else:
+                        # Prepend package name to preserve structure
+                        module_name = f"{package_name_from_root}.{module_name}"
 
-                    main_blocks.append(
-                        MainBlock(
-                            content=block_content,
-                            file_path=file_path,
-                            module_name=module_name,
-                        )
+                main_blocks.append(
+                    MainBlock(
+                        content=block_content,
+                        file_path=file_path,
+                        module_name=module_name,
                     )
-                    # Only take the first __main__ block per file
-                    break
+                )
+                # Only take the first __main__ block per file
+                break
 
     return main_blocks
 

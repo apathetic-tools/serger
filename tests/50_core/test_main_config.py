@@ -645,6 +645,186 @@ def test_detect_function_parameters_async_function() -> None:
     assert result is True
 
 
+# Tests for _extract_main_guards()
+
+
+def test_extract_main_guards_single_guard() -> None:
+    """Test _extract_main_guards with a single __main__ guard."""
+    # --- setup ---
+    source = "def main():\n    pass\n\nif __name__ == '__main__':\n    main()\n"
+
+    # --- execute ---
+    guards = mod_main_config._extract_main_guards(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    assert len(guards) == 1
+    start_line, end_line = guards[0]
+    assert start_line == 4  # noqa: PLR2004  # 1-indexed line where guard starts
+    assert end_line is not None
+    assert end_line >= start_line
+
+
+def test_extract_main_guards_multiple_guards() -> None:
+    """Test _extract_main_guards with multiple __main__ guards."""
+    # --- setup ---
+    source = (
+        "if __name__ == '__main__':\n"
+        "    pass\n"
+        "\n"
+        "def func():\n"
+        "    pass\n"
+        "\n"
+        "if __name__ == '__main__':\n"
+        "    func()\n"
+    )
+
+    # --- execute ---
+    guards = mod_main_config._extract_main_guards(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    assert len(guards) == 2  # noqa: PLR2004
+    # Both guards should be detected
+    assert guards[0][0] == 1  # First guard starts at line 1
+    assert guards[1][0] == 7  # noqa: PLR2004  # Second guard starts at line 7
+
+
+def test_extract_main_guards_no_guards() -> None:
+    """Test _extract_main_guards with no __main__ guards."""
+    # --- setup ---
+    source = "def main():\n    pass\n"
+
+    # --- execute ---
+    guards = mod_main_config._extract_main_guards(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    assert len(guards) == 0
+
+
+def test_extract_main_guards_double_quotes() -> None:
+    """Test _extract_main_guards with double quotes in __main__ guard."""
+    # --- setup ---
+    source = 'def main():\n    pass\n\nif __name__ == "__main__":\n    main()\n'
+
+    # --- execute ---
+    guards = mod_main_config._extract_main_guards(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    assert len(guards) == 1
+    start_line, end_line = guards[0]
+    assert start_line == 4  # noqa: PLR2004
+    assert end_line is not None
+
+
+def test_extract_main_guards_not_main_guard() -> None:
+    """Test _extract_main_guards ignores non-__main__ guards."""
+    # --- setup ---
+    source = (
+        "if __name__ == 'other':\n    pass\n\nif something == '__main__':\n    pass\n"
+    )
+
+    # --- execute ---
+    guards = mod_main_config._extract_main_guards(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    assert len(guards) == 0
+
+
+def test_extract_main_guards_nested_guard() -> None:
+    """Test _extract_main_guards only finds top-level guards."""
+    # --- setup ---
+    source = (
+        "def func():\n"
+        "    if __name__ == '__main__':\n"
+        "        pass\n"
+        "\n"
+        "if __name__ == '__main__':\n"
+        "    func()\n"
+    )
+
+    # --- execute ---
+    guards = mod_main_config._extract_main_guards(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    # Should only find the top-level guard, not the nested one
+    assert len(guards) == 1
+    start_line, _end_line = guards[0]
+    assert start_line == 5  # noqa: PLR2004  # Top-level guard starts at line 5
+
+
+def test_extract_main_guards_syntax_error() -> None:
+    """Test _extract_main_guards handles syntax errors gracefully."""
+    # --- setup ---
+    source = "def main(\n    # Invalid syntax"
+
+    # --- execute ---
+    guards = mod_main_config._extract_main_guards(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    # Should return empty list on syntax error
+    assert len(guards) == 0
+
+
+def test_extract_main_guards_empty_source() -> None:
+    """Test _extract_main_guards with empty source."""
+    # --- setup ---
+    source = ""
+
+    # --- execute ---
+    guards = mod_main_config._extract_main_guards(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    assert len(guards) == 0
+
+
+def test_extract_main_guards_complex_block() -> None:
+    """Test _extract_main_guards with complex __main__ block."""
+    # --- setup ---
+    source = (
+        "def func1():\n"
+        "    pass\n"
+        "\n"
+        "def func2():\n"
+        "    pass\n"
+        "\n"
+        "if __name__ == '__main__':\n"
+        "    func1()\n"
+        "    func2()\n"
+        "    print('done')\n"
+    )
+
+    # --- execute ---
+    guards = mod_main_config._extract_main_guards(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    assert len(guards) == 1
+    start_line, end_line = guards[0]
+    assert start_line == 7  # noqa: PLR2004  # Guard starts at line 7
+    assert end_line is not None
+    assert end_line > start_line  # Should span multiple lines
+
+
+def test_extract_main_guards_conditional_import() -> None:
+    """Test _extract_main_guards with conditional import before guard."""
+    # --- setup ---
+    source = (
+        "import sys\n"
+        "\n"
+        "if sys.platform == 'win32':\n"
+        "    import win32api\n"
+        "\n"
+        "if __name__ == '__main__':\n"
+        "    print('hello')\n"
+    )
+
+    # --- execute ---
+    guards = mod_main_config._extract_main_guards(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    assert len(guards) == 1
+    start_line, _end_line = guards[0]
+    assert start_line == 6  # noqa: PLR2004  # Guard starts at line 6
+
+
 # Tests for detect_main_blocks()
 
 
