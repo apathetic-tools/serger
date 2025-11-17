@@ -69,6 +69,7 @@ Exploring bundling options for generating the single-file release:
 - are we double erroring on people by logging an error then raising? we don't want to lose details, check the CLI implementation for catching raised errors and how they are displayed ot the user so we can provide the appropriate details.
 - should more of our config settings be available to be set via ENV?
 - review all details/minimal statements before v1.0
+- disable build timestamp for determinism
 
 
 ## 🚀 Deployment
