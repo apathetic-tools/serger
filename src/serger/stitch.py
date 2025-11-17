@@ -1710,17 +1710,19 @@ def _collect_modules(  # noqa: PLR0912, PLR0915
         package_name_from_root = package_root.name
     # Also treat as package directory if package_root.name matches package
     # (even without __init__.py, files in package_root are submodules of package)
-    elif _package_name is not None and package_root.name == _package_name:
+    elif package_root.name == _package_name:
         package_name_from_root = package_root.name
         is_package_dir = True  # Treat as package directory for module naming
 
     # Check if any files have imports that reference the package name
     # (indicates files are part of that package structure)
     has_package_imports = False
-    if (
-        _package_name is not None
-        and package_root.name != _package_name
-        and package_root.name in ("src", "lib", "app", "package", "packages")
+    if package_root.name != _package_name and package_root.name in (
+        "src",
+        "lib",
+        "app",
+        "package",
+        "packages",
     ):
         # Quick check: see if any file imports from the package
         for file_path in file_paths:
@@ -1764,8 +1766,7 @@ def _collect_modules(  # noqa: PLR0912, PLR0915
         # Only do this if package_root is a common project subdirectory
         # (like src, lib, app) AND files have imports that reference the package
         elif (
-            _package_name is not None
-            and package_root.name != _package_name
+            package_root.name != _package_name
             and not module_name.startswith(f"{_package_name}.")
             and has_package_imports
             and module_name != _package_name

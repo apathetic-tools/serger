@@ -182,7 +182,7 @@ def test_find_main_function_main_mode_none(tmp_path: Path) -> None:
         config=config,
         file_paths=[file_path],
         module_sources={"main.py": "def main():\n    pass\n"},
-        module_names=["main"],
+        _module_names=["main"],
         package_root=tmp_path,
         file_to_include={
             file_path: {"path": "main.py", "root": tmp_path, "origin": "default"}
@@ -237,7 +237,7 @@ def test_find_main_function_with_main_name_module_path(tmp_path: Path) -> None:
         config=config,
         file_paths=[file_path],
         module_sources={"mypkg.main.py": "def main():\n    pass\n"},
-        module_names=["mypkg.main"],
+        _module_names=["mypkg.main"],
         package_root=tmp_path,
         file_to_include={
             file_path: {"path": "mypkg/main.py", "root": tmp_path, "origin": "default"}
@@ -294,7 +294,7 @@ def test_find_main_function_with_main_name_function_only(tmp_path: Path) -> None
         config=config,
         file_paths=[file_path],
         module_sources={"main.py": "def cli():\n    pass\n"},
-        module_names=["main"],
+        _module_names=["main"],
         package_root=tmp_path,
         file_to_include={
             file_path: {"path": "main.py", "root": tmp_path, "origin": "default"}
@@ -354,7 +354,7 @@ def test_find_main_function_with_package_config(tmp_path: Path) -> None:
         config=config,
         file_paths=[file_path],
         module_sources={"mypkg.main.py": "def main():\n    pass\n"},
-        module_names=["mypkg.main"],
+        _module_names=["mypkg.main"],
         package_root=tmp_path,
         file_to_include={
             file_path: {"path": "mypkg/main.py", "root": tmp_path, "origin": "default"}
@@ -418,7 +418,7 @@ def test_find_main_function_priority_main_py(tmp_path: Path) -> None:
             "mypkg.other.py": "def main():\n    pass\n",
             "mypkg.__main__.py": "def main():\n    pass\n",
         },
-        module_names=["mypkg.other", "mypkg.__main__"],
+        _module_names=["mypkg.other", "mypkg.__main__"],
         package_root=tmp_path,
         file_to_include={
             other_py: {"path": "mypkg/other.py", "root": tmp_path, "origin": "default"},
@@ -480,7 +480,7 @@ def test_find_main_function_not_found(tmp_path: Path) -> None:
         config=config,
         file_paths=[file_path],
         module_sources={"main.py": "def other():\n    pass\n"},
-        module_names=["main"],
+        _module_names=["main"],
         package_root=tmp_path,
         file_to_include={
             file_path: {"path": "main.py", "root": tmp_path, "origin": "default"}
