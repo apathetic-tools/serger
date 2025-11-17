@@ -80,6 +80,7 @@ All configuration options are specified at the root level of the config file:
 | `log_level` | `str` | No | `"info"` | Log verbosity: `trace`, `debug`, `info`, `warning`, `error` |
 | `respect_gitignore` | `bool` | No | `true` | Whether to respect `.gitignore` when selecting files |
 | `strict_config` | `bool` | No | `true` | Whether to error on missing include patterns |
+| `disable_build_timestamp` | `bool` | No | `false` | Replace build timestamps with placeholder for deterministic builds (see [Build Timestamps](#build-timestamps)) |
 | `watch_interval` | `float` | No | `1.0` | File watch interval in seconds (for `--watch` mode) |
 | `use_pyproject_metadata` | `bool` | No | - | Whether to pull metadata (description, authors, license, version) from `pyproject.toml`. Defaults to `true`, explicit `pyproject_path` also enables. `package` is always extracted as fallback. |
 | `pyproject_path` | `str` | No | - | Path to `pyproject.toml` (relative to config directory). Setting this implicitly enables pyproject.toml usage. |
@@ -1105,6 +1106,97 @@ If you have `main()` functions in both `utils.py` and `cli.py`, and the main fun
   "main_name": "mypkg.cli::run"  // Module "mypkg.cli", function "run"
 }
 ```
+
+## Build Timestamps
+
+Serger embeds build timestamps in the generated output file for tracking when builds were created. The `disable_build_timestamp` setting allows you to replace these timestamps with a placeholder string, making builds deterministic and reproducible.
+
+### Configuration
+
+- **Type**: `bool`
+- **Default**: `false` (use real timestamps)
+- **CLI flag**: `--disable-build-timestamp`
+
+### Use Cases
+
+**Deterministic builds** (primary use case):
+- When `disable_build_timestamp: true`, all timestamps are replaced with the placeholder `<build-timestamp>`
+- Multiple builds with the same source code produce identical output files
+- Useful for verification, testing, and reproducible builds
+- Enables byte-for-byte comparison of build outputs
+
+**Production builds** (default):
+- When `disable_build_timestamp: false` (default), real timestamps are embedded
+- Timestamps show when the build was created
+- Useful for debugging and tracking build history
+
+### Timestamp Locations
+
+When enabled, timestamps appear in the following locations in the stitched output:
+
+1. **Header comment**: `# Build Date: <build-timestamp>`
+2. **Module docstring**: `Built: <build-timestamp>`
+3. **Build date constant**: `__build_date__ = "<build-timestamp>"`
+4. **Version fallback**: When no version is found, the placeholder is used instead of a timestamp
+
+### Examples
+
+**Deterministic build (config file):**
+
+```jsonc
+{
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "out": "dist/mypkg.py",
+  "disable_build_timestamp": true
+}
+```
+
+**Deterministic build (CLI):**
+
+```bash
+python3 serger.py --disable-build-timestamp
+```
+
+**Production build (default):**
+
+```jsonc
+{
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "out": "dist/mypkg.py"
+  // disable_build_timestamp defaults to false
+}
+```
+
+### Output Comparison
+
+**With timestamps (default):**
+```python
+# Build Date: 2024-01-15 14:30:45 UTC
+"""
+Built: 2024-01-15 14:30:45 UTC
+...
+"""
+__build_date__ = "2024-01-15 14:30:45 UTC"
+```
+
+**With placeholder (deterministic):**
+```python
+# Build Date: <build-timestamp>
+"""
+Built: <build-timestamp>
+...
+"""
+__build_date__ = "<build-timestamp>"
+```
+
+### Notes
+
+- This is an **advanced setting** primarily intended for verification and testing purposes
+- The placeholder string `<build-timestamp>` is a constant defined in Serger's code
+- CLI flag `--disable-build-timestamp` overrides the config file setting
+- When disabled, timestamps are generated at build time using UTC timezone
 
 ## Environment Variables
 

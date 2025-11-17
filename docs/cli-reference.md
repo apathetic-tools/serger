@@ -111,6 +111,16 @@ python3 serger.py --watch          # Use default interval
 python3 serger.py --watch 2.5      # 2.5 second interval
 ```
 
+#### `--disable-build-timestamp`
+
+Replace build timestamps with a placeholder string (`<build-timestamp>`) for deterministic builds. This makes multiple builds with the same source code produce identical output files, useful for verification and testing.
+
+```bash
+python3 serger.py --disable-build-timestamp
+```
+
+> **Note**: This is an advanced setting primarily intended for verification purposes. By default, real timestamps are embedded in the build output.
+
 ### Gitignore
 
 #### `--gitignore`
