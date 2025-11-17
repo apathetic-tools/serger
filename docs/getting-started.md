@@ -67,14 +67,10 @@ Create a config file `.serger.jsonc`:
 
 ```jsonc
 {
-  "builds": [
-    {
-      "package": "mypkg",
-      "include": ["src/mypkg/**/*.py"],
-      "exclude": ["**/__init__.py", "**/__pycache__/**"],
-      "out": "dist/mypkg.py"
-    }
-  ]
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "exclude": ["**/__init__.py", "**/__pycache__/**"],
+  "out": "dist/mypkg.py"
 }
 ```
 
