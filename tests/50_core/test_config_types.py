@@ -158,6 +158,7 @@ def test_root_config_resolved_has_module_actions(tmp_path: Path) -> None:
         "module_actions": [{"source": "old", "dest": "new"}],
         "main_mode": "auto",
         "main_name": None,
+        "disable_build_timestamp": False,
         "license_header": "",
         "display_name": "",
         "description": "",

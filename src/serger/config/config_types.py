@@ -200,6 +200,10 @@ class RootConfig(TypedDict, total=False):
     # - None: Auto-detect main function (default)
     # - str: Explicit main function specification (see docs for syntax)
     main_name: NotRequired[str | None]
+    # Build timestamp control
+    # - False: Use real timestamps (default)
+    # - True: Use placeholder for deterministic builds
+    disable_build_timestamp: NotRequired[bool]
 
 
 class RootConfigResolved(TypedDict):
@@ -250,3 +254,5 @@ class RootConfigResolved(TypedDict):
     main_mode: MainMode
     # Main function name specification (always present, resolved with defaults)
     main_name: str | None
+    # Build timestamp control (always present, resolved with defaults)
+    disable_build_timestamp: bool

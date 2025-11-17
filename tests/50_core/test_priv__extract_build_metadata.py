@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import serger.build as mod_build
+import serger.constants as mod_constants
 from tests.utils.buildconfig import make_build_cfg
 
 
@@ -121,5 +122,65 @@ def test_extract_build_metadata_missing_pyproject() -> None:
         parsed_version = datetime.strptime(version_without_tz, "%Y-%m-%d %H:%M:%S")  # noqa: DTZ007
         parsed_version = parsed_version.replace(tzinfo=timezone.utc)
         # Allow for small timing differences (parsed version has no microseconds)
+        assert (before - parsed_version).total_seconds() <= _MAX_TIMESTAMP_DIFF_SECONDS
+        assert (parsed_version - after).total_seconds() <= _MAX_TIMESTAMP_DIFF_SECONDS
+
+
+def test_extract_build_metadata_disable_timestamp_true() -> None:
+    """Should use placeholder when disable_timestamp=True."""
+    tmp_path = Path.cwd()
+
+    build_cfg = make_build_cfg(tmp_path)
+
+    version, commit, build_date = mod_build._extract_build_metadata(
+        build_cfg, tmp_path, tmp_path, disable_timestamp=True
+    )
+
+    # Should use placeholder for build_date
+    assert build_date == mod_constants.BUILD_TIMESTAMP_PLACEHOLDER
+    assert isinstance(commit, str)
+    # Version should be placeholder if not set
+    assert version == mod_constants.BUILD_TIMESTAMP_PLACEHOLDER
+
+
+def test_extract_build_metadata_disable_timestamp_true_with_version() -> None:
+    """Should use placeholder for build_date but keep version."""
+    tmp_path = Path.cwd()
+
+    build_cfg = make_build_cfg(tmp_path, version="1.2.3")
+
+    version, commit, build_date = mod_build._extract_build_metadata(
+        build_cfg, tmp_path, tmp_path, disable_timestamp=True
+    )
+
+    # Should use placeholder for build_date
+    assert build_date == mod_constants.BUILD_TIMESTAMP_PLACEHOLDER
+    # Version should be preserved from config
+    assert version == "1.2.3"
+    assert isinstance(commit, str)
+
+
+def test_extract_build_metadata_disable_timestamp_false() -> None:
+    """Should use real timestamp when disable_timestamp=False (default behavior)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+
+        build_cfg = make_build_cfg(tmp_path)
+
+        before = datetime.now(timezone.utc)
+        version, commit, build_date = mod_build._extract_build_metadata(
+            build_cfg, tmp_path, tmp_path, disable_timestamp=False
+        )
+        after = datetime.now(timezone.utc)
+
+        # Should use real timestamp
+        assert re.match(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC", build_date)
+        assert version == build_date
+        assert isinstance(commit, str)
+
+        # Verify timestamp is recent
+        version_without_tz = version.replace(" UTC", "")
+        parsed_version = datetime.strptime(version_without_tz, "%Y-%m-%d %H:%M:%S")  # noqa: DTZ007
+        parsed_version = parsed_version.replace(tzinfo=timezone.utc)
         assert (before - parsed_version).total_seconds() <= _MAX_TIMESTAMP_DIFF_SECONDS
         assert (parsed_version - after).total_seconds() <= _MAX_TIMESTAMP_DIFF_SECONDS

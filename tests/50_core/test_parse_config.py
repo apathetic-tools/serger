@@ -131,3 +131,19 @@ def test_parse_config_preserves_main_name_none() -> None:
     # --- verify ---
     assert result is not None
     assert result["main_name"] is None
+
+
+def test_parse_config_preserves_disable_build_timestamp() -> None:
+    """disable_build_timestamp should be preserved in parsed config."""
+    # --- setup ---
+    data: dict[str, Any] = {
+        "include": ["src"],
+        "disable_build_timestamp": True,
+    }
+
+    # --- execute ---
+    result = mod_config_loader.parse_config(data)
+
+    # --- verify ---
+    assert result is not None
+    assert result["disable_build_timestamp"] is True

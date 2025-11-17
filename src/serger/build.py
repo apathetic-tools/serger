@@ -8,7 +8,7 @@ from typing import cast
 from apathetic_utils import has_glob_chars, is_excluded_raw
 
 from .config import IncludeResolved, PathResolved, RootConfigResolved
-from .constants import DEFAULT_DRY_RUN
+from .constants import BUILD_TIMESTAMP_PLACEHOLDER, DEFAULT_DRY_RUN
 from .logs import get_app_logger
 from .stitch import (
     compute_module_order,
@@ -423,6 +423,8 @@ def _extract_build_metadata(
     build_cfg: RootConfigResolved,
     project_root: Path,
     git_root: Path | None = None,
+    *,
+    disable_timestamp: bool = False,
 ) -> tuple[str, str, str]:
     """Extract version, commit, and build date for embedding.
 
@@ -430,6 +432,7 @@ def _extract_build_metadata(
         build_cfg: Resolved build config
         project_root: Project root path (for finding pyproject.toml)
         git_root: Git repository root path (for finding .git, defaults to project_root)
+        disable_timestamp: If True, use placeholder instead of real timestamp
 
     Returns:
         Tuple of (version, commit, build_date)
@@ -444,11 +447,17 @@ def _extract_build_metadata(
     # Use git_root for commit extraction (package root), fallback to project_root
     commit_path = git_root if git_root is not None else project_root
     commit = extract_commit(commit_path)
-    build_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
-    # If still no version found, use timestamp as version
-    if not version or version == "unknown":
-        version = build_date
+    if disable_timestamp:
+        build_date = BUILD_TIMESTAMP_PLACEHOLDER
+        # If still no version found, use placeholder as version
+        if not version or version == "unknown":
+            version = BUILD_TIMESTAMP_PLACEHOLDER
+    else:
+        build_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        # If still no version found, use timestamp as version
+        if not version or version == "unknown":
+            version = build_date
 
     return version, commit, build_date
 
@@ -712,8 +721,12 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
     # Extract metadata for embedding
     # Use config_root for finding pyproject.toml (project root), package_root for git
     config_root = build_cfg["__meta__"]["config_root"]
+    disable_timestamp = build_cfg.get("disable_build_timestamp", False)
     version, commit, build_date = _extract_build_metadata(
-        build_cfg, config_root, package_root
+        build_cfg,
+        config_root,
+        package_root,
+        disable_timestamp=disable_timestamp,
     )
 
     # Create parent directory if needed

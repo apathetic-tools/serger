@@ -65,6 +65,8 @@ DEFAULT_DOCSTRING_MODE: str = "keep"  # Keep all docstrings (default docstring m
 DEFAULT_MODULE_BASES: list[str] = ["src"]  # Default directories to search for packages
 DEFAULT_MAIN_MODE: str = "auto"  # Automatically detect and generate __main__ block
 DEFAULT_MAIN_NAME: str | None = None  # Auto-detect main function (default)
+DEFAULT_DISABLE_BUILD_TIMESTAMP: bool = False  # Use real timestamps by default
+BUILD_TIMESTAMP_PLACEHOLDER: str = "<build-timestamp>"  # Placeholder
 
 # --- post-processing defaults ---
 DEFAULT_CATEGORY_ORDER: list[str] = ["static_checker", "formatter", "import_sorter"]
