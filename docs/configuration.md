@@ -43,7 +43,18 @@ Serger can automatically extract metadata from `pyproject.toml`:
 - `authors` - fallback from `[project] authors`
 - `version` - fallback from `[project] version` (stored as `_pyproject_version` for build metadata)
 
-For configless builds, pyproject.toml is used by default. For builds with config files, use `use_pyproject: true` or set `pyproject_path` to enable. See the [Configuration Reference](/configuration-reference) for details.
+For configless builds, pyproject.toml metadata is used by default. For builds with config files, use `use_pyproject_metadata: true` or set `pyproject_path` to enable. Package name is always extracted from pyproject.toml (if available) for resolution purposes, regardless of the `use_pyproject_metadata` setting.
+
+## Package Resolution
+
+The `package` field can be automatically inferred if not explicitly set. Serger will attempt to determine the package name in the following order:
+
+1. **Explicitly provided** - If `package` is set in your config, it is always used
+2. **pyproject.toml** - Extracted from `[project] name` if available
+3. **Include paths** - Inferred from the include patterns you provide
+4. **module_bases** - Auto-detected from modules found in `module_bases` directories
+
+See the [Configuration Reference](/configuration-reference) for details.
 
 
 
@@ -53,7 +64,7 @@ All configuration options are specified at the root level of the config file:
 
 | Option | Type | Required | Default | Description |
 |--------|------|----------|---------|-------------|
-| `package` | `str` | Yes* | - | Package name (used for import shims) |
+| `package` | `str` | Yes* | - | Package name (used for import shims). Can be inferred automatically if not set (see [Package Resolution](#package-resolution) below). |
 | `description` | `str` | No | - | Description for generated header |
 | `include` | `list[str]` | Yes* | - | Glob patterns for files to include |
 | `exclude` | `list[str]` | No | `[]` | Glob patterns for files to exclude |

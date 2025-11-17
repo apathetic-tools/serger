@@ -25,7 +25,7 @@ from serger.constants import (
     DEFAULT_SHIM,
     DEFAULT_STITCH_MODE,
     DEFAULT_STRICT_CONFIG,
-    DEFAULT_USE_PYPROJECT,
+    DEFAULT_USE_PYPROJECT_METADATA,
     DEFAULT_WATCH_INTERVAL,
 )
 from serger.logs import get_app_logger
@@ -198,15 +198,20 @@ def _is_configless_build(root_cfg: RootConfig | None) -> bool:
     return not has_build_fields
 
 
-def _should_use_pyproject(
+def _should_use_pyproject_metadata(
     build_cfg: RootConfig,
     root_cfg: RootConfig | None,
 ) -> bool:
-    """Determine if pyproject.toml should be used for this build.
+    """Determine if pyproject.toml metadata should be extracted for this build.
 
-    Pyproject.toml is used by default (DEFAULT_USE_PYPROJECT) unless explicitly
-    disabled. Explicit enablement (use_pyproject=True or pyproject_path set)
-    always takes precedence and enables it even if it would otherwise be disabled.
+    Pyproject.toml metadata is used by default (DEFAULT_USE_PYPROJECT_METADATA) unless
+    explicitly disabled. Explicit enablement (use_pyproject_metadata=True or
+    pyproject_path set) always takes precedence and enables it even if it would
+    otherwise be disabled.
+
+    Note: Package name is always extracted from pyproject.toml (if available) for
+    resolution purposes, regardless of this setting. This setting only controls
+    extraction of other metadata (display_name, description, authors, license, version).
 
     Args:
         build_cfg: Build config
@@ -215,39 +220,39 @@ def _should_use_pyproject(
     Returns:
         True if pyproject.toml should be used, False otherwise
     """
-    root_use_pyproject = (root_cfg or {}).get("use_pyproject")
+    root_use_pyproject_metadata = (root_cfg or {}).get("use_pyproject_metadata")
     root_pyproject_path = (root_cfg or {}).get("pyproject_path")
-    build_use_pyproject = build_cfg.get("use_pyproject")
+    build_use_pyproject_metadata = build_cfg.get("use_pyproject_metadata")
     build_pyproject_path = build_cfg.get("pyproject_path")
 
     # Check if this is a configless build
     is_configless = _is_configless_build(root_cfg)
 
     # Build-level explicit disablement always takes precedence
-    if build_use_pyproject is False:
+    if build_use_pyproject_metadata is False:
         return False
 
     # Root-level explicit disablement takes precedence unless build overrides
     # (build-level pyproject_path is considered an override)
-    if root_use_pyproject is False and build_pyproject_path is None:
+    if root_use_pyproject_metadata is False and build_pyproject_path is None:
         return False
 
-    # For configless builds, use DEFAULT_USE_PYPROJECT (unless disabled above)
+    # For configless builds, use DEFAULT_USE_PYPROJECT_METADATA (unless disabled above)
     if is_configless:
-        return DEFAULT_USE_PYPROJECT
+        return DEFAULT_USE_PYPROJECT_METADATA
 
-    # For non-configless builds, also use DEFAULT_USE_PYPROJECT unless explicitly
-    # disabled (but allow explicit enablement to override)
+    # For non-configless builds, also use DEFAULT_USE_PYPROJECT_METADATA unless
+    # explicitly disabled (but allow explicit enablement to override)
     if (
-        root_use_pyproject is True
+        root_use_pyproject_metadata is True
         or root_pyproject_path is not None
-        or build_use_pyproject is True
+        or build_use_pyproject_metadata is True
         or build_pyproject_path is not None
     ):
         return True
 
-    # Default to DEFAULT_USE_PYPROJECT for non-configless builds too
-    return DEFAULT_USE_PYPROJECT
+    # Default to DEFAULT_USE_PYPROJECT_METADATA for non-configless builds too
+    return DEFAULT_USE_PYPROJECT_METADATA
 
 
 def _resolve_pyproject_path(
@@ -584,7 +589,7 @@ def _is_explicitly_requested(
     build_cfg: RootConfig,
     root_cfg: RootConfig | None,
 ) -> bool:
-    """Check if pyproject.toml was explicitly requested (not just default).
+    """Check if pyproject.toml metadata was explicitly requested (not just default).
 
     Args:
         build_cfg: Build config
@@ -593,65 +598,17 @@ def _is_explicitly_requested(
     Returns:
         True if explicitly requested, False if just default behavior
     """
-    build_use_pyproject = build_cfg.get("use_pyproject")
-    root_use_pyproject = (root_cfg or {}).get("use_pyproject")
+    build_use_pyproject_metadata = build_cfg.get("use_pyproject_metadata")
+    root_use_pyproject_metadata = (root_cfg or {}).get("use_pyproject_metadata")
     build_pyproject_path = build_cfg.get("pyproject_path")
     root_pyproject_path = (root_cfg or {}).get("pyproject_path")
 
     return (
-        isinstance(build_use_pyproject, bool)
+        isinstance(build_use_pyproject_metadata, bool)
         or build_pyproject_path is not None
-        or isinstance(root_use_pyproject, bool)
+        or isinstance(root_use_pyproject_metadata, bool)
         or root_pyproject_path is not None
     )
-
-
-def _extract_pyproject_metadata_safe(
-    pyproject_path: Path,
-    *,
-    explicitly_requested: bool,
-) -> PyprojectMetadata:
-    """Extract metadata from pyproject.toml with error handling.
-
-    Args:
-        pyproject_path: Path to pyproject.toml
-        explicitly_requested: Whether pyproject was explicitly requested
-
-    Returns:
-        PyprojectMetadata object (may be empty if unavailable)
-
-    Raises:
-        RuntimeError: If explicitly requested and TOML parsing unavailable
-    """
-    logger = get_app_logger()
-
-    try:
-        metadata = extract_pyproject_metadata(
-            pyproject_path, required=explicitly_requested
-        )
-    except RuntimeError as e:
-        # If explicitly requested and TOML parsing unavailable, re-raise
-        if explicitly_requested:
-            xmsg = (
-                "pyproject.toml support was explicitly requested but "
-                f"TOML parsing is unavailable. {e!s}"
-            )
-            raise RuntimeError(xmsg) from e
-        # If not explicitly requested, this shouldn't happen (should return None)
-        raise
-
-    if metadata is None:
-        # TOML parsing unavailable but not explicitly requested - warn and skip
-        logger.warning(
-            "pyproject.toml found but TOML parsing unavailable "
-            "(Python 3.10 requires 'tomli'). "
-            "Skipping metadata extraction. Install 'tomli' to enable, "
-            "or explicitly set 'use_pyproject: false' to disable this warning."
-        )
-        # Create empty metadata object
-        metadata = PyprojectMetadata()
-
-    return metadata
 
 
 def _apply_metadata_fields(
@@ -663,9 +620,12 @@ def _apply_metadata_fields(
 ) -> None:
     """Apply extracted metadata fields to resolved config.
 
-    When explicitly requested (use_pyproject=True), pyproject.toml values
+    When explicitly requested (use_pyproject_metadata=True), pyproject.toml values
     overwrite config values. When used by default, only fills in missing
     fields (config values take precedence).
+
+    Note: Package name is NOT set here - it's handled in _apply_pyproject_metadata()
+    and is always extracted if available, regardless of use_pyproject_metadata.
 
     Args:
         resolved_cfg: Mutable resolved config dict (modified in place)
@@ -681,12 +641,10 @@ def _apply_metadata_fields(
         # for use in build.py later
         resolved_cfg["_pyproject_version"] = metadata.version
 
-    if metadata.name:
-        if explicitly_requested or "display_name" not in resolved_cfg:
-            resolved_cfg["display_name"] = metadata.name
-        # Package from pyproject.toml name
-        if explicitly_requested or "package" not in resolved_cfg:
-            resolved_cfg["package"] = metadata.name
+    if metadata.name and (explicitly_requested or "display_name" not in resolved_cfg):
+        resolved_cfg["display_name"] = metadata.name
+        # Note: Package is handled in _apply_pyproject_metadata() and is always
+        # extracted if available, regardless of use_pyproject_metadata
 
     if metadata.description and (
         explicitly_requested or "description" not in resolved_cfg
@@ -714,8 +672,10 @@ def _apply_pyproject_metadata(
 ) -> None:
     """Extract and apply pyproject.toml metadata to resolved config.
 
-    Handles all the logic for determining when to use pyproject.toml,
-    path resolution, and filling in missing fields.
+    Extracts all metadata from pyproject.toml once, then:
+    - Always uses package name for resolution (if not already set)
+    - Uses other metadata (display_name, description, authors, license, version)
+      only if use_pyproject_metadata is enabled
 
     Args:
         resolved_cfg: Mutable resolved config dict (modified in place)
@@ -723,15 +683,42 @@ def _apply_pyproject_metadata(
         root_cfg: Root config (may be None)
         config_dir: Config directory for path resolution
     """
-    if not _should_use_pyproject(build_cfg, root_cfg):
+    logger = get_app_logger()
+
+    # Try to find pyproject.toml
+    pyproject_path = _resolve_pyproject_path(build_cfg, root_cfg, config_dir)
+    if not pyproject_path or not pyproject_path.exists():
         return
 
-    pyproject_path = _resolve_pyproject_path(build_cfg, root_cfg, config_dir)
-    explicitly_requested = _is_explicitly_requested(build_cfg, root_cfg)
+    # Extract all metadata once (if available)
+    # Use required=False since we handle errors gracefully below
+    try:
+        metadata = extract_pyproject_metadata(pyproject_path, required=False)
+        if metadata is None:
+            return
+    except (RuntimeError, ValueError, FileNotFoundError) as e:
+        # If extraction fails, silently continue (package will be resolved via
+        # other means)
+        logger.trace(
+            "[_apply_pyproject_metadata] Failed to extract metadata from %s: %s",
+            pyproject_path,
+            e,
+        )
+        return
 
-    metadata = _extract_pyproject_metadata_safe(
-        pyproject_path, explicitly_requested=explicitly_requested
-    )
+    # Always extract package name for resolution purposes (if not already set)
+    if metadata.name and not resolved_cfg.get("package"):
+        resolved_cfg["package"] = metadata.name
+        logger.info(
+            "Package name '%s' extracted from pyproject.toml for resolution",
+            metadata.name,
+        )
+
+    # Apply other metadata only if use_pyproject_metadata is enabled
+    if not _should_use_pyproject_metadata(build_cfg, root_cfg):
+        return
+
+    explicitly_requested = _is_explicitly_requested(build_cfg, root_cfg)
     _apply_metadata_fields(
         resolved_cfg,
         metadata,
@@ -1192,23 +1179,274 @@ def _get_first_level_modules_from_bases(
     return modules
 
 
-def _package_exists_in_module_bases(
-    package: str,
-    module_bases: list[str],
-    config_dir: Path,
-) -> bool:
-    """Check if a package exists in module_bases (first level only, not recursive).
+def _has_main_function(module_path: Path) -> bool:
+    """Check if a module path contains a main function.
+
+    Looks for:
+    - `def main(` in any Python file
+    - `if __name__ == "__main__":` in any Python file
 
     Args:
-        package: Package name to check
-        module_bases: List of module base directory paths (relative or absolute)
+        module_path: Path to module (directory or file)
+
+    Returns:
+        True if main function or __main__ block found
+    """
+    import ast  # noqa: PLC0415
+
+    if module_path.is_file() and module_path.suffix == ".py":
+        files_to_check = [module_path]
+    elif module_path.is_dir():
+        # Check all Python files in directory (non-recursive)
+        files_to_check = list(module_path.glob("*.py"))
+    else:
+        return False
+
+    for file_path in files_to_check:
+        try:
+            content = file_path.read_text(encoding="utf-8")
+            tree = ast.parse(content, filename=str(file_path))
+            for node in ast.walk(tree):
+                # Check for def main(
+                if isinstance(node, ast.FunctionDef) and node.name == "main":
+                    return True
+                # Check for if __name__ == '__main__' block
+                if isinstance(node, ast.If):
+                    test = node.test
+                    if (
+                        isinstance(test, ast.Compare)
+                        and isinstance(test.left, ast.Name)
+                        and test.left.id == "__name__"
+                        and len(test.ops) == 1
+                        and isinstance(test.ops[0], ast.Eq)
+                        and len(test.comparators) == 1
+                        and isinstance(test.comparators[0], ast.Constant)
+                        and test.comparators[0].value == "__main__"
+                    ):
+                        return True
+        except (SyntaxError, UnicodeDecodeError, OSError):  # noqa: PERF203
+            # Skip files that can't be parsed
+            continue
+
+    return False
+
+
+def _infer_packages_from_includes(  # noqa: C901, PLR0912, PLR0915
+    includes: list[IncludeResolved],
+    module_bases: list[str],
+    config_dir: Path,
+) -> list[str]:
+    """Infer package names from include paths using multiple strategies.
+
+    Uses strategies in priority order:
+    1. Filter by module_bases (if configured)
+    2. Check __init__.py (definitive package markers)
+    3. Check __main__.py (executable package markers)
+    4. Extract from common prefix
+    5. Validate against module_bases (ensure exists)
+    6. Use most common first-level directory (when multiple candidates)
+
+    Args:
+        includes: List of resolved include patterns
+        module_bases: List of module base directory paths
         config_dir: Config directory for resolving relative paths
 
     Returns:
-        True if package is found as a first-level module/package in any module_base
+        List of inferred package names (may be empty or contain multiple candidates)
     """
-    first_level_modules = _get_first_level_modules_from_bases(module_bases, config_dir)
-    return package in first_level_modules
+    if not includes:
+        return []
+
+    logger = get_app_logger()
+    candidates: set[str] = set()
+    path_strings: list[str] = []
+
+    # Extract path strings from includes
+    for inc in includes:
+        path_val = inc.get("path")
+        if isinstance(path_val, (Path, str)):  # pyright: ignore[reportUnnecessaryIsInstance]
+            path_str = str(path_val)
+            # Remove trailing slashes and normalize
+            path_str = path_str.rstrip("/")
+            if path_str:
+                path_strings.append(path_str)
+
+    if not path_strings:
+        return []
+
+    # Strategy 1: Filter by module_bases (if configured)
+    filtered_paths: list[str] = []
+    if module_bases:
+        for path_str in path_strings:
+            # Check if path is within any module_base
+            for base_str in module_bases:
+                base_path = (config_dir / base_str).resolve()
+                # Try to resolve path relative to config_dir
+                try:
+                    path_obj = (config_dir / path_str).resolve()
+                    # Check if path is within base_path
+                    try:
+                        path_obj.relative_to(base_path)
+                        filtered_paths.append(path_str)
+                        break
+                    except ValueError:
+                        # Not within this base, try next
+                        continue
+                except (OSError, ValueError):
+                    # Path resolution failed, skip
+                    continue
+    else:
+        # No module_bases, use all paths
+        filtered_paths = path_strings
+
+    if not filtered_paths:
+        return []
+
+    # Strategy 2 & 3: Check for __init__.py and __main__.py
+    for path_str in filtered_paths:
+        path_obj = (config_dir / path_str).resolve()
+        if not path_obj.exists():
+            continue
+
+        # Check if it's a file or directory
+        if path_obj.is_file():
+            # Check if parent has __init__.py or __main__.py
+            parent = path_obj.parent
+            if (parent / "__init__.py").exists() or (parent / "__main__.py").exists():
+                candidates.add(parent.name)
+            # Also check if file itself is __init__.py or __main__.py
+            if path_obj.name in {"__init__.py", "__main__.py"}:
+                candidates.add(parent.name)
+        elif path_obj.is_dir():
+            # Check if directory has __init__.py or __main__.py
+            if (path_obj / "__init__.py").exists() or (
+                path_obj / "__main__.py"
+            ).exists():
+                candidates.add(path_obj.name)
+
+    # Strategy 4: Extract from common prefix
+    if not candidates:
+        # Find common prefix of all paths
+        common_prefix = _find_common_path_prefix(filtered_paths, config_dir)
+        if common_prefix:
+            # Get first directory after common prefix for each path
+            common_path = (config_dir / common_prefix).resolve()
+            for path_str in filtered_paths:
+                try:
+                    path_obj = (config_dir / path_str).resolve()
+                    try:
+                        rel_path = path_obj.relative_to(common_path)
+                        # Get first component
+                        parts = list(rel_path.parts)
+                        if parts:
+                            first_part = parts[0]
+                            if first_part and first_part != ".":
+                                candidates.add(first_part)
+                    except ValueError:
+                        # Not relative to common prefix, skip
+                        continue
+                except (OSError, ValueError):
+                    continue
+
+    # Strategy 5: Validate against module_bases (ensure exists)
+    if module_bases and candidates:
+        valid_modules = _get_first_level_modules_from_bases(module_bases, config_dir)
+        candidates = {c for c in candidates if c in valid_modules}
+
+    # Strategy 6: If multiple candidates, use most common first-level directory
+    if len(candidates) > 1:
+        # Count occurrences in original paths
+        first_level_counts: dict[str, int] = {}
+        for path_str in filtered_paths:
+            try:
+                path_obj = (config_dir / path_str).resolve()
+                # Try to find first-level directory relative to module_bases
+                for base_str in module_bases:
+                    base_path = (config_dir / base_str).resolve()
+                    try:
+                        rel_path = path_obj.relative_to(base_path)
+                        parts = list(rel_path.parts)
+                        if parts:
+                            first_part = parts[0]
+                            if first_part in candidates:
+                                first_level_counts[first_part] = (
+                                    first_level_counts.get(first_part, 0) + 1
+                                )
+                        break
+                    except ValueError:
+                        continue
+            except (OSError, ValueError):
+                continue
+
+        # Return most common, or all if tied
+        if first_level_counts:
+            max_count = max(first_level_counts.values())
+            most_common = [
+                pkg for pkg, count in first_level_counts.items() if count == max_count
+            ]
+            if len(most_common) == 1:
+                logger.trace(
+                    "[_infer_packages_from_includes] Using most common package: %s",
+                    most_common[0],
+                )
+                return most_common
+
+    result = sorted(candidates)
+    if result:
+        logger.trace("[_infer_packages_from_includes] Inferred packages: %s", result)
+    return result
+
+
+def _find_common_path_prefix(paths: list[str], config_dir: Path) -> str | None:
+    """Find the longest common path prefix of a list of paths.
+
+    Args:
+        paths: List of path strings (relative to config_dir)
+        config_dir: Config directory for resolving paths
+
+    Returns:
+        Common prefix path string (relative to config_dir), or None if no common prefix
+    """
+    if not paths:
+        return None
+
+    # Resolve all paths and find common prefix
+    resolved_paths: list[Path] = []
+    for path_str in paths:
+        try:
+            resolved = (config_dir / path_str).resolve()
+            if resolved.exists():
+                resolved_paths.append(resolved)
+        except (OSError, ValueError):  # noqa: PERF203
+            continue
+
+    if not resolved_paths:
+        return None
+
+    # Find common prefix by comparing path parts
+    common_parts: list[str] = []
+    first_path = resolved_paths[0]
+    max_parts = len(first_path.parts)
+
+    for i in range(max_parts):
+        part = first_path.parts[i]
+        # Check if all paths have this part at this position
+        if all(i < len(p.parts) and p.parts[i] == part for p in resolved_paths[1:]):
+            common_parts.append(part)
+        else:
+            break
+
+    if not common_parts:
+        return None
+
+    # Reconstruct path and make relative to config_dir
+    common_path = Path(*common_parts)
+    try:
+        rel_path = common_path.relative_to(config_dir.resolve())
+        return str(rel_path)
+    except ValueError:
+        # Not relative to config_dir, return as-is
+        return str(common_path)
 
 
 def _resolve_includes(  # noqa: PLR0912
@@ -1403,6 +1641,13 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # Make a mutable copy
     resolved_cfg: dict[str, Any] = dict(build_cfg)
 
+    # Log package source if provided in config
+    if "package" in build_cfg and build_cfg.get("package"):
+        logger.info(
+            "Package name '%s' provided in config",
+            build_cfg.get("package"),
+        )
+
     # Set log_level if not present (for tests that call resolve_build_config directly)
     if "log_level" not in resolved_cfg:
         root_log = None
@@ -1576,12 +1821,15 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # Version
     # ------------------------------
     # Optional field - falls back to _pyproject_version in _extract_build_metadata()
-    # if use_pyproject was enabled
+    # if use_pyproject_metadata was enabled
     # No action needed here - value is already in resolved_cfg if present
 
     # ------------------------------
-    # Pyproject.toml metadata
+    # Pyproject.toml metadata extraction
     # ------------------------------
+    # Extracts all metadata once, then:
+    # - Always uses package name for resolution (if not already set)
+    # - Uses other metadata only if use_pyproject_metadata is enabled
     _apply_pyproject_metadata(
         resolved_cfg,
         build_cfg=build_cfg,
@@ -1590,11 +1838,107 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     )
 
     # ------------------------------
+    # Package resolution (steps 3-7)
+    # ------------------------------
+    # Order of operations:
+    # 1. ✅ User-provided in config (already set, logged above)
+    # 2. ✅ pyproject.toml (just completed above)
+    # 3. 🔲 Infer from include paths
+    # 4. 🔲 Main function detection
+    # 5. 🔲 Most common package in includes (handled in step 3)
+    # 6. ✅ Single module auto-detection
+    # 7. 🔲 First package in module_bases order
+    package = resolved_cfg.get("package")
+    module_bases_list = resolved_cfg.get("module_bases", [])
+    config_includes = resolved_cfg.get("include", [])
+
+    # Step 3: Infer from include paths (if package not set and includes exist)
+    if not package and config_includes:
+        inferred_packages = _infer_packages_from_includes(
+            config_includes, module_bases_list, config_dir
+        )
+        if inferred_packages:
+            # Use first package if single, or most common if multiple (already handled)
+            resolved_cfg["package"] = inferred_packages[0]
+            logger.info(
+                "Package name '%s' inferred from include paths. "
+                "Set 'package' in config to override.",
+                inferred_packages[0],
+            )
+
+    # Step 4: Main function detection (if package not set and multiple modules exist)
+    package = resolved_cfg.get("package")
+    if not package and module_bases_list:
+        # Check if multiple modules exist
+        all_modules = _get_first_level_modules_from_bases(module_bases_list, config_dir)
+        if len(all_modules) > 1:
+            # Try to find main function in modules
+            for module_name in all_modules:
+                # Find module path
+                module_path: Path | None = None
+                for base_str in module_bases_list:
+                    base_path = (config_dir / base_str).resolve()
+                    module_dir = base_path / module_name
+                    module_file = base_path / f"{module_name}.py"
+                    if module_dir.exists() and module_dir.is_dir():
+                        module_path = module_dir
+                        break
+                    if module_file.exists() and module_file.is_file():
+                        module_path = module_file.parent
+                        break
+                if module_path and _has_main_function(module_path):
+                    # Simple check for main function (def main( or if __name__ == "__main__")  # noqa: E501
+                    resolved_cfg["package"] = module_name
+                    logger.info(
+                        "Package name '%s' detected via main() function. "
+                        "Set 'package' in config to override.",
+                        module_name,
+                    )
+                    break
+
+    # Step 6: Single module auto-detection (if package not set)
+    package = resolved_cfg.get("package")
+    if not package and module_bases_list:
+        # Find the first module_base with exactly 1 module
+        detected_module: str | None = None
+        detected_base: str | None = None
+        for base_str in module_bases_list:
+            base_modules = _get_first_level_modules_from_base(base_str, config_dir)
+            if len(base_modules) == 1:
+                # Found a base with exactly 1 module
+                detected_module = base_modules[0]
+                detected_base = base_str
+                break
+
+        if detected_module and detected_base:
+            # Set package to the detected module
+            resolved_cfg["package"] = detected_module
+            logger.info(
+                "Package name '%s' auto-detected from single module in "
+                "module_base '%s'. Set 'package' in config to override.",
+                detected_module,
+                detected_base,
+            )
+
+    # Step 7: First package in module_bases order (if package not set)
+    package = resolved_cfg.get("package")
+    if not package and module_bases_list:
+        all_modules = _get_first_level_modules_from_bases(module_bases_list, config_dir)
+        if len(all_modules) > 0:
+            # Use first module found (preserves module_bases order)
+            resolved_cfg["package"] = all_modules[0]
+            logger.info(
+                "Package name '%s' selected from module_bases (first found). "
+                "Set 'package' in config to override.",
+                all_modules[0],
+            )
+
+    # ------------------------------
     # Auto-set includes from package and module_bases
     # ------------------------------
     # If no includes were provided (configless or config has no includes),
     # automatically set includes based on package and module_bases.
-    # This must run AFTER pyproject metadata is applied so package from
+    # This must run AFTER pyproject metadata extraction so package from
     # pyproject.toml is available.
     has_cli_includes = bool(
         getattr(args, "include", None) or getattr(args, "add_include", None)
@@ -1608,152 +1952,70 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     package = resolved_cfg.get("package")
     module_bases_list = resolved_cfg.get("module_bases", [])
 
-    # Check if we should attempt auto-detection
-    should_auto_detect = (
-        not has_cli_includes
+    # Auto-set includes based on package (if package exists and no includes provided)
+    if (
+        package
+        and not has_cli_includes
         and not has_config_includes
         and not has_explicit_config_includes
         and module_bases_list
-    )
+    ):
+        # Package exists and is found in module_bases
+        # Get first-level modules from module_bases for this check
+        first_level_modules = _get_first_level_modules_from_bases(
+            module_bases_list, config_dir
+        )
+        if package in first_level_modules:
+            logger.debug(
+                "Auto-setting includes to package '%s' found in module_bases: %s",
+                package,
+                module_bases_list,
+            )
 
-    if should_auto_detect:
-        # Condition 1: We have a package but it's NOT found in module_bases
-        # Condition 2: We don't have a package
-        # In both cases, find the first module_base with exactly 1 module
-        should_auto_detect_single_module = False
-        if package:
-            # Condition 1: Package exists but not found in module_bases
-            if not _package_exists_in_module_bases(
-                package, module_bases_list, config_dir
-            ):
-                should_auto_detect_single_module = True
-        else:
-            # Condition 2: No package
-            should_auto_detect_single_module = True
-
-        if should_auto_detect_single_module:
-            # Find the first module_base with exactly 1 module
-            detected_module: str | None = None
-            detected_base: str | None = None
+            # Find which module_base contains the package
+            # Can be either a directory (package) or a .py file (module)
+            package_path: str | None = None
             for base_str in module_bases_list:
-                base_modules = _get_first_level_modules_from_base(base_str, config_dir)
-                if len(base_modules) == 1:
-                    # Found a base with exactly 1 module
-                    detected_module = base_modules[0]
-                    detected_base = base_str
+                base_path = (config_dir / base_str).resolve()
+                package_dir = base_path / package
+                package_file = base_path / f"{package}.py"
+
+                if package_dir.exists() and package_dir.is_dir():
+                    # Found the package directory
+                    # Create include path relative to config_dir
+                    rel_path = package_dir.relative_to(config_dir)
+                    package_path = str(rel_path)
+                    break
+                if package_file.exists() and package_file.is_file():
+                    # Found the package as a single-file module
+                    # Create include path relative to config_dir
+                    rel_path = package_file.relative_to(config_dir)
+                    package_path = str(rel_path)
                     break
 
-            if detected_module and detected_base:
-                logger.debug(
-                    "Auto-detecting package '%s' from single module in "
-                    "module_base '%s' (from module_bases: %s)",
-                    detected_module,
-                    detected_base,
-                    module_bases_list,
+            if package_path:
+                # Set includes to the package found in module_bases
+                # For directories, add trailing slash to ensure recursive matching
+                # (build.py handles directories with trailing slash as recursive)
+                package_path_str = str(package_path)
+                # Check if it's a directory (not a .py file) and add trailing slash
+                if (
+                    (config_dir / package_path_str).exists()
+                    and (config_dir / package_path_str).is_dir()
+                    and not package_path_str.endswith(".py")
+                    and not package_path_str.endswith("/")
+                ):
+                    # Add trailing slash for recursive directory matching
+                    package_path_str = f"{package_path_str}/"
+
+                root, rel = _normalize_path_with_root(package_path_str, config_dir)
+                auto_include = make_includeresolved(rel, root, "config")
+                resolved_cfg["include"] = [auto_include]
+                logger.trace(
+                    "[resolve_build_config] Auto-set include: %s (root: %s)",
+                    rel,
+                    root,
                 )
-
-                # Set package to the detected module
-                resolved_cfg["package"] = detected_module
-
-                # Find the module in the detected base
-                # Can be either a directory (package) or a .py file (module)
-                base_path = (config_dir / detected_base).resolve()
-                module_dir = base_path / detected_module
-                module_file = base_path / f"{detected_module}.py"
-
-                module_path: str | None = None
-                if module_dir.exists() and module_dir.is_dir():
-                    # Found the module directory
-                    # Create include path relative to config_dir
-                    rel_path = module_dir.relative_to(config_dir)
-                    module_path = str(rel_path)
-                elif module_file.exists() and module_file.is_file():
-                    # Found the module as a single-file module
-                    # Create include path relative to config_dir
-                    rel_path = module_file.relative_to(config_dir)
-                    module_path = str(rel_path)
-
-                if module_path:
-                    # Set includes to the module found in module_bases
-                    # For directories, add trailing slash to ensure recursive matching
-                    # (build.py handles directories with trailing slash as recursive)
-                    module_path_str = str(module_path)
-                    # Check if it's a directory (not a .py file) and add trailing slash
-                    if (
-                        (config_dir / module_path_str).exists()
-                        and (config_dir / module_path_str).is_dir()
-                        and not module_path_str.endswith(".py")
-                        and not module_path_str.endswith("/")
-                    ):
-                        # Add trailing slash for recursive directory matching
-                        module_path_str = f"{module_path_str}/"
-
-                    root, rel = _normalize_path_with_root(module_path_str, config_dir)
-                    auto_include = make_includeresolved(rel, root, "config")
-                    resolved_cfg["include"] = [auto_include]
-                    logger.trace(
-                        "[resolve_build_config] Auto-set include: %s (root: %s)",
-                        rel,
-                        root,
-                    )
-            # If no base has exactly 1 module, don't auto-detect (too ambiguous)
-        elif package:
-            # Original logic: package exists and is found in module_bases
-            # Get first-level modules from module_bases for this check
-            first_level_modules = _get_first_level_modules_from_bases(
-                module_bases_list, config_dir
-            )
-            if package in first_level_modules:
-                logger.debug(
-                    "Auto-setting includes to package '%s' found in module_bases: %s",
-                    package,
-                    module_bases_list,
-                )
-
-                # Find which module_base contains the package
-                # Can be either a directory (package) or a .py file (module)
-                package_path: str | None = None
-                for base_str in module_bases_list:
-                    base_path = (config_dir / base_str).resolve()
-                    package_dir = base_path / package
-                    package_file = base_path / f"{package}.py"
-
-                    if package_dir.exists() and package_dir.is_dir():
-                        # Found the package directory
-                        # Create include path relative to config_dir
-                        rel_path = package_dir.relative_to(config_dir)
-                        package_path = str(rel_path)
-                        break
-                    if package_file.exists() and package_file.is_file():
-                        # Found the package as a single-file module
-                        # Create include path relative to config_dir
-                        rel_path = package_file.relative_to(config_dir)
-                        package_path = str(rel_path)
-                        break
-
-                if package_path:
-                    # Set includes to the package found in module_bases
-                    # For directories, add trailing slash to ensure recursive matching
-                    # (build.py handles directories with trailing slash as recursive)
-                    package_path_str = str(package_path)
-                    # Check if it's a directory (not a .py file) and add trailing slash
-                    if (
-                        (config_dir / package_path_str).exists()
-                        and (config_dir / package_path_str).is_dir()
-                        and not package_path_str.endswith(".py")
-                        and not package_path_str.endswith("/")
-                    ):
-                        # Add trailing slash for recursive directory matching
-                        package_path_str = f"{package_path_str}/"
-
-                    root, rel = _normalize_path_with_root(package_path_str, config_dir)
-                    auto_include = make_includeresolved(rel, root, "config")
-                    resolved_cfg["include"] = [auto_include]
-                    logger.trace(
-                        "[resolve_build_config] Auto-set include: %s (root: %s)",
-                        rel,
-                        root,
-                    )
 
     # ------------------------------
     # Attach provenance

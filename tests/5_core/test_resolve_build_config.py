@@ -535,7 +535,7 @@ authors = [
 ]
 """
     )
-    raw = make_build_input(include=["src/**"], use_pyproject=True)
+    raw = make_build_input(include=["src/**"], use_pyproject_metadata=True)
     args = _args()
 
     # --- execute ---
@@ -551,11 +551,11 @@ authors = [
     assert resolved.get("_pyproject_version") == "1.2.3"
 
 
-def test_resolve_build_config_single_build_respects_use_pyproject_false(
+def test_resolve_build_config_single_build_respects_use_pyproject_metadata_false(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Single build should respect explicit use_pyproject: false for all metadata."""
+    """Single build should respect explicit use_pyproject_metadata: false."""
     # --- setup ---
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
@@ -568,7 +568,7 @@ authors = [
 ]
 """
     )
-    raw = make_build_input(include=["src/**"], use_pyproject=False)
+    raw = make_build_input(include=["src/**"], use_pyproject_metadata=False)
     args = _args()
 
     # --- execute ---
@@ -576,7 +576,7 @@ authors = [
         resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # No metadata should be extracted when use_pyproject is false
+    # No metadata should be extracted when use_pyproject_metadata is false
     assert (
         "display_name" not in resolved or resolved.get("display_name") != "test-package"
     )
@@ -588,8 +588,9 @@ authors = [
         "authors" not in resolved
         or resolved.get("authors") != "Alice <alice@example.com>"
     )
-    # Package should not fallback to pyproject.toml name when use_pyproject is false
-    assert "package" not in resolved or resolved.get("package") != "test-package"
+    # Package IS always extracted from pyproject.toml for resolution purposes,
+    # regardless of use_pyproject_metadata setting
+    assert resolved.get("package") == "test-package"
 
 
 def test_resolve_build_config_multi_build_requires_opt_in(
@@ -605,7 +606,7 @@ name = "test-package"
 version = "1.2.3"
 """
     )
-    raw1 = make_build_input(include=["src1/**"], use_pyproject=False)
+    raw1 = make_build_input(include=["src1/**"], use_pyproject_metadata=False)
     args = _args()
 
     # --- execute ---
@@ -613,11 +614,14 @@ version = "1.2.3"
         resolved = mod_resolve.resolve_build_config(raw1, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # Should not use pyproject.toml when explicitly disabled
+    # Should not use pyproject.toml metadata when explicitly disabled
     assert (
         "display_name" not in resolved or resolved.get("display_name") != "test-package"
     )
     assert "_pyproject_version" not in resolved
+    # Package IS always extracted from pyproject.toml for resolution purposes,
+    # regardless of use_pyproject_metadata setting
+    assert resolved.get("package") == "test-package"
 
 
 def test_resolve_build_config_multi_build_with_opt_in(
@@ -634,7 +638,7 @@ version = "1.2.3"
 description = "A test package"
 """
     )
-    raw1 = make_build_input(include=["src1/**"], use_pyproject=True)
+    raw1 = make_build_input(include=["src1/**"], use_pyproject_metadata=True)
     args = _args()
 
     # --- execute ---
@@ -668,7 +672,7 @@ version = "1.0.0"
 """
     )
     raw = make_build_input(
-        include=["src/**"], pyproject_path="custom.toml", use_pyproject=True
+        include=["src/**"], pyproject_path="custom.toml", use_pyproject_metadata=True
     )
     args = _args()
 
@@ -706,11 +710,11 @@ version = "3.0.0"
     assert resolved.get("_pyproject_version") == "3.0.0"
 
 
-def test_resolve_build_config_root_use_pyproject_enables_for_all_builds(
+def test_resolve_build_config_root_use_pyproject_metadata_enables_for_all_builds(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Root-level use_pyproject=True should enable pyproject for all builds."""
+    """Root-level use_pyproject_metadata=True should enable pyproject for all builds."""
     # --- setup ---
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
@@ -720,8 +724,8 @@ version = "1.2.3"
 description = "A test package"
 """
     )
-    raw1 = make_build_input(include=["src1/**"], use_pyproject=True)
-    raw2 = make_build_input(include=["src2/**"], use_pyproject=True)
+    raw1 = make_build_input(include=["src1/**"], use_pyproject_metadata=True)
+    raw2 = make_build_input(include=["src2/**"], use_pyproject_metadata=True)
     args = _args()
 
     # --- execute ---
@@ -762,7 +766,7 @@ authors = [
         display_name="config-name",
         description="config description",
         authors="Config Author <config@example.com>",
-        use_pyproject=True,
+        use_pyproject_metadata=True,
     )
     args = _args()
 
@@ -831,7 +835,7 @@ description = "A test package"
 license = "MIT"
 """
     )
-    raw = make_build_input(include=["src/**"], use_pyproject=False)
+    raw = make_build_input(include=["src/**"], use_pyproject_metadata=False)
     # Configless build: minimal root_cfg with only builds
     args = _args()
 
@@ -842,17 +846,19 @@ license = "MIT"
     # --- validate ---
     # Configless builds should not extract pyproject.toml metadata when disabled
     assert resolved.get("display_name") != "test-package"
-    assert resolved.get("package") != "test-package"
+    # Package IS always extracted from pyproject.toml for resolution purposes,
+    # regardless of use_pyproject_metadata setting
+    assert resolved.get("package") == "test-package"
     assert resolved.get("description") != "A test package"
     assert resolved.get("license_header") != "MIT"
     assert "_pyproject_version" not in resolved
 
 
-def test_resolve_build_config_root_pyproject_path_with_use_pyproject_false(
+def test_resolve_build_config_root_pyproject_path_with_use_pyproject_metadata_false(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Config with use_pyproject: false should not use pyproject."""
+    """Config with use_pyproject_metadata: false should not use pyproject."""
     # --- setup ---
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
@@ -861,7 +867,7 @@ name = "test-package"
 version = "1.2.3"
 """
     )
-    raw = make_build_input(include=["src/**"], use_pyproject=False)
+    raw = make_build_input(include=["src/**"], use_pyproject_metadata=False)
     args = _args()
 
     # --- execute ---
@@ -878,7 +884,7 @@ def test_resolve_build_config_build_pyproject_path_overrides_root_false(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Build pyproject_path enables pyproject even if root use_pyproject is false."""
+    """Build pyproject_path enables pyproject even if root metadata is false."""
     # --- setup ---
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
@@ -900,11 +906,11 @@ version = "1.2.3"
     assert resolved.get("display_name") == "test-package"
 
 
-def test_resolve_build_config_build_use_pyproject_false_overrides_pyproject_path(
+def test_resolve_build_config_build_use_pyproject_metadata_false_overrides_path(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Build use_pyproject: false disables pyproject even if pyproject_path is set."""
+    """Build use_pyproject_metadata: false disables metadata even if path is set."""
     # --- setup ---
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
@@ -916,7 +922,7 @@ version = "1.2.3"
     raw = make_build_input(
         include=["src/**"],
         pyproject_path="pyproject.toml",
-        use_pyproject=False,
+        use_pyproject_metadata=False,
     )
     args = _args()
 
@@ -925,7 +931,7 @@ version = "1.2.3"
         resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # Build-level use_pyproject: false should disable it
+    # Build-level use_pyproject_metadata: false should disable it
     assert "_pyproject_version" not in resolved
     assert resolved.get("display_name") != "test-package"
 
@@ -944,7 +950,7 @@ version = "1.0.0"
 """
     )
     # Build config without package field, but with pyproject enabled
-    raw = make_build_input(include=["src/**"], use_pyproject=True)
+    raw = make_build_input(include=["src/**"], use_pyproject_metadata=True)
     args = _args()
 
     # --- execute ---
@@ -978,7 +984,7 @@ authors = [
 ]
 """
     )
-    raw = make_build_input(include=["src/**"], use_pyproject=True)
+    raw = make_build_input(include=["src/**"], use_pyproject_metadata=True)
     args = _args()
 
     # --- execute ---
@@ -1065,7 +1071,7 @@ authors = [
 ]
 """
     )
-    raw = make_build_input(include=["src/**"], use_pyproject=True)
+    raw = make_build_input(include=["src/**"], use_pyproject_metadata=True)
     args = _args()
 
     # --- execute ---
@@ -1094,7 +1100,7 @@ authors = [
     )
     raw = make_build_input(
         include=["src/**"],
-        use_pyproject=False,
+        use_pyproject_metadata=False,
         authors="Root Author <root@example.com>",
     )
     args = _args()
@@ -2460,8 +2466,11 @@ def test_resolve_build_config_auto_include_does_not_set_when_package_not_found(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Auto-include should not set when package is not found in module_bases
-    and there are multiple modules."""
+    """Auto-include should not set when package is provided but not found.
+
+    When a package is explicitly provided but doesn't exist in module_bases,
+    we don't auto-set includes (respects user's explicit choice even if invalid).
+    """
     # --- setup ---
     src_dir = tmp_path / "src"
     src_dir.mkdir()
@@ -2471,7 +2480,7 @@ def test_resolve_build_config_auto_include_does_not_set_when_package_not_found(
     make_test_package(pkg_dir2)
 
     # Config with package that doesn't exist in module_bases
-    # Multiple modules means we can't auto-detect (too ambiguous)
+    # User explicitly provided package, so we respect it (even if invalid)
     raw = make_build_input(package="nonexistent", module_bases=["src"])
     args = _args()
 
@@ -2480,7 +2489,9 @@ def test_resolve_build_config_auto_include_does_not_set_when_package_not_found(
         resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # Should not auto-set includes when package not found and multiple modules exist
+    # Package should remain as user provided (even if not found)
+    assert resolved.get("package") == "nonexistent"
+    # Should not auto-set includes when package not found in module_bases
     assert len(resolved["include"]) == 0
 
 
@@ -2488,8 +2499,12 @@ def test_resolve_build_config_auto_include_does_not_set_when_no_package(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Auto-include should not set when package is not provided
-    and there are multiple modules."""
+    """Auto-include should set when package is auto-detected from multiple modules.
+
+    With the new enhanced auto-detection, when multiple modules exist and no package
+    is provided, step 7 (first package in module_bases order) will select the first
+    module found, and includes will be auto-set based on that package.
+    """
     # --- setup ---
     src_dir = tmp_path / "src"
     src_dir.mkdir()
@@ -2499,7 +2514,7 @@ def test_resolve_build_config_auto_include_does_not_set_when_no_package(
     make_test_package(pkg_dir2)
 
     # Config without package
-    # Multiple modules means we can't auto-detect (too ambiguous)
+    # Multiple modules - step 7 will select first one found
     raw = make_build_input(module_bases=["src"])
     args = _args()
 
@@ -2508,8 +2523,10 @@ def test_resolve_build_config_auto_include_does_not_set_when_no_package(
         resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # Should not auto-set includes when no package and multiple modules exist
-    assert len(resolved["include"]) == 0
+    # Package should be auto-detected (first in module_bases order)
+    assert resolved.get("package") in ("mypkg", "otherpkg")
+    # Includes should be auto-set based on detected package
+    assert len(resolved["include"]) > 0
 
 
 def test_resolve_build_config_auto_include_does_not_set_when_explicit_empty_includes(
@@ -2592,7 +2609,11 @@ def test_resolve_build_config_auto_detect_single_module_when_package_not_found(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Auto-detect single module when package is not found in module_bases."""
+    """Respect user's explicit package choice even if not found in module_bases.
+
+    When a package is explicitly provided, we respect it (even if invalid).
+    Auto-detection only happens when no package is provided.
+    """
     # --- setup ---
     src_dir = tmp_path / "src"
     src_dir.mkdir()
@@ -2600,7 +2621,7 @@ def test_resolve_build_config_auto_detect_single_module_when_package_not_found(
     make_test_package(pkg_dir)
 
     # Config with package that doesn't exist in module_bases
-    # But there's exactly 1 module, so we should auto-detect it
+    # User explicitly provided package, so we respect it
     raw = make_build_input(package="nonexistent", module_bases=["src"])
     args = _args()
 
@@ -2609,12 +2630,10 @@ def test_resolve_build_config_auto_detect_single_module_when_package_not_found(
         resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # Should auto-detect the single module and set it as package
-    assert resolved.get("package") == "mypkg"
-    assert len(resolved["include"]) == 1
-    inc = resolved["include"][0]
-    assert inc["path"] == "src/mypkg/"
-    assert inc["origin"] == "config"
+    # Should respect user's explicit package choice (even if not found)
+    assert resolved.get("package") == "nonexistent"
+    # Should not auto-set includes when package not found
+    assert len(resolved["include"]) == 0
 
 
 def test_resolve_build_config_auto_detect_single_module_when_no_package(
@@ -2693,8 +2712,8 @@ def test_resolve_build_config_auto_include_works_with_pyproject_package(
         encoding="utf-8",
     )
 
-    # Config with use_pyproject enabled but no includes
-    raw = make_build_input(module_bases=["src"], use_pyproject=True)
+    # Config with use_pyproject_metadata enabled but no includes
+    raw = make_build_input(module_bases=["src"], use_pyproject_metadata=True)
     args = _args()
 
     # --- execute ---

@@ -153,15 +153,15 @@ def test_zero_config_auto_detect_package_not_found_in_module_bases(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Build succeeds when package is set but not found, and single module exists.
+    """Build uses user-provided package even when not found in module_bases.
 
     Scenario:
     - Has config with package="nonexistent" but no includes
     - src/mypkg/ exists (single package directory)
     - module_bases = ["src"]
     - Package "nonexistent" is not found in module_bases
-    - Should auto-detect mypkg as package and set includes to src/mypkg/
-    - Build should succeed
+    - User-provided package is always respected (highest priority)
+    - Build should fail because package is not found (no includes auto-set)
     """
     # --- setup ---
     src_dir = tmp_path / "src"
@@ -197,23 +197,13 @@ def test_zero_config_auto_detect_package_not_found_in_module_bases(
     captured = capsys.readouterr()
     out = (captured.out + captured.err).lower()
 
-    # Should exit successfully
-    assert code == 0, f"Build failed. Output: {out}"
-
-    # Output directory should exist and contain stitched file
-    dist = tmp_path / "dist"
-    assert dist.exists(), "Output directory should exist"
-    stitched_file = dist / "mypkg.py"
-    assert stitched_file.exists(), "Stitched file should exist"
-    assert stitched_file.is_file(), "Stitched file should be a file"
-
-    # Log output should mention stitching
-    assert "stitch completed" in out or "all builds complete" in out
-
-    # Verify the stitched file contains the module content
-    content = stitched_file.read_text()
-    assert "def hello()" in content
-    assert "Hello from mypkg" in content
+    # Should fail because user-provided package "nonexistent" is not found
+    # and no includes were auto-set (package not found in module_bases)
+    assert code != 0, f"Build should fail. Output: {out}"
+    assert (
+        "package name 'nonexistent' provided" in out
+        or "no include patterns found" in out
+    )
 
 
 def test_zero_config_no_auto_detect_when_all_bases_have_multiple_modules(
@@ -221,14 +211,14 @@ def test_zero_config_no_auto_detect_when_all_bases_have_multiple_modules(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Build fails when all module_bases have multiple modules (too ambiguous).
+    """Build succeeds using first package in module_bases when all have multiple.
 
     Scenario:
     - Has config with module_bases=["src", "lib"] but no package/includes
-    - src/ has multiple modules (pkg1, pkg2) - rejected
-    - lib/ has multiple modules (pkg3, pkg4) - rejected
-    - Should NOT auto-detect (no base has exactly 1 module)
-    - Build should fail with "no include patterns found"
+    - src/ has multiple modules (pkg1, pkg2)
+    - lib/ has multiple modules (pkg3, pkg4)
+    - With new resolution logic (step 7), uses first package in module_bases
+    - Build should succeed with auto-detected package and auto-set includes
     """
     # --- setup ---
     src_dir = tmp_path / "src"
@@ -266,9 +256,13 @@ def test_zero_config_no_auto_detect_when_all_bases_have_multiple_modules(
     captured = capsys.readouterr()
     out = (captured.out + captured.err).lower()
 
-    # Should fail because no base has exactly 1 module
-    assert code != 0, "Build should fail when all bases have multiple modules"
-    assert "no include patterns found" in out
+    # Should succeed with first package in module_bases order (step 7)
+    assert code == 0, f"Build should succeed. Output: {out}"
+    # Package should be auto-detected (pkg1 or pkg3, depending on order)
+    assert "auto-detected" in out or "selected from module_bases" in out
+    # Output directory should exist
+    dist = tmp_path / "dist"
+    assert dist.exists(), "Output directory should exist"
 
 
 def test_zero_config_auto_detect_with_custom_module_bases(

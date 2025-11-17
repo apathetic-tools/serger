@@ -26,7 +26,7 @@ def test_extract_build_metadata_with_version() -> None:
         pyproject.write_text('version = "1.2.3"\n')
 
         build_cfg = make_build_cfg(tmp_path, include=[])
-        # Simulate what happens during resolution when use_pyproject is enabled
+        # Simulate what happens during resolution when use_pyproject_metadata is enabled
         build_cfg["_pyproject_version"] = "1.2.3"
 
         version, commit, build_date = mod_build._extract_build_metadata(

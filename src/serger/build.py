@@ -438,7 +438,7 @@ def _extract_build_metadata(
     # Priority order for version:
     # 1. version from config (hoisted from root or build-level)
     # 2. _pyproject_version (extracted from pyproject.toml during resolution
-    #    if use_pyproject was enabled)
+    #    if use_pyproject_metadata was enabled)
     # 3. Direct extraction from pyproject.toml as fallback
     # 4. timestamp as last resort
     version = build_cfg.get("version")
@@ -492,19 +492,34 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
     license_header = build_cfg.get("license_header", "")
     out_entry = build_cfg["out"]
 
-    # Skip if package is not provided (required for stitch builds)
-    if not package:
-        logger.warning(
-            "Skipping build: 'package' field is required for "
-            "stitch builds. This build does not have it. "
-            "(File copying is handled by pocket-build, not serger.)"
-        )
-        return
+    # Collect included files to check if this is a stitch build
+    includes = build_cfg.get("include", [])
+    excludes = build_cfg.get("exclude", [])
+    # Validation happens inside collect_included_files
+    included_files, file_to_include = collect_included_files(includes, excludes)
 
-    # Type checking - ensure correct types after narrowing
-    if not isinstance(package, str):  # pyright: ignore[reportUnnecessaryIsInstance]
-        xmsg = f"Invalid package name (expected str, got {type(package).__name__})"
-        raise TypeError(xmsg)
+    # Safety net: Defensive check for missing package
+    # This is a minimal safety check for:
+    #   - Direct calls to run_build() (bypassing CLI validation)
+    #   - Edge cases where validation might have been missed
+    # Primary validation with detailed error messages happens in _validate_package()
+    # in cli.py, which runs early in the CLI flow after config resolution.
+    # Note: Package is only required for stitch builds (which need includes).
+    # If there are no included files, package is not required.
+    if included_files:
+        if not package:
+            xmsg = (
+                "Package name is required for stitch builds. "
+                "This should have been caught during validation. "
+                "If you're calling run_build() directly, ensure package is set "
+                "in the config."
+            )
+            raise ValueError(xmsg)
+
+        # Type checking - ensure correct types after narrowing
+        if not isinstance(package, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+            xmsg = f"Invalid package name (expected str, got {type(package).__name__})"
+            raise TypeError(xmsg)
     if order is not None and not isinstance(order, list):  # pyright: ignore[reportUnnecessaryIsInstance]
         xmsg = f"Invalid order (expected list, got {type(order).__name__})"
         raise TypeError(xmsg)
@@ -520,21 +535,29 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
     is_directory = out_path.is_dir() or (
         not out_path.exists() and not out_path_str.endswith(".py")
     )
-    if is_directory:
+    # Only use package for output path if we have included files (stitch build)
+    if is_directory and included_files and package:
         out_path = out_path / f"{package}.py"
 
     if dry_run:
-        logger.info("🧪 (dry-run) Would stitch %s to: %s", package, out_path)
+        if included_files and package:
+            logger.info("🧪 (dry-run) Would stitch %s to: %s", package, out_path)
+        else:
+            logger.info("🧪 (dry-run) Would write to: %s", out_path)
         return
 
-    # Collect included files using new collection functions
-    includes = build_cfg.get("include", [])
-    excludes = build_cfg.get("exclude", [])
-    # Validation happens inside collect_included_files
-    included_files, file_to_include = collect_included_files(includes, excludes)
-
     if not included_files:
-        xmsg = "No files found matching include patterns"
+        # No files to stitch - this is not a stitch build
+        # Return early (package validation already skipped above)
+        return
+
+    # At this point, we have included_files, so package must be set and valid
+    # (validated above). Type guard for type checker.
+    if not package or not isinstance(package, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+        xmsg = (
+            "Package must be set when included_files exist. "
+            "This should have been caught during validation."
+        )
         raise ValueError(xmsg)
 
     # Get config root for resolving order paths and validating module_actions

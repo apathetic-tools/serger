@@ -63,19 +63,6 @@ def test_parse_config_flat_config_with_unknown_fields() -> None:
     assert result["mystery"] is True
 
 
-def test_parse_config_rejects_list_of_dicts() -> None:
-    """List of dicts (multi-build) should raise TypeError."""
-    # --- setup ---
-    data: list[dict[str, Any]] = [
-        {"include": ["src"]},
-        {"include": ["lib"]},
-    ]
-
-    # --- execute & verify ---
-    with pytest.raises(TypeError, match="Multi-build configuration is not supported"):
-        mod_config_loader.parse_config(data)
-
-
 def test_parse_config_rejects_mixed_type_list() -> None:
     """Mixed-type list should raise TypeError (must be all strings)."""
     # --- setup ---
@@ -83,7 +70,7 @@ def test_parse_config_rejects_mixed_type_list() -> None:
     bad_config: list[object] = ["src/**", {"out": "dist"}]
 
     # --- execute & verify ---
-    with pytest.raises(TypeError, match="Invalid mixed-type list"):
+    with pytest.raises(TypeError, match="Invalid list configuration"):
         mod_config_loader.parse_config(bad_config)
 
 

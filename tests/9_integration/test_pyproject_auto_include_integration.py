@@ -52,13 +52,13 @@ version = "1.0.0"
 
     # Create minimal config with module_bases but no package or includes
     # Package should come from pyproject.toml, includes should be auto-set
-    # Need to enable use_pyproject since we have a config file
+    # Need to enable use_pyproject_metadata since we have a config file
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     config.write_text(
         """{
     "module_bases": ["src"],
     "out": "dist",
-    "use_pyproject": true
+    "use_pyproject_metadata": true
 }
 """,
         encoding="utf-8",
@@ -133,13 +133,13 @@ version = "1.0.0"
 
     # Create minimal config with module_bases but no package or includes
     # Package should come from pyproject.toml, includes should be auto-set
-    # Need to enable use_pyproject since we have a config file
+    # Need to enable use_pyproject_metadata since we have a config file
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     config.write_text(
         """{
     "module_bases": ["src"],
     "out": "dist",
-    "use_pyproject": true
+    "use_pyproject_metadata": true
 }
 """,
         encoding="utf-8",

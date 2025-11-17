@@ -245,19 +245,10 @@ def parse_config(
         logger.trace("[parse_config] Detected case: list of strings")
         return _parse_case_2_list_of_strings(raw_config)
 
-    # --- Case 3: list of dicts → error (multi-build not supported) ---
-    if isinstance(raw_config, list) and all(isinstance(x, dict) for x in raw_config):
-        logger.trace("[parse_config] Detected case: list of dicts (multi-build)")
-        xmsg = (
-            "Multi-build configuration is not supported. "
-            "Please use a single flat configuration object."
-        )
-        raise TypeError(xmsg)
-
-    # --- better error message for mixed lists ---
+    # --- Invalid list types (not all strings) ---
     if isinstance(raw_config, list):
         xmsg = (
-            "Invalid mixed-type list: "
+            "Invalid list configuration: "
             "all elements must be strings (for include patterns)."
         )
         raise TypeError(xmsg)
@@ -365,7 +356,7 @@ def load_and_validate_config(
     # Handles:
     #   - Root configs with "log_level"
     #   - Single-build dicts with "log_level"
-    # Skips empty, list, or multi-build roots.
+    # Skips empty or list configs.
     if isinstance(raw_config, dict):
         raw_log_level = raw_config.get("log_level")
         if isinstance(raw_log_level, str) and raw_log_level:

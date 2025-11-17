@@ -135,7 +135,7 @@ def load_toml(path: Path, *, required: bool = False) -> dict[str, Any] | None:
             xmsg = (
                 "TOML parsing requires 'tomli' package on Python 3.10. "
                 "Install it with: pip install tomli, or disable pyproject.toml support "
-                "by setting 'use_pyproject: false' in your config."
+                "by setting 'use_pyproject_metadata: false' in your config."
             )
             raise RuntimeError(xmsg) from None
         return None

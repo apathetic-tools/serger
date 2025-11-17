@@ -9,6 +9,8 @@ import re
 from pathlib import Path
 from typing import cast
 
+import pytest
+
 import serger.build as mod_build
 import serger.logs as mod_logs
 from tests.utils import make_build_cfg, make_include_resolved
@@ -45,27 +47,25 @@ def test_run_build_stitch_simple_modules(
     assert "MAIN = BASE" in content
 
 
-def test_run_build_skips_non_stitch_build(
+def test_run_build_errors_without_package(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Should skip builds without package field (file copying)."""
+    """Should raise error when package field is missing (required for stitch builds)."""
     # --- setup ---
     src = tmp_path / "src"
     src.mkdir()
-    (src / "file.txt").write_text("content")
+    (src / "mypkg.py").write_text("def hello(): pass")
 
-    cfg = make_build_cfg(tmp_path, [make_include_resolved("src", tmp_path)])
-    # No package - should be skipped
+    cfg = make_build_cfg(tmp_path, [make_include_resolved("src/**/*.py", tmp_path)])
+    # No package - should raise error
 
-    # --- execute ---
-    with module_logger.use_level("info"):
+    # --- execute & verify ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(ValueError, match="Package name is required"),
+    ):
         mod_build.run_build(cfg)
-
-    # --- verify ---
-    # No output file should be created (file copying is pocket-build's job)
-    out_file = tmp_path / "dist" / "testpkg.py"
-    assert not out_file.exists()
 
 
 def test_run_build_respects_order_paths(

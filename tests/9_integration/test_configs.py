@@ -193,16 +193,18 @@ def test_main_invalid_config(tmp_path: Path) -> None:
             "build_override_to_true",
         ),
         # Missing include but CLI provides --include - no warning
+        # Package will be inferred from include path
         (
-            {"out": "dist/mypkg.py"},
+            {"out": "dist/mypkg.py", "module_bases": ["."]},
             ["--include", "mypkg/**/*.py"],
             0,
             None,
             "cli_include_provided",
         ),
         # Missing include but CLI provides --add-include - no warning
+        # Package will be inferred from include path
         (
-            {"out": "dist/mypkg.py"},
+            {"out": "dist/mypkg.py", "module_bases": ["."]},
             ["--add-include", "mypkg/**/*.py"],
             0,
             None,

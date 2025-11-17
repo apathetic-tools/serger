@@ -68,7 +68,7 @@ All configuration options are specified at the root level of the config file:
 
 | Option | Type | Required | Default | Description |
 |--------|------|----------|---------|-------------|
-| `package` | `str` | Yes✝ | - | Package name (used for import shims). Fallback from `pyproject.toml` `[project] name`. |
+| `package` | `str` | Yes✝ | - | Package name (used for import shims). Can be inferred from `pyproject.toml` `[project] name`, include paths, or `module_bases` if not explicitly set. |
 | `include` | `list[str]` | Yes* | - | Glob patterns for files to include |
 | `exclude` | `list[str]` | No | `[]` | Glob patterns for files to exclude |
 | `out` | `str` | Yes* | - | Output file path (relative to project root) |
@@ -81,7 +81,7 @@ All configuration options are specified at the root level of the config file:
 | `respect_gitignore` | `bool` | No | `true` | Whether to respect `.gitignore` when selecting files |
 | `strict_config` | `bool` | No | `true` | Whether to error on missing include patterns |
 | `watch_interval` | `float` | No | `1.0` | File watch interval in seconds (for `--watch` mode) |
-| `use_pyproject` | `bool` | No | - | Whether to pull metadata from `pyproject.toml`. For configless builds, defaults to `true`. For builds with config files, must be explicitly set to `true` or `pyproject_path` must be set. |
+| `use_pyproject_metadata` | `bool` | No | - | Whether to pull metadata (display_name, description, authors, license, version) from `pyproject.toml`. Package name is always extracted from pyproject.toml for resolution purposes, regardless of this setting. For configless builds, defaults to `true`. For builds with config files, must be explicitly set to `true` or `pyproject_path` must be set. |
 | `pyproject_path` | `str` | No | - | Path to `pyproject.toml` (relative to config directory). Setting this implicitly enables pyproject.toml usage. |
 | `internal_imports` | `str` | No | `"force_strip"` | How to handle internal package imports (see [Import Handling](#import-handling)) |
 | `external_imports` | `str` | No | `"top"` | How to handle external imports (see [Import Handling](#import-handling)) |
@@ -841,8 +841,41 @@ The `module_bases` setting specifies an ordered list of directories where Serger
 ### Notes
 
 - The directories are searched in the order specified
-- This setting is currently reserved for future use and does not affect build behavior yet
+- Used for package auto-detection when `package` is not explicitly set
 - When a string is provided, it is automatically converted to a list containing that single string during resolution
+
+## Package Resolution
+
+The `package` field is required for stitch builds, but can be automatically inferred if not explicitly set. Serger attempts to determine the package name using the following priority order:
+
+### Resolution Order
+
+1. **Explicitly provided** - If `package` is set in your config, it is always used (highest priority)
+2. **pyproject.toml** - Extracted from `[project] name` if available
+3. **Include paths** - Inferred from the include patterns you provide
+4. **module_bases** - Auto-detected from modules found in `module_bases` directories
+
+### Details
+
+**Include path inference:**
+- Analyzes your include patterns to extract package names
+- Uses `__init__.py` and `__main__.py` markers when available
+- Validates against `module_bases` to ensure packages exist
+
+**module_bases auto-detection:**
+- Scans `module_bases` directories for first-level modules/packages
+- Prefers packages with `main()` functions when multiple options exist
+- Falls back to the first module found in `module_bases` order
+
+### Logging
+
+Serger logs where the package name was determined from, for example:
+- `Package name 'mypkg' provided in config`
+- `Package name 'mypkg' extracted from pyproject.toml for resolution`
+- `Package name 'mypkg' inferred from include paths. Set 'package' in config to override.`
+- `Package name 'mypkg' auto-detected from single module in module_base 'src'. Set 'package' in config to override.`
+
+You can always override the auto-detected package by explicitly setting `package` in your config.
 
 ## Main Configuration
 

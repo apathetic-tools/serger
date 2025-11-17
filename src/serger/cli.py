@@ -335,6 +335,139 @@ def _validate_includes(
     return True
 
 
+def _validate_package(  # noqa: PLR0912
+    root_cfg: RootConfig,
+    resolved: RootConfigResolved,
+    _args: argparse.Namespace,
+) -> bool:
+    """
+    Primary validation: Check that the build has a package name (required for
+    stitch builds).
+
+    This is the detailed validation that provides helpful error messages with
+    context:
+    - Lists available modules/packages found in module_bases
+    - Explains why auto-detection failed (multiple modules, no modules, etc.)
+    - Suggests solutions based on the specific situation
+    - Respects strict_config to determine error vs warning
+
+    This runs early in the CLI flow (after config resolution) to fail fast with
+    actionable guidance. A defensive check in run_build() serves as a safety net
+    for direct calls or edge cases.
+
+    Note: Package is only required for stitch builds (which need includes).
+    If there are no includes, package validation is skipped.
+
+    Returns True if validation passes, False if we should abort.
+    Logs appropriate warnings/errors.
+    """
+    logger = get_app_logger()
+
+    # Package is only required for stitch builds (which need includes)
+    # If there are no includes (config or CLI), skip package validation
+    # Note: CLI includes are merged during resolve_config, so resolved.get("include")
+    # should already include them. We check both resolved and args to be safe.
+    config_includes = resolved.get("include", [])
+    has_includes = len(config_includes) > 0
+    has_cli_includes = bool(
+        getattr(_args, "include", None) or getattr(_args, "add_include", None)
+    )
+    # If no includes at all, package is not required
+    if not has_includes and not has_cli_includes:
+        # No includes means no stitch build, so package is not required
+        return True
+    # If CLI provides includes, skip validation (package will be inferred from
+    # CLI includes during resolution). This handles the case where CLI includes
+    # are provided but package hasn't been resolved yet.
+    if has_cli_includes:
+        return True
+
+    # The presence of "package" key (even if None) signals intentional choice:
+    #   {"package": None}                  → package:null in config → no check
+    #
+    # Missing "package" key likely means forgotten or couldn't be auto-detected:
+    #   {}                                 → no package key → check
+    #   {"log_level": "debug"}             → no package key → check
+    has_explicit_package_key = "package" in root_cfg
+
+    # Check if package is missing in resolved config
+    package = resolved.get("package")
+    config_missing_package = not package
+
+    if not has_explicit_package_key and config_missing_package:
+        # Collect context for better error messages
+        module_bases = resolved.get("module_bases", [])
+        config_dir: Path | None = None
+        meta = resolved.get("__meta__")
+        if meta and isinstance(meta, dict):  # pyright: ignore[reportUnnecessaryIsInstance]
+            config_dir_raw = meta.get("config_root")
+            if isinstance(config_dir_raw, Path):  # pyright: ignore[reportUnnecessaryIsInstance]
+                config_dir = config_dir_raw
+
+        # Get all modules found in module_bases for helpful error messages
+        all_modules: list[str] = []
+        if module_bases and config_dir:
+            from .config.config_resolve import (  # noqa: PLC0415
+                _get_first_level_modules_from_bases,  # pyright: ignore[reportPrivateUsage]
+            )
+
+            all_modules = _get_first_level_modules_from_bases(module_bases, config_dir)
+            # Remove duplicates while preserving order
+            seen: set[str] = set()
+            unique_modules: list[str] = []
+            for mod in all_modules:
+                if mod not in seen:
+                    seen.add(mod)
+                    unique_modules.append(mod)
+            all_modules = unique_modules
+
+        # Build helpful error message based on what was found
+        if not module_bases:
+            msg = (
+                "No package name found.\n"
+                "   Use 'package' in your config, or set 'module_bases' to enable "
+                "auto-detection."
+            )
+        elif len(all_modules) == 0:
+            msg = (
+                "No package name found. No modules found in module_bases: "
+                f"{module_bases}.\n"
+                "   Use 'package' in your config, or ensure module_bases contain "
+                "Python modules/packages."
+            )
+        elif len(all_modules) == 1:
+            # This shouldn't happen (should have been auto-detected), but provide
+            # helpful message
+            msg = (
+                f"No package name found. Found single module '{all_modules[0]}' "
+                f"in module_bases: {module_bases}.\n"
+                "   This should have been auto-detected. Please specify 'package' "
+                "explicitly or report this as a bug."
+            )
+        else:
+            # Multiple modules found - explain why auto-detection failed
+            modules_str = ", ".join(f"'{m}'" for m in all_modules)
+            msg = (
+                f"No package name found. Found multiple modules in module_bases "
+                f"{module_bases}: {modules_str}.\n"
+                "   Please specify 'package' explicitly in your config to "
+                "indicate which module to use."
+            )
+
+        # Determine if we should error or warn based on strict_config
+        any_strict = resolved.get("strict_config", True)
+
+        if any_strict:
+            # Error: config has no package and strict_config=true
+            logger.error(msg)
+            return False
+
+        # Warning: config has no package but strict_config=false
+        logger.warning(msg)
+
+    return True
+
+
 def _handle_early_exits(args: argparse.Namespace) -> int | None:
     """
     Handle early exit conditions (version, selftest, Python version check).
@@ -433,7 +566,7 @@ def _execute_build(
 # --------------------------------------------------------------------------- #
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911
     logger = get_app_logger()  # init (use env + defaults)
 
     try:
@@ -453,6 +586,10 @@ def main(argv: list[str] | None = None) -> int:
 
         # --- Validate includes ---
         if not _validate_includes(config.root_cfg, config.resolved, args):
+            return 1
+
+        # --- Validate package ---
+        if not _validate_package(config.root_cfg, config.resolved, args):
             return 1
 
         # --- Dry-run notice ---

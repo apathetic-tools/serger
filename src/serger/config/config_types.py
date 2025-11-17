@@ -130,7 +130,7 @@ class BuildConfig(TypedDict, total=False):
     post_processing: PostProcessingConfig  # Post-processing configuration
 
     # Pyproject.toml integration
-    use_pyproject: bool  # Whether to pull metadata from pyproject.toml
+    use_pyproject_metadata: bool  # Whether to pull metadata from pyproject.toml
     pyproject_path: str  # Path to pyproject.toml (overrides root default)
 
     # Version (hoisted from root config, overrides pyproject version)
@@ -218,7 +218,7 @@ class RootConfig(TypedDict, total=False):
     post_processing: PostProcessingConfig  # Post-processing configuration
 
     # Pyproject.toml integration
-    use_pyproject: bool  # Whether to pull metadata from pyproject.toml
+    use_pyproject_metadata: bool  # Whether to pull metadata from pyproject.toml
     pyproject_path: str  # Path to pyproject.toml (overrides root default)
 
     # Version (overrides pyproject version)
