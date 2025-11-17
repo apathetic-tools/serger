@@ -147,12 +147,12 @@ def detect_function_parameters(
     )
 
 
-def find_main_function(  # noqa: PLR0912
+def find_main_function(  # noqa: PLR0912, C901, PLR0915
     *,
     config: "RootConfigResolved",
     file_paths: list[Path],
     module_sources: dict[str, str],
-    module_names: list[str],
+    _module_names: list[str],  # Unused: we derive from module_to_file instead
     package_root: Path,
     file_to_include: dict[Path, "IncludeResolved"],
     detected_packages: set[str],
@@ -168,7 +168,7 @@ def find_main_function(  # noqa: PLR0912
         config: Resolved configuration with main_mode and main_name
         file_paths: List of file paths being stitched (in order)
         module_sources: Mapping of module name to source code
-        module_names: List of module names in order
+        _module_names: List of module names in order (unused, kept for API)
         package_root: Common root of all included files
         file_to_include: Mapping of file path to its include
         detected_packages: Pre-detected package names
@@ -190,6 +190,33 @@ def find_main_function(  # noqa: PLR0912
     package_name_from_root: str | None = None
     if is_package_dir:
         package_name_from_root = package_root.name
+    # Also treat as package directory if package_root.name matches package
+    # (even without __init__.py, files in package_root are submodules of package)
+    elif package is not None and package_root.name == package:
+        package_name_from_root = package_root.name
+        is_package_dir = True  # Treat as package directory for module naming
+
+    # Check if any files have imports that reference the package name
+    # (indicates files are part of that package structure)
+    has_package_imports = False
+    if (
+        package is not None
+        and package_root.name != package
+        and package_root.name in ("src", "lib", "app", "package", "packages")
+    ):
+        # Quick check: see if any file imports from the package
+        for file_path in file_paths:
+            if not file_path.exists():
+                continue
+            try:
+                content = file_path.read_text(encoding="utf-8")
+                # Check for imports that reference the package name
+                if f"from {package}" in content or f"import {package}" in content:
+                    has_package_imports = True
+                    break
+            except Exception:  # noqa: BLE001, S110
+                # If we can't read the file, skip the check
+                pass
 
     module_to_file: dict[str, Path] = {}
     for file_path in file_paths:
@@ -204,11 +231,29 @@ def find_main_function(  # noqa: PLR0912
             else:
                 # Prepend package name to preserve structure
                 module_name = f"{package_name_from_root}.{module_name}"
+        # If package name is provided but package_root.name doesn't match,
+        # still prepend package name to ensure correct module structure
+        # (e.g., files in src/ but package is testpkg -> testpkg.utils)
+        # Only do this if package_root is a common project subdirectory
+        # (like src, lib, app) AND files have imports that reference the package
+        elif (
+            package is not None
+            and package_root.name != package
+            and not module_name.startswith(f"{package}.")
+            and has_package_imports
+            and module_name != package
+        ):
+            # Prepend package name to module name
+            module_name = f"{package}.{module_name}"
 
         module_to_file[module_name] = file_path
 
     # Parse main_name to get module path and function name
     module_path_spec, function_name = parse_main_name(main_name)
+
+    # Use module_to_file.keys() instead of module_names to ensure we use
+    # the correct module names (with package prefix if applicable)
+    available_module_names = sorted(module_to_file.keys())
 
     # Search strategy based on what's specified
     search_candidates: list[tuple[str, Path]] = []
@@ -220,49 +265,37 @@ def find_main_function(  # noqa: PLR0912
             # Match modules that start with the specified path
             search_candidates.extend(
                 (mod_name, module_to_file[mod_name])
-                for mod_name in sorted(module_names)
+                for mod_name in available_module_names
                 if (
-                    (
-                        mod_name == module_path_spec
-                        or mod_name.startswith(f"{module_path_spec}.")
-                    )
-                    and mod_name in module_to_file
+                    mod_name == module_path_spec
+                    or mod_name.startswith(f"{module_path_spec}.")
                 )
             )
         else:
             # Function name only: search across all packages
             search_candidates.extend(
                 (mod_name, module_to_file[mod_name])
-                for mod_name in sorted(module_names)
-                if mod_name in module_to_file
+                for mod_name in available_module_names
             )
     elif package is not None:
         # main_name is None, but package is set: search in that package
         search_candidates.extend(
             (mod_name, module_to_file[mod_name])
-            for mod_name in sorted(module_names)
-            if (
-                (mod_name == package or mod_name.startswith(f"{package}."))
-                and mod_name in module_to_file
-            )
+            for mod_name in available_module_names
+            if mod_name == package or mod_name.startswith(f"{package}.")
         )
     # No main_name and no package: search in first package from include order
     elif detected_packages:
         first_package = sorted(detected_packages)[0]
         search_candidates.extend(
             (mod_name, module_to_file[mod_name])
-            for mod_name in sorted(module_names)
-            if (
-                (mod_name == first_package or mod_name.startswith(f"{first_package}."))
-                and mod_name in module_to_file
-            )
+            for mod_name in available_module_names
+            if mod_name == first_package or mod_name.startswith(f"{first_package}.")
         )
     else:
         # No packages detected: search all modules
         search_candidates.extend(
-            (mod_name, module_to_file[mod_name])
-            for mod_name in sorted(module_names)
-            if mod_name in module_to_file
+            (mod_name, module_to_file[mod_name]) for mod_name in available_module_names
         )
 
     # Sort candidates by file priority

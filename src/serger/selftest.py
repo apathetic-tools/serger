@@ -359,9 +359,9 @@ def _verify_content(stitched_file: Path) -> None:
     )
 
     expected_markers = [
-        "# === base ===",
-        "# === utils ===",
-        "# === main ===",
+        "# === testpkg.base ===",
+        "# === testpkg.utils ===",
+        "# === testpkg.main ===",
         "BASE_VALUE = 42",
         "def get_value()",
         "def main(",

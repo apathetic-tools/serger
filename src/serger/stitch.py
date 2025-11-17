@@ -1662,7 +1662,7 @@ def force_mtime_advance(path: Path, seconds: float = 1.0, max_tries: int = 50) -
     raise AssertionError(xmsg)
 
 
-def _collect_modules(
+def _collect_modules(  # noqa: PLR0912, PLR0915
     file_paths: list[Path],
     package_root: Path,
     _package_name: str,
@@ -1708,6 +1708,36 @@ def _collect_modules(
     package_name_from_root: str | None = None
     if is_package_dir:
         package_name_from_root = package_root.name
+    # Also treat as package directory if package_root.name matches package
+    # (even without __init__.py, files in package_root are submodules of package)
+    elif _package_name is not None and package_root.name == _package_name:
+        package_name_from_root = package_root.name
+        is_package_dir = True  # Treat as package directory for module naming
+
+    # Check if any files have imports that reference the package name
+    # (indicates files are part of that package structure)
+    has_package_imports = False
+    if (
+        _package_name is not None
+        and package_root.name != _package_name
+        and package_root.name in ("src", "lib", "app", "package", "packages")
+    ):
+        # Quick check: see if any file imports from the package
+        for file_path in file_paths:
+            if not file_path.exists():
+                continue
+            try:
+                content = file_path.read_text(encoding="utf-8")
+                # Check for imports that reference the package name
+                if (
+                    f"from {_package_name}" in content
+                    or f"import {_package_name}" in content
+                ):
+                    has_package_imports = True
+                    break
+            except Exception:  # noqa: BLE001, S110
+                # If we can't read the file, skip the check
+                pass
 
     for file_path in file_paths:
         if not file_path.exists():
@@ -1728,6 +1758,20 @@ def _collect_modules(
                 # Prepend package name to preserve structure
                 # e.g., "core" -> "oldpkg.core"
                 module_name = f"{package_name_from_root}.{module_name}"
+        # If package name is provided but package_root.name doesn't match,
+        # still prepend package name to ensure correct module structure
+        # (e.g., files in src/ but package is testpkg -> testpkg.utils)
+        # Only do this if package_root is a common project subdirectory
+        # (like src, lib, app) AND files have imports that reference the package
+        elif (
+            _package_name is not None
+            and package_root.name != _package_name
+            and not module_name.startswith(f"{_package_name}.")
+            and has_package_imports
+            and module_name != _package_name
+        ):
+            # Prepend package name to module name
+            module_name = f"{_package_name}.{module_name}"
 
         derived_module_names.append(module_name)
 
@@ -3465,7 +3509,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         config=cast("RootConfigResolved", config),
         file_paths=order_paths,
         module_sources=module_sources,
-        module_names=derived_module_names,
+        _module_names=derived_module_names,
         package_root=package_root,
         file_to_include=file_to_include,
         detected_packages=detected_packages,

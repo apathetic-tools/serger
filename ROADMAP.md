@@ -46,6 +46,7 @@ Planned command-line flags for future releases:
 - add a rename action that only lets you rename the last node?
 - verify our code against the plan to remove multi-builds
 - verify our code against the plan to add the main processing. 034
+- make our tests run with LOG_LEVEL=test all the time by default, only tests that need a specific level should set it otherwise
 
 ## 🧩 Joiner Scripts (Build System)
 Exploring bundling options for generating the single-file release:
