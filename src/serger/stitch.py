@@ -3258,6 +3258,10 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                 if module_key in module_sources:
                     source = module_sources[module_key]
                     # Parse and find the function
+                    # Note: This is a minor redundant parse (only for one module,
+                    # only when main_mode == "auto" and main_function_result is not
+                    # None). The complexity of caching ASTs here is not worth it for
+                    # this single-use case that only affects one module.
                     try:
                         tree = ast.parse(source)
                         for node in tree.body:
