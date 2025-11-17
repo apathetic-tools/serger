@@ -299,12 +299,12 @@ class BuildConfigResolved(TypedDict):
     __meta__: MetaBuildConfigResolved
 
     # Internal metadata fields (not user-configurable)
-    version: NotRequired[str]  # Version from config (hoisted from root or build-level)
-    _pyproject_version: NotRequired[str]  # Version extracted from pyproject.toml
+    version: NotRequired[str]  # Version (user -> pyproject, resolved in config)
 
     # Stitching fields (optional - present if this is a stitch build)
     package: NotRequired[str]
     order: NotRequired[list[str]]
+    # Metadata fields (optional, resolved to user -> pyproject -> None)
     license_header: NotRequired[str]
     display_name: NotRequired[str]
     description: NotRequired[str]
@@ -350,12 +350,12 @@ class RootConfigResolved(TypedDict):
     __meta__: MetaBuildConfigResolved
 
     # Internal metadata fields (not user-configurable)
-    version: NotRequired[str]  # Version from config
-    _pyproject_version: NotRequired[str]  # Version extracted from pyproject.toml
+    version: NotRequired[str]  # Version (user -> pyproject, resolved in config)
 
     # Stitching fields (optional - present if this is a stitch build)
     package: NotRequired[str]
     order: NotRequired[list[str]]
+    # Metadata fields (optional, resolved to user -> pyproject -> None)
     license_header: NotRequired[str]
     display_name: NotRequired[str]
     description: NotRequired[str]

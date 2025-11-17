@@ -19,36 +19,28 @@ _MAX_TIMESTAMP_DIFF_SECONDS = 2
 
 
 def test_extract_build_metadata_with_version() -> None:
-    """Should extract version from _pyproject_version when available."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp_path = Path(tmpdir)
-        pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text('version = "1.2.3"\n')
+    """Should extract version from resolved config when available."""
+    tmp_path = Path.cwd()
 
-        build_cfg = make_build_cfg(tmp_path, include=[])
-        # Simulate what happens during resolution when use_pyproject_metadata is enabled
-        build_cfg["_pyproject_version"] = "1.2.3"
+    build_cfg = make_build_cfg(tmp_path, version="1.2.3")
 
-        version, commit, build_date = mod_build._extract_build_metadata(
-            build_cfg, tmp_path, tmp_path
-        )
+    version, commit, build_date = mod_build._extract_build_metadata(
+        build_cfg, tmp_path, tmp_path
+    )
 
-        assert version == "1.2.3"
-        assert isinstance(commit, str)
-        assert isinstance(build_date, str)
-        # Verify build_date format
-        assert re.match(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC", build_date)
+    assert version == "1.2.3"
+    assert isinstance(commit, str)
+    assert isinstance(build_date, str)
+    # Verify build_date format
+    assert re.match(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC", build_date)
 
 
 def test_extract_build_metadata_without_version_uses_timestamp() -> None:
     """Should use timestamp as version when no version is found."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
-        # Create pyproject.toml without version
-        pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text("# no version here\n")
 
-        build_cfg = make_build_cfg(tmp_path, include=[])
+        build_cfg = make_build_cfg(tmp_path)
 
         # Capture timestamp before and after to ensure it's recent
         before = datetime.now(timezone.utc)
@@ -77,47 +69,31 @@ def test_extract_build_metadata_without_version_uses_timestamp() -> None:
 
 
 def test_extract_build_metadata_with_config_version() -> None:
-    """Should prefer version from config over _pyproject_version."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp_path = Path(tmpdir)
-        # Create pyproject.toml with different version
-        pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text('version = "0.1.0"\n')
+    """Should use version from resolved config (resolved during config resolution)."""
+    tmp_path = Path.cwd()
 
-        build_cfg = make_build_cfg(tmp_path, include=[])
-        # Add both version fields - version should take precedence
-        build_cfg["version"] = "3.0.0"
-        build_cfg["_pyproject_version"] = "2.0.0"
+    build_cfg = make_build_cfg(tmp_path, version="3.0.0")
 
-        version, _commit, _build_date = mod_build._extract_build_metadata(
-            build_cfg, tmp_path
-        )
+    version, _commit, _build_date = mod_build._extract_build_metadata(
+        build_cfg, tmp_path
+    )
 
-        # Should use version from config, not _pyproject_version
-        assert version == "3.0.0"
-        assert version != "2.0.0"
-        assert version != "0.1.0"
+    # Should use version from resolved config
+    assert version == "3.0.0"
 
 
 def test_extract_build_metadata_with_pyproject_version_fallback() -> None:
-    """Should use _pyproject_version when version is not set."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp_path = Path(tmpdir)
-        # Create pyproject.toml with different version
-        pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text('version = "0.1.0"\n')
+    """Should use version from resolved config (from pyproject if enabled)."""
+    tmp_path = Path.cwd()
 
-        build_cfg = make_build_cfg(tmp_path, include=[])
-        # Only set _pyproject_version, not version
-        build_cfg["_pyproject_version"] = "2.0.0"
+    build_cfg = make_build_cfg(tmp_path, version="2.0.0")
 
-        version, _commit, _build_date = mod_build._extract_build_metadata(
-            build_cfg, tmp_path
-        )
+    version, _commit, _build_date = mod_build._extract_build_metadata(
+        build_cfg, tmp_path
+    )
 
-        # Should use _pyproject_version when version is not set
-        assert version == "2.0.0"
-        assert version != "0.1.0"
+    # Should use version from resolved config
+    assert version == "2.0.0"
 
 
 def test_extract_build_metadata_missing_pyproject() -> None:
@@ -126,7 +102,7 @@ def test_extract_build_metadata_missing_pyproject() -> None:
         tmp_path = Path(tmpdir)
         # No pyproject.toml file
 
-        build_cfg = make_build_cfg(tmp_path, include=[])
+        build_cfg = make_build_cfg(tmp_path)
 
         before = datetime.now(timezone.utc)
         version, _commit, build_date = mod_build._extract_build_metadata(

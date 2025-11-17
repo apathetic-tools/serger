@@ -50,8 +50,8 @@ def make_include_resolved(
 
 
 def make_build_cfg(  # noqa: PLR0913
-    tmp_path: Path,
-    include: list[mod_types.IncludeResolved],
+    tmp_path: Path | None = None,
+    include: list[mod_types.IncludeResolved] | None = None,
     exclude: list[mod_types.PathResolved] | None = None,
     *,
     respect_gitignore: bool = True,
@@ -73,8 +73,13 @@ def make_build_cfg(  # noqa: PLR0913
     module_bases: list[str] | None = None,
     main_mode: mod_types.MainMode = "auto",
     main_name: str | None = None,
+    version: str | None = None,
 ) -> mod_types.RootConfigResolved:
     """Return a fake, fully-populated RootConfigResolved."""
+    if tmp_path is None:
+        tmp_path = Path.cwd()
+    if include is None:
+        include = []
     cfg: dict[str, object] = {
         "include": include,
         "exclude": exclude or [],
@@ -106,6 +111,8 @@ def make_build_cfg(  # noqa: PLR0913
         cfg["package"] = package
     if order is not None:
         cfg["order"] = order
+    if version is not None:
+        cfg["version"] = version
     return cast("mod_types.RootConfigResolved", cfg)
 
 

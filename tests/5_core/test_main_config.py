@@ -173,6 +173,11 @@ def test_find_main_function_main_mode_none(tmp_path: Path) -> None:
         "module_bases": ["src"],
         "main_mode": "none",
         "main_name": None,
+        "license_header": "",
+        "display_name": "",
+        "description": "",
+        "authors": "",
+        "repo": "",
     }
     file_path = tmp_path / "main.py"
     file_path.write_text("def main():\n    pass\n")
@@ -226,6 +231,11 @@ def test_find_main_function_with_main_name_module_path(tmp_path: Path) -> None:
         "module_bases": ["src"],
         "main_mode": "auto",
         "main_name": "mypkg.main",
+        "license_header": "",
+        "display_name": "",
+        "description": "",
+        "authors": "",
+        "repo": "",
     }
     pkg_dir = tmp_path / "mypkg"
     pkg_dir.mkdir()
@@ -285,6 +295,11 @@ def test_find_main_function_with_main_name_function_only(tmp_path: Path) -> None
         "module_bases": ["src"],
         "main_mode": "auto",
         "main_name": "cli",
+        "license_header": "",
+        "display_name": "",
+        "description": "",
+        "authors": "",
+        "repo": "",
     }
     file_path = tmp_path / "main.py"
     file_path.write_text("def cli():\n    pass\n")
@@ -343,6 +358,11 @@ def test_find_main_function_with_package_config(tmp_path: Path) -> None:
         "main_mode": "auto",
         "main_name": None,
         "package": "mypkg",
+        "license_header": "",
+        "display_name": "",
+        "description": "",
+        "authors": "",
+        "repo": "",
     }
     pkg_dir = tmp_path / "mypkg"
     pkg_dir.mkdir()
@@ -402,6 +422,11 @@ def test_find_main_function_priority_main_py(tmp_path: Path) -> None:
         "module_bases": ["src"],
         "main_mode": "auto",
         "main_name": None,
+        "license_header": "",
+        "display_name": "",
+        "description": "",
+        "authors": "",
+        "repo": "",
     }
     pkg_dir = tmp_path / "mypkg"
     pkg_dir.mkdir()
@@ -471,6 +496,11 @@ def test_find_main_function_not_found(tmp_path: Path) -> None:
         "module_bases": ["src"],
         "main_mode": "auto",
         "main_name": None,
+        "license_header": "",
+        "display_name": "",
+        "description": "",
+        "authors": "",
+        "repo": "",
     }
     file_path = tmp_path / "main.py"
     file_path.write_text("def other():\n    pass\n")

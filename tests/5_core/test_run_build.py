@@ -203,8 +203,8 @@ def test_run_build_uses_timestamp_when_no_version(
     cfg["order"] = ["src/main.py"]
     # Ensure no version in config (it's added dynamically, so we need to cast)
     cfg_dict = cast("dict[str, object]", cfg)
-    if "_pyproject_version" in cfg_dict:
-        del cfg_dict["_pyproject_version"]
+    if "version" in cfg_dict:
+        del cfg_dict["version"]
 
     # --- execute ---
     mod_build.run_build(cfg)

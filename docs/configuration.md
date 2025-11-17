@@ -37,7 +37,7 @@ For the Python format, see the [Config File Formats](/configuration-reference#co
 Serger can automatically extract metadata from `pyproject.toml`:
 
 - `package` - fallback from `[project] name`
-- `display_name` - fallback from `[project] name`
+- `display_name` - indirectly through `package` fallback
 - `description` - fallback from `[project] description`
 - `license_header` - fallback from `[project] license`
 - `authors` - fallback from `[project] authors`

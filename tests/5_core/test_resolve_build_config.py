@@ -516,7 +516,7 @@ authors = [
     assert resolved.get("description") == "A test package"
     assert resolved.get("authors") == "Test Author <test@example.com>"
     assert resolved.get("license_header") == "MIT"
-    assert resolved.get("_pyproject_version") == "1.2.3"
+    assert resolved.get("version") == "1.2.3"
 
 
 def test_resolve_build_config_single_build_respects_use_pyproject_metadata_false(
@@ -542,18 +542,10 @@ authors = [
     resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # No metadata should be extracted when use_pyproject_metadata is false
-    assert (
-        "display_name" not in resolved or resolved.get("display_name") != "test-package"
-    )
-    assert "_pyproject_version" not in resolved
-    assert (
-        "description" not in resolved or resolved.get("description") != "A test package"
-    )
-    assert (
-        "authors" not in resolved
-        or resolved.get("authors") != "Alice <alice@example.com>"
-    )
+    # Other metadata should NOT be extracted when use_pyproject_metadata is false
+    assert "version" not in resolved or resolved.get("version") != "1.2.3"
+    assert resolved.get("description") is None
+    assert resolved.get("authors") is None
     # Package IS always extracted from pyproject.toml for resolution purposes,
     # regardless of use_pyproject_metadata setting
     assert resolved.get("package") == "test-package"
@@ -578,11 +570,8 @@ version = "1.2.3"
     resolved = mod_resolve.resolve_build_config(raw1, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # Should not use pyproject.toml metadata when explicitly disabled
-    assert (
-        "display_name" not in resolved or resolved.get("display_name") != "test-package"
-    )
-    assert "_pyproject_version" not in resolved
+    # Other metadata should NOT be extracted when use_pyproject_metadata is false
+    assert "version" not in resolved or resolved.get("version") != "1.2.3"
     # Package IS always extracted from pyproject.toml for resolution purposes,
     # regardless of use_pyproject_metadata setting
     assert resolved.get("package") == "test-package"
@@ -610,7 +599,7 @@ description = "A test package"
     # --- validate ---
     assert resolved.get("display_name") == "test-package"
     assert resolved.get("description") == "A test package"
-    assert resolved.get("_pyproject_version") == "1.2.3"
+    assert resolved.get("version") == "1.2.3"
 
 
 def test_resolve_build_config_path_resolution_build_level(
@@ -642,7 +631,7 @@ version = "1.0.0"
 
     # --- validate ---
     assert resolved.get("display_name") == "custom-package"
-    assert resolved.get("_pyproject_version") == "2.0.0"
+    assert resolved.get("version") == "2.0.0"
 
 
 def test_resolve_build_config_path_resolution_root_level(
@@ -665,7 +654,7 @@ version = "3.0.0"
 
     # --- validate ---
     assert resolved.get("display_name") == "root-package"
-    assert resolved.get("_pyproject_version") == "3.0.0"
+    assert resolved.get("version") == "3.0.0"
 
 
 def test_resolve_build_config_root_use_pyproject_metadata_enables_for_all_builds(
@@ -693,16 +682,20 @@ description = "A test package"
     # Both builds should get pyproject metadata
     assert resolved1.get("display_name") == "test-package"
     assert resolved1.get("package") == "test-package"
-    assert resolved1.get("_pyproject_version") == "1.2.3"
+    assert resolved1.get("version") == "1.2.3"
     assert resolved2.get("display_name") == "test-package"
     assert resolved2.get("package") == "test-package"
-    assert resolved2.get("_pyproject_version") == "1.2.3"
+    assert resolved2.get("version") == "1.2.3"
 
 
-def test_resolve_build_config_overrides_explicit_fields_when_pyproject_enabled(
+def test_resolve_build_config_preserves_explicit_fields_when_pyproject_enabled(
     tmp_path: Path,
 ) -> None:
-    """Should override explicitly set fields when pyproject is enabled."""
+    """Should preserve explicitly set fields even when pyproject is enabled.
+
+    Pyproject metadata is always a fallback - user-set values always take
+    precedence and are never overwritten.
+    """
     # --- setup ---
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(
@@ -721,6 +714,7 @@ authors = [
         display_name="config-name",
         description="config description",
         authors="Config Author <config@example.com>",
+        version="2.0.0",  # User sets version - should win over pyproject
         use_pyproject_metadata=True,
     )
     args = _args()
@@ -729,13 +723,107 @@ authors = [
     resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # When pyproject is enabled, all fields are overwritten
-    assert resolved.get("display_name") == "pyproject-name"
+    # User-set values should always be preserved, even when pyproject is enabled
+    assert resolved.get("display_name") == "config-name"
+    assert resolved.get("package") == "pyproject-name"  # Package is always extracted
+    assert resolved.get("description") == "config description"
+    assert resolved.get("authors") == "Config Author <config@example.com>"
+    # license_header not set in config, so pyproject can fill it
+    assert resolved.get("license_header") == "MIT"
+    # User version should win over pyproject version
+    assert resolved.get("version") == "2.0.0"
+    assert resolved.get("version") != "1.0.0"  # Verify pyproject version was not used
+
+
+def test_resolve_build_config_preserves_empty_strings_when_pyproject_enabled(
+    tmp_path: Path,
+) -> None:
+    """Should preserve explicitly set empty strings even when pyproject is enabled.
+
+    Empty strings represent an intentional user choice and should never be
+    overwritten by pyproject metadata.
+    """
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "pyproject-name"
+version = "1.0.0"
+description = "pyproject description"
+license = "MIT"
+authors = [
+    {name = "Pyproject Author", email = "pyproject@example.com"}
+]
+"""
+    )
+    raw = make_build_input(
+        include=["src/**"],
+        display_name="",  # Explicitly set to empty
+        description="",  # Explicitly set to empty
+        authors="",  # Explicitly set to empty
+        license_header="",  # Explicitly set to empty
+        use_pyproject_metadata=True,
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Empty strings should be preserved, not overwritten by pyproject
+    assert resolved.get("display_name") == ""
+    assert resolved.get("description") == ""
+    assert resolved.get("authors") == ""
+    assert resolved.get("license_header") == ""
+    # Package is always extracted regardless
     assert resolved.get("package") == "pyproject-name"
-    assert resolved.get("description") == "pyproject description"
+    assert resolved.get("version") == "1.0.0"
+
+
+def test_resolve_build_config_partial_fields_preserves_all_user_values(
+    tmp_path: Path,
+) -> None:
+    """Should preserve all user-set values (non-empty and empty) and fill only missing.
+
+    Tests the scenario where some fields are set to non-empty, some to empty,
+    and some are not set at all. Only the missing ones should be filled.
+    """
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "pyproject-name"
+version = "1.0.0"
+description = "pyproject description"
+license = "MIT"
+authors = [
+    {name = "Pyproject Author", email = "pyproject@example.com"}
+]
+"""
+    )
+    raw = make_build_input(
+        include=["src/**"],
+        display_name="config-name",  # Non-empty: should be preserved
+        description="",  # Empty: should be preserved
+        # authors not set: should be filled from pyproject
+        # license_header not set: should be filled from pyproject
+        use_pyproject_metadata=True,
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Non-empty user value preserved
+    assert resolved.get("display_name") == "config-name"
+    # Empty user value preserved
+    assert resolved.get("description") == ""
+    # Missing field filled from pyproject
     assert resolved.get("authors") == "Pyproject Author <pyproject@example.com>"
     assert resolved.get("license_header") == "MIT"
-    assert resolved.get("_pyproject_version") == "1.0.0"
+    assert resolved.get("package") == "pyproject-name"
+    assert resolved.get("version") == "1.0.0"
 
 
 def test_resolve_build_config_configless_uses_pyproject_by_default(
@@ -769,7 +857,7 @@ authors = [
     assert resolved.get("description") == "A test package"
     assert resolved.get("license_header") == "MIT"
     assert resolved.get("authors") == "Test Author <test@example.com>"
-    assert resolved.get("_pyproject_version") == "1.2.3"
+    assert resolved.get("version") == "1.2.3"
 
 
 def test_resolve_build_config_configless_can_disable_pyproject(
@@ -794,14 +882,13 @@ license = "MIT"
     resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # Configless builds should not extract pyproject.toml metadata when disabled
-    assert resolved.get("display_name") != "test-package"
     # Package IS always extracted from pyproject.toml for resolution purposes,
     # regardless of use_pyproject_metadata setting
     assert resolved.get("package") == "test-package"
-    assert resolved.get("description") != "A test package"
-    assert resolved.get("license_header") != "MIT"
-    assert "_pyproject_version" not in resolved
+    # Other metadata should NOT be extracted when use_pyproject_metadata is false
+    assert resolved.get("description") is None
+    assert resolved.get("license_header") is None
+    assert "version" not in resolved or resolved.get("version") != "1.2.3"
 
 
 def test_resolve_build_config_root_pyproject_path_with_use_pyproject_metadata_false(
@@ -823,9 +910,8 @@ version = "1.2.3"
     resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # Should not use pyproject even though file exists
-    assert "_pyproject_version" not in resolved
-    assert resolved.get("display_name") != "test-package"
+    # Other metadata should NOT be extracted when use_pyproject_metadata is false
+    assert "version" not in resolved or resolved.get("version") != "1.2.3"
 
 
 def test_resolve_build_config_build_pyproject_path_overrides_root_false(
@@ -848,8 +934,7 @@ version = "1.2.3"
 
     # --- validate ---
     # Build-level pyproject_path should enable it
-    assert resolved.get("_pyproject_version") == "1.2.3"
-    assert resolved.get("display_name") == "test-package"
+    assert resolved.get("version") == "1.2.3"
 
 
 def test_resolve_build_config_build_use_pyproject_metadata_false_overrides_path(
@@ -875,9 +960,8 @@ version = "1.2.3"
     resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # Build-level use_pyproject_metadata: false should disable it
-    assert "_pyproject_version" not in resolved
-    assert resolved.get("display_name") != "test-package"
+    # Other metadata should NOT be extracted when use_pyproject_metadata is false
+    assert "version" not in resolved or resolved.get("version") != "1.2.3"
 
 
 def test_resolve_build_config_package_from_pyproject_when_enabled(
@@ -1044,10 +1128,10 @@ authors = [
     assert resolved.get("authors") == "Root Author <root@example.com>"
 
 
-def test_resolve_build_config_authors_optional_in_resolved(
+def test_resolve_build_config_authors_always_present_in_resolved(
     tmp_path: Path,
 ) -> None:
-    """Authors should be optional in resolved config (NotRequired)."""
+    """Authors always present in resolved config (resolved to "" if not set)."""
     # --- setup ---
     raw = make_build_input(include=["src/**"])
     args = _args()
@@ -1056,8 +1140,38 @@ def test_resolve_build_config_authors_optional_in_resolved(
     resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # Authors should not be present if not set anywhere
+    # Authors is optional in resolved config
+    # If not set by user or pyproject, it's not present (None)
     assert "authors" not in resolved or resolved.get("authors") is None
+
+
+# ---------------------------------------------------------------------------
+# Display name resolution tests
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_build_config_display_name_priority_user_package_empty(
+    tmp_path: Path,
+) -> None:
+    """display_name priority: user -> package -> "" (empty string)."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    pkg_dir = src_dir / "mypkg"
+    make_test_package(pkg_dir)
+    args = _args()
+
+    # Test 1: User-provided display_name (highest priority)
+    raw1 = make_build_input(
+        include=["src/**"], package="mypkg", display_name="custom-name"
+    )
+    resolved1 = mod_resolve.resolve_build_config(raw1, args, tmp_path, tmp_path)
+    assert resolved1.get("display_name") == "custom-name"
+
+    # Test 2: Falls back to package when not set by user
+    raw2 = make_build_input(include=["src/**"], package="mypkg")
+    resolved2 = mod_resolve.resolve_build_config(raw2, args, tmp_path, tmp_path)
+    assert resolved2.get("display_name") == "mypkg"
 
 
 # ---------------------------------------------------------------------------
@@ -1128,6 +1242,38 @@ def test_resolve_build_config_version_optional_in_resolved(
     # --- validate ---
     # Version should not be present if not set anywhere
     assert "version" not in resolved or resolved.get("version") is None
+    # Metadata fields should not be present if not set
+    assert "authors" not in resolved or resolved.get("authors") is None
+
+
+def test_resolve_build_config_version_user_overrides_pyproject(
+    tmp_path: Path,
+) -> None:
+    """User version from config should take precedence over pyproject version."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+version = "1.0.0"
+"""
+    )
+    # User sets version in config, pyproject has different version
+    raw = make_build_input(
+        include=["src/**"],
+        version="2.0.0",
+        use_pyproject_metadata=True,
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # User version should win over pyproject version
+    assert resolved.get("version") == "2.0.0"
+    # Verify pyproject version was not used
+    assert resolved.get("version") != "1.0.0"
 
 
 # ---------------------------------------------------------------------------

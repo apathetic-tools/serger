@@ -68,20 +68,20 @@ All configuration options are specified at the root level of the config file:
 
 | Option | Type | Required | Default | Description |
 |--------|------|----------|---------|-------------|
-| `package` | `str` | Yes✝ | - | Package name (used for import shims). Can be inferred from `pyproject.toml` `[project] name`, include paths, or `module_bases` if not explicitly set. |
+| `package` | `str` | Yes† | - | Package name (used for import shims). Can be inferred from `pyproject.toml` name, includes, or `module_bases`. |
 | `include` | `list[str]` | Yes* | - | Glob patterns for files to include |
 | `exclude` | `list[str]` | No | `[]` | Glob patterns for files to exclude |
 | `out` | `str` | Yes* | - | Output file path (relative to project root) |
-| `display_name` | `str` | No✝ | - | Display name for generated header. Fallback from `pyproject.toml` `[project] name`. |
-| `description` | `str` | No✝ | - | Description for generated header. Fallback from `pyproject.toml` `[project] description`. |
+| `display_name` | `str` | No† | - | Display name for generated header. Falls back to `package` |
+| `description` | `str` | No† | - | Description for generated header. |
 | `repo` | `str` | No | - | Repository URL for generated header |
-| `license_header` | `str` | No✝ | - | License text for generated header. Fallback from `pyproject.toml` `[project] license`. |
-| `authors` | `str` | No✝ | - | Authors for generated header. Fallback from `pyproject.toml` `[project] authors`. |
+| `license_header` | `str` | No† | - | License text for generated header. Fallback from `pyproject.toml` `[project] license`. |
+| `authors` | `str` | No† | - | Authors for generated header. |
 | `log_level` | `str` | No | `"info"` | Log verbosity: `trace`, `debug`, `info`, `warning`, `error` |
 | `respect_gitignore` | `bool` | No | `true` | Whether to respect `.gitignore` when selecting files |
 | `strict_config` | `bool` | No | `true` | Whether to error on missing include patterns |
 | `watch_interval` | `float` | No | `1.0` | File watch interval in seconds (for `--watch` mode) |
-| `use_pyproject_metadata` | `bool` | No | - | Whether to pull metadata (display_name, description, authors, license, version) from `pyproject.toml`. Package name is always extracted from pyproject.toml for resolution purposes, regardless of this setting. For configless builds, defaults to `true`. For builds with config files, must be explicitly set to `true` or `pyproject_path` must be set. |
+| `use_pyproject_metadata` | `bool` | No | - | Whether to pull metadata (description, authors, license, version) from `pyproject.toml`. Defaults to `true`, explicit `pyproject_path` also enables. `package` is always extracted as fallback. |
 | `pyproject_path` | `str` | No | - | Path to `pyproject.toml` (relative to config directory). Setting this implicitly enables pyproject.toml usage. |
 | `internal_imports` | `str` | No | `"force_strip"` | How to handle internal package imports (see [Import Handling](#import-handling)) |
 | `external_imports` | `str` | No | `"top"` | How to handle external imports (see [Import Handling](#import-handling)) |
@@ -97,7 +97,7 @@ All configuration options are specified at the root level of the config file:
 
 \* Required unless provided via CLI arguments. 
 
-\✝ Can fallback from `pyproject.toml` when pyproject.toml is enabled.
+\† Can fallback from `pyproject.toml` metadata when enabled.
 
 ## Include and Exclude Patterns
 

@@ -14,7 +14,6 @@ from .stitch import (
     compute_module_order,
     detect_packages_from_files,
     extract_commit,
-    extract_version,
     stitch_modules,
 )
 from .utils.utils_validation import validate_required_keys
@@ -436,19 +435,12 @@ def _extract_build_metadata(
         Tuple of (version, commit, build_date)
     """
     # Priority order for version:
-    # 1. version from config (hoisted from root or build-level)
-    # 2. _pyproject_version (extracted from pyproject.toml during resolution
-    #    if use_pyproject_metadata was enabled)
-    # 3. Direct extraction from pyproject.toml as fallback
-    # 4. timestamp as last resort
+    # 1. version from resolved config (user version -> pyproject version, resolved
+    #    during config resolution if pyproject metadata was enabled)
+    # 2. timestamp as last resort
+    # Note: Version is fully resolved during config resolution, so we just need
+    # to check the resolved config and fall back to timestamp if not set
     version = build_cfg.get("version")
-    if not version:
-        version = build_cfg.get("_pyproject_version")
-    # If still no version, try extracting directly from pyproject.toml
-    if not version or version == "unknown":
-        pyproject_path = project_root / "pyproject.toml"
-        if pyproject_path.exists():
-            version = extract_version(pyproject_path)
     # Use git_root for commit extraction (package root), fallback to project_root
     commit_path = git_root if git_root is not None else project_root
     commit = extract_commit(commit_path)

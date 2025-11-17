@@ -585,32 +585,6 @@ def _validate_and_normalize_module_actions(  # noqa: C901, PLR0912, PLR0915
     raise ValueError(msg)
 
 
-def _is_explicitly_requested(
-    build_cfg: RootConfig,
-    root_cfg: RootConfig | None,
-) -> bool:
-    """Check if pyproject.toml metadata was explicitly requested (not just default).
-
-    Args:
-        build_cfg: Build config
-        root_cfg: Root config (may be None)
-
-    Returns:
-        True if explicitly requested, False if just default behavior
-    """
-    build_use_pyproject_metadata = build_cfg.get("use_pyproject_metadata")
-    root_use_pyproject_metadata = (root_cfg or {}).get("use_pyproject_metadata")
-    build_pyproject_path = build_cfg.get("pyproject_path")
-    root_pyproject_path = (root_cfg or {}).get("pyproject_path")
-
-    return (
-        isinstance(build_use_pyproject_metadata, bool)
-        or build_pyproject_path is not None
-        or isinstance(root_use_pyproject_metadata, bool)
-        or root_pyproject_path is not None
-    )
-
-
 def _apply_metadata_fields(
     resolved_cfg: dict[str, Any],
     metadata: PyprojectMetadata,
@@ -620,44 +594,64 @@ def _apply_metadata_fields(
 ) -> None:
     """Apply extracted metadata fields to resolved config.
 
-    When explicitly requested (use_pyproject_metadata=True), pyproject.toml values
-    overwrite config values. When used by default, only fills in missing
-    fields (config values take precedence).
+    Pyproject.toml metadata is always a fallback - it only fills missing fields.
+    User-set values (empty strings or non-empty strings) always take precedence
+    and are never overwritten.
+
+    Note: Empty strings ("") in config are preserved as they represent an
+    intentional choice. None or missing fields can be filled by pyproject.
 
     Note: Package name is NOT set here - it's handled in _apply_pyproject_metadata()
     and is always extracted if available, regardless of use_pyproject_metadata.
+
+    Note: description, authors, and license_header are only applied when
+    explicitly_requested is True (use_pyproject_metadata=True or pyproject_path set).
 
     Args:
         resolved_cfg: Mutable resolved config dict (modified in place)
         metadata: Extracted metadata
         pyproject_path: Path to pyproject.toml (for logging)
-        explicitly_requested: True if pyproject was explicitly enabled
+        explicitly_requested: True if pyproject metadata should be used
+            (use_pyproject_metadata=True, pyproject_path set, or default for
+            configless builds). Controls whether description, authors, and
+            license_header are applied.
     """
     logger = get_app_logger()
 
     # Apply fields from pyproject.toml
-    if metadata.version:
-        # Note: version is not a build config field, but we'll store it
-        # for use in build.py later
-        resolved_cfg["_pyproject_version"] = metadata.version
-
-    if metadata.name and (explicitly_requested or "display_name" not in resolved_cfg):
-        resolved_cfg["display_name"] = metadata.name
-        # Note: Package is handled in _apply_pyproject_metadata() and is always
-        # extracted if available, regardless of use_pyproject_metadata
-
-    if metadata.description and (
-        explicitly_requested or "description" not in resolved_cfg
+    # Version is resolved immediately (user -> pyproject) rather than storing
+    # _pyproject_version separately
+    if (
+        explicitly_requested
+        and metadata.version
+        and ("version" not in resolved_cfg or not resolved_cfg.get("version"))
     ):
-        resolved_cfg["description"] = metadata.description
+        resolved_cfg["version"] = metadata.version
 
-    if metadata.authors and (explicitly_requested or "authors" not in resolved_cfg):
-        resolved_cfg["authors"] = metadata.authors
+    # For description, authors, license_header:
+    # - Only applied when explicitly_requested is True (use_pyproject_metadata=True
+    #   or pyproject_path set)
+    # - None or missing = not set, can be filled by pyproject (fallback)
+    # - "" = explicitly set to empty, should NOT be overwritten
+    # - non-empty string = explicitly set by user, should NEVER be overwritten
+    # Note: display_name is NOT set here - it uses package as fallback
+    # (handled after package resolution, since package may come from pyproject)
 
-    if metadata.license_text and (
-        explicitly_requested or "license_header" not in resolved_cfg
-    ):
-        resolved_cfg["license_header"] = metadata.license_text
+    if explicitly_requested:
+        if metadata.description:
+            current = resolved_cfg.get("description")
+            if current is None:
+                resolved_cfg["description"] = metadata.description
+
+        if metadata.authors:
+            current = resolved_cfg.get("authors")
+            if current is None:
+                resolved_cfg["authors"] = metadata.authors
+
+        if metadata.license_text:
+            current = resolved_cfg.get("license_header")
+            if current is None:
+                resolved_cfg["license_header"] = metadata.license_text
 
     if metadata.has_any():
         logger.trace(f"[resolve_build_config] Extracted metadata from {pyproject_path}")
@@ -715,15 +709,16 @@ def _apply_pyproject_metadata(
         )
 
     # Apply other metadata only if use_pyproject_metadata is enabled
-    if not _should_use_pyproject_metadata(build_cfg, root_cfg):
+    # (This includes configless builds which use pyproject by default)
+    should_use = _should_use_pyproject_metadata(build_cfg, root_cfg)
+    if not should_use:
         return
 
-    explicitly_requested = _is_explicitly_requested(build_cfg, root_cfg)
     _apply_metadata_fields(
         resolved_cfg,
         metadata,
         pyproject_path,
-        explicitly_requested=explicitly_requested,
+        explicitly_requested=should_use,
     )
 
 
@@ -1812,30 +1807,37 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     resolved_cfg["post_processing"] = resolve_post_processing(build_cfg, None)
 
     # ------------------------------
-    # Authors
-    # ------------------------------
-    # Optional field - if not set, will be filled by pyproject.toml if available
-    # No action needed here - value is already in resolved_cfg if present
-
-    # ------------------------------
-    # Version
-    # ------------------------------
-    # Optional field - falls back to _pyproject_version in _extract_build_metadata()
-    # if use_pyproject_metadata was enabled
-    # No action needed here - value is already in resolved_cfg if present
-
-    # ------------------------------
     # Pyproject.toml metadata extraction
     # ------------------------------
     # Extracts all metadata once, then:
     # - Always uses package name for resolution (if not already set)
     # - Uses other metadata only if use_pyproject_metadata is enabled
+    # - Version is resolved here: user version -> pyproject version
     _apply_pyproject_metadata(
         resolved_cfg,
         build_cfg=build_cfg,
         root_cfg=None,
         config_dir=config_dir,
     )
+
+    # ------------------------------
+    # Version resolution
+    # ------------------------------
+    # Version is optional - resolved during pyproject metadata extraction above.
+    # If not set, will fall back to timestamp in _extract_build_metadata()
+    # No action needed here - value is already resolved if available
+
+    # ------------------------------
+    # Stitching metadata fields (ensure all are present)
+    # ------------------------------
+    # Metadata fields are optional in resolved config.
+    # Resolution order for most fields: user value -> pyproject value -> None (default)
+    # Note: display_name has different priority (handled after package resolution)
+    # Fields are only set if they have a value; otherwise they remain None/absent
+    for field in ("license_header", "description", "authors", "repo"):
+        if field not in resolved_cfg or resolved_cfg.get(field) is None:
+            # Don't set to empty string - leave as None/absent
+            pass
 
     # ------------------------------
     # Package resolution (steps 3-7)
@@ -2016,6 +2018,17 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
                     rel,
                     root,
                 )
+
+    # ------------------------------
+    # Display name resolution (after package is fully resolved)
+    # ------------------------------
+    # display_name priority: user -> package -> None (default)
+    # Package is now fully resolved, so we can use it as fallback
+    if "display_name" not in resolved_cfg or resolved_cfg.get("display_name") is None:
+        package = resolved_cfg.get("package")
+        if package:
+            resolved_cfg["display_name"] = package
+        # If no package, leave display_name as None/absent
 
     # ------------------------------
     # Attach provenance
