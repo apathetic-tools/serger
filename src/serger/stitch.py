@@ -1375,7 +1375,75 @@ def suggest_order_mismatch(
         logger.warning("Suggested order: %s", ", ".join(topo_modules))
 
 
-def verify_no_broken_imports(final_text: str, package_names: list[str]) -> None:
+def _is_inside_string_literal(text: str, pos: int) -> bool:
+    """Check if a position in text is inside a string literal.
+
+    Args:
+        text: Source text to check
+        pos: Position to check
+
+    Returns:
+        True if position is inside a string literal, False otherwise
+    """
+    # Track string state by scanning from start
+    in_string = False
+    string_char = None
+    escape_next = False
+    triple_quote = False
+    i = 0
+
+    while i < pos:
+        char = text[i]
+
+        if escape_next:
+            escape_next = False
+            i += 1
+            continue
+
+        if char == "\\":
+            escape_next = True
+            i += 1
+            continue
+
+        if not in_string:
+            # Check for triple quotes first
+            if i < len(text) - 2:
+                triple_start = text[i : i + 3]
+                if triple_start in ('"""', "'''"):
+                    in_string = True
+                    string_char = triple_start[0]
+                    triple_quote = True
+                    # Skip next two chars
+                    i += 3
+                    continue
+            # Check for single quotes
+            if char in ('"', "'"):
+                in_string = True
+                string_char = char
+                triple_quote = False
+        # Inside string - check for end
+        elif triple_quote:
+            if i < len(text) - 2 and string_char is not None:
+                triple_end = text[i : i + 3]
+                if triple_end == string_char * 3:
+                    in_string = False
+                    string_char = None
+                    triple_quote = False
+                    # Skip next two chars
+                    i += 3
+                    continue
+        elif char == string_char:
+            in_string = False
+            string_char = None
+
+        i += 1
+
+    return in_string
+
+
+def verify_no_broken_imports(  # noqa: C901
+    final_text: str, package_names: list[str]
+) -> None:
     """Verify all internal imports have been resolved in stitched script.
 
     Args:
@@ -1400,39 +1468,67 @@ def verify_no_broken_imports(final_text: str, package_names: list[str]) -> None:
         # Pattern for top-level package imports: from package import ...
         top_level_pattern = re.compile(rf"\bfrom {re.escape(package_name)}\s+import")
 
-        # Check import statements
-        for m in import_pattern.finditer(final_text):
-            mod_suffix = m.group(1)
-            full_module_name = f"{package_name}.{mod_suffix}"
-            # Check if module is in the stitched output
-            # Header format: # === module_name === (may contain dots)
-            # Try both full module name and just the suffix (for backward compat)
+        # Helper to check if a module exists (header or shim)
+        def module_exists(full_module_name: str, mod_suffix: str | None = None) -> bool:
+            """Check if a module exists via header or shim."""
+            # Check for header
             header_pattern_full = re.compile(
                 rf"# === {re.escape(full_module_name)} ==="
             )
-            header_pattern_suffix = re.compile(rf"# === {re.escape(mod_suffix)} ===")
-            if not header_pattern_full.search(
-                final_text
-            ) and not header_pattern_suffix.search(final_text):
+            if header_pattern_full.search(final_text):
+                return True
+
+            # Check for suffix header (backward compat)
+            if mod_suffix:
+                header_pattern_suffix = re.compile(
+                    rf"# === {re.escape(mod_suffix)} ==="
+                )
+                if header_pattern_suffix.search(final_text):
+                    return True
+
+            # Check for shim
+            escaped_name = re.escape(full_module_name)
+            shim_pattern_old = re.compile(
+                rf"_pkg\s*=\s*(?:['\"]){escaped_name}(?:['\"]).*?"
+                rf"sys\.modules\[_pkg\]\s*=\s*_mod",
+                re.DOTALL,
+            )
+            shim_pattern_new = re.compile(
+                rf"_create_pkg_module\s*\(\s*(?:['\"]){escaped_name}(?:['\"])"
+            )
+            return (
+                shim_pattern_old.search(final_text) is not None
+                or shim_pattern_new.search(final_text) is not None
+            )
+
+        # Check import statements
+        for m in import_pattern.finditer(final_text):
+            # Skip if inside string literal (docstring/comment)
+            if _is_inside_string_literal(final_text, m.start()):
+                continue
+
+            mod_suffix = m.group(1)
+            full_module_name = f"{package_name}.{mod_suffix}"
+            if not module_exists(full_module_name, mod_suffix):
                 broken.add(full_module_name)
 
         # Check from ... import statements
         for m in from_pattern.finditer(final_text):
+            # Skip if inside string literal (docstring/comment)
+            if _is_inside_string_literal(final_text, m.start()):
+                continue
+
             mod_suffix = m.group(1)
             full_module_name = f"{package_name}.{mod_suffix}"
-            # Check if module is in the stitched output
-            # Try both full module name and just the suffix (for backward compat)
-            header_pattern_full = re.compile(
-                rf"# === {re.escape(full_module_name)} ==="
-            )
-            header_pattern_suffix = re.compile(rf"# === {re.escape(mod_suffix)} ===")
-            if not header_pattern_full.search(
-                final_text
-            ) and not header_pattern_suffix.search(final_text):
+            if not module_exists(full_module_name, mod_suffix):
                 broken.add(full_module_name)
 
         # Check top-level package imports: from package import ...
-        for _m in top_level_pattern.finditer(final_text):
+        for m in top_level_pattern.finditer(final_text):
+            # Skip if inside string literal (docstring/comment)
+            if _is_inside_string_literal(final_text, m.start()):
+                continue
+
             # For top-level imports, check if the package itself exists
             # This would be in a header like # === package === or
             # # === package.__init__ ===

@@ -29,8 +29,6 @@ Planned command-line flags for future releases:
 - Add key to disable update checks directly in config
 - Provide a JSON Schema for validation and autocomplete
 - Module-level configuration (metadata, headers)
-- can we make the main() detection smarter?
-- config setting for main()
 - tie the import mode defaults to the stitch mode
 - Module actions glob pattern support: Phase 1 (simple wildcards in convenience dict)
 - Module actions glob pattern support: Phase 2 (globs in list format)

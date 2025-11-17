@@ -98,22 +98,33 @@ def test_detect_runtime_mode_zipapp_missing_file_attribute() -> None:
     # Create a mock __main__ without the utils.__file__ attribute
     mock_main = MagicMock(spec=[])  # spec=[] means no attributes
 
-    with (
-        patch.object(sys, "frozen", False, create=True),
-        patch.dict(sys.modules, {"__main__": mock_main}),
-        patch.dict(
-            amod_utils_system.detect_runtime_mode.__globals__,
-            clear=False,
-        ) as patched_globals,
-    ):
-        patched_globals.pop("__STANDALONE__", None)
+    # Save and remove serger module if it exists (it might have __STANDALONE__)
+    saved_serger = sys.modules.pop("serger", None)
 
-        # --- execute ---
-        result = amod_utils_system.detect_runtime_mode()
+    try:
+        with (
+            patch.object(sys, "frozen", False, create=True),
+            patch.dict(sys.modules, {"__main__": mock_main}),
+            patch.dict(
+                amod_utils_system.detect_runtime_mode.__globals__,
+                clear=False,
+            ) as patched_globals,
+        ):
+            patched_globals.pop("__STANDALONE__", None)
+            # Ensure __main__ doesn't have __STANDALONE__ either
+            if hasattr(mock_main, "__STANDALONE__"):
+                delattr(mock_main, "__STANDALONE__")
 
-    # --- verify ---
-    # Should fall through to installed since no indicators match
-    assert result == "installed"
+            # --- execute ---
+            result = amod_utils_system.detect_runtime_mode()
+
+        # --- verify ---
+        # Should fall through to installed since no indicators match
+        assert result == "installed"
+    finally:
+        # Restore serger module if it was there
+        if saved_serger is not None:
+            sys.modules["serger"] = saved_serger
 
 
 def test_detect_runtime_mode_standalone() -> None:
@@ -153,22 +164,33 @@ def test_detect_runtime_mode_installed() -> None:
     # Create a mock __main__ that doesn't have the zipapp attribute
     mock_main = MagicMock(spec=[])
 
-    with (
-        patch.object(sys, "frozen", False, create=True),
-        patch.dict(sys.modules, {"__main__": mock_main}),
-        patch.dict(
-            amod_utils_system.detect_runtime_mode.__globals__,
-            clear=False,
-        ) as patched_globals,
-    ):
-        # Remove __STANDALONE__ if it exists
-        patched_globals.pop("__STANDALONE__", None)
+    # Save and remove serger module if it exists (it might have __STANDALONE__)
+    saved_serger = sys.modules.pop("serger", None)
 
-        # --- execute ---
-        result = amod_utils_system.detect_runtime_mode()
+    try:
+        with (
+            patch.object(sys, "frozen", False, create=True),
+            patch.dict(sys.modules, {"__main__": mock_main}),
+            patch.dict(
+                amod_utils_system.detect_runtime_mode.__globals__,
+                clear=False,
+            ) as patched_globals,
+        ):
+            # Remove __STANDALONE__ if it exists
+            patched_globals.pop("__STANDALONE__", None)
+            # Ensure __main__ doesn't have __STANDALONE__ either
+            if hasattr(mock_main, "__STANDALONE__"):
+                delattr(mock_main, "__STANDALONE__")
 
-    # --- verify ---
-    assert result == "installed"
+            # --- execute ---
+            result = amod_utils_system.detect_runtime_mode()
+
+        # --- verify ---
+        assert result == "installed"
+    finally:
+        # Restore serger module if it was there
+        if saved_serger is not None:
+            sys.modules["serger"] = saved_serger
 
 
 def test_detect_runtime_mode_installed_missing_main() -> None:
@@ -177,29 +199,37 @@ def test_detect_runtime_mode_installed_missing_main() -> None:
     This shouldn't normally happen in Python, but we should handle it.
     """
     # --- setup ---
-    with (
-        patch.object(sys, "frozen", False, create=True),
-        patch.dict(sys.modules, {}, clear=False),
-    ):  # Remove __main__ if present
-        # Ensure __main__ is not in sys.modules for this test
-        saved_main = sys.modules.pop("__main__", None)
-        try:
-            # Ensure __STANDALONE__ is not in globals
-            with patch.dict(
-                amod_utils_system.detect_runtime_mode.__globals__,
-                clear=False,
-            ) as patched_globals:
-                patched_globals.pop("__STANDALONE__", None)
+    # Save and remove serger module if it exists (it might have __STANDALONE__)
+    saved_serger = sys.modules.pop("serger", None)
 
-                # --- execute ---
-                result = amod_utils_system.detect_runtime_mode()
-        finally:
-            # Restore __main__ if it was there
-            if saved_main is not None:
-                sys.modules["__main__"] = saved_main
+    try:
+        with (
+            patch.object(sys, "frozen", False, create=True),
+            patch.dict(sys.modules, {}, clear=False),
+        ):  # Remove __main__ if present
+            # Ensure __main__ is not in sys.modules for this test
+            saved_main = sys.modules.pop("__main__", None)
+            try:
+                # Ensure __STANDALONE__ is not in globals
+                with patch.dict(
+                    amod_utils_system.detect_runtime_mode.__globals__,
+                    clear=False,
+                ) as patched_globals:
+                    patched_globals.pop("__STANDALONE__", None)
 
-    # --- verify ---
-    assert result == "installed"
+                    # --- execute ---
+                    result = amod_utils_system.detect_runtime_mode()
+            finally:
+                # Restore __main__ if it was there
+                if saved_main is not None:
+                    sys.modules["__main__"] = saved_main
+
+        # --- verify ---
+        assert result == "installed"
+    finally:
+        # Restore serger module if it was there
+        if saved_serger is not None:
+            sys.modules["serger"] = saved_serger
 
 
 def test_detect_runtime_mode_frozen_takes_precedence() -> None:
