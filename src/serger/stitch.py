@@ -1037,6 +1037,8 @@ def _extract_top_level_symbols(code: str) -> ModuleSymbols:
 
 def detect_name_collisions(
     module_symbols: dict[str, ModuleSymbols],
+    *,
+    ignore_functions: set[str] | None = None,
 ) -> None:
     """Detect top-level name collisions across modules.
 
@@ -1045,6 +1047,8 @@ def detect_name_collisions(
 
     Args:
         module_symbols: Dict mapping module names to their extracted symbols
+        ignore_functions: Optional set of function names to ignore when checking
+            collisions (e.g., when auto-rename will handle them)
 
     Raises:
         RuntimeError: If collisions are detected
@@ -1062,6 +1066,7 @@ def detect_name_collisions(
 
     symbols: dict[str, str] = {}  # name -> module
     collisions: list[tuple[str, str, str]] = []
+    ignore_funcs = ignore_functions or set()
 
     # Sort module names for deterministic iteration order
     for mod, symbols_data in sorted(module_symbols.items()):
@@ -1074,6 +1079,11 @@ def detect_name_collisions(
         for name in sorted(all_names):
             # skip known harmless globals
             if name in ignore:
+                continue
+
+            # Skip function names that will be auto-renamed
+            # (only skip if it's a function collision, not class/assignment)
+            if name in ignore_funcs and name in symbols_data.functions:
                 continue
 
             prev = symbols.get(name)
@@ -2996,7 +3006,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                 f"main_name '{main_name}' was specified but the function "
                 "was not found in the stitched code"
             )
-            raise RuntimeError(msg)
+            raise ValueError(msg)
         # If no main function found and main_name not specified,
         # this is a non-main build (acceptable)
         # Note: We already logged this in stitch_modules, so we don't log again here
@@ -3447,21 +3457,9 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         module_symbols[mod_name] = symbols
         all_function_names.update(symbols.functions)
 
-    # --- Collision Detection ---
-    logger.debug("Detecting name collisions...")
-    detect_name_collisions(module_symbols)
-
-    # --- Main Function and __main__ Block Detection ---
-    # Detect all __main__ blocks from original file paths (before stripping)
-    logger.debug("Detecting __main__ blocks...")
-    all_main_blocks = detect_main_blocks(
-        file_paths=order_paths,
-        package_root=package_root,
-        file_to_include=file_to_include,
-        _detected_packages=detected_packages,
-    )
-
-    # Find main function
+    # --- Main Function Detection (before collision detection) ---
+    # Find main function first, so we can ignore main function collisions
+    # in raw mode when auto-rename will handle them
     logger.debug("Finding main function...")
     main_function_result = find_main_function(
         config=cast("RootConfigResolved", config),
@@ -3471,6 +3469,39 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         package_root=package_root,
         file_to_include=file_to_include,
         detected_packages=detected_packages,
+    )
+
+    # Determine if we should ignore main function collisions
+    # (auto-rename will handle them in raw mode)
+    ignore_functions: set[str] = set()
+    stitch_mode_raw = config.get("stitch_mode", "raw")
+    if stitch_mode_raw == "raw" and main_function_result is not None:
+        main_function_name, _main_file_path, _main_module_path = main_function_result
+        # Check if there are multiple functions with this name
+        module_names_from_sources = [
+            key[:-3] for key in sorted(module_sources.keys()) if key.endswith(".py")
+        ]
+        collisions = detect_collisions(
+            main_function_result=main_function_result,
+            module_sources=module_sources,
+            module_names=module_names_from_sources,
+        )
+        # If there are collisions, auto-rename will handle them
+        if len(collisions) > 1:
+            ignore_functions.add(main_function_name)
+
+    # --- Collision Detection ---
+    logger.debug("Detecting name collisions...")
+    detect_name_collisions(module_symbols, ignore_functions=ignore_functions)
+
+    # --- __main__ Block Detection ---
+    # Detect all __main__ blocks from original file paths (before stripping)
+    logger.debug("Detecting __main__ blocks...")
+    all_main_blocks = detect_main_blocks(
+        file_paths=order_paths,
+        package_root=package_root,
+        file_to_include=file_to_include,
+        _detected_packages=detected_packages,
     )
 
     # Log main function status

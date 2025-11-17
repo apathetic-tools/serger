@@ -43,6 +43,9 @@ Planned command-line flags for future releases:
 - stitch mode that prefixes symbols with the package name to keep it flat and avoid collisions.
 - interactive mode to solve problems as they come up and make a config
 - we need a way to specify --details, opposite of --quiet, for more INFO messages or less.
+- add a rename action that only lets you rename the last node?
+- verify our code against the plan to remove multi-builds
+- verify our code against the plan to add the main processing. 034
 
 ## 🧩 Joiner Scripts (Build System)
 Exploring bundling options for generating the single-file release:

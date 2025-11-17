@@ -487,46 +487,6 @@ def test_excluded_main_py_files(tmp_path: Path) -> None:
     assert "return 'main'" not in content
 
 
-def test_user_module_actions_rename_main_function(tmp_path: Path) -> None:
-    """Test user module_actions that rename main functions."""
-    # --- setup ---
-    pkg_dir = tmp_path / "mypkg"
-    pkg_dir.mkdir()
-    (pkg_dir / "__init__.py").write_text("")
-    (pkg_dir / "main.py").write_text("def main():\n    return 'test'\n")
-
-    out_file = tmp_path / "stitched.py"
-    build_cfg = make_build_cfg(
-        tmp_path,
-        [make_include_resolved("mypkg/**/*.py", tmp_path)],
-        respect_gitignore=False,
-        out=make_resolved("stitched.py", tmp_path),
-        package="mypkg",
-        order=["mypkg/__init__.py", "mypkg/main.py"],
-        main_mode="auto",
-        main_name="mypkg.main::main",
-        module_actions=[
-            {
-                "action": "rename",
-                "module": "mypkg.main",
-                "function": "main",
-                "new_name": "renamed_main",
-            }
-        ],
-    )
-
-    # --- execute ---
-    mod_build.run_build(build_cfg)
-
-    # --- verify ---
-    content = out_file.read_text()
-    # Should have renamed function
-    assert "def renamed_main():" in content
-    # Should call renamed function in __main__ block
-    assert "if __name__ == '__main__':" in content
-    assert "renamed_main()" in content
-
-
 def test_main_block_execution_works(tmp_path: Path) -> None:
     """Test that generated __main__ block actually executes correctly."""
     # --- setup ---

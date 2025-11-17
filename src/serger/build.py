@@ -687,6 +687,8 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
         "module_actions": module_actions,
         "comments_mode": comments_mode,
         "docstring_mode": docstring_mode,
+        "main_mode": build_cfg.get("main_mode", "auto"),
+        "main_name": build_cfg.get("main_name"),
         "detected_packages": detected_packages,  # Pre-detected packages
         "module_bases": module_bases,  # For package detection fallback
         "__meta__": build_cfg["__meta__"],  # For config_dir access in fallback
