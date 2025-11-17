@@ -1,6 +1,7 @@
 # tests/50_core/test_compute_module_order.py
 """Tests for compute_module_order function."""
 
+import ast
 import tempfile
 from pathlib import Path
 
@@ -254,3 +255,295 @@ else:
             f"namespace.py (index {namespace_idx}) should come before "
             f"__init__.py (index {init_idx}) even when import is inside else block"
         )
+
+
+# Tests for helper functions
+# we import '_' private for testing purposes only
+# pyright: reportPrivateUsage=false
+
+
+def test_resolve_relative_import_level_1() -> None:
+    """Should resolve relative import with level 1."""
+    source = "from .constants import X"
+    tree = ast.parse(source)
+    node = tree.body[0]
+    assert isinstance(node, ast.ImportFrom)
+
+    result = mod_stitch._resolve_relative_import(node, "serger.actions")  # noqa: SLF001
+    assert result == "serger.constants"
+
+
+def test_resolve_relative_import_level_2() -> None:
+    """Should resolve relative import with level 2."""
+    source = "from ..utils import helper"
+    tree = ast.parse(source)
+    node = tree.body[0]
+    assert isinstance(node, ast.ImportFrom)
+
+    result = mod_stitch._resolve_relative_import(node, "serger.actions.sub")  # noqa: SLF001
+    assert result == "serger.utils"
+
+
+def test_resolve_relative_import_beyond_root() -> None:
+    """Should return None when relative import goes beyond package root."""
+    source = "from ...something import X"
+    tree = ast.parse(source)
+    node = tree.body[0]
+    assert isinstance(node, ast.ImportFrom)
+
+    result = mod_stitch._resolve_relative_import(node, "serger.actions")  # noqa: SLF001
+    assert result is None
+
+
+def test_resolve_relative_import_absolute() -> None:
+    """Should return module name for absolute import."""
+    source = "from serger.constants import X"
+    tree = ast.parse(source)
+    node = tree.body[0]
+    assert isinstance(node, ast.ImportFrom)
+
+    result = mod_stitch._resolve_relative_import(node, "serger.actions")  # noqa: SLF001
+    assert result == "serger.constants"
+
+
+def test_resolve_relative_import_no_module() -> None:
+    """Should handle relative import without module name."""
+    source = "from . import something"
+    tree = ast.parse(source)
+    node = tree.body[0]
+    assert isinstance(node, ast.ImportFrom)
+
+    result = mod_stitch._resolve_relative_import(node, "serger.actions")  # noqa: SLF001
+    assert result == "serger"
+
+
+def test_is_internal_import_matches_package() -> None:
+    """Should return True when module matches package exactly."""
+    detected_packages = {"serger", "other"}
+    assert mod_stitch._is_internal_import("serger", detected_packages) is True  # noqa: SLF001
+
+
+def test_is_internal_import_starts_with_package() -> None:
+    """Should return True when module starts with package."""
+    detected_packages = {"serger", "other"}
+    assert mod_stitch._is_internal_import("serger.actions", detected_packages) is True  # noqa: SLF001
+
+
+def test_is_internal_import_no_match() -> None:
+    """Should return False when module doesn't match any package."""
+    detected_packages = {"serger", "other"}
+    assert mod_stitch._is_internal_import("external.module", detected_packages) is False  # noqa: SLF001
+
+
+def test_is_internal_import_false_match_prevention() -> None:
+    """Should prevent false matches (e.g., 'foo_bar' matching 'foo')."""
+    detected_packages = {"foo"}
+    # 'foo_bar' should NOT match 'foo' because it doesn't start with 'foo.'
+    assert mod_stitch._is_internal_import("foo_bar", detected_packages) is False  # noqa: SLF001
+    # But 'foo.bar' should match
+    assert mod_stitch._is_internal_import("foo.bar", detected_packages) is True  # noqa: SLF001
+
+
+def test_extract_import_module_info_importfrom_absolute() -> None:
+    """Should extract module info from absolute ImportFrom."""
+    source = "from serger.constants import X"
+    tree = ast.parse(source)
+    node = tree.body[0]
+    assert isinstance(node, ast.ImportFrom)
+
+    detected_packages = {"serger"}
+    result = mod_stitch._extract_import_module_info(  # noqa: SLF001
+        node, "serger.actions", detected_packages
+    )
+    assert result == ("serger.constants", True)
+
+
+def test_extract_import_module_info_importfrom_relative() -> None:
+    """Should extract module info from relative ImportFrom."""
+    source = "from .constants import X"
+    tree = ast.parse(source)
+    node = tree.body[0]
+    assert isinstance(node, ast.ImportFrom)
+
+    detected_packages = {"serger"}
+    result = mod_stitch._extract_import_module_info(  # noqa: SLF001
+        node, "serger.actions", detected_packages
+    )
+    assert result == ("serger.constants", True)
+
+
+def test_extract_import_module_info_importfrom_external() -> None:
+    """Should extract module info from external ImportFrom."""
+    source = "from external.module import X"
+    tree = ast.parse(source)
+    node = tree.body[0]
+    assert isinstance(node, ast.ImportFrom)
+
+    detected_packages = {"serger"}
+    result = mod_stitch._extract_import_module_info(  # noqa: SLF001
+        node, "serger.actions", detected_packages
+    )
+    assert result == ("external.module", False)
+
+
+def test_extract_import_module_info_import() -> None:
+    """Should extract module info from Import."""
+    source = "import serger.constants"
+    tree = ast.parse(source)
+    node = tree.body[0]
+    assert isinstance(node, ast.Import)
+
+    detected_packages = {"serger"}
+    result = mod_stitch._extract_import_module_info(  # noqa: SLF001
+        node, "serger.actions", detected_packages
+    )
+    assert result == ("serger.constants", True)
+
+
+def test_extract_import_module_info_import_external() -> None:
+    """Should extract module info from external Import."""
+    source = "import external.module"
+    tree = ast.parse(source)
+    node = tree.body[0]
+    assert isinstance(node, ast.Import)
+
+    detected_packages = {"serger"}
+    result = mod_stitch._extract_import_module_info(  # noqa: SLF001
+        node, "serger.actions", detected_packages
+    )
+    assert result == ("external.module", False)
+
+
+def test_extract_import_module_info_relative_beyond_root() -> None:
+    """Should return None when relative import goes beyond root."""
+    source = "from ...something import X"
+    tree = ast.parse(source)
+    node = tree.body[0]
+    assert isinstance(node, ast.ImportFrom)
+
+    detected_packages = {"serger"}
+    result = mod_stitch._extract_import_module_info(  # noqa: SLF001
+        node, "serger.actions", detected_packages
+    )
+    assert result is None
+
+
+# Tests for _extract_internal_imports_for_deps
+def test_extract_internal_imports_for_deps_absolute() -> None:
+    """Should extract internal imports from absolute ImportFrom."""
+    source = "from serger.constants import X"
+    detected_packages = {"serger"}
+    result = mod_stitch._extract_internal_imports_for_deps(  # noqa: SLF001
+        source, "serger.actions", detected_packages
+    )
+    assert result == {"serger.constants"}
+
+
+def test_extract_internal_imports_for_deps_relative() -> None:
+    """Should extract internal imports from relative ImportFrom."""
+    source = "from .constants import X"
+    detected_packages = {"serger"}
+    result = mod_stitch._extract_internal_imports_for_deps(  # noqa: SLF001
+        source, "serger.actions", detected_packages
+    )
+    assert result == {"serger.constants"}
+
+
+def test_extract_internal_imports_for_deps_relative_simple_name() -> None:
+    """Should extract relative imports that resolve to simple names.
+
+    Note: This tests the edge case where a relative import resolves to a
+    simple name (no dots). In practice, this is rare but the extraction
+    function should handle it.
+    """
+    # This scenario is hard to create in practice, but we test that
+    # the function handles it correctly by checking the logic path
+    # For a more realistic test, we use a relative import that resolves
+    # to a package-prefixed name
+    source = "from . import something"
+    detected_packages = {"serger"}
+    result = mod_stitch._extract_internal_imports_for_deps(  # noqa: SLF001
+        source, "serger.sub", detected_packages
+    )
+    # The relative import "from . import something" in "serger.sub" resolves
+    # to "serger", which is package-prefixed, so it should be included
+    assert "serger" in result
+
+
+def test_extract_internal_imports_for_deps_external() -> None:
+    """Should not extract external imports."""
+    source = "from external.module import X"
+    detected_packages = {"serger"}
+    result = mod_stitch._extract_internal_imports_for_deps(  # noqa: SLF001
+        source, "serger.actions", detected_packages
+    )
+    assert result == set()
+
+
+def test_extract_internal_imports_for_deps_import() -> None:
+    """Should extract internal imports from Import."""
+    source = "import serger.constants"
+    detected_packages = {"serger"}
+    result = mod_stitch._extract_internal_imports_for_deps(  # noqa: SLF001
+        source, "serger.actions", detected_packages
+    )
+    assert result == {"serger.constants"}
+
+
+def test_extract_internal_imports_for_deps_multiple_imports() -> None:
+    """Should extract multiple internal imports."""
+    source = """from serger.constants import X
+from serger.utils import helper
+import serger.actions
+"""
+    detected_packages = {"serger"}
+    result = mod_stitch._extract_internal_imports_for_deps(  # noqa: SLF001
+        source, "serger.main", detected_packages
+    )
+    assert result == {"serger.constants", "serger.utils", "serger.actions"}
+
+
+def test_extract_internal_imports_for_deps_conditional_import() -> None:
+    """Should extract imports inside conditional blocks."""
+    source = """if not __STANDALONE__:
+    from .namespace import apathetic_logging
+"""
+    detected_packages = {"serger"}
+    result = mod_stitch._extract_internal_imports_for_deps(  # noqa: SLF001
+        source, "serger.actions", detected_packages
+    )
+    assert "serger.namespace" in result
+
+
+def test_extract_internal_imports_for_deps_relative_beyond_root() -> None:
+    """Should skip relative imports that go beyond package root."""
+    source = "from ...something import X"
+    detected_packages = {"serger"}
+    result = mod_stitch._extract_internal_imports_for_deps(  # noqa: SLF001
+        source, "serger.actions", detected_packages
+    )
+    assert result == set()
+
+
+def test_extract_internal_imports_for_deps_syntax_error() -> None:
+    """Should return empty set on syntax error."""
+    source = "def invalid syntax"
+    detected_packages = {"serger"}
+    result = mod_stitch._extract_internal_imports_for_deps(  # noqa: SLF001
+        source, "serger.actions", detected_packages
+    )
+    assert result == set()
+
+
+def test_extract_internal_imports_for_deps_mixed_internal_external() -> None:
+    """Should extract only internal imports when mixed with external."""
+    source = """from serger.constants import X
+from external.module import Y
+import serger.utils
+"""
+    detected_packages = {"serger"}
+    result = mod_stitch._extract_internal_imports_for_deps(  # noqa: SLF001
+        source, "serger.main", detected_packages
+    )
+    assert result == {"serger.constants", "serger.utils"}
+    assert "external.module" not in result

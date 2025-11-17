@@ -1130,7 +1130,197 @@ def verify_all_modules_listed(
         raise RuntimeError(msg)
 
 
-def compute_module_order(  # noqa: C901, PLR0912, PLR0915
+def _resolve_relative_import(node: ast.ImportFrom, current_module: str) -> str | None:
+    """Resolve relative import to absolute module name.
+
+    Args:
+        node: The ImportFrom AST node
+        current_module: The current module name (e.g., "serger.actions")
+
+    Returns:
+        Resolved absolute module name, or None if relative import goes
+        beyond package root
+    """
+    if node.level == 0:
+        # Not a relative import
+        return node.module or ""
+
+    # Resolve relative import to absolute module name
+    # e.g., from .constants in serger.actions -> serger.constants
+    current_parts = current_module.split(".")
+    # Go up 'level' levels from current module
+    if node.level > len(current_parts):
+        # Relative import goes beyond package root, skip
+        return None
+    base_parts = current_parts[: -node.level]
+    if node.module:
+        # Append the module name
+        mod_parts = node.module.split(".")
+        resolved_mod = ".".join(base_parts + mod_parts)
+    else:
+        # from . import something - use base only
+        resolved_mod = ".".join(base_parts)
+    return resolved_mod
+
+
+def _is_internal_import(module_name: str, detected_packages: set[str]) -> bool:
+    """Check if an import is internal (starts with detected package).
+
+    Args:
+        module_name: The module name to check
+        detected_packages: Set of detected package names
+
+    Returns:
+        True if module_name equals or starts with any detected package
+    """
+    # Sort packages for deterministic iteration order
+    for pkg in sorted(detected_packages):
+        # Match only if mod equals pkg or starts with pkg + "."
+        # This prevents false matches where a module name happens to
+        # start with a package name (e.g., "foo_bar" matching "foo")
+        if module_name == pkg or module_name.startswith(pkg + "."):
+            return True
+    return False
+
+
+def _extract_import_module_info(  # pyright: ignore[reportUnusedFunction]
+    node: ast.Import | ast.ImportFrom,
+    current_module: str,
+    detected_packages: set[str],
+) -> tuple[str, bool] | None:
+    """Extract module name and whether it's internal from import node.
+
+    Args:
+        node: The Import or ImportFrom AST node
+        current_module: The current module name
+        detected_packages: Set of detected package names
+
+    Returns:
+        Tuple of (module_name, is_internal), or None if not relevant
+    """
+    if isinstance(node, ast.ImportFrom):
+        # Handle relative imports (node.level > 0)
+        if node.level > 0:
+            resolved_mod = _resolve_relative_import(node, current_module)
+            if resolved_mod is None:
+                # Relative import goes beyond package root
+                return None
+            mod = resolved_mod
+        else:
+            # Absolute import
+            mod = node.module or ""
+
+        # Check if import is internal
+        is_internal = _is_internal_import(mod, detected_packages)
+        return (mod, is_internal)
+
+    if isinstance(node, ast.Import):  # pyright: ignore[reportUnnecessaryIsInstance]
+        # For Import nodes, we need to check each alias
+        # But this function returns a single result, so we'll handle
+        # the first alias (caller can iterate if needed)
+        if not node.names:
+            return None
+        mod = node.names[0].name
+        # Check if import starts with any detected package
+        # Note: Import nodes use startswith(pkg) not startswith(pkg + ".")
+        # This is different from ImportFrom matching logic
+        is_internal = False
+        # Sort packages for deterministic iteration order
+        for pkg in sorted(detected_packages):
+            if mod.startswith(pkg):
+                is_internal = True
+                break
+        return (mod, is_internal)
+
+    return None
+
+
+def _extract_internal_imports_for_deps(  # noqa: PLR0912
+    source: str,
+    module_name: str,
+    detected_packages: set[str],
+) -> set[str]:
+    """Extract internal import module names for dependency graph building.
+
+    This is a "dumb" extraction function that extracts only raw data - the
+    set of internal module names that this module imports. The matching logic
+    (checking against existing modules) is handled by the caller.
+
+    Args:
+        source: Source code of the module
+        module_name: The current module name (e.g., "serger.actions")
+        detected_packages: Set of detected package names
+
+    Returns:
+        Set of internal module names that this module imports (resolved from
+        relative imports if needed). Includes relative imports that resolve to
+        simple names (no dots) even if not package-prefixed, as they may match
+        existing modules.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return set()
+
+    internal_imports: set[str] = set()
+
+    # Use ast.walk() to find ALL imports, including those inside
+    # if/else blocks, functions, etc. This is necessary because
+    # imports inside conditionals (like "if not __STANDALONE__: from .x import y")
+    # still represent dependencies that affect module ordering.
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            # Handle relative imports (node.level > 0)
+            if node.level > 0:
+                resolved_mod = _resolve_relative_import(node, module_name)
+                if resolved_mod is None:
+                    # Relative import goes beyond package root, skip
+                    continue
+                mod = resolved_mod
+                # Check if relative import resolved to a simple name (no dots)
+                # These may match existing modules even if not package-prefixed
+                is_relative_resolved = mod and "." not in mod
+            else:
+                # Absolute import
+                mod = node.module or ""
+                is_relative_resolved = False
+
+            # Check if import is internal (matches a detected package)
+            matched_package = None
+            # Sort packages for deterministic iteration order
+            for pkg in sorted(detected_packages):
+                # Match only if mod equals pkg or starts with pkg + "."
+                # This prevents false matches where a module name happens to
+                # start with a package name (e.g., "foo_bar" matching "foo")
+                if mod == pkg or mod.startswith(pkg + "."):
+                    matched_package = pkg
+                    break
+
+            # If relative import resolved to a simple name (no dots), include it
+            # even if not package-prefixed, as it may match existing modules
+            if is_relative_resolved and not matched_package:
+                internal_imports.add(mod)
+            elif matched_package:
+                # Include the resolved module name for package-based matching
+                internal_imports.add(mod)
+
+        elif isinstance(node, ast.Import):
+            # For Import nodes, check each alias
+            for alias in node.names:
+                mod = alias.name
+                # Check if import starts with any detected package
+                # Note: Import nodes use startswith(pkg) not startswith(pkg + ".")
+                # This is different from ImportFrom matching logic
+                # Sort packages for deterministic iteration order
+                for pkg in sorted(detected_packages):
+                    if mod.startswith(pkg):
+                        internal_imports.add(mod)
+                        break
+
+    return internal_imports
+
+
+def compute_module_order(  # noqa: C901, PLR0912
     file_paths: list[Path],
     package_root: Path,
     _package_name: str,
@@ -1177,144 +1367,91 @@ def compute_module_order(  # noqa: C901, PLR0912, PLR0915
             continue
 
         try:
-            tree = ast.parse(file_path.read_text(encoding="utf-8"))
-        except SyntaxError:
+            source = file_path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
             continue
 
-        # Use ast.walk() to find ALL imports, including those inside
-        # if/else blocks, functions, etc. This is necessary because
-        # imports inside conditionals (like "if not __STANDALONE__: from .x import y")
-        # still represent dependencies that affect module ordering.
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom):
-                # Handle relative imports (node.level > 0)
-                if node.level > 0:
-                    # Resolve relative import to absolute module name
-                    # e.g., from .constants in serger.actions -> serger.constants
-                    current_parts = module_name.split(".")
-                    # Go up 'level' levels from current module
-                    if node.level > len(current_parts):
-                        # Relative import goes beyond package root, skip
-                        continue
-                    base_parts = current_parts[: -node.level]
-                    if node.module:
-                        # Append the module name
-                        mod_parts = node.module.split(".")
-                        resolved_mod = ".".join(base_parts + mod_parts)
-                    else:
-                        # from . import something - use base only
-                        resolved_mod = ".".join(base_parts)
-                    mod = resolved_mod
-                else:
-                    # Absolute import
-                    mod = node.module or ""
+        # Extract internal imports using the extraction function
+        # This parses the AST once and extracts all internal module names
+        internal_imports = _extract_internal_imports_for_deps(
+            source, module_name, detected_packages
+        )
 
-                # Check if import starts with any detected package, or if it's a
-                # relative import that resolved to a module name without package prefix
-                matched_package = None
-                is_relative_resolved = node.level > 0 and mod and "." not in mod
+        # Build dependency graph from extracted imports
+        # The matching logic (checking against existing modules) stays here
+        for mod in sorted(internal_imports):
+            # Check if this is a relative import that resolved to a simple name
+            # (no dots) - these may match existing modules directly
+            is_relative_resolved = "." not in mod
 
-                # Sort packages for deterministic iteration order
-                for pkg in sorted(detected_packages):
-                    # Match only if mod equals pkg or starts with pkg + "."
-                    # This prevents false matches where a module name happens to
-                    # start with a package name (e.g., "foo_bar" matching "foo")
-                    if mod == pkg or mod.startswith(pkg + "."):
-                        matched_package = pkg
-                        break
+            # Check if import matches a detected package
+            matched_package = None
+            # Sort packages for deterministic iteration order
+            for pkg in sorted(detected_packages):
+                # Match only if mod equals pkg or starts with pkg + "."
+                # This prevents false matches where a module name happens to
+                # start with a package name (e.g., "foo_bar" matching "foo")
+                if mod == pkg or mod.startswith(pkg + "."):
+                    matched_package = pkg
+                    break
 
+            logger.trace(
+                "[DEPS] %s imports %s: matched_package=%s, is_relative_resolved=%s",
+                module_name,
+                mod,
+                matched_package,
+                is_relative_resolved,
+            )
+
+            # If relative import resolved to a simple name (no dots), check if it
+            # matches any module name directly (for same-package imports)
+            if not matched_package and is_relative_resolved:
+                # Check if the resolved module name matches any module directly
                 logger.trace(
-                    "[DEPS] %s imports %s: mod=%s, matched_package=%s, "
-                    "is_relative_resolved=%s",
+                    "[DEPS] Relative import in %s: resolved_mod=%s, checking deps",
                     module_name,
-                    node.module or "",
                     mod,
-                    matched_package,
-                    is_relative_resolved,
                 )
+                # Sort for deterministic iteration order
+                for dep_module in sorted(deps.keys()):
+                    # Match if dep_module equals mod or starts with mod.
+                    if (
+                        dep_module == mod or dep_module.startswith(mod + ".")
+                    ) and dep_module != module_name:
+                        logger.trace(
+                            "[DEPS] Found dependency: %s -> %s (from %s)",
+                            module_name,
+                            dep_module,
+                            mod,
+                        )
+                        deps[module_name].add(dep_module)
+                continue  # Skip the package-based matching below
 
-                # If relative import resolved to a simple name (no dots), check if it
-                # matches any module name directly (for same-package imports)
-                if not matched_package and is_relative_resolved:
-                    # Check if the resolved module name matches any module directly
-                    logger.trace(
-                        "[DEPS] Relative import in %s: resolved_mod=%s, checking deps",
-                        module_name,
-                        mod,
-                    )
+            if matched_package:
+                # Handle nested imports: package.core.base -> core.base
+                # Remove package prefix and check if it matches any module
+                mod_suffix = (
+                    mod[len(matched_package) + 1 :]
+                    if mod.startswith(matched_package + ".")
+                    else mod[len(matched_package) :]
+                    if mod == matched_package
+                    else ""
+                )
+                if mod_suffix:
+                    # Check if this matches any derived module name
+                    # Match both the suffix (for same-package imports)
+                    # and full module name (for cross-package imports)
                     # Sort for deterministic iteration order
                     for dep_module in sorted(deps.keys()):
-                        # Match if dep_module equals mod or starts with mod.
-                        if (
-                            dep_module == mod or dep_module.startswith(mod + ".")
-                        ) and dep_module != module_name:
-                            logger.trace(
-                                "[DEPS] Found dependency: %s -> %s (from %s)",
-                                module_name,
-                                dep_module,
-                                mod,
-                            )
+                        # Match if: dep_module equals mod_suffix or mod
+                        # or dep_module starts with mod_suffix or mod
+                        prefix_tuple = (mod_suffix + ".", mod + ".")
+                        matches = dep_module in (
+                            mod_suffix,
+                            mod,
+                        ) or dep_module.startswith(prefix_tuple)
+                        if matches and dep_module != module_name:
                             deps[module_name].add(dep_module)
-                    continue  # Skip the package-based matching below
-
-                if matched_package:
-                    # Handle nested imports: package.core.base -> core.base
-                    # Remove package prefix and check if it matches any module
-                    mod_suffix = (
-                        mod[len(matched_package) + 1 :]
-                        if mod.startswith(matched_package + ".")
-                        else mod[len(matched_package) :]
-                        if mod == matched_package
-                        else ""
-                    )
-                    if mod_suffix:
-                        # Check if this matches any derived module name
-                        # Match both the suffix (for same-package imports)
-                        # and full module name (for cross-package imports)
-                        # Sort for deterministic iteration order
-                        for dep_module in sorted(deps.keys()):
-                            # Match if: dep_module equals mod_suffix or mod
-                            # or dep_module starts with mod_suffix or mod
-                            prefix_tuple = (mod_suffix + ".", mod + ".")
-                            matches = dep_module in (
-                                mod_suffix,
-                                mod,
-                            ) or dep_module.startswith(prefix_tuple)
-                            if matches and dep_module != module_name:
-                                deps[module_name].add(dep_module)
-            elif isinstance(node, ast.Import):
-                for alias in node.names:
-                    mod = alias.name
-                    # Check if import starts with any detected package
-                    matched_package = None
-                    # Sort packages for deterministic iteration order
-                    for pkg in sorted(detected_packages):
-                        if mod.startswith(pkg):
-                            matched_package = pkg
-                            break
-
-                    if matched_package:
-                        # Handle nested imports
-                        mod_suffix = (
-                            mod[len(matched_package) + 1 :]
-                            if mod.startswith(matched_package + ".")
-                            else mod[len(matched_package) :]
-                            if mod == matched_package
-                            else ""
-                        )
-                        if mod_suffix:
-                            # Check if this matches any derived module name
-                            # Match both the suffix (for same-package imports)
-                            # and full module name (for cross-package imports)
-                            # Sort for deterministic iteration order
-                            for dep_module in sorted(deps.keys()):
-                                prefix_tuple = (mod_suffix + ".", mod + ".")
-                                matches = dep_module in (
-                                    mod_suffix,
-                                    mod,
-                                ) or dep_module.startswith(prefix_tuple)
-                                if matches and dep_module != module_name:
-                                    deps[module_name].add(dep_module)
 
     # detect circular imports first
     try:

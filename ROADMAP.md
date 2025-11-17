@@ -47,21 +47,14 @@ Exploring bundling options for generating the single-file release:
 ## 🧪 Tests
 - Organize tests in classes? or separate files?
 - split large test files
-- what do our integration tests that only run in one runtime_mode do?
-- split tests into logical sections instead of subfolders
-- review all docs before v1.0
+- split tests into logical sections further (instead of subfolders)
 - review all tests before v1.0
-- review all details/minimal statements before v1.0
 - review all debug/trace statements before v1.0
 
 ## 🧑‍💻 Development
 - implement stich mode: exec (see [docs/example_isolated_stiching.md](docs/example_isolated_stiching.md))
 - implement stich mode: class (requires working assign import mode)
-- Evaluate ignores and determine if we can fix them instead of ignore them
-- can we pull out common CLI elements with pocket-build into a single toplevel module?
-- command to do common tasks based on reddit advice for dealing with AI.
 - if we moved the sys.modules shims as we went, would that allow us to do imports as long as the order was correct?
-- should more of our config settings be available to be set via ENV?
 - can we parse the AST just once and store everything we need to know for later?
 - might be able to optimize/cache package detection based on previous includes
 - now that we have a module_base, we can probably "Follow the imports" and add includes as we find them, they only need to give us the first include
@@ -74,6 +67,9 @@ Exploring bundling options for generating the single-file release:
 - if we call a private function from another file (in src/ not in tests/) then it should not be private, change to public
 - if we use a parameter in a function that is set to unused prefix `_`, then we should rename it to used (no `_`)
 - are we double erroring on people by logging an error then raising? we don't want to lose details, check the CLI implementation for catching raised errors and how they are displayed ot the user so we can provide the appropriate details.
+- should more of our config settings be available to be set via ENV?
+- review all details/minimal statements before v1.0
+
 
 ## 🚀 Deployment
 - Deploy action when I tag a release should create a release and attach it to the tagged release.
@@ -86,11 +82,15 @@ Exploring bundling options for generating the single-file release:
 - Where do we do longer usage documentation? README can get a bit big
 - Logo? Images? Icon? README banner?
 - API docs
+- review all docs before v1.0
+
+## AI tooling
+- command to do common tasks based on reddit advice for dealing with AI.
+- split out the sync ai command to a separate package, could include standard rules
 
 ## 💡 Ideas & Experiments
 Potential quality-of-life features:
 
-- split out and depend on a basic CLI module
 - split out and depend on (dev-only) a make_script CLI
 - split out and depend on (dev-only) a list-project CLI
 - split out and depend on (dev-only) a pytest multi-target plugin
@@ -98,8 +98,13 @@ Potential quality-of-life features:
 
 ## Other Tool Ideas
 
+### CLI library
+- split out and depend on a basic CLI module
+- can we pull out common CLI elements with pocket-build into a single toplevel module? (that would include includes, excludes) we're not longer compatable on the builds vs single-build
+
 ### Type Ignore Comments
 - How can we report what we comment tool ignore (e.g. #noqa:), in src and in tests?
+- Evaluate ignores and determine if we can fix them instead of ignore them
 
 > See [REJECTED.md](REJECTED.md) for experiments and ideas that were explored but intentionally not pursued.
 
