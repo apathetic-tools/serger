@@ -645,6 +645,141 @@ def test_detect_function_parameters_async_function() -> None:
     assert result is True
 
 
+# Tests for _extract_top_level_function_names()
+
+
+def test_extract_top_level_function_names_single_function() -> None:
+    """Test _extract_top_level_function_names with a single function."""
+    # --- setup ---
+    source = "def main():\n    pass\n"
+
+    # --- execute ---
+    names = mod_main_config._extract_top_level_function_names(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    assert names == {"main"}
+
+
+def test_extract_top_level_function_names_multiple_functions() -> None:
+    """Test _extract_top_level_function_names with multiple functions."""
+    # --- setup ---
+    source = (
+        "def func1():\n    pass\n\ndef func2():\n    pass\n\ndef func3():\n    pass\n"
+    )
+
+    # --- execute ---
+    names = mod_main_config._extract_top_level_function_names(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    assert names == {"func1", "func2", "func3"}
+
+
+def test_extract_top_level_function_names_async_function() -> None:
+    """Test _extract_top_level_function_names with async function."""
+    # --- setup ---
+    source = "async def main():\n    pass\n"
+
+    # --- execute ---
+    names = mod_main_config._extract_top_level_function_names(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    assert names == {"main"}
+
+
+def test_extract_top_level_function_names_mixed_sync_async() -> None:
+    """Test _extract_top_level_function_names with mixed sync and async functions."""
+    # --- setup ---
+    source = "def sync_func():\n    pass\n\nasync def async_func():\n    pass\n"
+
+    # --- execute ---
+    names = mod_main_config._extract_top_level_function_names(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    assert names == {"sync_func", "async_func"}
+
+
+def test_extract_top_level_function_names_no_functions() -> None:
+    """Test _extract_top_level_function_names with no functions."""
+    # --- setup ---
+    source = "x = 1\ny = 2\n"
+
+    # --- execute ---
+    names = mod_main_config._extract_top_level_function_names(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    assert names == set()
+
+
+def test_extract_top_level_function_names_nested_functions() -> None:
+    """Test _extract_top_level_function_names ignores nested functions."""
+    # --- setup ---
+    source = "def outer():\n    def inner():\n        pass\n    return inner\n"
+
+    # --- execute ---
+    names = mod_main_config._extract_top_level_function_names(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    # Should only include top-level function, not nested one
+    assert names == {"outer"}
+
+
+def test_extract_top_level_function_names_syntax_error() -> None:
+    """Test _extract_top_level_function_names handles syntax errors gracefully."""
+    # --- setup ---
+    source = "def main(\n    # Invalid syntax"
+
+    # --- execute ---
+    names = mod_main_config._extract_top_level_function_names(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    # Should return empty set on syntax error
+    assert names == set()
+
+
+def test_extract_top_level_function_names_empty_source() -> None:
+    """Test _extract_top_level_function_names with empty source."""
+    # --- setup ---
+    source = ""
+
+    # --- execute ---
+    names = mod_main_config._extract_top_level_function_names(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    assert names == set()
+
+
+def test_extract_top_level_function_names_with_classes() -> None:
+    """Test _extract_top_level_function_names with classes (should ignore methods)."""
+    # --- setup ---
+    source = (
+        "def top_level():\n    pass\n\n"
+        "class MyClass:\n    def method(self):\n        pass\n"
+    )
+
+    # --- execute ---
+    names = mod_main_config._extract_top_level_function_names(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    # Should only include top-level function, not class methods
+    assert names == {"top_level"}
+
+
+def test_extract_top_level_function_names_duplicate_names() -> None:
+    """Test _extract_top_level_function_names handles duplicate function names."""
+    # --- setup ---
+    # Note: This is invalid Python, but we test the extraction behavior
+    # In practice, Python would raise a SyntaxError, but we test the extraction
+    # to ensure it returns a set (which naturally handles duplicates)
+    source = "def func():\n    pass\n\ndef func():\n    pass\n"
+
+    # --- execute ---
+    names = mod_main_config._extract_top_level_function_names(source)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+    # --- verify ---
+    # Set should contain only one instance of "func"
+    assert names == {"func"}
+
+
 # Tests for _extract_main_guards()
 
 

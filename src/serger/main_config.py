@@ -75,6 +75,30 @@ def parse_main_name(main_name: str | None) -> tuple[str | None, str]:
     return (None, main_name)
 
 
+def _extract_top_level_function_names(source: str) -> set[str]:
+    """Extract all top-level function names from source code.
+
+    This is a "dumb extraction" function that only extracts function names.
+    It does not filter by name - that's handled by the usage function.
+
+    Args:
+        source: Python source code to analyze
+
+    Returns:
+        Set of top-level function names (both sync and async)
+    """
+    try:
+        tree = ast.parse(source)
+        function_names: set[str] = set()
+        # Only search top-level functions (direct children of module)
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                function_names.add(node.name)
+        return function_names  # noqa: TRY300
+    except (SyntaxError, ValueError):
+        return set()
+
+
 def _find_function_in_source(
     source: str, function_name: str
 ) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
@@ -303,7 +327,8 @@ def find_main_function(  # noqa: PLR0912, C901, PLR0915
     # Then by module name for determinism
     search_candidates.sort(key=lambda x: (_get_file_priority(x[1]), x[0]))
 
-    # Search for function in candidates
+    # Extract function names from all candidates (one parse per candidate)
+    # Then filter to only candidates that have the function name
     for mod_name, file_path in search_candidates:
         # Get module source (key includes .py suffix)
         module_key = f"{mod_name}.py"
@@ -311,8 +336,11 @@ def find_main_function(  # noqa: PLR0912, C901, PLR0915
             continue
 
         source = module_sources[module_key]
-        func_node = _find_function_in_source(source, function_name)
-        if func_node is not None:
+        # Extract function names (parses AST once)
+        function_names = _extract_top_level_function_names(source)
+        # Filter: only keep candidates that have the function name
+        if function_name in function_names:
+            # Return first matching candidate (already sorted by priority)
             return (function_name, file_path, mod_name)
 
     # Not found
