@@ -20,10 +20,8 @@ dependencies = [
 
 # 🔍 Linting and static checks
 check = ["lint", "typecheck",  "test"]
-lint = ["lint:ruff", "lint:compile"]
+lint = ["lint:ruff"]
 "lint:ruff" = "ruff check ."
-"lint:compile" = ["lint:compile:script"]
-"lint:compile:script" = { shell = "if [ -f dist/serger.py ]; then python -m py_compile dist/serger.py; fi" }
 
 # 🧠 Type checking
 typecheck = ["typecheck:mypy", "typecheck:pyright"]
@@ -63,8 +61,8 @@ test = ["test:pytest:installed", "test:pytest:script"]
 ]
 
 # 🧹 Automated fixing / formatting
-fix = ["sync:ai:guidance", "fix:ruff:installed", "lint:compile", "fix:format:installed"]
-"fix:dist" = ["fix:ruff:dist", "lint:compile", "fix:format:dist"]
+fix = ["sync:ai:guidance", "fix:ruff:installed", "fix:format:installed"]
+"fix:dist" = ["fix:ruff:dist", "fix:format:dist"]
 "fix:ruff:installed" = "ruff check . --fix"
 "fix:ruff:dist" = { shell = "if [ -d dist ]; then ruff check dist --fix; fi" }
 "fix:format:installed" = "ruff format ."

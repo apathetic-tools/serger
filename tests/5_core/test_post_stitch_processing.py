@@ -143,10 +143,10 @@ def test_post_stitch_processing_reverts_on_compilation_failure(
         path.unlink(missing_ok=True)
 
 
-def test_post_stitch_processing_raises_on_revert_failure(
+def test_post_stitch_processing_logs_error_on_revert_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Should raise RuntimeError when revert fails to compile."""
+    """Should log error (not raise) when revert fails to compile."""
     original_content = "def main():\n    return 0\n"
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(original_content)
@@ -195,17 +195,19 @@ def test_post_stitch_processing_raises_on_revert_failure(
                 ),
             },
         )
-        # Should raise RuntimeError
-        with pytest.raises(RuntimeError, match="does not compile after reverting"):
-            mod_verify.post_stitch_processing(path, post_processing=config)
+        # Should not raise, should log error and continue
+        mod_verify.post_stitch_processing(path, post_processing=config)
+        # Verify it was called 3 times (before, after, after revert)
+        expected_calls = 3
+        assert call_count == expected_calls
     finally:
         path.unlink(missing_ok=True)
 
 
-def test_post_stitch_processing_raises_when_not_compiling_after(
+def test_post_stitch_processing_logs_warning_when_not_compiling_after(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Should raise RuntimeError when file doesn't compile after post-processing."""
+    """Should log warning (not raise) when file doesn't compile after processing."""
     # Start with a valid file
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write("def main():\n    return 0\n")
@@ -254,9 +256,11 @@ def test_post_stitch_processing_raises_when_not_compiling_after(
                 ),
             },
         )
-        # Should raise RuntimeError because revert fails to restore compilation
-        with pytest.raises(RuntimeError, match="does not compile after reverting"):
-            mod_verify.post_stitch_processing(path, post_processing=config)
+        # Should not raise, should log error and continue
+        mod_verify.post_stitch_processing(path, post_processing=config)
+        # Verify it was called 3 times (before, after, after revert)
+        expected_calls = 3
+        assert call_count == expected_calls
     finally:
         path.unlink(missing_ok=True)
 

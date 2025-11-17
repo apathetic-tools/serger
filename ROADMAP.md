@@ -45,14 +45,14 @@ Exploring bundling options for generating the single-file release:
 - zip file: zipapp / shiv / pyinstaller --onefile
 
 ## 🧪 Tests
-- How can we report what we comment tool ignore, in src and in tests?
 - Organize tests in classes? or separate files?
 - split large test files
-- is checking py_compiles overkill? should we also run it against the installed mode not just singlefile?
-- make sure for our config_types TypeDicts, we have a make_ factory in tests/utils that has sane defaults for all fields it can and named parameters for overriding each. that way a test can focus on just overiding the values it cares about. make sure our tests use the factories.
+- make sure for our config_types TypeDicts, we have a make_ factory in tests/utils that has sane defaults for all fields it can and named parameters for overriding each. that way a test can focus on just overiding the values it cares about. make sure our tests use the factories when appropriate. make sure to create extra factories for appropriate situations in tests.
 - can we split integration into ones that check serger output and those that don't? what do our integration tests that only run in one runtime_mode do?
+- remap tests to XX_, split tests into logical sections instead of subfolders
 - review all docs before v1.0
 - review all tests before v1.0
+- review all details/minimal statements before v1.0
 - review all debug/trace statements before v1.0
 
 ## 🧑‍💻 Development
@@ -72,6 +72,9 @@ Exploring bundling options for generating the single-file release:
 - security issues with pulling files above CWD? (probably not much more than if you run from ~), could warn though
 - custom header you can specify
 - file docstring
+- if we call a private function from another file (in src/ not in tests/) then it should not be private, change to public
+- if we use a parameter in a function that is set to unused prefix `_`, then we should rename it to used (no `_`)
+- are we double erroring on people by logging an error then raising? we don't want to lose details, check the CLI implementation for catching raised errors and how they are displayed ot the user so we can provide the appropriate details.
 
 ## 🚀 Deployment
 - Deploy action when I tag a release should create a release and attach it to the tagged release.
@@ -93,6 +96,11 @@ Potential quality-of-life features:
 - split out and depend on (dev-only) a list-project CLI
 - split out and depend on (dev-only) a pytest multi-target plugin
 - publish to PyPI, NPM, PACKAGIST, others?
+
+## Other Tool Ideas
+
+### Type Ignore Comments
+- How can we report what we comment tool ignore (e.g. #noqa:), in src and in tests?
 
 > See [REJECTED.md](REJECTED.md) for experiments and ideas that were explored but intentionally not pursued.
 

@@ -69,7 +69,12 @@ from .module_actions import (
 )
 from .utils import derive_module_name
 from .utils.utils_validation import validate_required_keys
-from .verify_script import post_stitch_processing
+from .verify_script import (
+    _cleanup_error_files,  # pyright: ignore[reportPrivateUsage]
+    _write_error_file,  # pyright: ignore[reportPrivateUsage]
+    post_stitch_processing,
+    verify_compiles_string,
+)
 
 
 def extract_version(pyproject_path: Path) -> str:
@@ -3721,17 +3726,38 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     logger.debug("Verifying assembled script...")
     verify_no_broken_imports(final_script, sorted(detected_packages))
 
-    # --- Output ---
+    # --- Compile in-memory before writing ---
+    logger.debug("Compiling stitched code in-memory...")
+    try:
+        verify_compiles_string(final_script, filename=str(out_path))
+    except SyntaxError as e:
+        # Compilation failed - write error file and raise
+        logger.exception("Stitched code does not compile")
+        error_path = _write_error_file(out_path, final_script, e)
+        lineno = e.lineno or "unknown"
+        error_msg = e.msg or "unknown error"
+        xmsg = (
+            f"Stitched code has syntax errors at line {lineno}: {error_msg}. "
+            f"Error file written to: {error_path}"
+        )
+        raise RuntimeError(xmsg) from e
+
+    # --- Output (compilation succeeded) ---
     logger.debug("Writing output file: %s", out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(final_script, encoding="utf-8")
     out_path.chmod(0o755)
+
+    # Clean up any existing error files (build succeeded)
+    _cleanup_error_files(out_path)
 
     # Advance mtime to ensure visibility across filesystems
     logger.debug("Advancing mtime...")
     force_mtime_advance(out_path)
 
     # Post-processing: tools, compilation checks, and verification
+    # Note: post_stitch_processing may warn but won't raise on post-processing
+    # failures - it will revert and continue
     post_stitch_processing(out_path, post_processing=post_processing)
 
     logger.info(

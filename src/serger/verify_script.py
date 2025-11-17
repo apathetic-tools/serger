@@ -9,11 +9,25 @@ import py_compile
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import PostProcessingConfigResolved, ToolConfigResolved
 from .logs import get_app_logger
 from .utils.utils_validation import validate_required_keys
+
+
+def verify_compiles_string(source: str, filename: str = "<string>") -> None:
+    """Verify that Python source code compiles without syntax errors.
+
+    Args:
+        source: Python source code as string
+        filename: Filename to use in error messages (for debugging)
+
+    Raises:
+        SyntaxError: If compilation fails with syntax error details
+    """
+    compile(source, filename, "exec")
 
 
 def verify_compiles(file_path: Path) -> bool:
@@ -274,6 +288,128 @@ def verify_executes(file_path: Path) -> bool:
     return False
 
 
+def _get_error_file_pattern(out_path: Path) -> str:
+    """Get the glob pattern for error files matching the output path.
+
+    Args:
+        out_path: Path to the output file (e.g., dist/package.py)
+
+    Returns:
+        Glob pattern string (e.g., "package_ERROR_*.py")
+    """
+    stem = out_path.stem
+    return f"{stem}_ERROR_*.py"
+
+
+def _cleanup_error_files(out_path: Path) -> None:  # pyright: ignore[reportUnusedFunction]
+    """Delete all error files matching the output path pattern.
+
+    Args:
+        out_path: Path to the output file (e.g., dist/package.py)
+    """
+    logger = get_app_logger()
+    pattern = _get_error_file_pattern(out_path)
+    error_files = list(out_path.parent.glob(pattern))
+    if error_files:
+        logger.debug(
+            "Cleaning up %d error file(s) matching pattern: %s",
+            len(error_files),
+            pattern,
+        )
+        for error_file in error_files:
+            try:
+                error_file.unlink()
+                logger.trace("Deleted error file: %s", error_file)
+            except OSError as e:  # noqa: PERF203
+                logger.debug("Failed to delete error file %s: %s", error_file, e)
+
+
+def _write_error_file(  # pyright: ignore[reportUnusedFunction]
+    out_path: Path,
+    source: str,
+    error: SyntaxError,
+) -> Path:
+    """Write source code to an error file with date suffix.
+
+    Args:
+        out_path: Path to the output file (e.g., dist/package.py)
+        source: Source code that failed to compile
+        error: SyntaxError from compilation failure
+
+    Returns:
+        Path to the written error file
+    """
+    logger = get_app_logger()
+    now = datetime.now(timezone.utc)
+    date_suffix = now.strftime("%Y_%m_%d")
+    stem = out_path.stem
+    error_filename = f"{stem}_ERROR_{date_suffix}.py"
+    error_path = out_path.parent / error_filename
+
+    # Get existing error files before writing (exclude the one we're about to write)
+    pattern = _get_error_file_pattern(out_path)
+    all_error_files = list(out_path.parent.glob(pattern))
+    # Filter out the file we're about to write (in case it already exists)
+    existing_error_files = [
+        f for f in all_error_files if f.resolve() != error_path.resolve()
+    ]
+
+    # Build error header with troubleshooting information
+    lineno = error.lineno or "unknown"
+    error_msg = error.msg or "unknown error"
+    separator = "# " + "=" * 70
+    error_header = f"""{separator}
+# COMPILATION ERROR - TROUBLESHOOTING FILE
+# ============================================================================
+# This file was generated because the stitched code failed to compile.
+#
+# Error Details:
+#   - Type: SyntaxError
+#   - Line: {lineno}
+#   - Message: {error_msg}
+#   - Generated: {now.isoformat()}
+#
+# Original Output Path: {out_path}
+#
+# Troubleshooting:
+#   1. Review the error message above to identify the syntax issue
+#   2. Check the source code around line {lineno} in this file
+#   3. Fix the syntax error in your source files
+#   4. Rebuild with: python -m serger
+#   5. This error file can be safely deleted after fixing the issue
+#
+# If you need to report this error, please include:
+#   - This error file (or the error details above)
+#   - Your serger configuration
+#   - The source files that were being stitched
+# ============================================================================
+
+"""
+
+    # Write error file
+    error_content = error_header + source
+    error_path.write_text(error_content, encoding="utf-8")
+    logger.warning("Compilation failed. Error file written to: %s", error_path)
+
+    # Clean up pre-existing error files (excluding the one we just wrote)
+    if existing_error_files:
+        logger.debug(
+            "Deleting %d pre-existing error file(s)", len(existing_error_files)
+        )
+        for old_error_file in existing_error_files:
+            try:
+                old_error_file.unlink()
+                logger.trace("Deleted pre-existing error file: %s", old_error_file)
+            except OSError as e:  # noqa: PERF203
+                logger.debug(
+                    "Failed to delete pre-existing error file %s: %s",
+                    old_error_file,
+                    e,
+                )
+
+    return error_path
+
+
 def post_stitch_processing(
     out_path: Path,
     *,
@@ -288,12 +424,18 @@ def post_stitch_processing(
     4. Reverts changes if compilation fails after processing but succeeded before
     5. Runs a basic execution sanity check
 
+    If post-processing breaks compilation, this function logs a warning, reverts
+    the file, and continues (does not raise). The build is considered successful
+    as long as the original stitched file compiles.
+
     Args:
         out_path: Path to the stitched Python file
         post_processing: Post-processing configuration (if None, skips post-processing)
 
-    Raises:
-        RuntimeError: If compilation fails and cannot be reverted
+    Note:
+        This function does not raise on post-processing failures. It only raises
+        if the file doesn't compile before post-processing (which should never happen
+        if in-memory compilation check was performed first).
     """
     logger = get_app_logger()
     logger.debug("Starting post-stitch processing for %s", out_path)
@@ -301,6 +443,8 @@ def post_stitch_processing(
     # Compile before post-processing
     compiled_before = verify_compiles(out_path)
     if not compiled_before:
+        # This should never happen if in-memory compilation check was performed
+        # But handle it gracefully just in case
         logger.warning(
             "Stitched file does not compile before post-processing. "
             "Skipping post-processing and continuing."
@@ -315,9 +459,16 @@ def post_stitch_processing(
     # Run post-processing if configured
     processing_ran = False
     if post_processing:
-        execute_post_processing(out_path, post_processing)
-        processing_ran = True
-        logger.debug("Post-processing completed")
+        try:
+            execute_post_processing(out_path, post_processing)
+            processing_ran = True
+            logger.debug("Post-processing completed")
+        except Exception as e:  # noqa: BLE001
+            # Post-processing tools can fail - log and continue
+            logger.warning("Post-processing failed: %s. Reverting changes.", e)
+            out_path.write_text(original_content, encoding="utf-8")
+            out_path.chmod(0o755)
+            return
     else:
         logger.debug("Post-processing skipped (no configuration)")
 
@@ -330,18 +481,22 @@ def post_stitch_processing(
         )
         out_path.write_text(original_content, encoding="utf-8")
         out_path.chmod(0o755)
-        # Verify it compiles after revert
+        # Verify it compiles after revert (should always succeed)
         if not verify_compiles(out_path):
-            xmsg = (
+            # This should never happen, but log it if it does
+            logger.error(
                 "File does not compile after reverting post-processing changes. "
                 "This indicates a problem with the original stitched file."
             )
-            raise RuntimeError(xmsg)
-    elif not compiled_after:
+        return
+    if not compiled_after:
         # It didn't compile after, but either it didn't compile before
-        # or processing didn't run, so we can't revert
-        xmsg = "Stitched file does not compile after post-processing"
-        raise RuntimeError(xmsg)
+        # or processing didn't run - this shouldn't happen if we checked before
+        logger.warning(
+            "File does not compile after post-processing. "
+            "This should not happen if in-memory compilation check passed."
+        )
+        return
 
     # Run execution sanity check
     verify_executes(out_path)
