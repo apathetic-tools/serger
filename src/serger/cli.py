@@ -201,6 +201,11 @@ def _setup_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run a built-in sanity test to verify tool correctness.",
     )
+    parser.add_argument(
+        "--disable-build-timestamp",
+        action="store_true",
+        help="Disable build timestamps for deterministic builds (uses placeholder).",
+    )
     return parser
 
 

@@ -36,6 +36,7 @@ def _args(**kwargs: object) -> argparse.Namespace:
     arg_namespace.use_color = None
     arg_namespace.config = None
     arg_namespace.dry_run = False
+    arg_namespace.disable_build_timestamp = False
     for k, v in kwargs.items():
         setattr(arg_namespace, k, v)
     return arg_namespace
@@ -2961,3 +2962,50 @@ def test_resolve_build_config_main_name_none_explicit(
 
     # --- validate ---
     assert resolved["main_name"] is None
+
+
+def test_resolve_build_config_disable_build_timestamp_default_value(
+    tmp_path: Path,
+) -> None:
+    """disable_build_timestamp should default to False if not specified."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"])
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved["disable_build_timestamp"] is False
+
+
+def test_resolve_build_config_disable_build_timestamp_from_config(
+    tmp_path: Path,
+) -> None:
+    """disable_build_timestamp from config should be used."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"], disable_build_timestamp=True)
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved["disable_build_timestamp"] is True
+
+
+def test_resolve_build_config_disable_build_timestamp_cli_override(
+    tmp_path: Path,
+) -> None:
+    """CLI --disable-build-timestamp should override config value."""
+    # --- setup ---
+    # Config has disable_build_timestamp=False, but CLI should override
+    raw = make_build_input(include=["src/**"], disable_build_timestamp=False)
+    args = _args(disable_build_timestamp=True)
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # CLI argument should take precedence
+    assert resolved["disable_build_timestamp"] is True

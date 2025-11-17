@@ -12,6 +12,7 @@ from serger.constants import (
     DEFAULT_CATEGORIES,
     DEFAULT_CATEGORY_ORDER,
     DEFAULT_COMMENTS_MODE,
+    DEFAULT_DISABLE_BUILD_TIMESTAMP,
     DEFAULT_DOCSTRING_MODE,
     DEFAULT_ENV_WATCH_INTERVAL,
     DEFAULT_EXTERNAL_IMPORTS,
@@ -1808,6 +1809,15 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
         resolved_cfg["main_name"] = DEFAULT_MAIN_NAME
     # Note: main_name can be None or a string, no validation needed here
     # (validation happens during parsing in later phases)
+
+    # ------------------------------
+    # Disable build timestamp
+    # ------------------------------
+    if getattr(args, "disable_build_timestamp", None):
+        # CLI argument takes precedence
+        resolved_cfg["disable_build_timestamp"] = True
+    elif "disable_build_timestamp" not in resolved_cfg:
+        resolved_cfg["disable_build_timestamp"] = DEFAULT_DISABLE_BUILD_TIMESTAMP
 
     # ------------------------------
     # Post-processing
