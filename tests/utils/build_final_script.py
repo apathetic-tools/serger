@@ -2,10 +2,13 @@
 """Factory functions for creating _build_final_script test arguments."""
 
 from collections import OrderedDict
+from pathlib import Path
 from typing import Any
 
 import serger.config as mod_config
+import serger.main_config as mod_main_config
 import serger.stitch as mod_stitch
+from tests.utils.buildconfig import make_build_cfg, make_include_resolved
 
 
 def make_build_final_script_args(  # noqa: PLR0913
@@ -27,6 +30,10 @@ def make_build_final_script_args(  # noqa: PLR0913
     description: str = "",
     authors: str = "",
     repo: str = "",
+    config: mod_config.RootConfigResolved | None = None,
+    main_function_result: tuple[str, Path, str] | None = None,
+    selected_main_block: mod_main_config.MainBlock | None = None,
+    module_sources: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Create arguments for _build_final_script with sensible defaults.
 
@@ -48,6 +55,10 @@ def make_build_final_script_args(  # noqa: PLR0913
         description: Optional description for header
         authors: Optional authors for header
         repo: Optional repository URL for header
+        config: Resolved configuration with main_mode and main_name
+        main_function_result: Result from find_main_function() if found
+        selected_main_block: Selected __main__ block to use (if any)
+        module_sources: Mapping of module name to source code
 
     Returns:
         Dictionary of keyword arguments for _build_final_script
@@ -72,12 +83,23 @@ def make_build_final_script_args(  # noqa: PLR0913
     if module_actions is None:
         module_actions = []
 
-    return {
+    # Create default config if not provided
+    if config is None:
+        tmp_path = Path("/tmp")  # noqa: S108
+        config = make_build_cfg(
+            tmp_path,
+            include=[make_include_resolved("src", tmp_path)],
+            package=package_name,
+            main_mode="auto",
+            main_name=None,
+        )
+
+    result: dict[str, Any] = {
         "package_name": package_name,
         "all_imports": all_imports,
         "parts": parts,
         "order_names": order_names,
-        "all_function_names": all_function_names,
+        "_all_function_names": all_function_names,
         "detected_packages": detected_packages,
         "module_mode": module_mode,
         "module_actions": module_actions,
@@ -90,7 +112,13 @@ def make_build_final_script_args(  # noqa: PLR0913
         "description": description,
         "authors": authors,
         "repo": repo,
+        "config": config,
+        "selected_main_block": selected_main_block,
+        "main_function_result": main_function_result,
+        "module_sources": module_sources,
     }
+
+    return result
 
 
 def call_build_final_script(**kwargs: Any) -> tuple[str, list[str]]:

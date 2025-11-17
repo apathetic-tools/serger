@@ -6,11 +6,13 @@
 # pyright: reportPrivateUsage=false
 
 from collections import OrderedDict
+from pathlib import Path
 
 import serger.stitch as mod_stitch
 from tests.utils.build_final_script import (
     call_build_final_script,
 )
+from tests.utils.buildconfig import make_build_cfg, make_include_resolved
 
 
 class TestBuildFinalScriptBasic:
@@ -508,12 +510,26 @@ class TestBuildFinalScriptMainShim:
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
+        tmp_path = Path("/tmp")  # noqa: S108
+        config = make_build_cfg(
+            tmp_path,
+            include=[make_include_resolved("src", tmp_path)],
+            package="testpkg",
+            main_mode="auto",
+            main_name=None,
+        )
+
+        source = "def main():\n    return 0\n"
+        module_sources = {"main.py": source}
+        main_file = Path("/tmp/src/main.py")  # noqa: S108
+        main_function_result = ("main", main_file, "main")
+
         result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
             parts=["# === main.py ===\ndef main():\n    return 0\n"],
             order_names=["main"],
-            _all_function_names={"main"},  # main() function exists
+            _all_function_names={"main"},
             detected_packages={"testpkg"},
             module_mode="multi",
             module_actions=[],
@@ -522,23 +538,161 @@ class TestBuildFinalScriptMainShim:
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
+            config=config,
+            main_function_result=main_function_result,
+            module_sources=module_sources,
         )
 
         # Should include the main() shim
         assert "if __name__ == '__main__':" in result
+        assert "sys.exit(main())" in result  # No params, so no sys.argv[1:]
+
+    def test_main_shim_with_params_uses_sys_argv(self) -> None:
+        """Should use sys.argv[1:] when main function has parameters."""
+        all_imports: OrderedDict[str, None] = OrderedDict()
+        all_imports["import sys\n"] = None
+
+        tmp_path = Path("/tmp")  # noqa: S108
+        config = make_build_cfg(
+            tmp_path,
+            include=[make_include_resolved("src", tmp_path)],
+            package="testpkg",
+            main_mode="auto",
+            main_name=None,
+        )
+
+        source = "def main(args):\n    return 0\n"
+        module_sources = {"main.py": source}
+        main_file = Path("/tmp/src/main.py")  # noqa: S108
+        main_function_result = ("main", main_file, "main")
+
+        result, _ = mod_stitch._build_final_script(
+            package_name="testpkg",
+            all_imports=all_imports,
+            parts=["# === main.py ===\ndef main(args):\n    return 0\n"],
+            order_names=["main"],
+            _all_function_names={"main"},
+            detected_packages={"testpkg"},
+            module_mode="multi",
+            module_actions=[],
+            shim="all",
+            license_header="",
+            version="1.0.0",
+            commit="abc123",
+            build_date="2025-01-01",
+            config=config,
+            main_function_result=main_function_result,
+            module_sources=module_sources,
+        )
+
+        # Should include the main() shim with sys.argv[1:]
+        assert "if __name__ == '__main__':" in result
         assert "sys.exit(main(sys.argv[1:]))" in result
+
+    def test_main_shim_with_star_args_uses_sys_argv(self) -> None:
+        """Should use sys.argv[1:] when main function has *args."""
+        all_imports: OrderedDict[str, None] = OrderedDict()
+        all_imports["import sys\n"] = None
+
+        tmp_path = Path("/tmp")  # noqa: S108
+        config = make_build_cfg(
+            tmp_path,
+            include=[make_include_resolved("src", tmp_path)],
+            package="testpkg",
+            main_mode="auto",
+            main_name=None,
+        )
+
+        source = "def main(*args):\n    return 0\n"
+        module_sources = {"main.py": source}
+        main_file = Path("/tmp/src/main.py")  # noqa: S108
+        main_function_result = ("main", main_file, "main")
+
+        result, _ = mod_stitch._build_final_script(
+            package_name="testpkg",
+            all_imports=all_imports,
+            parts=["# === main.py ===\ndef main(*args):\n    return 0\n"],
+            order_names=["main"],
+            _all_function_names={"main"},
+            detected_packages={"testpkg"},
+            module_mode="multi",
+            module_actions=[],
+            shim="all",
+            license_header="",
+            version="1.0.0",
+            commit="abc123",
+            build_date="2025-01-01",
+            config=config,
+            main_function_result=main_function_result,
+            module_sources=module_sources,
+        )
+
+        # Should include the main() shim with sys.argv[1:]
+        assert "if __name__ == '__main__':" in result
+        assert "sys.exit(main(sys.argv[1:]))" in result
+
+    def test_main_mode_none_no_shim(self) -> None:
+        """Should not add main() shim when main_mode is 'none'."""
+        all_imports: OrderedDict[str, None] = OrderedDict()
+        all_imports["import sys\n"] = None
+
+        tmp_path = Path("/tmp")  # noqa: S108
+        config = make_build_cfg(
+            tmp_path,
+            include=[make_include_resolved("src", tmp_path)],
+            package="testpkg",
+            main_mode="none",  # main_mode="none"
+            main_name=None,
+        )
+
+        source = "def main():\n    return 0\n"
+        module_sources = {"main.py": source}
+        main_file = Path("/tmp/src/main.py")  # noqa: S108
+        main_function_result = ("main", main_file, "main")
+
+        result, _ = mod_stitch._build_final_script(
+            package_name="testpkg",
+            all_imports=all_imports,
+            parts=["# === main.py ===\ndef main():\n    return 0\n"],
+            order_names=["main"],
+            _all_function_names={"main"},
+            detected_packages={"testpkg"},
+            module_mode="multi",
+            module_actions=[],
+            shim="all",
+            license_header="",
+            version="1.0.0",
+            commit="abc123",
+            build_date="2025-01-01",
+            config=config,
+            main_function_result=main_function_result,
+            module_sources=module_sources,
+        )
+
+        # Should NOT include the main() shim when main_mode="none"
+        assert "if __name__ == '__main__':" not in result
+        assert "sys.exit(main(" not in result
 
     def test_main_shim_not_added_when_no_main_function(self) -> None:
         """Should not add main() shim when main() function is absent."""
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
+        tmp_path = Path("/tmp")  # noqa: S108
+        config = make_build_cfg(
+            tmp_path,
+            include=[make_include_resolved("src", tmp_path)],
+            package="testpkg",
+            main_mode="auto",
+            main_name=None,
+        )
+
         result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
             parts=["# === utils.py ===\ndef helper():\n    return 1\n"],
             order_names=["utils"],
-            _all_function_names=set(),  # No main() function
+            _all_function_names=set(),
             detected_packages={"testpkg"},
             module_mode="multi",
             module_actions=[],
@@ -547,23 +701,35 @@ class TestBuildFinalScriptMainShim:
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
+            config=config,
+            main_function_result=None,  # No main function found
+            module_sources=None,
         )
 
         # Should NOT include the main() shim
         assert "if __name__ == '__main__':" not in result
-        assert "sys.exit(main(sys.argv[1:]))" not in result
+        assert "sys.exit(main(" not in result
 
     def test_main_shim_not_added_when_main_is_not_function(self) -> None:
         """Should not add main() shim when 'main' exists but is not a function."""
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
+        tmp_path = Path("/tmp")  # noqa: S108
+        config = make_build_cfg(
+            tmp_path,
+            include=[make_include_resolved("src", tmp_path)],
+            package="testpkg",
+            main_mode="auto",
+            main_name=None,
+        )
+
         result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
             parts=["# === config.py ===\nmain = 'some value'\n"],
             order_names=["config"],
-            _all_function_names=set(),  # 'main' is a variable, not a function
+            _all_function_names=set(),
             detected_packages={"testpkg"},
             module_mode="multi",
             module_actions=[],
@@ -572,16 +738,33 @@ class TestBuildFinalScriptMainShim:
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
+            config=config,
+            main_function_result=None,  # 'main' is a variable, not a function
+            module_sources=None,
         )
 
         # Should NOT include the main() shim (main is a variable, not a function)
         assert "if __name__ == '__main__':" not in result
-        assert "sys.exit(main(sys.argv[1:]))" not in result
+        assert "sys.exit(main(" not in result
 
     def test_main_shim_added_when_main_function_in_multiple_modules(self) -> None:
         """Should add main() shim when main() exists in any module."""
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
+
+        tmp_path = Path("/tmp")  # noqa: S108
+        config = make_build_cfg(
+            tmp_path,
+            include=[make_include_resolved("src", tmp_path)],
+            package="testpkg",
+            main_mode="auto",
+            main_name=None,
+        )
+
+        source = "def main():\n    return 0\n"
+        module_sources = {"main.py": source}
+        main_file = Path("/tmp/src/main.py")  # noqa: S108
+        main_function_result = ("main", main_file, "main")
 
         result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
@@ -591,7 +774,7 @@ class TestBuildFinalScriptMainShim:
                 "# === main.py ===\ndef main():\n    return 0\n",
             ],
             order_names=["utils", "main"],
-            _all_function_names={"helper", "main"},  # main() function exists
+            _all_function_names={"helper", "main"},
             detected_packages={"testpkg"},
             module_mode="multi",
             module_actions=[],
@@ -600,8 +783,11 @@ class TestBuildFinalScriptMainShim:
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
+            config=config,
+            main_function_result=main_function_result,
+            module_sources=module_sources,
         )
 
         # Should include the main() shim
         assert "if __name__ == '__main__':" in result
-        assert "sys.exit(main(sys.argv[1:]))" in result
+        assert "sys.exit(main())" in result  # No params, so no sys.argv[1:]
