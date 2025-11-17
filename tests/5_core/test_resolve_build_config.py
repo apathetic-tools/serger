@@ -75,7 +75,6 @@ def test_resolve_build_config_from_config_paths(
 
 def test_resolve_build_config_cli_overrides_include_and_out(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """CLI --include and --out should override config include/out."""
     # --- setup ---
@@ -83,8 +82,7 @@ def test_resolve_build_config_cli_overrides_include_and_out(
     args = _args(include=["cli_src/**"], out="cli_dist")
 
     # --- patch and execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     inc = resolved["include"][0]
@@ -98,7 +96,6 @@ def test_resolve_build_config_cli_overrides_include_and_out(
 
 def test_resolve_build_config_add_include_extends(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """--add-include should append to config includes, not override."""
     # --- setup ---
@@ -106,8 +103,7 @@ def test_resolve_build_config_add_include_extends(
     args = _args(add_include=["extra/**"])
 
     # --- patch and execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     paths = [i["path"] for i in resolved["include"]]
@@ -120,7 +116,6 @@ def test_resolve_build_config_add_include_extends(
 
 def test_resolve_build_config_gitignore_patterns_added(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """When .gitignore exists, its patterns should be appended as gitignore excludes."""
     # --- setup ---
@@ -130,8 +125,7 @@ def test_resolve_build_config_gitignore_patterns_added(
     args = _args()
 
     # --- patch and execute ---
-    with module_logger.use_level("debug"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     git_excludes = [e for e in resolved["exclude"] if e["origin"] == "gitignore"]
@@ -142,7 +136,6 @@ def test_resolve_build_config_gitignore_patterns_added(
 
 def test_resolve_build_config_respects_cli_exclude_override(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """CLI --exclude should override config excludes."""
     # --- setup ---
@@ -150,8 +143,7 @@ def test_resolve_build_config_respects_cli_exclude_override(
     args = _args(exclude=["*.bak"])
 
     # --- patch and execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     excl = [str(e["path"]) for e in resolved["exclude"]]
@@ -161,7 +153,6 @@ def test_resolve_build_config_respects_cli_exclude_override(
 
 def test_resolve_build_config_respects_dest_override(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """IncludeResolved with explicit dest should survive resolution unchanged."""
     # --- setup ---
@@ -169,8 +160,7 @@ def test_resolve_build_config_respects_dest_override(
     args = _args()
 
     # --- patch and execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     out = resolved["out"]
@@ -181,7 +171,6 @@ def test_resolve_build_config_respects_dest_override(
 
 def test_resolve_build_config_respect_gitignore_false(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """If --no-gitignore is passed, .gitignore patterns are not loaded."""
     # --- setup ---
@@ -191,8 +180,7 @@ def test_resolve_build_config_respect_gitignore_false(
     args = _args(respect_gitignore=False)
 
     # --- patch and execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert all(e["origin"] != "gitignore" for e in resolved["exclude"])
@@ -201,15 +189,13 @@ def test_resolve_build_config_respect_gitignore_false(
 
 def test_resolve_build_config_add_exclude_extends(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     # --- setup ---
     raw = make_build_input(exclude=["*.tmp"], include=["src/**"])
     args = _args(add_exclude=["*.log"])
 
     # --- patch and execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     patterns = [str(e["path"]) for e in resolved["exclude"]]
@@ -276,7 +262,6 @@ def test_resolve_build_config_preserves_trailing_slash(tmp_path: Path) -> None:
 
 def test_resolve_build_config_warns_for_missing_include_root(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Warn if include root directory does not exist and pattern is not a glob."""
@@ -286,8 +271,7 @@ def test_resolve_build_config_warns_for_missing_include_root(
     args = _args()
 
     # --- patch and execute ---
-    with module_logger.use_level("info"):
-        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     out = capsys.readouterr().err.lower()
@@ -296,7 +280,6 @@ def test_resolve_build_config_warns_for_missing_include_root(
 
 def test_resolve_build_config_warns_for_missing_absolute_include(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Warn if absolute include path does not exist and pattern is not a glob."""
@@ -306,8 +289,7 @@ def test_resolve_build_config_warns_for_missing_absolute_include(
     args = _args()
 
     # --- patch and execute ---
-    with module_logger.use_level("info"):
-        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     out = capsys.readouterr().err.lower()
@@ -316,7 +298,6 @@ def test_resolve_build_config_warns_for_missing_absolute_include(
 
 def test_resolve_build_config_warns_for_missing_relative_include(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Warn if relative include path does not exist under an existing root."""
@@ -326,8 +307,7 @@ def test_resolve_build_config_warns_for_missing_relative_include(
     args = _args()
 
     # --- patch and execute ---
-    with module_logger.use_level("info"):
-        mod_resolve.resolve_build_config(raw, args, existing_root, tmp_path)
+    mod_resolve.resolve_build_config(raw, args, existing_root, tmp_path)
 
     # --- validate ---
     out = capsys.readouterr().err.lower()
@@ -336,7 +316,6 @@ def test_resolve_build_config_warns_for_missing_relative_include(
 
 def test_resolve_build_config_include_with_dest_from_config(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Config includes with dest should propagate to resolved config."""
     # --- setup ---
@@ -350,8 +329,7 @@ def test_resolve_build_config_include_with_dest_from_config(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     inc_list = resolved["include"]
@@ -376,7 +354,6 @@ def test_resolve_build_config_include_with_dest_from_config(
 
 def test_resolve_build_config_include_with_dest_from_cli(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """CLI includes with dest (path:dest format) should be parsed."""
     # --- setup ---
@@ -384,8 +361,7 @@ def test_resolve_build_config_include_with_dest_from_cli(
     args = _args(include=["src/**", "assets/:static", "docs/:help"])
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     inc_list = resolved["include"]
@@ -410,7 +386,6 @@ def test_resolve_build_config_include_with_dest_from_cli(
 
 def test_resolve_build_config_add_include_with_dest(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """--add-include with dest should extend config includes."""
     # --- setup ---
@@ -418,8 +393,7 @@ def test_resolve_build_config_add_include_with_dest(
     args = _args(add_include=["assets/:static", "docs/:help"])
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     inc_list = resolved["include"]
@@ -443,7 +417,6 @@ def test_resolve_build_config_add_include_with_dest(
 
 def test_resolve_build_config_include_windows_path_with_dest(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Windows absolute paths with dest should be parsed correctly."""
     # --- setup ---
@@ -458,8 +431,7 @@ def test_resolve_build_config_include_windows_path_with_dest(
     )
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     inc_list = resolved["include"]
@@ -484,7 +456,6 @@ def test_resolve_build_config_include_windows_path_with_dest(
 
 def test_resolve_build_config_include_windows_drive_only(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Windows drive letters without dest should not be parsed as dest."""
     # --- setup ---
@@ -493,8 +464,7 @@ def test_resolve_build_config_include_windows_drive_only(
     args = _args(include=["C:", "D:\\"])
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     inc_list = resolved["include"]
@@ -519,7 +489,6 @@ def test_resolve_build_config_include_windows_drive_only(
 
 def test_resolve_build_config_single_build_uses_pyproject_when_enabled(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Single build should use pyproject.toml when explicitly enabled."""
     # --- setup ---
@@ -539,8 +508,7 @@ authors = [
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved.get("display_name") == "test-package"
@@ -553,7 +521,6 @@ authors = [
 
 def test_resolve_build_config_single_build_respects_use_pyproject_metadata_false(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Single build should respect explicit use_pyproject_metadata: false."""
     # --- setup ---
@@ -572,8 +539,7 @@ authors = [
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # No metadata should be extracted when use_pyproject_metadata is false
@@ -595,7 +561,6 @@ authors = [
 
 def test_resolve_build_config_multi_build_requires_opt_in(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Multi-build should not use pyproject.toml when explicitly disabled."""
     # --- setup ---
@@ -610,8 +575,7 @@ version = "1.2.3"
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw1, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw1, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Should not use pyproject.toml metadata when explicitly disabled
@@ -626,7 +590,6 @@ version = "1.2.3"
 
 def test_resolve_build_config_multi_build_with_opt_in(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Multi-build should use pyproject.toml when build explicitly opts in."""
     # --- setup ---
@@ -642,8 +605,7 @@ description = "A test package"
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw1, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw1, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved.get("display_name") == "test-package"
@@ -653,7 +615,6 @@ description = "A test package"
 
 def test_resolve_build_config_path_resolution_build_level(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Build-level pyproject_path should take precedence."""
     # --- setup ---
@@ -677,8 +638,7 @@ version = "1.0.0"
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved.get("display_name") == "custom-package"
@@ -687,7 +647,6 @@ version = "1.0.0"
 
 def test_resolve_build_config_path_resolution_root_level(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Root-level pyproject_path should enable pyproject for builds."""
     # --- setup ---
@@ -702,8 +661,7 @@ version = "3.0.0"
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved.get("display_name") == "root-package"
@@ -712,7 +670,6 @@ version = "3.0.0"
 
 def test_resolve_build_config_root_use_pyproject_metadata_enables_for_all_builds(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Root-level use_pyproject_metadata=True should enable pyproject for all builds."""
     # --- setup ---
@@ -729,9 +686,8 @@ description = "A test package"
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved1 = mod_resolve.resolve_build_config(raw1, args, tmp_path, tmp_path)
-        resolved2 = mod_resolve.resolve_build_config(raw2, args, tmp_path, tmp_path)
+    resolved1 = mod_resolve.resolve_build_config(raw1, args, tmp_path, tmp_path)
+    resolved2 = mod_resolve.resolve_build_config(raw2, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Both builds should get pyproject metadata
@@ -745,7 +701,6 @@ description = "A test package"
 
 def test_resolve_build_config_overrides_explicit_fields_when_pyproject_enabled(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Should override explicitly set fields when pyproject is enabled."""
     # --- setup ---
@@ -771,8 +726,7 @@ authors = [
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # When pyproject is enabled, all fields are overwritten
@@ -786,7 +740,6 @@ authors = [
 
 def test_resolve_build_config_configless_uses_pyproject_by_default(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Configless builds should use pyproject.toml by default."""
     # --- setup ---
@@ -807,8 +760,7 @@ authors = [
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Configless builds should extract pyproject.toml metadata by default
@@ -822,7 +774,6 @@ authors = [
 
 def test_resolve_build_config_configless_can_disable_pyproject(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Configless builds can explicitly disable pyproject.toml."""
     # --- setup ---
@@ -840,8 +791,7 @@ license = "MIT"
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Configless builds should not extract pyproject.toml metadata when disabled
@@ -856,7 +806,6 @@ license = "MIT"
 
 def test_resolve_build_config_root_pyproject_path_with_use_pyproject_metadata_false(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Config with use_pyproject_metadata: false should not use pyproject."""
     # --- setup ---
@@ -871,8 +820,7 @@ version = "1.2.3"
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Should not use pyproject even though file exists
@@ -882,7 +830,6 @@ version = "1.2.3"
 
 def test_resolve_build_config_build_pyproject_path_overrides_root_false(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Build pyproject_path enables pyproject even if root metadata is false."""
     # --- setup ---
@@ -897,8 +844,7 @@ version = "1.2.3"
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Build-level pyproject_path should enable it
@@ -908,7 +854,6 @@ version = "1.2.3"
 
 def test_resolve_build_config_build_use_pyproject_metadata_false_overrides_path(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Build use_pyproject_metadata: false disables metadata even if path is set."""
     # --- setup ---
@@ -927,8 +872,7 @@ version = "1.2.3"
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Build-level use_pyproject_metadata: false should disable it
@@ -938,7 +882,6 @@ version = "1.2.3"
 
 def test_resolve_build_config_package_from_pyproject_when_enabled(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Package extracted from pyproject.toml name when pyproject enabled."""
     # --- setup ---
@@ -954,8 +897,7 @@ version = "1.0.0"
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Package should be extracted from pyproject.toml name
@@ -970,7 +912,6 @@ version = "1.0.0"
 
 def test_resolve_build_config_authors_from_pyproject(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Authors should be extracted from pyproject.toml when pyproject is enabled."""
     # --- setup ---
@@ -988,8 +929,7 @@ authors = [
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved.get("authors") == "Alice <alice@example.com>, Bob"
@@ -997,7 +937,6 @@ authors = [
 
 def test_resolve_build_config_authors_cascades_from_root(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Authors should be set when provided in config."""
     # --- setup ---
@@ -1005,8 +944,7 @@ def test_resolve_build_config_authors_cascades_from_root(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved.get("authors") == "Root Author <root@example.com>"
@@ -1014,7 +952,6 @@ def test_resolve_build_config_authors_cascades_from_root(
 
 def test_resolve_build_config_authors_build_overrides_root(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Build-level authors should override root-level."""
     # --- setup ---
@@ -1024,8 +961,7 @@ def test_resolve_build_config_authors_build_overrides_root(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved.get("authors") == "Build Author <build@example.com>"
@@ -1033,7 +969,6 @@ def test_resolve_build_config_authors_build_overrides_root(
 
 def test_resolve_build_config_authors_multi_build_cascades(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Authors should cascade from root to all builds in multi-build configs."""
     # --- setup ---
@@ -1046,9 +981,8 @@ def test_resolve_build_config_authors_multi_build_cascades(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved1 = mod_resolve.resolve_build_config(raw1, args, tmp_path, tmp_path)
-        resolved2 = mod_resolve.resolve_build_config(raw2, args, tmp_path, tmp_path)
+    resolved1 = mod_resolve.resolve_build_config(raw1, args, tmp_path, tmp_path)
+    resolved2 = mod_resolve.resolve_build_config(raw2, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Both builds should get root-level authors
@@ -1058,7 +992,6 @@ def test_resolve_build_config_authors_multi_build_cascades(
 
 def test_resolve_build_config_authors_from_pyproject_when_enabled(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Authors should be extracted from pyproject.toml when pyproject is enabled."""
     # --- setup ---
@@ -1075,8 +1008,7 @@ authors = [
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Should use pyproject.toml authors when enabled
@@ -1085,7 +1017,6 @@ authors = [
 
 def test_resolve_build_config_authors_root_used_when_pyproject_not_enabled(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Config authors should be used when pyproject is explicitly disabled."""
     # --- setup ---
@@ -1106,8 +1037,7 @@ authors = [
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Config authors should be used when pyproject is explicitly disabled
@@ -1116,7 +1046,6 @@ authors = [
 
 def test_resolve_build_config_authors_optional_in_resolved(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Authors should be optional in resolved config (NotRequired)."""
     # --- setup ---
@@ -1124,8 +1053,7 @@ def test_resolve_build_config_authors_optional_in_resolved(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Authors should not be present if not set anywhere
@@ -1139,7 +1067,6 @@ def test_resolve_build_config_authors_optional_in_resolved(
 
 def test_resolve_build_config_version_cascades_from_root(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Version should be set when provided in config."""
     # --- setup ---
@@ -1147,8 +1074,7 @@ def test_resolve_build_config_version_cascades_from_root(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved.get("version") == "1.2.3"
@@ -1156,7 +1082,6 @@ def test_resolve_build_config_version_cascades_from_root(
 
 def test_resolve_build_config_version_build_overrides_root(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Version from build config should override root config."""
     # --- setup ---
@@ -1164,8 +1089,7 @@ def test_resolve_build_config_version_build_overrides_root(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved.get("version") == "2.0.0"
@@ -1173,7 +1097,6 @@ def test_resolve_build_config_version_build_overrides_root(
 
 def test_resolve_build_config_version_multi_build_cascades(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Version should cascade from root to all builds in multi-build configs."""
     # --- setup ---
@@ -1182,9 +1105,8 @@ def test_resolve_build_config_version_multi_build_cascades(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved1 = mod_resolve.resolve_build_config(raw1, args, tmp_path, tmp_path)
-        resolved2 = mod_resolve.resolve_build_config(raw2, args, tmp_path, tmp_path)
+    resolved1 = mod_resolve.resolve_build_config(raw1, args, tmp_path, tmp_path)
+    resolved2 = mod_resolve.resolve_build_config(raw2, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Both builds should get root-level version
@@ -1194,7 +1116,6 @@ def test_resolve_build_config_version_multi_build_cascades(
 
 def test_resolve_build_config_version_optional_in_resolved(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Version should be optional in resolved config (NotRequired)."""
     # --- setup ---
@@ -1202,8 +1123,7 @@ def test_resolve_build_config_version_optional_in_resolved(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Version should not be present if not set anywhere
@@ -1217,7 +1137,6 @@ def test_resolve_build_config_version_optional_in_resolved(
 
 def test_resolve_build_config_include_with_parent_from_config(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Include with ../ in config should resolve relative to config_dir."""
     # --- setup ---
@@ -1229,8 +1148,7 @@ def test_resolve_build_config_include_with_parent_from_config(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, project, project)
+    resolved = mod_resolve.resolve_build_config(raw, args, project, project)
 
     # --- validate ---
     inc = resolved["include"][0]
@@ -1242,7 +1160,6 @@ def test_resolve_build_config_include_with_parent_from_config(
 
 def test_resolve_build_config_out_with_parent_from_config(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Out with ../ in config should resolve relative to config_dir."""
     # --- setup ---
@@ -1252,8 +1169,7 @@ def test_resolve_build_config_out_with_parent_from_config(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, project, project)
+    resolved = mod_resolve.resolve_build_config(raw, args, project, project)
 
     # --- validate ---
     out = resolved["out"]
@@ -1265,7 +1181,6 @@ def test_resolve_build_config_out_with_parent_from_config(
 
 def test_resolve_build_config_include_with_parent_from_cli(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Include with ../ from CLI should resolve relative to cwd."""
     # --- setup ---
@@ -1277,8 +1192,7 @@ def test_resolve_build_config_include_with_parent_from_cli(
     args = _args(include=["../shared/pkg/**"])
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, cwd)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, cwd)
 
     # --- validate ---
     inc = resolved["include"][0]
@@ -1290,7 +1204,6 @@ def test_resolve_build_config_include_with_parent_from_cli(
 
 def test_resolve_build_config_out_with_parent_from_cli(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Out with ../ from CLI should resolve relative to cwd."""
     # --- setup ---
@@ -1300,8 +1213,7 @@ def test_resolve_build_config_out_with_parent_from_cli(
     args = _args(out="../outputs/dist")
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, cwd)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, cwd)
 
     # --- validate ---
     out = resolved["out"]
@@ -1313,7 +1225,6 @@ def test_resolve_build_config_out_with_parent_from_cli(
 
 def test_resolve_build_config_include_with_parent_different_config_and_cwd(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Config include with ../ should use config_dir, not cwd."""
     # --- setup ---
@@ -1328,8 +1239,7 @@ def test_resolve_build_config_include_with_parent_different_config_and_cwd(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, config_dir, cwd)
+    resolved = mod_resolve.resolve_build_config(raw, args, config_dir, cwd)
 
     # --- validate ---
     inc = resolved["include"][0]
@@ -1341,7 +1251,6 @@ def test_resolve_build_config_include_with_parent_different_config_and_cwd(
 
 def test_resolve_build_config_out_with_parent_different_config_and_cwd(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Config out with ../ should use config_dir, not cwd."""
     # --- setup ---
@@ -1354,8 +1263,7 @@ def test_resolve_build_config_out_with_parent_different_config_and_cwd(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, config_dir, cwd)
+    resolved = mod_resolve.resolve_build_config(raw, args, config_dir, cwd)
 
     # --- validate ---
     out = resolved["out"]
@@ -1372,7 +1280,6 @@ def test_resolve_build_config_out_with_parent_different_config_and_cwd(
 
 def test_resolve_build_config_shim_default_value(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Shim setting should default to 'all' if not specified."""
     # --- setup ---
@@ -1380,8 +1287,7 @@ def test_resolve_build_config_shim_default_value(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["shim"] == "all"
@@ -1389,7 +1295,6 @@ def test_resolve_build_config_shim_default_value(
 
 def test_resolve_build_config_shim_from_build_config(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Shim setting from build config should be used."""
     # --- setup ---
@@ -1397,8 +1302,7 @@ def test_resolve_build_config_shim_from_build_config(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["shim"] == "public"
@@ -1406,7 +1310,6 @@ def test_resolve_build_config_shim_from_build_config(
 
 def test_resolve_build_config_shim_cascades_from_root(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Shim setting should use default when not specified."""
     # --- setup ---
@@ -1414,8 +1317,7 @@ def test_resolve_build_config_shim_cascades_from_root(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Default shim is "all"
@@ -1424,7 +1326,6 @@ def test_resolve_build_config_shim_cascades_from_root(
 
 def test_resolve_build_config_shim_build_overrides_root(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Build-level shim setting should override root-level."""
     # --- setup ---
@@ -1432,8 +1333,7 @@ def test_resolve_build_config_shim_build_overrides_root(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["shim"] == "public"
@@ -1441,7 +1341,6 @@ def test_resolve_build_config_shim_build_overrides_root(
 
 def test_resolve_build_config_shim_validates_all_value(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Shim setting should accept 'all' as a valid value."""
     # --- setup ---
@@ -1450,8 +1349,7 @@ def test_resolve_build_config_shim_validates_all_value(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["shim"] == "all"
@@ -1460,7 +1358,6 @@ def test_resolve_build_config_shim_validates_all_value(
 
 def test_resolve_build_config_shim_validates_public_value(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Shim setting should accept 'public' as a valid value."""
     # --- setup ---
@@ -1469,8 +1366,7 @@ def test_resolve_build_config_shim_validates_public_value(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["shim"] == "public"
@@ -1479,7 +1375,6 @@ def test_resolve_build_config_shim_validates_public_value(
 
 def test_resolve_build_config_shim_validates_none_value(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Shim setting should accept 'none' as a valid value."""
     # --- setup ---
@@ -1488,8 +1383,7 @@ def test_resolve_build_config_shim_validates_none_value(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["shim"] == "none"
@@ -1497,8 +1391,7 @@ def test_resolve_build_config_shim_validates_none_value(
 
 
 def test_resolve_build_config_shim_invalid_value_raises_error(
-    tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
+    tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:
     """Shim setting should raise error for invalid values."""
     # --- setup ---
@@ -1514,8 +1407,7 @@ def test_resolve_build_config_shim_invalid_value_raises_error(
 
 
 def test_resolve_build_config_shim_invalid_root_value_raises_error(
-    tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
+    tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:
     """Shim setting should raise error for invalid root config values."""
     # --- setup ---
@@ -1538,7 +1430,6 @@ def test_resolve_build_config_shim_invalid_root_value_raises_error(
 
 def test_resolve_build_config_module_actions_dict_format(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Module actions dict format should be accepted and normalized with defaults."""
     # --- setup ---
@@ -1548,8 +1439,7 @@ def test_resolve_build_config_module_actions_dict_format(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert "module_actions" in resolved
@@ -1569,7 +1459,6 @@ def test_resolve_build_config_module_actions_dict_format(
 
 def test_resolve_build_config_module_actions_list_format(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Module actions list format should be accepted with defaults applied."""
     # --- setup ---
@@ -1580,8 +1469,7 @@ def test_resolve_build_config_module_actions_list_format(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert "module_actions" in resolved
@@ -1601,7 +1489,6 @@ def test_resolve_build_config_module_actions_list_format(
 
 def test_resolve_build_config_module_actions_cascades_from_root(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Module actions should be set when provided in config with defaults applied."""
     # --- setup ---
@@ -1612,8 +1499,7 @@ def test_resolve_build_config_module_actions_cascades_from_root(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert "module_actions" in resolved
@@ -1633,7 +1519,6 @@ def test_resolve_build_config_module_actions_cascades_from_root(
 
 def test_resolve_build_config_module_actions_build_overrides_root(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Build-level module_actions should override root-level."""
     # --- setup ---
@@ -1643,8 +1528,7 @@ def test_resolve_build_config_module_actions_build_overrides_root(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert "module_actions" in resolved
@@ -1662,8 +1546,7 @@ def test_resolve_build_config_module_actions_build_overrides_root(
 
 
 def test_resolve_build_config_module_actions_invalid_dict_key_type_raises_error(
-    tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
+    tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:
     """Module actions dict with non-string keys should raise error."""
     # --- setup ---
@@ -1683,8 +1566,7 @@ def test_resolve_build_config_module_actions_invalid_dict_key_type_raises_error(
 
 
 def test_resolve_build_config_module_actions_invalid_dict_value_type_raises_error(
-    tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
+    tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:
     """Module actions dict with non-string/None values should raise error."""
     # --- setup ---
@@ -1706,8 +1588,7 @@ def test_resolve_build_config_module_actions_invalid_dict_value_type_raises_erro
 
 
 def test_resolve_build_config_module_actions_list_missing_source_raises_error(
-    tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
+    tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:
     """Module actions list item missing 'source' should raise error."""
     # --- setup ---
@@ -1727,8 +1608,7 @@ def test_resolve_build_config_module_actions_list_missing_source_raises_error(
 
 
 def test_resolve_build_config_module_actions_list_invalid_action_raises_error(
-    tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
+    tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:
     """Module actions list with invalid action value should raise error."""
     # --- setup ---
@@ -1751,8 +1631,7 @@ def test_resolve_build_config_module_actions_list_invalid_action_raises_error(
 
 
 def test_resolve_build_config_module_actions_invalid_type_raises_error(
-    tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
+    tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:
     """Module actions with invalid type should raise error."""
     # --- setup ---
@@ -1773,7 +1652,6 @@ def test_resolve_build_config_module_actions_invalid_type_raises_error(
 
 def test_resolve_build_config_module_actions_dict_format_delete(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Module actions dict format with None value should create delete action."""
     # --- setup ---
@@ -1781,8 +1659,7 @@ def test_resolve_build_config_module_actions_dict_format_delete(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert len(resolved["module_actions"]) == 1
@@ -1798,8 +1675,7 @@ def test_resolve_build_config_module_actions_dict_format_delete(
 
 
 def test_resolve_build_config_module_actions_empty_source_raises_error(
-    tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
+    tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:
     """Module actions with empty source string should raise error."""
     # --- setup ---
@@ -1820,8 +1696,7 @@ def test_resolve_build_config_module_actions_empty_source_raises_error(
 
 
 def test_resolve_build_config_module_actions_list_empty_source_raises_error(
-    tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
+    tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:
     """Module actions list with empty source string should raise error."""
     # --- setup ---
@@ -1842,8 +1717,7 @@ def test_resolve_build_config_module_actions_list_empty_source_raises_error(
 
 
 def test_resolve_build_config_module_actions_move_missing_dest_raises_error(
-    tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
+    tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:
     """Module actions with move action missing dest should raise error."""
     # --- setup ---
@@ -1865,8 +1739,7 @@ def test_resolve_build_config_module_actions_move_missing_dest_raises_error(
 
 
 def test_resolve_build_config_module_actions_copy_missing_dest_raises_error(
-    tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
+    tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:
     """Module actions with copy action missing dest should raise error."""
     # --- setup ---
@@ -1888,8 +1761,7 @@ def test_resolve_build_config_module_actions_copy_missing_dest_raises_error(
 
 
 def test_resolve_build_config_module_actions_delete_with_dest_raises_error(
-    tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
+    tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:
     """Module actions with delete action having dest should raise error."""
     # --- setup ---
@@ -1914,7 +1786,6 @@ def test_resolve_build_config_module_actions_delete_with_dest_raises_error(
 
 def test_resolve_build_config_module_actions_none_normalized_to_delete(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Module actions with action='none' should be normalized to 'delete'."""
     # --- setup ---
@@ -1925,8 +1796,7 @@ def test_resolve_build_config_module_actions_none_normalized_to_delete(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert len(resolved["module_actions"]) == 1
@@ -1944,7 +1814,6 @@ def test_resolve_build_config_module_actions_none_normalized_to_delete(
 
 def test_resolve_build_config_module_actions_defaults_applied(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Module actions should have all defaults applied when fields are missing."""
     # --- setup ---
@@ -1955,8 +1824,7 @@ def test_resolve_build_config_module_actions_defaults_applied(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert len(resolved["module_actions"]) == 1
@@ -1974,8 +1842,7 @@ def test_resolve_build_config_module_actions_defaults_applied(
 
 
 def test_resolve_build_config_module_actions_invalid_mode_raises_error(
-    tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
+    tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:
     """Module actions with invalid mode should raise error."""
     # --- setup ---
@@ -1997,8 +1864,7 @@ def test_resolve_build_config_module_actions_invalid_mode_raises_error(
 
 
 def test_resolve_build_config_module_actions_invalid_scope_raises_error(
-    tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
+    tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:
     """Module actions with invalid scope should raise error."""
     # --- setup ---
@@ -2020,8 +1886,7 @@ def test_resolve_build_config_module_actions_invalid_scope_raises_error(
 
 
 def test_resolve_build_config_module_actions_invalid_affects_raises_error(
-    tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
+    tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:
     """Module actions with invalid affects should raise error."""
     # --- setup ---
@@ -2043,8 +1908,7 @@ def test_resolve_build_config_module_actions_invalid_affects_raises_error(
 
 
 def test_resolve_build_config_module_actions_invalid_cleanup_raises_error(
-    tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
+    tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:
     """Module actions with invalid cleanup should raise error."""
     # --- setup ---
@@ -2067,7 +1931,6 @@ def test_resolve_build_config_module_actions_invalid_cleanup_raises_error(
 
 def test_resolve_build_config_module_actions_source_path_validation(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Module actions with source_path should validate it's a non-empty string."""
     # --- setup ---
@@ -2080,8 +1943,7 @@ def test_resolve_build_config_module_actions_source_path_validation(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert len(resolved["module_actions"]) == 1
@@ -2099,8 +1961,7 @@ def test_resolve_build_config_module_actions_source_path_validation(
 
 
 def test_resolve_build_config_module_actions_empty_source_path_raises_error(
-    tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
+    tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:
     """Module actions with empty source_path should raise error."""
     # --- setup ---
@@ -2125,8 +1986,7 @@ def test_resolve_build_config_module_actions_empty_source_path_raises_error(
 
 
 def test_resolve_build_config_module_actions_invalid_source_path_type_raises_error(
-    tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
+    tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:
     """Module actions with non-string source_path should raise error."""
     # --- setup ---
@@ -2151,7 +2011,6 @@ def test_resolve_build_config_module_actions_invalid_source_path_type_raises_err
 
 def test_resolve_build_config_module_bases_defaults(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Module bases should default to ['src'] if not specified."""
     # --- setup ---
@@ -2159,8 +2018,7 @@ def test_resolve_build_config_module_bases_defaults(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["module_bases"] == ["src"]
@@ -2168,7 +2026,6 @@ def test_resolve_build_config_module_bases_defaults(
 
 def test_resolve_build_config_module_bases_build_level(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Module bases should use build-level value when specified."""
     # --- setup ---
@@ -2176,8 +2033,7 @@ def test_resolve_build_config_module_bases_build_level(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["module_bases"] == ["lib", "vendor"]
@@ -2185,7 +2041,6 @@ def test_resolve_build_config_module_bases_build_level(
 
 def test_resolve_build_config_module_bases_cascades_from_root(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Module bases should be set when provided in config."""
     # --- setup ---
@@ -2193,8 +2048,7 @@ def test_resolve_build_config_module_bases_cascades_from_root(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["module_bases"] == ["lib", "vendor"]
@@ -2202,7 +2056,6 @@ def test_resolve_build_config_module_bases_cascades_from_root(
 
 def test_resolve_build_config_module_bases_build_overrides_root(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Build-level module bases should override root-level."""
     # --- setup ---
@@ -2210,8 +2063,7 @@ def test_resolve_build_config_module_bases_build_overrides_root(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["module_bases"] == ["custom"]
@@ -2219,7 +2071,6 @@ def test_resolve_build_config_module_bases_build_overrides_root(
 
 def test_resolve_build_config_module_bases_string_conversion(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Module bases string should be converted to list[str] on resolve."""
     # --- setup ---
@@ -2227,8 +2078,7 @@ def test_resolve_build_config_module_bases_string_conversion(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["module_bases"] == ["lib"]
@@ -2236,7 +2086,6 @@ def test_resolve_build_config_module_bases_string_conversion(
 
 def test_resolve_build_config_module_bases_string_cascades_from_root(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Module bases string should be converted to list[str] on resolve."""
     # --- setup ---
@@ -2244,8 +2093,7 @@ def test_resolve_build_config_module_bases_string_cascades_from_root(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["module_bases"] == ["lib"]
@@ -2258,7 +2106,6 @@ def test_resolve_build_config_module_bases_string_cascades_from_root(
 
 def test_resolve_build_config_auto_include_single_base_single_package(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Auto-include should set includes to package found in single base."""
     # --- setup ---
@@ -2273,8 +2120,7 @@ def test_resolve_build_config_auto_include_single_base_single_package(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert len(resolved["include"]) == 1
@@ -2286,7 +2132,6 @@ def test_resolve_build_config_auto_include_single_base_single_package(
 
 def test_resolve_build_config_auto_include_multiple_bases_multiple_packages(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Auto-include should work with multiple bases and multiple packages."""
     # --- setup ---
@@ -2305,8 +2150,7 @@ def test_resolve_build_config_auto_include_multiple_bases_multiple_packages(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert len(resolved["include"]) == 1
@@ -2318,7 +2162,6 @@ def test_resolve_build_config_auto_include_multiple_bases_multiple_packages(
 
 def test_resolve_build_config_auto_include_same_package_first_match_wins(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """When same package exists in multiple bases, first match wins."""
     # --- setup ---
@@ -2337,8 +2180,7 @@ def test_resolve_build_config_auto_include_same_package_first_match_wins(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Should use first match (src/mypkg), not lib/mypkg
@@ -2351,7 +2193,6 @@ def test_resolve_build_config_auto_include_same_package_first_match_wins(
 
 def test_resolve_build_config_auto_include_multiple_packages_in_single_base(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Auto-include should work when multiple packages exist in single base."""
     # --- setup ---
@@ -2368,8 +2209,7 @@ def test_resolve_build_config_auto_include_multiple_packages_in_single_base(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert len(resolved["include"]) == 1
@@ -2381,7 +2221,6 @@ def test_resolve_build_config_auto_include_multiple_packages_in_single_base(
 
 def test_resolve_build_config_auto_include_does_not_override_existing_includes(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Auto-include should not override when includes are already provided."""
     # --- setup ---
@@ -2397,8 +2236,7 @@ def test_resolve_build_config_auto_include_does_not_override_existing_includes(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Should keep original includes, not auto-set
@@ -2410,7 +2248,6 @@ def test_resolve_build_config_auto_include_does_not_override_existing_includes(
 
 def test_resolve_build_config_auto_include_does_not_override_cli_includes(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Auto-include should not override when CLI --include is provided."""
     # --- setup ---
@@ -2424,8 +2261,7 @@ def test_resolve_build_config_auto_include_does_not_override_cli_includes(
     args = _args(include=["cli_src/**"])
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Should use CLI includes, not auto-set
@@ -2437,7 +2273,6 @@ def test_resolve_build_config_auto_include_does_not_override_cli_includes(
 
 def test_resolve_build_config_auto_include_does_not_override_add_include(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Auto-include should not override when --add-include is provided."""
     # --- setup ---
@@ -2451,8 +2286,7 @@ def test_resolve_build_config_auto_include_does_not_override_add_include(
     args = _args(add_include=["extra/**"])
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Should use add-include, not auto-set
@@ -2464,7 +2298,6 @@ def test_resolve_build_config_auto_include_does_not_override_add_include(
 
 def test_resolve_build_config_auto_include_does_not_set_when_package_not_found(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Auto-include should not set when package is provided but not found.
 
@@ -2485,8 +2318,7 @@ def test_resolve_build_config_auto_include_does_not_set_when_package_not_found(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Package should remain as user provided (even if not found)
@@ -2497,7 +2329,6 @@ def test_resolve_build_config_auto_include_does_not_set_when_package_not_found(
 
 def test_resolve_build_config_auto_include_does_not_set_when_no_package(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Auto-include should set when package is auto-detected from multiple modules.
 
@@ -2519,8 +2350,7 @@ def test_resolve_build_config_auto_include_does_not_set_when_no_package(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Package should be auto-detected (first in module_bases order)
@@ -2531,7 +2361,6 @@ def test_resolve_build_config_auto_include_does_not_set_when_no_package(
 
 def test_resolve_build_config_auto_include_does_not_set_when_explicit_empty_includes(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Auto-include should not set when includes are explicitly set to empty."""
     # --- setup ---
@@ -2545,8 +2374,7 @@ def test_resolve_build_config_auto_include_does_not_set_when_explicit_empty_incl
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Should respect explicit empty includes, not auto-set
@@ -2555,7 +2383,6 @@ def test_resolve_build_config_auto_include_does_not_set_when_explicit_empty_incl
 
 def test_resolve_build_config_auto_include_does_not_set_when_empty_module_bases(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Auto-include should not set when module_bases is empty."""
     # --- setup ---
@@ -2569,8 +2396,7 @@ def test_resolve_build_config_auto_include_does_not_set_when_empty_module_bases(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Should not auto-set includes when module_bases is empty
@@ -2579,7 +2405,6 @@ def test_resolve_build_config_auto_include_does_not_set_when_empty_module_bases(
 
 def test_resolve_build_config_auto_include_works_with_single_file_module(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Auto-include should work when package is a single-file module (.py file)."""
     # --- setup ---
@@ -2594,8 +2419,7 @@ def test_resolve_build_config_auto_include_works_with_single_file_module(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert len(resolved["include"]) == 1
@@ -2607,7 +2431,6 @@ def test_resolve_build_config_auto_include_works_with_single_file_module(
 
 def test_resolve_build_config_auto_detect_single_module_when_package_not_found(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Respect user's explicit package choice even if not found in module_bases.
 
@@ -2626,8 +2449,7 @@ def test_resolve_build_config_auto_detect_single_module_when_package_not_found(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Should respect user's explicit package choice (even if not found)
@@ -2638,7 +2460,6 @@ def test_resolve_build_config_auto_detect_single_module_when_package_not_found(
 
 def test_resolve_build_config_auto_detect_single_module_when_no_package(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Auto-detect single module when no package is provided."""
     # --- setup ---
@@ -2653,8 +2474,7 @@ def test_resolve_build_config_auto_detect_single_module_when_no_package(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Should auto-detect the single module and set it as package
@@ -2667,7 +2487,6 @@ def test_resolve_build_config_auto_detect_single_module_when_no_package(
 
 def test_resolve_build_config_auto_detect_single_file_module_when_no_package(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Auto-detect single file module when no package is provided."""
     # --- setup ---
@@ -2682,8 +2501,7 @@ def test_resolve_build_config_auto_detect_single_file_module_when_no_package(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Should auto-detect the single module file and set it as package
@@ -2696,7 +2514,6 @@ def test_resolve_build_config_auto_detect_single_file_module_when_no_package(
 
 def test_resolve_build_config_auto_include_works_with_pyproject_package(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Auto-include should work when package comes from pyproject.toml."""
     # --- setup ---
@@ -2717,8 +2534,7 @@ def test_resolve_build_config_auto_include_works_with_pyproject_package(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Should auto-set includes to package from pyproject.toml
@@ -2731,7 +2547,6 @@ def test_resolve_build_config_auto_include_works_with_pyproject_package(
 
 def test_resolve_build_config_infer_package_from_include_paths(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Package should be inferred from include paths when not explicitly set."""
     # --- setup ---
@@ -2746,8 +2561,7 @@ def test_resolve_build_config_infer_package_from_include_paths(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Package should be inferred from include paths
@@ -2756,7 +2570,6 @@ def test_resolve_build_config_infer_package_from_include_paths(
 
 def test_resolve_build_config_infer_package_from_include_paths_with_init_py(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Package inference should use __init__.py markers when available."""
     # --- setup ---
@@ -2775,8 +2588,7 @@ def test_resolve_build_config_infer_package_from_include_paths_with_init_py(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Package should be inferred from include paths using __init__.py marker
@@ -2785,7 +2597,6 @@ def test_resolve_build_config_infer_package_from_include_paths_with_init_py(
 
 def test_resolve_build_config_infer_package_from_include_paths_most_common(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Package inference should use most common package when multiple exist."""
     # --- setup ---
@@ -2815,8 +2626,7 @@ def test_resolve_build_config_infer_package_from_include_paths_most_common(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Package should be inferred as most common (pkg1 appears twice, pkg2 once)
@@ -2825,7 +2635,6 @@ def test_resolve_build_config_infer_package_from_include_paths_most_common(
 
 def test_resolve_build_config_main_function_detection_in_package_resolution(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Package should be detected via main function when multiple modules exist."""
     # --- setup ---
@@ -2847,8 +2656,7 @@ def test_resolve_build_config_main_function_detection_in_package_resolution(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Package should be detected via main function (pkg2 has main())
@@ -2857,7 +2665,6 @@ def test_resolve_build_config_main_function_detection_in_package_resolution(
 
 def test_resolve_build_config_main_function_detection_with_name_main_block(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Package detection should find modules with if __name__ == '__main__' blocks."""
     # --- setup ---
@@ -2881,8 +2688,7 @@ def test_resolve_build_config_main_function_detection_with_name_main_block(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     # Package should be detected via __name__ == '__main__' block (pkg2)
@@ -2891,7 +2697,6 @@ def test_resolve_build_config_main_function_detection_with_name_main_block(
 
 def test_resolve_build_config_main_mode_default_value(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """main_mode should default to 'auto' if not specified."""
     # --- setup ---
@@ -2899,8 +2704,7 @@ def test_resolve_build_config_main_mode_default_value(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["main_mode"] == "auto"
@@ -2908,7 +2712,6 @@ def test_resolve_build_config_main_mode_default_value(
 
 def test_resolve_build_config_main_mode_from_config(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """main_mode from config should be used."""
     # --- setup ---
@@ -2916,16 +2719,14 @@ def test_resolve_build_config_main_mode_from_config(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["main_mode"] == "none"
 
 
 def test_resolve_build_config_main_mode_invalid_value(
-    tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
+    tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:
     """Invalid main_mode value should raise ValueError."""
     # --- setup ---
@@ -2945,7 +2746,6 @@ def test_resolve_build_config_main_mode_invalid_value(
 
 def test_resolve_build_config_main_name_default_value(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """main_name should default to None if not specified."""
     # --- setup ---
@@ -2953,8 +2753,7 @@ def test_resolve_build_config_main_name_default_value(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["main_name"] is None
@@ -2962,7 +2761,6 @@ def test_resolve_build_config_main_name_default_value(
 
 def test_resolve_build_config_main_name_from_config(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """main_name from config should be used."""
     # --- setup ---
@@ -2970,8 +2768,7 @@ def test_resolve_build_config_main_name_from_config(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["main_name"] == "mypkg.main"
@@ -2979,7 +2776,6 @@ def test_resolve_build_config_main_name_from_config(
 
 def test_resolve_build_config_main_name_none_explicit(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Explicit main_name=None should be preserved."""
     # --- setup ---
@@ -2990,8 +2786,7 @@ def test_resolve_build_config_main_name_none_explicit(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert resolved["main_name"] is None

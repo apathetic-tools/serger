@@ -12,13 +12,11 @@ from typing import cast
 import pytest
 
 import serger.build as mod_build
-import serger.logs as mod_logs
 from tests.utils import make_build_cfg, make_include_resolved
 
 
 def test_run_build_stitch_simple_modules(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Should stitch simple Python modules into a single file."""
     # --- setup ---
@@ -35,8 +33,7 @@ def test_run_build_stitch_simple_modules(
     cfg["order"] = ["src/base.py", "src/main.py"]
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        mod_build.run_build(cfg)
+    mod_build.run_build(cfg)
 
     # --- verify ---
     # Output goes to the 'out' path from config
@@ -49,7 +46,6 @@ def test_run_build_stitch_simple_modules(
 
 def test_run_build_errors_without_package(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Should raise error when package field is missing (required for stitch builds)."""
     # --- setup ---
@@ -61,16 +57,12 @@ def test_run_build_errors_without_package(
     # No package - should raise error
 
     # --- execute & verify ---
-    with (
-        module_logger.use_level("info"),
-        pytest.raises(ValueError, match="Package name is required"),
-    ):
+    with pytest.raises(ValueError, match="Package name is required"):
         mod_build.run_build(cfg)
 
 
 def test_run_build_respects_order_paths(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Should stitch modules in the order specified by order paths."""
     # --- setup ---
@@ -88,8 +80,7 @@ def test_run_build_respects_order_paths(
     cfg["order"] = ["src/c.py", "src/a.py", "src/b.py"]  # Custom order
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        mod_build.run_build(cfg)
+    mod_build.run_build(cfg)
 
     # --- verify ---
     out_file = tmp_path / "dist" / "script.py"
@@ -104,7 +95,6 @@ def test_run_build_respects_order_paths(
 
 def test_run_build_handles_multiple_includes(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Should handle multiple include patterns."""
     # --- setup ---
@@ -126,8 +116,7 @@ def test_run_build_handles_multiple_includes(
     cfg["order"] = ["src1/a.py", "src2/b.py"]
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        mod_build.run_build(cfg)
+    mod_build.run_build(cfg)
 
     # --- verify ---
     out_file = tmp_path / "dist" / "script.py"
@@ -139,7 +128,6 @@ def test_run_build_handles_multiple_includes(
 
 def test_run_build_respects_excludes(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Should exclude files matching exclude patterns."""
     # --- setup ---
@@ -158,8 +146,7 @@ def test_run_build_respects_excludes(
     cfg["exclude_names"] = ["src/skip.py"]  # type: ignore[typeddict-unknown-key]
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        mod_build.run_build(cfg)
+    mod_build.run_build(cfg)
 
     # --- verify ---
     out_file = tmp_path / "dist" / "script.py"
@@ -172,7 +159,6 @@ def test_run_build_respects_excludes(
 
 def test_run_build_dry_run_skips_stitching(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Dry-run mode should not create output file."""
     # --- setup ---
@@ -189,8 +175,7 @@ def test_run_build_dry_run_skips_stitching(
     cfg["order"] = ["src/main.py"]
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        mod_build.run_build(cfg)
+    mod_build.run_build(cfg)
 
     # --- verify ---
     out_file = tmp_path / "dist" / "script.py"
@@ -199,7 +184,6 @@ def test_run_build_dry_run_skips_stitching(
 
 def test_run_build_uses_timestamp_when_no_version(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Should use timestamp as version when no version is found."""
     # --- setup ---
@@ -223,8 +207,7 @@ def test_run_build_uses_timestamp_when_no_version(
         del cfg_dict["_pyproject_version"]
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        mod_build.run_build(cfg)
+    mod_build.run_build(cfg)
 
     # --- verify ---
     out_file = tmp_path / "dist" / "script.py"
@@ -254,7 +237,6 @@ def test_run_build_uses_timestamp_when_no_version(
 
 def test_run_build_auto_discovers_order(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Auto-discover module order via topological sort when order is not specified."""
     # --- setup ---
@@ -276,8 +258,7 @@ def test_run_build_auto_discovers_order(
     # No order specified - should auto-discover
 
     # --- execute ---
-    with module_logger.use_level("info"):
-        mod_build.run_build(cfg)
+    mod_build.run_build(cfg)
 
     # --- verify ---
     out_file = tmp_path / "dist" / "script.py"

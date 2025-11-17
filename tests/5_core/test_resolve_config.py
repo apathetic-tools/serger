@@ -95,7 +95,6 @@ def test_resolve_config_env_overrides(
 def test_resolve_config_invalid_env_watch_falls_back(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Invalid watch interval env var should log warning and use default."""
     # --- setup ---
@@ -104,8 +103,7 @@ def test_resolve_config_invalid_env_watch_falls_back(
 
     # --- patch and execute ---
     monkeypatch.setenv(mod_mutate_const.DEFAULT_ENV_WATCH_INTERVAL, "badvalue")
-    with module_logger.use_level("info"):
-        resolved = mod_resolve.resolve_config(root, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_config(root, args, tmp_path, tmp_path)
 
     # --- validate ---
     assert isinstance(resolved["watch_interval"], float)
@@ -133,7 +131,6 @@ def test_resolve_config_propagates_cli_log_level(
 
 def test_resolve_config_duplicate_output_paths_raises_error(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Duplicate output path validation removed - single build only."""
     # This test is no longer applicable since we only support single builds
@@ -142,7 +139,6 @@ def test_resolve_config_duplicate_output_paths_raises_error(
 
 def test_resolve_config_duplicate_output_paths_error_message(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Duplicate output path validation removed - single build only."""
     # This test is no longer applicable since we only support single builds
