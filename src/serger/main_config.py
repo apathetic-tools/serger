@@ -504,3 +504,173 @@ def select_main_block(
             earliest_block = block
 
     return earliest_block
+
+
+@dataclass
+class FunctionCollision:
+    """Represents a function name collision.
+
+    Attributes:
+        module_name: Module name where the collision occurs
+        function_name: Name of the colliding function
+        is_main: Whether this is the main function (should not be renamed)
+    """
+
+    module_name: str
+    function_name: str
+    is_main: bool
+
+
+def detect_collisions(
+    *,
+    main_function_result: tuple[str, Path, str] | None,
+    module_sources: dict[str, str],
+    module_names: list[str],
+) -> list[FunctionCollision]:
+    """Detect function name collisions with the main function.
+
+    After module actions are applied, check if multiple functions exist
+    with the same name as the main function.
+
+    Args:
+        main_function_result: Result from find_main_function()
+            (function_name, file_path, module_path) or None
+        module_sources: Mapping of module name to source code
+        module_names: List of module names in order
+
+    Returns:
+        List of FunctionCollision objects for all functions with the same name
+        as the main function. The main function itself is marked with is_main=True.
+    """
+    if main_function_result is None:
+        return []
+
+    main_function_name, _main_file_path, main_module_path = main_function_result
+
+    collisions: list[FunctionCollision] = []
+
+    # Search all modules for functions with the same name
+    for module_name in sorted(module_names):
+        module_key = f"{module_name}.py"
+        if module_key not in module_sources:
+            continue
+
+        source = module_sources[module_key]
+        func_node = _find_function_in_source(source, main_function_name)
+        if func_node is not None:
+            is_main = module_name == main_module_path
+            collisions.append(
+                FunctionCollision(
+                    module_name=module_name,
+                    function_name=main_function_name,
+                    is_main=is_main,
+                )
+            )
+
+    return collisions
+
+
+def rename_function_in_source(source: str, old_name: str, new_name: str) -> str:
+    """Rename a function definition in source code.
+
+    Only renames the function definition, not calls to the function.
+    Uses AST to find and rename the function definition.
+
+    Args:
+        source: Python source code
+        old_name: Current function name
+        new_name: New function name
+
+    Returns:
+        Modified source code with function renamed
+    """
+    try:
+        tree = ast.parse(source)
+        # Find the function definition and rename it
+        for node in tree.body:
+            if (
+                isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and node.name == old_name
+            ):
+                node.name = new_name
+                break
+
+        # Convert back to source code
+        # Use ast.unparse if available (Python 3.9+), otherwise use regex fallback
+        try:
+            unparsed = ast.unparse(tree)
+            # ast.unparse removes leading whitespace, so if the original had
+            # indentation, we need to preserve it. For module-level functions,
+            # this shouldn't be an issue, but we check anyway.
+            # If the original source had the function at column 0, unparsed should too
+            stripped_source = source.strip()
+            if stripped_source.startswith(("def ", "async def ")):
+                # Module-level function - unparsed should be correct
+                return unparsed
+            # Otherwise, try to preserve indentation from original
+            # Find the indentation of the function in the original source
+            lines = source.splitlines()
+            for line in lines:
+                stripped = line.lstrip()
+                if stripped.startswith(("def ", "async def ")) and old_name in stripped:
+                    indent = line[: len(line) - len(stripped)]
+                    # Apply same indentation to unparsed result
+                    unparsed_lines = unparsed.splitlines()
+                    if unparsed_lines:
+                        # Find the function definition line in unparsed
+                        for i, unparsed_line in enumerate(unparsed_lines):
+                            if new_name in unparsed_line and unparsed_line.startswith(
+                                ("def ", "async def ")
+                            ):
+                                unparsed_lines[i] = indent + unparsed_line.lstrip()
+                                return "\n".join(unparsed_lines)
+                    break
+            # If loop completes (with or without break), return unparsed
+            return unparsed  # noqa: TRY300
+        except AttributeError:
+            # Python < 3.9: use regex fallback
+            # Match function definition with any indentation
+            pattern = rf"^(\s*)(async\s+)?def\s+{re.escape(old_name)}\s*\("
+            replacement = rf"\1\2def {new_name}("
+            return re.sub(pattern, replacement, source, flags=re.MULTILINE)
+    except (SyntaxError, ValueError):
+        # If parsing fails, return original source
+        return source
+
+
+def generate_auto_renames(
+    *,
+    collisions: list[FunctionCollision],
+    main_function_result: tuple[str, Path, str],
+) -> dict[str, str]:
+    """Generate auto-rename mappings for colliding functions.
+
+    Creates rename mappings for all colliding functions except the main one.
+    Renames to main_1, main_2, etc.
+
+    Args:
+        collisions: List of all function collisions
+        main_function_result: Result from find_main_function()
+            (function_name, file_path, module_path)
+
+    Returns:
+        Dictionary mapping module_name -> new_function_name for functions
+        that should be renamed. Only includes non-main functions.
+    """
+    main_function_name, _main_file_path, _main_module_path = main_function_result
+
+    # Filter out the main function itself
+    non_main_collisions = [c for c in collisions if not c.is_main]
+
+    if not non_main_collisions:
+        return {}
+
+    # Generate rename mappings: main_1, main_2, etc.
+    renames: dict[str, str] = {}
+    counter = 1
+    for collision in sorted(non_main_collisions, key=lambda c: c.module_name):
+        new_name = f"{main_function_name}_{counter}"
+        renames[collision.module_name] = new_name
+        counter += 1
+
+    return renames

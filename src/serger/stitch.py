@@ -47,9 +47,12 @@ from .constants import (
 from .logs import get_app_logger
 from .main_config import (
     MainBlock,
+    detect_collisions,
     detect_function_parameters,
     detect_main_blocks,
     find_main_function,
+    generate_auto_renames,
+    rename_function_in_source,
     select_main_block,
 )
 from .meta import PROGRAM_PACKAGE
@@ -2845,6 +2848,77 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                         shim_blocks.append("        pass")
 
         shim_text = "\n".join(shim_blocks)
+
+    # Auto-rename collision handling (raw mode only)
+    # After applying module_mode transformations and user's module_actions,
+    # check if multiple functions exist with the same name as the main function.
+    # If yes, and in raw mode, auto-rename others to main_1, main_2, etc.
+    stitch_mode = config.get("stitch_mode", "raw") if config else "raw"
+    if (
+        stitch_mode == "raw"
+        and main_function_result is not None
+        and module_sources is not None
+    ):
+        # Extract module names from module_sources keys (remove .py suffix)
+        # This ensures we use the actual module names after any transformations
+        module_names_from_sources = [
+            key[:-3] for key in sorted(module_sources.keys()) if key.endswith(".py")
+        ]
+
+        # Detect collisions
+        collisions = detect_collisions(
+            main_function_result=main_function_result,
+            module_sources=module_sources,
+            module_names=module_names_from_sources,
+        )
+
+        # Generate auto-rename mappings (filters out main function automatically)
+        renames = generate_auto_renames(
+            collisions=collisions,
+            main_function_result=main_function_result,
+        )
+
+        # If we have renames to apply
+        if renames:
+            main_function_name, _main_file_path, _main_module_path = (
+                main_function_result
+            )
+
+            # Apply renames to module_sources and parts
+            for module_name, new_function_name in sorted(renames.items()):
+                module_key = f"{module_name}.py"
+                if module_key in module_sources:
+                    old_source = module_sources[module_key]
+                    new_source = rename_function_in_source(
+                        old_source, main_function_name, new_function_name
+                    )
+                    module_sources[module_key] = new_source
+
+                    # Update corresponding part in parts list
+                    # Find the part that contains this module
+                    for i, part in enumerate(parts):
+                        # Check if this part contains the module header
+                        header_pattern = f"# === {module_name} ==="
+                        if header_pattern in part:
+                            # Replace the old function definition with new one
+                            # Use regex to find and replace function definition
+                            pattern = (
+                                rf"^(\s*)(async\s+)?def\s+"
+                                rf"{re.escape(main_function_name)}\s*\("
+                            )
+                            replacement = rf"\1\2def {new_function_name}("
+                            parts[i] = re.sub(
+                                pattern, replacement, part, flags=re.MULTILINE
+                            )
+                            break
+
+                    # Log the rename
+                    logger.warning(
+                        "Auto-renamed...........%s.%s() → %s()",
+                        module_name,
+                        main_function_name,
+                        new_function_name,
+                    )
 
     # Generate formatted header line
     header_line = _format_header_line(

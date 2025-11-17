@@ -851,6 +851,259 @@ def test_select_main_block_priority_earliest_include(tmp_path: Path) -> None:
     assert selected.file_path == file1  # Should select earliest in include order
 
 
+def test_detect_collisions_no_main_function() -> None:
+    """Test collision detection when no main function is found."""
+    # --- setup ---
+    main_function_result = None
+    module_sources: dict[str, str] = {
+        "mypkg.module1.py": "def main():\n    pass\n",
+        "mypkg.module2.py": "def main():\n    pass\n",
+    }
+    module_names = ["mypkg.module1", "mypkg.module2"]
+
+    # --- execute ---
+    collisions = mod_main_config.detect_collisions(
+        main_function_result=main_function_result,
+        module_sources=module_sources,
+        module_names=module_names,
+    )
+
+    # --- verify ---
+    assert collisions == []
+
+
+def test_detect_collisions_no_collisions() -> None:
+    """Test collision detection when no collisions exist."""
+    # --- setup ---
+    main_function_result = ("main", Path("/fake/path/module1.py"), "mypkg.module1")
+    module_sources: dict[str, str] = {
+        "mypkg.module1.py": "def main():\n    pass\n",
+        "mypkg.module2.py": "def other():\n    pass\n",
+    }
+    module_names = ["mypkg.module1", "mypkg.module2"]
+
+    # --- execute ---
+    collisions = mod_main_config.detect_collisions(
+        main_function_result=main_function_result,
+        module_sources=module_sources,
+        module_names=module_names,
+    )
+
+    # --- verify ---
+    assert len(collisions) == 1
+    assert collisions[0].module_name == "mypkg.module1"
+    assert collisions[0].function_name == "main"
+    assert collisions[0].is_main is True
+
+
+def test_detect_collisions_with_collisions() -> None:
+    """Test collision detection when collisions exist."""
+    # --- setup ---
+    main_function_result = ("main", Path("/fake/path/module1.py"), "mypkg.module1")
+    module_sources: dict[str, str] = {
+        "mypkg.module1.py": "def main():\n    pass\n",
+        "mypkg.module2.py": "def main():\n    pass\n",
+        "mypkg.module3.py": "def main():\n    pass\n",
+    }
+    module_names = ["mypkg.module1", "mypkg.module2", "mypkg.module3"]
+
+    # --- execute ---
+    collisions = mod_main_config.detect_collisions(
+        main_function_result=main_function_result,
+        module_sources=module_sources,
+        module_names=module_names,
+    )
+
+    # --- verify ---
+    expected_collision_count = 3
+    assert len(collisions) == expected_collision_count
+    # Check main function is marked correctly
+    main_collision = next(c for c in collisions if c.module_name == "mypkg.module1")
+    assert main_collision.is_main is True
+    # Check other collisions are marked as non-main
+    other_collisions = [c for c in collisions if c.module_name != "mypkg.module1"]
+    assert all(not c.is_main for c in other_collisions)
+
+
+def test_generate_auto_renames_no_collisions() -> None:
+    """Test auto-rename generation when no collisions exist."""
+    # --- setup ---
+    main_function_result = ("main", Path("/fake/path/module1.py"), "mypkg.module1")
+    collisions: list[mod_main_config.FunctionCollision] = [
+        mod_main_config.FunctionCollision(
+            module_name="mypkg.module1",
+            function_name="main",
+            is_main=True,
+        )
+    ]
+
+    # --- execute ---
+    renames = mod_main_config.generate_auto_renames(
+        collisions=collisions,
+        main_function_result=main_function_result,
+    )
+
+    # --- verify ---
+    assert renames == {}
+
+
+def test_generate_auto_renames_with_collisions() -> None:
+    """Test auto-rename generation when collisions exist."""
+    # --- setup ---
+    main_function_result = ("main", Path("/fake/path/module1.py"), "mypkg.module1")
+    collisions: list[mod_main_config.FunctionCollision] = [
+        mod_main_config.FunctionCollision(
+            module_name="mypkg.module1",
+            function_name="main",
+            is_main=True,
+        ),
+        mod_main_config.FunctionCollision(
+            module_name="mypkg.module2",
+            function_name="main",
+            is_main=False,
+        ),
+        mod_main_config.FunctionCollision(
+            module_name="mypkg.module3",
+            function_name="main",
+            is_main=False,
+        ),
+    ]
+
+    # --- execute ---
+    renames = mod_main_config.generate_auto_renames(
+        collisions=collisions,
+        main_function_result=main_function_result,
+    )
+
+    # --- verify ---
+    expected_rename_count = 2
+    assert len(renames) == expected_rename_count
+    assert renames["mypkg.module2"] == "main_1"
+    assert renames["mypkg.module3"] == "main_2"
+    # Main function should not be in renames
+    assert "mypkg.module1" not in renames
+
+
+def test_generate_auto_renames_deterministic_order() -> None:
+    """Test that auto-renames are generated in deterministic order."""
+    # --- setup ---
+    main_function_result = ("cli", Path("/fake/path/module1.py"), "mypkg.module1")
+    # Create collisions in non-sorted order
+    collisions: list[mod_main_config.FunctionCollision] = [
+        mod_main_config.FunctionCollision(
+            module_name="mypkg.module3",
+            function_name="cli",
+            is_main=False,
+        ),
+        mod_main_config.FunctionCollision(
+            module_name="mypkg.module1",
+            function_name="cli",
+            is_main=True,
+        ),
+        mod_main_config.FunctionCollision(
+            module_name="mypkg.module2",
+            function_name="cli",
+            is_main=False,
+        ),
+    ]
+
+    # --- execute ---
+    renames = mod_main_config.generate_auto_renames(
+        collisions=collisions,
+        main_function_result=main_function_result,
+    )
+
+    # --- verify ---
+    # Should be sorted by module name
+    expected_rename_count = 2
+    assert len(renames) == expected_rename_count
+    assert renames["mypkg.module2"] == "cli_1"
+    assert renames["mypkg.module3"] == "cli_2"
+
+
+def test_rename_function_in_source_simple() -> None:
+    """Test renaming a simple function in source code."""
+    # --- setup ---
+    source = "def main():\n    pass\n"
+    old_name = "main"
+    new_name = "main_1"
+
+    # --- execute ---
+    result = mod_main_config.rename_function_in_source(source, old_name, new_name)
+
+    # --- verify ---
+    assert "def main_1():" in result
+    assert "def main():" not in result
+
+
+def test_rename_function_in_source_with_whitespace() -> None:
+    """Test renaming a function with surrounding whitespace."""
+    # --- setup ---
+    # Test with a top-level function (main functions are always top-level)
+    # with some whitespace/comments around it
+    source = "\n# Comment\n\ndef main():\n    pass\n\n# Another comment\n"
+    old_name = "main"
+    new_name = "main_1"
+
+    # --- execute ---
+    result = mod_main_config.rename_function_in_source(source, old_name, new_name)
+
+    # --- verify ---
+    # The function name should be changed
+    assert "main_1" in result
+    # The old name should not appear as a function definition
+    assert "def main():" not in result or "def main_1():" in result
+
+
+def test_rename_function_in_source_async() -> None:
+    """Test renaming an async function."""
+    # --- setup ---
+    source = "async def main():\n    pass\n"
+    old_name = "main"
+    new_name = "main_1"
+
+    # --- execute ---
+    result = mod_main_config.rename_function_in_source(source, old_name, new_name)
+
+    # --- verify ---
+    assert "async def main_1():" in result
+    assert "async def main():" not in result
+
+
+def test_rename_function_in_source_multiple_functions() -> None:
+    """Test renaming when multiple functions exist (only rename target)."""
+    # --- setup ---
+    source = (
+        "def other():\n    pass\n\ndef main():\n    pass\n\ndef helper():\n    pass\n"
+    )
+    old_name = "main"
+    new_name = "main_1"
+
+    # --- execute ---
+    result = mod_main_config.rename_function_in_source(source, old_name, new_name)
+
+    # --- verify ---
+    assert "def other():" in result
+    assert "def main_1():" in result
+    assert "def main():" not in result
+    assert "def helper():" in result
+
+
+def test_rename_function_in_source_invalid_syntax() -> None:
+    """Test renaming when source has invalid syntax (should return original)."""
+    # --- setup ---
+    source = "def main(\n    # Invalid syntax"
+    old_name = "main"
+    new_name = "main_1"
+
+    # --- execute ---
+    result = mod_main_config.rename_function_in_source(source, old_name, new_name)
+
+    # --- verify ---
+    # Should return original source if parsing fails
+    assert result == source
+
+
 def test_select_main_block_no_blocks() -> None:
     """Test select_main_block returns None when no blocks provided."""
     # --- execute ---
