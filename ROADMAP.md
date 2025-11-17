@@ -55,7 +55,6 @@ Exploring bundling options for generating the single-file release:
 - implement stich mode: exec (see [docs/example_isolated_stiching.md](docs/example_isolated_stiching.md))
 - implement stich mode: class (requires working assign import mode)
 - if we moved the sys.modules shims as we went, would that allow us to do imports as long as the order was correct?
-- can we parse the AST just once and store everything we need to know for later?
 - might be able to optimize/cache package detection based on previous includes
 - now that we have a module_base, we can probably "Follow the imports" and add includes as we find them, they only need to give us the first include
 - add more safety for overwriting the dist/<package>.py so it doesn't overwrite it if ti's not a serger build.
