@@ -1,4 +1,4 @@
-# tests/90_integration/test_module_ordering.py
+# tests/95_integration_output/test_module_ordering.py
 """Integration tests for serger module ordering in stitched files.
 
 Tests that modules are ordered correctly in the stitched output, particularly

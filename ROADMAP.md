@@ -47,7 +47,7 @@ Exploring bundling options for generating the single-file release:
 ## 🧪 Tests
 - Organize tests in classes? or separate files?
 - split large test files
-- can we split integration into ones that check serger output and those that don't? what do our integration tests that only run in one runtime_mode do?
+- what do our integration tests that only run in one runtime_mode do?
 - split tests into logical sections instead of subfolders
 - review all docs before v1.0
 - review all tests before v1.0

@@ -1,4 +1,4 @@
-# tests/90_integration/test_multi_package_stitching.py
+# tests/95_integration_output/test_multi_package_stitching.py
 """Integration tests for multi-package stitching support.
 
 Tests that serger can stitch multiple packages together and that the shims

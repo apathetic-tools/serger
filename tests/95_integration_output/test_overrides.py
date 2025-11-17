@@ -1,4 +1,4 @@
-# tests/90_integration/test_overrides.py
+# tests/95_integration_output/test_overrides.py
 """Tests for CLI flag overrides of config file settings.
 
 Tests that --include, --exclude, --add-include, and --add-exclude

@@ -1,4 +1,4 @@
-# tests/90_integration/test_module_modes.py
+# tests/95_integration_output/test_module_modes_integration.py
 """Integration tests for all module_mode options."""
 
 import importlib.util

@@ -1,4 +1,4 @@
-# tests/90_integration/test_compilation_checking.py
+# tests/95_integration_output/test_compilation_checking.py
 """Integration tests for in-memory compilation checking and error file handling."""
 
 import datetime

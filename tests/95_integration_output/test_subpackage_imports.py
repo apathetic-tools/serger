@@ -1,4 +1,4 @@
-# tests/90_integration/test_subpackage_imports.py
+# tests/95_integration_output/test_subpackage_imports.py
 """Integration tests for subpackage imports in stitched singlefile.
 
 Tests that verify subpackages work correctly in the stitched singlefile output,

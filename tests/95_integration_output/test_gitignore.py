@@ -1,4 +1,4 @@
-# tests/90_integration/test_gitignore.py
+# tests/95_integration_output/test_gitignore.py
 """Tests for .gitignore handling and precedence in serger.cli."""
 
 import shutil

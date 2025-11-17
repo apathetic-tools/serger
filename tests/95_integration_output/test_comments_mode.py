@@ -1,4 +1,4 @@
-# tests/90_integration/test_comments_mode.py
+# tests/95_integration_output/test_comments_mode.py
 
 """Integration tests for comments_mode setting."""
 

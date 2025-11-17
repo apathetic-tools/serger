@@ -1,4 +1,4 @@
-# tests/90_integration/test_zero_config_auto_detect.py
+# tests/95_integration_output/test_zero_config_auto_detect.py
 """Integration tests for zero-config auto-detection feature.
 
 Tests that when there's exactly one module in module_bases and no package

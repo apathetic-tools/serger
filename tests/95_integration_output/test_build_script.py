@@ -1,4 +1,4 @@
-# tests/90_integration/test_build_script.py
+# tests/95_integration_output/test_build_script.py
 """Integration tests for building `dist/serger.py`.
 
 These verify that the standalone script (`dist/serger.py`)

@@ -1,4 +1,4 @@
-# tests/90_integration/test_pyproject_auto_include_integration.py
+# tests/95_integration_output/test_pyproject_auto_include_integration.py
 """Integration tests for pyproject.toml auto-include feature.
 
 Tests that when pyproject.toml has a name matching a module in module_bases,

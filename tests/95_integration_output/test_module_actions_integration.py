@@ -1,4 +1,4 @@
-# tests/90_integration/test_module_actions_integration.py
+# tests/95_integration_output/test_module_actions_integration.py
 """Integration tests for module_actions in stitch logic.
 
 These tests verify the integration of module_actions into the stitch flow,

@@ -1,4 +1,4 @@
-# tests/90_integration/test_docstring_mode_additional.py
+# tests/95_integration_output/test_docstring_mode_additional.py
 
 """Additional integration tests for docstring_mode.
 
