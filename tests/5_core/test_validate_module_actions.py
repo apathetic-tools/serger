@@ -202,3 +202,119 @@ def test_validate_module_actions_combine_mode_and_user() -> None:
     mod_module_actions.validate_module_actions(
         combined, original_modules, detected_packages
     )
+
+
+def test_validate_module_actions_rename_valid() -> None:
+    """Test that validation passes for valid rename actions."""
+    actions: list[mod_types.ModuleActionFull] = [
+        {"source": "pkg1", "action": "rename", "dest": "pkg2"},
+        {"source": "pkg1.stuff", "action": "rename", "dest": "utils"},
+    ]
+    original_modules = {"pkg1", "pkg1.stuff"}  # pkg2 doesn't exist yet
+    detected_packages = {"pkg1"}
+
+    # Should not raise
+    mod_module_actions.validate_module_actions(
+        actions, original_modules, detected_packages
+    )
+
+
+def test_validate_module_actions_rename_dest_has_dots_error() -> None:
+    """Test that validation fails when rename dest contains dots."""
+    actions: list[mod_types.ModuleActionFull] = [
+        {"source": "pkg1", "action": "rename", "dest": "utils.subutils"}
+    ]
+    original_modules = {"pkg1"}
+    detected_packages = {"pkg1"}
+
+    with pytest.raises(ValueError, match="dest must not contain dots"):
+        mod_module_actions.validate_module_actions(
+            actions, original_modules, detected_packages
+        )
+
+
+def test_validate_module_actions_rename_source_not_exists_error() -> None:
+    """Test that validation fails when rename source doesn't exist."""
+    actions: list[mod_types.ModuleActionFull] = [
+        {"source": "pkg2", "action": "rename", "dest": "pkg3"}
+    ]
+    original_modules = {"pkg1"}  # Only pkg1 exists
+    detected_packages = {"pkg1"}
+
+    with pytest.raises(ValueError, match="does not exist"):
+        mod_module_actions.validate_module_actions(
+            actions, original_modules, detected_packages
+        )
+
+
+def test_validate_module_actions_rename_submodule_not_exists_error() -> None:
+    """Test that validation fails when renaming non-existent submodule."""
+    actions: list[mod_types.ModuleActionFull] = [
+        {"source": "pkg1.stuff", "action": "rename", "dest": "utils"}
+    ]
+    original_modules = {"pkg1"}  # Only pkg1 exists, pkg1.stuff doesn't
+    detected_packages = {"pkg1"}
+
+    with pytest.raises(ValueError, match="does not exist"):
+        mod_module_actions.validate_module_actions(
+            actions, original_modules, detected_packages
+        )
+
+
+def test_validate_module_actions_rename_dest_conflict_error() -> None:
+    """Test that validation fails when rename dest conflicts with existing module."""
+    actions: list[mod_types.ModuleActionFull] = [
+        {"source": "pkg1", "action": "rename", "dest": "pkg2"}
+    ]
+    original_modules = {"pkg1", "pkg2"}  # pkg2 already exists
+    detected_packages = {"pkg1"}
+
+    with pytest.raises(ValueError, match="conflicts with existing module"):
+        mod_module_actions.validate_module_actions(
+            actions, original_modules, detected_packages
+        )
+
+
+def test_validate_module_actions_rename_submodule_dest_conflict_error() -> None:
+    """Test that validation fails when rename submodule dest conflicts."""
+    actions: list[mod_types.ModuleActionFull] = [
+        {"source": "pkg1.stuff", "action": "rename", "dest": "other"}
+    ]
+    original_modules = {"pkg1", "pkg1.stuff", "pkg1.other"}  # pkg1.other exists
+    detected_packages = {"pkg1"}
+
+    with pytest.raises(ValueError, match="conflicts with existing module"):
+        mod_module_actions.validate_module_actions(
+            actions, original_modules, detected_packages
+        )
+
+
+def test_validate_module_actions_rename_missing_dest_error() -> None:
+    """Test that validation fails when rename action is missing dest."""
+    actions: list[mod_types.ModuleActionFull] = [
+        {"source": "pkg1", "action": "rename"}  # Missing dest
+    ]
+    original_modules = {"pkg1"}
+    detected_packages = {"pkg1"}
+
+    with pytest.raises(ValueError, match="requires 'dest' field"):
+        mod_module_actions.validate_module_actions(
+            actions, original_modules, detected_packages
+        )
+
+
+def test_validate_module_actions_rename_missing_source_error() -> None:
+    """Test that validation fails when rename action is missing source."""
+    # Note: This is typically caught at config resolution, but we test
+    # that the validation functions handle it gracefully
+    actions: list[mod_types.ModuleActionFull] = [
+        {"action": "rename", "dest": "pkg2"}  # Missing source
+    ]
+    original_modules = {"pkg1"}
+    detected_packages = {"pkg1"}
+
+    # This should raise because source is required
+    with pytest.raises((ValueError, KeyError), match="source"):
+        mod_module_actions.validate_module_actions(
+            actions, original_modules, detected_packages
+        )

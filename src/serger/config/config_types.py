@@ -19,7 +19,7 @@ ModuleMode = Literal[
 ShimSetting = Literal["all", "public", "none"]
 MainMode = Literal["none", "auto"]
 # Module actions configuration types
-ModuleActionType = Literal["move", "copy", "delete", "none"]
+ModuleActionType = Literal["move", "copy", "delete", "rename", "none"]
 ModuleActionMode = Literal["preserve", "flatten"]
 ModuleActionScope = Literal["original", "shim"]
 ModuleActionAffects = Literal["shims", "stitching", "both"]

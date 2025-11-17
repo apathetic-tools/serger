@@ -153,6 +153,43 @@ def validate_action_source_exists(
         raise ValueError(msg)
 
 
+def validate_rename_action(
+    action: "ModuleActionFull",
+    *,
+    scope: "ModuleActionScope | None" = None,
+) -> None:
+    """Validate rename action constraints.
+
+    Rename actions can only rename the last node in the dot sequence.
+    The dest must be just the new name (no dots allowed).
+
+    Args:
+        action: Rename action to validate
+        scope: Optional scope for error message context
+
+    Raises:
+        ValueError: If rename action is invalid
+    """
+    dest = action.get("dest")
+    scope_str = f" (scope: '{scope}')" if scope else ""
+
+    if dest is None:
+        msg = (
+            f"Module action 'rename' requires 'dest' field, "
+            f"but it is missing{scope_str}"
+        )
+        raise ValueError(msg)
+
+    # Dest must not contain dots (only the new name for the last node)
+    if "." in dest:
+        msg = (
+            f"Module action 'rename' dest must not contain dots. "
+            f"Got dest='{dest}'. Use 'move' action to move modules down the tree"
+            f"{scope_str}"
+        )
+        raise ValueError(msg)
+
+
 def validate_action_dest(
     action: "ModuleActionFull",
     existing_modules: set[str],
@@ -187,6 +224,33 @@ def validate_action_dest(
     if action_type == "delete":
         return
 
+    # Rename actions have special validation
+    if action_type == "rename":
+        validate_rename_action(action, scope=scope)
+        # After validating rename constraints, check if the constructed
+        # destination conflicts with existing modules
+        source = action["source"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+        if dest is not None:
+            # Construct full destination path: replace last component of source
+            if "." in source:
+                parent = ".".join(source.split(".")[:-1])
+                full_dest = f"{parent}.{dest}"
+            else:
+                # Top-level module: just use dest
+                full_dest = dest
+
+            # Check for conflicts (rename acts like move - can't conflict)
+            if full_dest in existing_modules and (
+                allowed_destinations is None or full_dest not in allowed_destinations
+            ):
+                msg = (
+                    f"Module action 'rename' destination '{full_dest}' "
+                    f"(from source '{source}' + dest '{dest}') "
+                    f"conflicts with existing module{scope_str}"
+                )
+                raise ValueError(msg)
+        return
+
     # Move and copy actions require dest
     if action_type in ("move", "copy"):
         if dest is None:
@@ -212,13 +276,13 @@ def validate_action_dest(
             raise ValueError(msg)
 
 
-def validate_no_circular_moves(
+def validate_no_circular_moves(  # noqa: C901, PLR0912
     actions: list["ModuleActionFull"],
 ) -> None:
     """Validate no circular move operations.
 
     Detects direct and indirect circular move chains (e.g., A -> B, B -> A
-    or A -> B, B -> C, C -> A).
+    or A -> B, B -> C, C -> A). Includes rename actions (which act like moves).
 
     Args:
         actions: List of actions to validate
@@ -226,15 +290,24 @@ def validate_no_circular_moves(
     Raises:
         ValueError: If circular move chain is detected
     """
-    # Build a mapping of source -> dest for move operations only
+    # Build a mapping of source -> dest for move and rename operations
     move_map: dict[str, str] = {}
     for action in actions:
         action_type = action.get("action", "move")
-        if action_type == "move":
+        if action_type in ("move", "rename"):
             source = action["source"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
             dest = action.get("dest")
             if dest is not None:
-                move_map[source] = dest
+                # For rename, construct full destination path
+                if action_type == "rename":
+                    if "." in source:
+                        parent = ".".join(source.split(".")[:-1])
+                        full_dest = f"{parent}.{dest}"
+                    else:
+                        full_dest = dest
+                    move_map[source] = full_dest
+                else:
+                    move_map[source] = dest
 
     # Check for circular chains using DFS
     visited: set[str] = set()
@@ -281,7 +354,7 @@ def validate_no_circular_moves(
             raise ValueError(msg)
 
 
-def validate_no_conflicting_operations(  # noqa: PLR0912
+def validate_no_conflicting_operations(  # noqa: C901, PLR0912, PLR0915
     actions: list["ModuleActionFull"],
 ) -> None:
     """Validate no conflicting operations (delete then move, etc.).
@@ -314,10 +387,19 @@ def validate_no_conflicting_operations(  # noqa: PLR0912
 
         if action_type == "delete":
             deleted.add(source)
-        elif action_type == "move":
+        elif action_type in ("move", "rename"):
             moved_from.add(source)
             if dest is not None:
-                dests.add(dest)
+                # For rename, construct full destination path
+                if action_type == "rename":
+                    if "." in source:
+                        parent = ".".join(source.split(".")[:-1])
+                        full_dest = f"{parent}.{dest}"
+                    else:
+                        full_dest = dest
+                    dests.add(full_dest)
+                else:
+                    dests.add(dest)
         elif action_type == "copy":
             copied_from.add(source)
             if dest is not None:
@@ -353,25 +435,52 @@ def validate_no_conflicting_operations(  # noqa: PLR0912
     for action in actions:
         action_type = action.get("action", "move")
         dest = action.get("dest")
+        # For rename, construct full destination path
+        computed_dest: str | None
+        if action_type == "rename" and dest is not None:
+            source = action["source"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+            if "." in source:
+                parent = ".".join(source.split(".")[:-1])
+                computed_dest = f"{parent}.{dest}"
+            else:
+                computed_dest = dest
+        else:
+            computed_dest = dest
         # Check if dest is being moved/copied FROM (not just TO)
         # Only error if dest is a source of another action
         if (
-            action_type == "move"
-            and dest is not None
-            and (dest in moved_from or dest in copied_from)
+            action_type in ("move", "rename")
+            and computed_dest is not None
+            and (computed_dest in moved_from or computed_dest in copied_from)
         ):
             # But allow if dest is also a destination in other actions
             # (it's being moved into, then moved from - this is valid)
             # Only error if dest is ONLY a source (not also a destination)
             # Check if dest appears as a destination in any other action
-            dest_is_also_destination = any(
-                other_action.get("dest") == dest
-                for other_action in actions
-                if other_action is not action
-            )
+            dest_is_also_destination = False
+            for other_action in actions:
+                if other_action is action:
+                    continue
+                other_dest = other_action.get("dest")
+                if other_dest is not None:
+                    # For rename actions, construct full destination path
+                    other_action_type = other_action.get("action", "move")
+                    if other_action_type == "rename":
+                        other_source = other_action["source"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+                        if "." in other_source:
+                            other_parent = ".".join(other_source.split(".")[:-1])
+                            other_computed_dest = f"{other_parent}.{other_dest}"
+                        else:
+                            other_computed_dest = other_dest
+                        if other_computed_dest == computed_dest:
+                            dest_is_also_destination = True
+                            break
+                    elif other_dest == computed_dest:
+                        dest_is_also_destination = True
+                        break
             if not dest_is_also_destination:
                 msg = (
-                    f"Cannot move to '{dest}' because it is being "
+                    f"Cannot {action_type} to '{computed_dest}' because it is being "
                     f"moved or copied from in another action"
                 )
                 raise ValueError(msg)
@@ -616,6 +725,56 @@ def _apply_copy_action(
     return result
 
 
+def _apply_rename_action(
+    module_names: list[str],
+    action: "ModuleActionFull",
+) -> list[str]:
+    """Apply rename action (rename only the last node in the dot sequence).
+
+    Renames the last component of the source module path. The dest field
+    contains only the new name (no dots). For example:
+    - source: "foo.bar.baz", dest: "new_name" -> "foo.bar.new_name"
+    - source: "foo", dest: "new_name" -> "new_name"
+
+    This is essentially a move action with validation that only allows
+    renaming the last node.
+
+    Args:
+        module_names: List of module names to transform
+        action: Rename action with source and dest (new name only)
+
+    Returns:
+        Transformed list of module names
+    """
+    source = action["source"]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+    dest = action.get("dest")
+    if dest is None:
+        msg = "Rename action requires 'dest' field"
+        raise ValueError(msg)
+
+    # Construct full destination path: replace last component of source
+    if "." in source:
+        parent = ".".join(source.split(".")[:-1])
+        full_dest = f"{parent}.{dest}"
+    else:
+        # Top-level module: just use dest
+        full_dest = dest
+
+    # Rename acts like a move with preserve mode (keep structure)
+    # We use _transform_module_name with preserve mode to handle submodules
+    result: list[str] = []
+    for module_name in module_names:
+        transformed = _transform_module_name(module_name, source, full_dest, "preserve")
+        if transformed is not None:
+            # Replace source module with transformed name
+            result.append(transformed)
+        else:
+            # Keep modules that don't match source
+            result.append(module_name)
+
+    return result
+
+
 def _apply_delete_action(
     module_names: list[str],
     action: "ModuleActionFull",
@@ -680,6 +839,8 @@ def apply_single_action(
         return _apply_move_action(module_names, action)
     if action_type == "copy":
         return _apply_copy_action(module_names, action)
+    if action_type == "rename":
+        return _apply_rename_action(module_names, action)
     if action_type == "delete":
         return _apply_delete_action(module_names, action)
     if action_type == "none":
@@ -688,7 +849,7 @@ def apply_single_action(
 
     msg = (
         f"Invalid action type '{action_type}', must be "
-        "'move', 'copy', 'delete', or 'none'"
+        "'move', 'copy', 'delete', 'rename', or 'none'"
     )
     raise ValueError(msg)
 

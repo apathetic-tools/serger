@@ -32,17 +32,12 @@ Planned command-line flags for future releases:
 - Module actions glob pattern support: Phase 1 (simple wildcards in convenience dict)
 - Module actions glob pattern support: Phase 2 (globs in list format)
 - Module actions glob pattern support: Phase 3 (advanced patterns with multiple wildcards and named captures)
-- evaluate the other NotRequired fields in resolved typedict to see if they are truly still optional or can be resolved or errored out before then.
 - how do we store the intermitent module trees? the "source" and "shim" trees? do we map tree back to the original file module where we can find it?
-- can make trully minimal builds using pyproject.toml, when not to?
-- can make trully minimal builds when there is a src/ directory with only one package, when not to?
-- stitch mode that prefixes symbols with the package name to keep it flat and avoid collisions.
+- stitch mode that prefixes symbols with the package name to keep it flat and avoid collisions. (would need to set up unprefixed import vars before every module)
 - interactive mode to solve problems as they come up and make a config
-- we need a way to specify --details, opposite of --quiet, for more INFO messages or less.
+- we need a way to specify --details, opposite of --quiet, for more INFO messages or less. (maybe a DETAILS and MINIMAL levels above and bellow INFO)
 - add a rename action that only lets you rename the last node?
-- verify our code against the plan to remove multi-builds
-- verify our code against the plan to add the main processing. 034
-- make our tests run with LOG_LEVEL=test all the time by default, only tests that need a specific level should set it otherwise
+
 
 ## 🧩 Joiner Scripts (Build System)
 Exploring bundling options for generating the single-file release:

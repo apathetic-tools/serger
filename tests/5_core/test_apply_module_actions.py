@@ -204,3 +204,65 @@ def test_apply_module_actions_combine_mode_and_user() -> None:
     assert "pkg1" not in result
     assert "pkg2" not in result
     assert "pkg3" not in result
+
+
+def test_apply_module_actions_rename_top_level() -> None:
+    """Test renaming a top-level module (pkg1 -> pkg2)."""
+    module_names = ["pkg1", "pkg1.sub"]
+    actions: list[mod_types.ModuleActionFull] = [
+        {"source": "pkg1", "dest": "pkg2", "action": "rename"}
+    ]
+    detected_packages = {"pkg1"}
+    result = mod_module_actions.apply_module_actions(
+        module_names, actions, detected_packages
+    )
+
+    # Rename pkg1 -> pkg2 (top-level rename)
+    assert result == ["pkg2", "pkg2.sub"]
+
+
+def test_apply_module_actions_rename_submodule() -> None:
+    """Test renaming a submodule (pkg1.stuff -> pkg1.utils)."""
+    module_names = ["pkg1", "pkg1.stuff", "pkg1.stuff.sub"]
+    actions: list[mod_types.ModuleActionFull] = [
+        {"source": "pkg1.stuff", "dest": "utils", "action": "rename"}
+    ]
+    detected_packages = {"pkg1"}
+    result = mod_module_actions.apply_module_actions(
+        module_names, actions, detected_packages
+    )
+
+    # Rename pkg1.stuff -> pkg1.utils
+    assert "pkg1" in result
+    assert "pkg1.utils" in result
+    assert "pkg1.utils.sub" in result
+    assert "pkg1.stuff" not in result
+    assert "pkg1.stuff.sub" not in result
+
+
+def test_apply_module_actions_rename_with_submodules() -> None:
+    """Test that rename preserves submodule structure."""
+    module_names = [
+        "pkg1",
+        "pkg1.stuff",
+        "pkg1.stuff.sub1",
+        "pkg1.stuff.sub2",
+        "pkg1.other",
+    ]
+    actions: list[mod_types.ModuleActionFull] = [
+        {"source": "pkg1.stuff", "dest": "utils", "action": "rename"}
+    ]
+    detected_packages = {"pkg1"}
+    result = mod_module_actions.apply_module_actions(
+        module_names, actions, detected_packages
+    )
+
+    # Rename pkg1.stuff -> pkg1.utils, preserving submodules
+    assert "pkg1" in result
+    assert "pkg1.utils" in result
+    assert "pkg1.utils.sub1" in result
+    assert "pkg1.utils.sub2" in result
+    assert "pkg1.other" in result
+    assert "pkg1.stuff" not in result
+    assert "pkg1.stuff.sub1" not in result
+    assert "pkg1.stuff.sub2" not in result

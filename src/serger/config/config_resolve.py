@@ -523,8 +523,8 @@ def _validate_and_normalize_module_actions(  # noqa: C901, PLR0912, PLR0915
 
             # Validate dest based on action type (per Q5)
             dest_val = action.get("dest")
-            if action_val in ("move", "copy"):
-                # dest is required for move/copy
+            if action_val in ("move", "copy", "rename"):
+                # dest is required for move/copy/rename
                 if dest_val is None:
                     msg = (
                         f"module_actions[{idx}]: 'dest' is required for "
@@ -537,6 +537,14 @@ def _validate_and_normalize_module_actions(  # noqa: C901, PLR0912, PLR0915
                         f"got {type(dest_val).__name__}"
                     )
                     raise TypeError(msg)
+                # For rename, validate that dest doesn't contain dots
+                if action_val == "rename" and "." in dest_val:
+                    msg = (
+                        f"module_actions[{idx}]['dest'] for 'rename' action "
+                        f"must not contain dots. Got dest='{dest_val}'. "
+                        f"Use 'move' action to move modules down the tree"
+                    )
+                    raise ValueError(msg)
             elif action_val == "delete":
                 # dest must NOT be present for delete
                 if dest_val is not None:

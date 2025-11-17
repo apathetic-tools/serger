@@ -1906,6 +1906,28 @@ def test_resolve_build_config_module_actions_copy_missing_dest_raises_error(
         mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
 
+def test_resolve_build_config_module_actions_rename_missing_dest_raises_error(
+    tmp_path: Path, module_logger: mod_logs.AppLogger
+) -> None:
+    """Module actions with rename action missing dest should raise error."""
+    # --- setup ---
+    raw = cast(
+        "mod_types.RootConfig",
+        {
+            "include": ["src/**"],
+            "module_actions": [{"source": "old", "action": "rename"}],
+        },
+    )
+    args = _args()
+
+    # --- execute and validate ---
+    with (
+        module_logger.use_level("info"),
+        pytest.raises(ValueError, match="'dest' is required for 'rename' action"),
+    ):
+        mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+
 def test_resolve_build_config_module_actions_delete_with_dest_raises_error(
     tmp_path: Path, module_logger: mod_logs.AppLogger
 ) -> None:

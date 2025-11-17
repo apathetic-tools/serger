@@ -4,6 +4,25 @@
 A record of design experiments and ideas that were explored but intentionally not pursued.
 
 
+## 🔧 Full AST Transformation and Symbol Renaming
+<a id="rej02"></a>*REJ 02 — 2025-01-27*
+
+### Context
+Considered implementing full AST parsing and rewriting capabilities to rename symbol references everywhere. This would allow renaming not just function definitions, but all calls to those functions throughout the codebase.
+
+### Reason for Rejection
+- Would require becoming a full AST transformer/compiler, which is beyond serger's scope as a module stitcher
+- Significant complexity: would need to track all symbol references, handle edge cases (dynamic references, string-based lookups, etc.), and ensure correctness across the entire codebase
+- Opens up a "can of worms" — once you start transforming code, there are many edge cases and complexities that need to be handled
+- Limited use case: renaming definitions (e.g., function definitions) is sufficient for most stitching needs without requiring full symbol reference rewriting
+- Serger's goal is to be a simple, focused tool for stitching modules together, not a comprehensive code transformation tool
+
+### Revisit If
+- A clear, well-defined use case emerges that requires full symbol renaming
+- A simpler approach is found that handles the common cases without full AST transformation complexity
+- The project scope explicitly expands to include code transformation capabilities
+
+
 ## 🧵 Incremental Stitching with Dependency Caching
 <a id="rej01"></a>*REJ 01 — 2025-11-11*  
 
@@ -21,5 +40,8 @@ Considered implementing incremental stitching with dependency caching to speed u
 - Users report significant build time issues on larger projects
 - Watch mode becomes a primary workflow and users complain about slow rebuild times
 - A simpler caching approach emerges that provides meaningful benefit without significant complexity
+
+
+
 
 
