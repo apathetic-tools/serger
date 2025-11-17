@@ -121,7 +121,7 @@ def make_build_input(
     exclude: list[str] | None = None,
     out: str | None = None,
     **extra: object,
-) -> mod_types.BuildConfig:
+) -> mod_types.RootConfig:
     """Convenient shorthand for constructing raw (pre-resolve) build inputs."""
     cfg: dict[str, object] = {}
     if include is not None:
@@ -131,7 +131,7 @@ def make_build_input(
     if out is not None:
         cfg["out"] = out
     cfg.update(extra)
-    return cast("mod_types.BuildConfig", cfg)
+    return cast("mod_types.RootConfig", cfg)
 
 
 # ---------------------------------------------------------------------------
@@ -222,7 +222,7 @@ def make_config_content(
     include: list[str] | None = None,
     exclude: list[str] | None = None,
     out: str | None = None,
-    builds: mod_types.BuildConfig | None = None,
+    builds: mod_types.RootConfig | None = None,
     fmt: str = "json",
     **root_options: Any,
 ) -> str:

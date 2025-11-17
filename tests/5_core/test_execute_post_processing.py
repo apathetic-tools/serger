@@ -291,7 +291,7 @@ def test_execute_post_processing_default_custom_instances(
 
         try:
             # Create a minimal build config (no user overrides)
-            build_cfg: mod_config_types.BuildConfig = {}
+            build_cfg: mod_config_types.RootConfig = {}
             resolved = mod_config_resolve.resolve_post_processing(build_cfg, None)
 
             # Execute with resolved config
@@ -905,7 +905,7 @@ def test_execute_post_processing_custom_label_missing_from_tools_skipped(
         )
 
         # User config has custom label in priority but not defined anywhere
-        build_cfg: mod_config_types.BuildConfig = {
+        build_cfg: mod_config_types.RootConfig = {
             "post_processing": {
                 "categories": {
                     "formatter": {

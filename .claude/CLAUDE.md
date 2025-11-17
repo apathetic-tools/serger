@@ -420,19 +420,19 @@ Serger is a Python module stitcher that combines multiple source files into a si
 - **Always update TypedDict definitions when adding properties**: When adding a new property to a dictionary that is typed as a TypedDict (or should be), **always** update the corresponding TypedDict class definition to include that property. This ensures type safety and prevents runtime errors.
   - **Required**: If you add a field like `config["_new_field"] = value`, you must add `_new_field: NotRequired[Type]` (or `_new_field: Type` if required) to the TypedDict definition
   - **Never use `type: ignore` comments** to bypass missing TypedDict fields - instead, add the field to the type definition
-  - **Example**: If adding `resolved_cfg["_pyproject_version"] = metadata.version`, add `_pyproject_version: NotRequired[str]` to the `BuildConfigResolved` TypedDict
+  - **Example**: If adding `resolved_cfg["_pyproject_version"] = metadata.version`, add `_pyproject_version: NotRequired[str]` to the `RootConfigResolved` TypedDict
   - This applies to all TypedDict classes, including those in `config_types.py` and any other type definitions
 
 #### Resolved TypedDict Pattern (config_types.py)
-- **"Resolved" TypedDicts should not use `NotRequired` for fields that can be resolved**: In `config_types.py`, TypedDicts with "Resolved" suffix (e.g., `BuildConfigResolved`, `PostProcessingConfigResolved`) represent fully resolved configurations. Fields that can be resolved (even to "empty" defaults) should **always be present**, not marked as `NotRequired`.
+- **"Resolved" TypedDicts should not use `NotRequired` for fields that can be resolved**: In `config_types.py`, TypedDicts with "Resolved" suffix (e.g., `RootConfigResolved`, `PostProcessingConfigResolved`) represent fully resolved configurations. Fields that can be resolved (even to "empty" defaults) should **always be present**, not marked as `NotRequired`.
   - **Use `NotRequired` only for**: Fields that are truly optional throughout the entire resolution process and may never be set (e.g., `package`, `order` for non-stitch builds, or `_pyproject_version` when pyproject.toml is not used)
   - **Do NOT use `NotRequired` for**: Fields that can be resolved to a default value (empty list `[]`, empty dict `{}`, `False`, empty string `""`, etc.) - these should always be present in the resolved config
   - **Rationale**: A "Resolved" TypedDict represents a fully resolved state. If a field can be resolved (even to an empty default), it should be present to maintain the "fully resolved" contract and simplify usage (no need to check `if "field" in config`)
   - **Examples**:
-    - ✅ **Correct**: `module_actions: list[ModuleActionFull]` in `BuildConfigResolved` (always set to `[]` if not provided)
-    - ✅ **Correct**: `post_processing: PostProcessingConfigResolved` in `BuildConfigResolved` (always resolved with defaults)
-    - ✅ **Correct**: `package: NotRequired[str]` in `BuildConfigResolved` (only present for stitch builds)
-    - ❌ **Incorrect**: `module_actions: NotRequired[list[ModuleActionFull]]` in `BuildConfigResolved` (can be resolved to `[]`)
+    - ✅ **Correct**: `module_actions: list[ModuleActionFull]` in `RootConfigResolved` (always set to `[]` if not provided)
+    - ✅ **Correct**: `post_processing: PostProcessingConfigResolved` in `RootConfigResolved` (always resolved with defaults)
+    - ✅ **Correct**: `package: NotRequired[str]` in `RootConfigResolved` (only present for stitch builds)
+    - ❌ **Incorrect**: `module_actions: NotRequired[list[ModuleActionFull]]` in `RootConfigResolved` (can be resolved to `[]`)
 
 # Workflow
 
@@ -446,6 +446,7 @@ Serger is a Python module stitcher that combines multiple source files into a si
   - `poetry run poe check:fix` - Fix, type check, and test (run before committing)
   - `poetry run poe build:script` - Generate the single-file dist/serger.py
   - `poetry run poe sync:ai:guidance` - Sync AI guidance files from `.ai/` to `.cursor/` and `.claude/`
+- **NEVER edit `.cursor/` or `.claude/` files directly**: These directories are generated from `.ai/` source files. Always edit files in `.ai/rules/` or `.ai/commands/` instead, then run `poetry run poe sync:ai:guidance` to sync changes.
 - **When modifying `.ai/` files**: After changing any file in `.ai/rules/` or `.ai/commands/`, you **must**:
   1. Run `poetry run poe sync:ai:guidance` to sync changes to `.cursor/` and `.claude/`
   2. Include the generated files (`.cursor/rules/*.mdc`, `.cursor/commands/*.md`, `.claude/CLAUDE.md`) as part of the same changeset/commit

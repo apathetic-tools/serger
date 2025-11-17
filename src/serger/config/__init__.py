@@ -20,8 +20,6 @@ from .config_resolve import (
     resolve_post_processing,
 )
 from .config_types import (
-    BuildConfig,
-    BuildConfigResolved,
     CommentsMode,
     DocstringMode,
     DocstringModeLocation,
@@ -63,8 +61,6 @@ __all__ = [  # noqa: RUF022
     "resolve_config",
     "resolve_post_processing",
     # config_types
-    "BuildConfig",
-    "BuildConfigResolved",
     "CommentsMode",
     "DocstringMode",
     "DocstringModeLocation",

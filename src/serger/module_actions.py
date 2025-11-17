@@ -100,7 +100,7 @@ def set_mode_generated_action_defaults(
     - affects: "shims" (if not specified)
     - cleanup: "auto" (if not specified)
 
-    Note: User actions from BuildConfigResolved already have all defaults
+    Note: User actions from RootConfigResolved already have all defaults
     applied (including scope: "shim") from config resolution (iteration 04).
 
     Args:

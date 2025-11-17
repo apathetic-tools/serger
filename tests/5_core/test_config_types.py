@@ -103,38 +103,29 @@ def test_module_actions_union_type() -> None:
     assert len(actions_list) == 1
 
 
-def test_build_config_has_module_actions() -> None:
-    """Test BuildConfig includes module_actions field."""
+def test_root_config_has_module_actions() -> None:
+    """Test RootConfig includes module_actions field."""
     # Dict format
-    build_cfg_dict: mod_types.BuildConfig = {
+    root_cfg_dict: mod_types.RootConfig = {
         "include": ["src/**"],
         "module_actions": {"old": "new"},
     }
-    assert "module_actions" in build_cfg_dict
-    assert isinstance(build_cfg_dict["module_actions"], dict)
+    assert "module_actions" in root_cfg_dict
+    assert isinstance(root_cfg_dict["module_actions"], dict)
 
     # List format
-    build_cfg_list: mod_types.BuildConfig = {
+    root_cfg_list: mod_types.RootConfig = {
         "include": ["src/**"],
         "module_actions": [{"source": "old", "dest": "new"}],
     }
-    assert "module_actions" in build_cfg_list
-    assert isinstance(build_cfg_list["module_actions"], list)
+    assert "module_actions" in root_cfg_list
+    assert isinstance(root_cfg_list["module_actions"], list)
 
 
-def test_root_config_has_module_actions() -> None:
-    """Test RootConfig includes module_actions field."""
-    root_cfg: mod_types.RootConfig = {
-        "include": ["src/**"],
-        "module_actions": {"old": "new"},
-    }
-    assert "module_actions" in root_cfg
-
-
-def test_build_config_resolved_has_module_actions(tmp_path: Path) -> None:
-    """Test BuildConfigResolved includes module_actions field (normalized to list)."""
+def test_root_config_resolved_has_module_actions(tmp_path: Path) -> None:
+    """Test RootConfigResolved includes module_actions field (normalized to list)."""
     test_root = tmp_path
-    resolved_cfg: mod_types.BuildConfigResolved = {
+    resolved_cfg: mod_types.RootConfigResolved = {
         "include": [],
         "exclude": [],
         "out": {
@@ -150,6 +141,7 @@ def test_build_config_resolved_has_module_actions(tmp_path: Path) -> None:
         "respect_gitignore": True,
         "log_level": "info",
         "dry_run": False,
+        "watch_interval": 1.0,
         "stitch_mode": "raw",
         "module_mode": "multi",
         "shim": "all",

@@ -1698,7 +1698,7 @@ def test_resolve_build_config_module_actions_invalid_dict_key_type_raises_error(
     # --- setup ---
     # Use cast to allow invalid value for testing validation
     raw = cast(
-        "mod_types.BuildConfig",
+        "mod_types.RootConfig",
         {"include": ["src/**"], "module_actions": {123: "new"}},
     )
     args = _args()
@@ -1718,7 +1718,7 @@ def test_resolve_build_config_module_actions_invalid_dict_value_type_raises_erro
     # --- setup ---
     # Use cast to allow invalid value for testing validation
     raw = cast(
-        "mod_types.BuildConfig",
+        "mod_types.RootConfig",
         {"include": ["src/**"], "module_actions": {"old": 123}},
     )
     args = _args()
@@ -1740,7 +1740,7 @@ def test_resolve_build_config_module_actions_list_missing_source_raises_error(
     # --- setup ---
     # Use cast to allow invalid value for testing validation
     raw = cast(
-        "mod_types.BuildConfig",
+        "mod_types.RootConfig",
         {"include": ["src/**"], "module_actions": [{"dest": "new"}]},
     )
     args = _args()
@@ -1760,7 +1760,7 @@ def test_resolve_build_config_module_actions_list_invalid_action_raises_error(
     # --- setup ---
     # Use cast to allow invalid value for testing validation
     raw = cast(
-        "mod_types.BuildConfig",
+        "mod_types.RootConfig",
         {
             "include": ["src/**"],
             "module_actions": [{"source": "old", "action": "invalid"}],
@@ -1783,7 +1783,7 @@ def test_resolve_build_config_module_actions_invalid_type_raises_error(
     # --- setup ---
     # Use cast to allow invalid value for testing validation
     raw = cast(
-        "mod_types.BuildConfig",
+        "mod_types.RootConfig",
         {"include": ["src/**"], "module_actions": "invalid"},
     )
     args = _args()
@@ -1826,7 +1826,7 @@ def test_resolve_build_config_module_actions_empty_source_raises_error(
     """Module actions with empty source string should raise error."""
     # --- setup ---
     raw = cast(
-        "mod_types.BuildConfig",
+        "mod_types.RootConfig",
         {"include": ["src/**"], "module_actions": {"": "new"}},
     )
     args = _args()
@@ -1847,7 +1847,7 @@ def test_resolve_build_config_module_actions_list_empty_source_raises_error(
     """Module actions list with empty source string should raise error."""
     # --- setup ---
     raw = cast(
-        "mod_types.BuildConfig",
+        "mod_types.RootConfig",
         {"include": ["src/**"], "module_actions": [{"source": ""}]},
     )
     args = _args()
@@ -1868,7 +1868,7 @@ def test_resolve_build_config_module_actions_move_missing_dest_raises_error(
     """Module actions with move action missing dest should raise error."""
     # --- setup ---
     raw = cast(
-        "mod_types.BuildConfig",
+        "mod_types.RootConfig",
         {
             "include": ["src/**"],
             "module_actions": [{"source": "old", "action": "move"}],
@@ -1890,7 +1890,7 @@ def test_resolve_build_config_module_actions_copy_missing_dest_raises_error(
     """Module actions with copy action missing dest should raise error."""
     # --- setup ---
     raw = cast(
-        "mod_types.BuildConfig",
+        "mod_types.RootConfig",
         {
             "include": ["src/**"],
             "module_actions": [{"source": "old", "action": "copy"}],
@@ -1912,7 +1912,7 @@ def test_resolve_build_config_module_actions_delete_with_dest_raises_error(
     """Module actions with delete action having dest should raise error."""
     # --- setup ---
     raw = cast(
-        "mod_types.BuildConfig",
+        "mod_types.RootConfig",
         {
             "include": ["src/**"],
             "module_actions": [{"source": "old", "action": "delete", "dest": "new"}],
@@ -1993,7 +1993,7 @@ def test_resolve_build_config_module_actions_invalid_mode_raises_error(
     """Module actions with invalid mode should raise error."""
     # --- setup ---
     raw = cast(
-        "mod_types.BuildConfig",
+        "mod_types.RootConfig",
         {
             "include": ["src/**"],
             "module_actions": [{"source": "old", "dest": "new", "mode": "invalid"}],
@@ -2015,7 +2015,7 @@ def test_resolve_build_config_module_actions_invalid_scope_raises_error(
     """Module actions with invalid scope should raise error."""
     # --- setup ---
     raw = cast(
-        "mod_types.BuildConfig",
+        "mod_types.RootConfig",
         {
             "include": ["src/**"],
             "module_actions": [{"source": "old", "dest": "new", "scope": "invalid"}],
@@ -2037,7 +2037,7 @@ def test_resolve_build_config_module_actions_invalid_affects_raises_error(
     """Module actions with invalid affects should raise error."""
     # --- setup ---
     raw = cast(
-        "mod_types.BuildConfig",
+        "mod_types.RootConfig",
         {
             "include": ["src/**"],
             "module_actions": [{"source": "old", "dest": "new", "affects": "invalid"}],
@@ -2059,7 +2059,7 @@ def test_resolve_build_config_module_actions_invalid_cleanup_raises_error(
     """Module actions with invalid cleanup should raise error."""
     # --- setup ---
     raw = cast(
-        "mod_types.BuildConfig",
+        "mod_types.RootConfig",
         {
             "include": ["src/**"],
             "module_actions": [{"source": "old", "dest": "new", "cleanup": "invalid"}],
@@ -2112,7 +2112,7 @@ def test_resolve_build_config_module_actions_empty_source_path_raises_error(
     """Module actions with empty source_path should raise error."""
     # --- setup ---
     raw = cast(
-        "mod_types.BuildConfig",
+        "mod_types.RootConfig",
         {
             "include": ["src/**"],
             "module_actions": [{"source": "old", "dest": "new", "source_path": ""}],
@@ -2137,7 +2137,7 @@ def test_resolve_build_config_module_actions_invalid_source_path_type_raises_err
     """Module actions with non-string source_path should raise error."""
     # --- setup ---
     raw = cast(
-        "mod_types.BuildConfig",
+        "mod_types.RootConfig",
         {
             "include": ["src/**"],
             "module_actions": [{"source": "old", "dest": "new", "source_path": 123}],
@@ -2876,10 +2876,13 @@ def test_resolve_build_config_main_mode_invalid_value(
 ) -> None:
     """Invalid main_mode value should raise ValueError."""
     # --- setup ---
-    raw: mod_types.RootConfig = {
-        "include": ["src/**"],
-        "main_mode": "invalid",  # type: ignore[typeddict-unknown-key]
-    }
+    raw = cast(
+        "mod_types.RootConfig",
+        {
+            "include": ["src/**"],
+            "main_mode": "invalid",
+        },
+    )
     args = _args()
 
     # --- execute & validate ---
@@ -2927,7 +2930,7 @@ def test_resolve_build_config_main_name_none_explicit(
     # --- setup ---
     raw: mod_types.RootConfig = {
         "include": ["src/**"],
-        "main_name": None,  # type: ignore[typeddict-unknown-key]
+        "main_name": None,
     }
     args = _args()
 

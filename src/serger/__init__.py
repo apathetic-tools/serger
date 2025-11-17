@@ -19,8 +19,6 @@ from .actions import get_metadata, watch_for_changes
 from .build import run_build
 from .cli import main
 from .config import (
-    BuildConfig,
-    BuildConfigResolved,
     IncludeResolved,
     MetaBuildConfigResolved,
     OriginType,
@@ -71,8 +69,6 @@ __all__ = [  # noqa: RUF022
     # cli
     "main",
     # config
-    "BuildConfig",
-    "BuildConfigResolved",
     "find_config",
     "IncludeResolved",
     "load_and_validate_config",

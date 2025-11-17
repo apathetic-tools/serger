@@ -2196,7 +2196,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
             ]
             all_actions.extend(normalized_actions)
 
-        # Add user-specified module_actions from BuildConfigResolved
+        # Add user-specified module_actions from RootConfigResolved
         # These are already fully normalized with scope: "shim" set (iteration 04)
         if module_actions:  # Already list[ModuleActionFull] with all defaults applied
             all_actions.extend(module_actions)
@@ -3225,7 +3225,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     8. Optionally runs post-processing tools (static checker, formatter, import sorter)
 
     Args:
-        config: BuildConfigResolved with stitching fields (package, order).
+        config: RootConfigResolved with stitching fields (package, order).
                 Must include 'package' field for stitching. 'order' is optional
                 and will be auto-discovered via topological sort if not provided.
         file_paths: List of file paths to stitch (in order)
@@ -3333,7 +3333,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         )
         raise ValueError(msg)
 
-    # Extract module_actions from config (already normalized in BuildConfigResolved)
+    # Extract module_actions from config (already normalized in RootConfigResolved)
     module_actions_raw = config.get("module_actions", [])
     if not isinstance(module_actions_raw, list):
         msg = "Config 'module_actions' must be a list"

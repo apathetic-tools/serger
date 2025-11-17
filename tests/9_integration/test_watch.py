@@ -103,7 +103,7 @@ def test_watch_falls_back_to_default_interval_when_no_config(
     # --- stubs ---
     def fake_watch(
         _rebuild_func: Callable[[], None],
-        _resolved_builds: list[mod_types.BuildConfigResolved],
+        _resolved_builds: list[mod_types.RootConfigResolved],
         interval: float,
         *_args: Any,
         **_kwargs: Any,
