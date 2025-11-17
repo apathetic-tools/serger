@@ -2729,6 +2729,166 @@ def test_resolve_build_config_auto_include_works_with_pyproject_package(
     assert resolved.get("package") == "mypkg"
 
 
+def test_resolve_build_config_infer_package_from_include_paths(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Package should be inferred from include paths when not explicitly set."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    pkg_dir = src_dir / "mypkg"
+    make_test_package(pkg_dir)
+
+    # Config with includes but no package
+    # Step 3: Infer from include paths
+    raw = make_build_input(include=["src/mypkg/**"], module_bases=["src"])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Package should be inferred from include paths
+    assert resolved.get("package") == "mypkg"
+
+
+def test_resolve_build_config_infer_package_from_include_paths_with_init_py(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Package inference should use __init__.py markers when available."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    pkg_dir = src_dir / "mypkg"
+    pkg_dir.mkdir()
+    (pkg_dir / "__init__.py").write_text("# package\n")
+    (pkg_dir / "module.py").write_text("def hello(): pass\n")
+
+    # Config with includes pointing to __init__.py but no package
+    raw = make_build_input(
+        include=["src/mypkg/__init__.py", "src/mypkg/module.py"],
+        module_bases=["src"],
+    )
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Package should be inferred from include paths using __init__.py marker
+    assert resolved.get("package") == "mypkg"
+
+
+def test_resolve_build_config_infer_package_from_include_paths_most_common(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Package inference should use most common package when multiple exist."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    pkg1_dir = src_dir / "pkg1"
+    pkg1_dir.mkdir()
+    (pkg1_dir / "__init__.py").write_text("# pkg1\n")
+    (pkg1_dir / "mod1.py").write_text("def hello1(): pass\n")
+    (pkg1_dir / "mod2.py").write_text("def hello2(): pass\n")
+
+    pkg2_dir = src_dir / "pkg2"
+    pkg2_dir.mkdir()
+    (pkg2_dir / "__init__.py").write_text("# pkg2\n")
+    (pkg2_dir / "mod1.py").write_text("def hello3(): pass\n")
+
+    # Config with includes pointing to multiple packages, but pkg1 appears more
+    # Step 3: Infer from include paths, should use most common
+    raw = make_build_input(
+        include=[
+            "src/pkg1/mod1.py",
+            "src/pkg1/mod2.py",
+            "src/pkg2/mod1.py",
+        ],
+        module_bases=["src"],
+    )
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Package should be inferred as most common (pkg1 appears twice, pkg2 once)
+    assert resolved.get("package") == "pkg1"
+
+
+def test_resolve_build_config_main_function_detection_in_package_resolution(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Package should be detected via main function when multiple modules exist."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+
+    # Create two packages
+    pkg1_dir = src_dir / "pkg1"
+    pkg1_dir.mkdir()
+    (pkg1_dir / "module.py").write_text("def hello(): pass\n")
+
+    pkg2_dir = src_dir / "pkg2"
+    pkg2_dir.mkdir()
+    (pkg2_dir / "main.py").write_text("def main():\n    pass\n")
+
+    # Config without package, multiple modules exist
+    # Step 4: Main function detection should prefer pkg2
+    raw = make_build_input(module_bases=["src"])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Package should be detected via main function (pkg2 has main())
+    assert resolved.get("package") == "pkg2"
+
+
+def test_resolve_build_config_main_function_detection_with_name_main_block(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """Package detection should find modules with if __name__ == '__main__' blocks."""
+    # --- setup ---
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+
+    # Create two packages
+    pkg1_dir = src_dir / "pkg1"
+    pkg1_dir.mkdir()
+    (pkg1_dir / "module.py").write_text("def hello(): pass\n")
+
+    pkg2_dir = src_dir / "pkg2"
+    pkg2_dir.mkdir()
+    (pkg2_dir / "main.py").write_text(
+        "if __name__ == '__main__':\n    print('hello')\n"
+    )
+
+    # Config without package, multiple modules exist
+    # Step 4: Main function detection should prefer pkg2
+    raw = make_build_input(module_bases=["src"])
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("info"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Package should be detected via __name__ == '__main__' block (pkg2)
+    assert resolved.get("package") == "pkg2"
+
+
 def test_resolve_build_config_main_mode_default_value(
     tmp_path: Path,
     module_logger: mod_logs.AppLogger,

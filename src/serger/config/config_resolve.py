@@ -1843,11 +1843,11 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # Order of operations:
     # 1. ✅ User-provided in config (already set, logged above)
     # 2. ✅ pyproject.toml (just completed above)
-    # 3. 🔲 Infer from include paths
-    # 4. 🔲 Main function detection
-    # 5. 🔲 Most common package in includes (handled in step 3)
+    # 3. ✅ Infer from include paths
+    # 4. ✅ Main function detection
+    # 5. ✅ Most common package in includes (handled in step 3)
     # 6. ✅ Single module auto-detection
-    # 7. 🔲 First package in module_bases order
+    # 7. ✅ First package in module_bases order
     package = resolved_cfg.get("package")
     module_bases_list = resolved_cfg.get("module_bases", [])
     config_includes = resolved_cfg.get("include", [])

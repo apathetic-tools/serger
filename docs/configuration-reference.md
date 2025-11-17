@@ -853,7 +853,9 @@ The `package` field is required for stitch builds, but can be automatically infe
 1. **Explicitly provided** - If `package` is set in your config, it is always used (highest priority)
 2. **pyproject.toml** - Extracted from `[project] name` if available
 3. **Include paths** - Inferred from the include patterns you provide
-4. **module_bases** - Auto-detected from modules found in `module_bases` directories
+4. **Main function detection** - If multiple modules exist, prefers the one containing a `main()` function or `if __name__ == "__main__"` block
+5. **Single module auto-detection** - When exactly one first-level module exists in any `module_base`
+6. **First package in module_bases order** - Falls back to the first module found in `module_bases` order when multiple modules exist
 
 ### Details
 
@@ -861,11 +863,22 @@ The `package` field is required for stitch builds, but can be automatically infe
 - Analyzes your include patterns to extract package names
 - Uses `__init__.py` and `__main__.py` markers when available
 - Validates against `module_bases` to ensure packages exist
+- Uses the most common package when multiple candidates are found
 
-**module_bases auto-detection:**
+**Main function detection:**
+- Scans modules for `def main(` functions or `if __name__ == "__main__"` blocks
+- Only runs when multiple modules exist and no package has been determined yet
+- Helps identify the "main" package in multi-package projects
+
+**Single module auto-detection:**
 - Scans `module_bases` directories for first-level modules/packages
-- Prefers packages with `main()` functions when multiple options exist
-- Falls back to the first module found in `module_bases` order
+- Only triggers when exactly one module exists across all `module_bases`
+- Supports both package directories and single-file modules
+
+**First package fallback:**
+- Uses the first module found in `module_bases` order when all other methods fail
+- Preserves the order specified in `module_bases` configuration
+- Provides a predictable fallback for ambiguous cases
 
 ### Logging
 
@@ -873,7 +886,9 @@ Serger logs where the package name was determined from, for example:
 - `Package name 'mypkg' provided in config`
 - `Package name 'mypkg' extracted from pyproject.toml for resolution`
 - `Package name 'mypkg' inferred from include paths. Set 'package' in config to override.`
+- `Package name 'mypkg' detected via main() function. Set 'package' in config to override.`
 - `Package name 'mypkg' auto-detected from single module in module_base 'src'. Set 'package' in config to override.`
+- `Package name 'mypkg' selected from module_bases (first found). Set 'package' in config to override.`
 
 You can always override the auto-detected package by explicitly setting `package` in your config.
 
