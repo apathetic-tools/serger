@@ -1,4 +1,4 @@
-# tests/9_integration/test_main_config.py
+# tests/9_integration/test_main_config_integration.py
 """Integration tests for main_mode and main_name configuration."""
 
 import subprocess

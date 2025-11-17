@@ -92,6 +92,8 @@ All configuration options are specified at the root level of the config file:
 | `comments_mode` | `str` | No | `"keep"` | How to handle comments in stitched output (see [Comment Handling](#comment-handling)) |
 | `docstring_mode` | `str \| dict` | No | `"keep"` | How to handle docstrings in stitched output (see [Docstring Handling](#docstring-handling)) |
 | `module_bases` | `str \| list[str]` | No | `["src"]` | Ordered list of directories where packages can be found (see [Module Bases](#module-bases)) |
+| `main_mode` | `"none" \| "auto"` | No | `"auto"` | How to handle main function detection and `__main__` block generation (see [Main Configuration](#main-configuration)) |
+| `main_name` | `str \| None` | No | `None` | Specification for which main function to use (see [Main Configuration](#main-configuration)) |
 
 \* Required unless provided via CLI arguments. 
 
@@ -841,6 +843,220 @@ The `module_bases` setting specifies an ordered list of directories where Serger
 - The directories are searched in the order specified
 - This setting is currently reserved for future use and does not affect build behavior yet
 - When a string is provided, it is automatically converted to a list containing that single string during resolution
+
+## Main Configuration
+
+Serger provides automatic detection and generation of `__main__` blocks for executable scripts. The `main_mode` and `main_name` settings control how main functions are found and how `__main__` blocks are handled in the stitched output.
+
+### Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `main_mode` | `"none" \| "auto"` | `"auto"` | Controls main function detection and `__main__` block generation |
+| `main_name` | `str \| None` | `None` | Specification for which main function to use |
+
+### `main_mode` Values
+
+| Value | Description |
+|-------|-------------|
+| `"auto"` | Automatically detect a main function and generate a `__main__` block if needed. If no main function is found, the build continues without a `__main__` block (non-main build). |
+| `"none"` | Disable main function detection. No `__main__` block is generated, even if main functions exist. Use this for library builds that don't need executable entry points. |
+
+### `main_name` Syntax
+
+The `main_name` setting allows you to specify which function should be used as the main entry point. It supports flexible syntax for specifying module paths and function names.
+
+#### Syntax Rules
+
+**With dots (module/package path):** `::` separator is optional
+- `mypkg.subpkg` → module `mypkg.subpkg`, function `main` (default)
+- `mypkg.subpkg::` → module `mypkg.subpkg`, function `main` (explicit)
+- `mypkg.subpkg::entry` → module `mypkg.subpkg`, function `entry`
+
+**Without dots (single name):** `::` separator is required to indicate package
+- `mypkg::` → package `mypkg`, function `main` (default)
+- `mypkg::entry` → package `mypkg`, function `entry`
+- `mypkg` → function name `mypkg` (search across all packages)
+- `main` → function name `main` (search across all packages)
+
+#### Examples
+
+**Auto-detect (default):**
+```jsonc
+{
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "out": "dist/mypkg.py"
+  // main_name defaults to None, searches for "main" function
+}
+```
+
+**Simple function name:**
+```jsonc
+{
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "out": "dist/mypkg.py",
+  "main_name": "cli"  // Search for "cli" function across all packages
+}
+```
+
+**Package specification:**
+```jsonc
+{
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "out": "dist/mypkg.py",
+  "main_name": "mypkg::"  // Package "mypkg", function "main"
+}
+```
+
+**Package with custom function:**
+```jsonc
+{
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "out": "dist/mypkg.py",
+  "main_name": "mypkg::entry"  // Package "mypkg", function "entry"
+}
+```
+
+**Module path:**
+```jsonc
+{
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "out": "dist/mypkg.py",
+  "main_name": "mypkg.cli"  // Module "mypkg.cli", function "main"
+}
+```
+
+**Module path with custom function:**
+```jsonc
+{
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "out": "dist/mypkg.py",
+  "main_name": "mypkg.cli::run"  // Module "mypkg.cli", function "run"
+}
+```
+
+### Main Function Detection
+
+Serger searches for main functions in the following order:
+
+1. **If `main_name` is set:** Use the specified function (with fallback logic)
+   - If a module path is specified, search in that module/package
+   - If only a function name is specified, search across all packages
+2. **If `package` is set:** Search for `main` function in that package
+3. **Otherwise:** Search in the first package from include order
+
+**File priority within a module:**
+- `__main__.py` files are searched first
+- `__init__.py` files are searched second
+- Other files are searched last
+
+**Search scope:**
+- Only files that are actually being stitched are searched
+- Excluded files are not considered
+
+### `__main__` Block Handling
+
+Serger automatically detects existing `if __name__ == '__main__':` blocks in your source files and selects which one to keep based on priority:
+
+1. **Priority 1:** Block in the same module/file as the main function
+2. **Priority 2:** Block in the same package as the main function
+3. **Priority 3:** Block in the earliest include (by include order)
+
+**Behavior:**
+- If a `__main__` block is found, it is used (no new block is generated)
+- All other `__main__` blocks are discarded
+- If no `__main__` block is found and `main_mode="auto"`, Serger generates a new one
+- If `main_mode="none"`, no `__main__` block is generated
+
+**Generated block format:**
+- Functions with parameters: `main(sys.argv[1:])`
+- Functions without parameters: `main()`
+- Parameter detection uses AST parsing to check for `*args`, `**kwargs`, defaults, etc.
+
+### Auto-Rename Collision Handling
+
+In `raw` stitch mode, if multiple functions exist with the same name as the main function, Serger automatically renames the conflicting functions to avoid collisions.
+
+**Behavior:**
+- Only applies in `raw` mode (module mode handles namespacing automatically)
+- The main function itself is never renamed
+- Other functions with the same name are renamed to `main_1`, `main_2`, etc.
+- Only function definitions are renamed (not function calls)
+- Auto-rename actions are applied after user-specified `module_actions`
+
+**Example:**
+If you have `main()` functions in both `utils.py` and `cli.py`, and the main function is in `cli.py`:
+- `cli.main()` stays as `main()`
+- `utils.main()` is renamed to `main_1()`
+
+### Error Handling
+
+**`main_name` specified but not found:**
+- If `main_name` is explicitly set but the function cannot be found, Serger raises an error
+- This ensures that explicit configurations are validated
+
+**No main function found:**
+- If `main_mode="auto"` and no main function is found, the build continues without a `__main__` block
+- This is considered a "non-main build" and is logged as an INFO message
+- No error is raised (this is expected for library builds)
+
+### Examples
+
+**Basic usage (auto-detect):**
+```jsonc
+{
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "out": "dist/mypkg.py",
+  "main_mode": "auto"  // Default: auto-detect main function
+}
+```
+
+**Custom function name:**
+```jsonc
+{
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "out": "dist/mypkg.py",
+  "main_name": "cli"  // Use "cli" function instead of "main"
+}
+```
+
+**Library build (no main block):**
+```jsonc
+{
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "out": "dist/mypkg.py",
+  "main_mode": "none"  // Don't generate __main__ block
+}
+```
+
+**Package specification:**
+```jsonc
+{
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "out": "dist/mypkg.py",
+  "main_name": "mypkg::entry"  // Package "mypkg", function "entry"
+}
+```
+
+**Module and function:**
+```jsonc
+{
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "out": "dist/mypkg.py",
+  "main_name": "mypkg.cli::run"  // Module "mypkg.cli", function "run"
+}
+```
 
 ## Environment Variables
 

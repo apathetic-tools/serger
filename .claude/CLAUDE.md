@@ -300,6 +300,26 @@ I'm working on [feature/change description]. I've made a checkpoint commit after
 Please help me resolve the remaining issues to get `poetry run poe check:fix` passing.
 ```
 
+### Test Module Naming
+
+**Duplicate test module names**: When type checkers (mypy) report duplicate module names across different test directories (e.g., `tests/5_core/test_main_config.py` and `tests/9_integration/test_main_config.py`), **always rename the test files** to avoid conflicts rather than excluding them from type checking.
+
+**Rationale**:
+- Renaming maintains proper test organization and makes test purposes clear
+- Excluding files from type checking reduces type safety coverage
+- Descriptive names (e.g., `test_main_config_integration.py` vs `test_main_config.py`) improve code clarity
+
+**Approach**:
+1. Identify which test file should be renamed (typically the integration test or the newer one)
+2. Choose a descriptive name that distinguishes it from the other (e.g., add `_integration`, `_unit`, or a specific feature suffix)
+3. Update the file header comment to reflect the new name
+4. Remove any type checker exclusions that were added as a workaround
+5. Verify tests still run correctly with the new name
+
+**Example**:
+- ❌ **Bad**: Exclude `tests/9_integration/test_main_config.py` from mypy checking
+- ✅ **Good**: Rename `tests/9_integration/test_main_config.py` to `tests/9_integration/test_main_config_integration.py`
+
 # Git Conventions
 
 ### Git Commit Conventions
