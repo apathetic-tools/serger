@@ -2,13 +2,14 @@
 
 import serger.config.config_types as mod_types
 import serger.module_actions as mod_module_actions
+from tests.utils.buildconfig import make_module_action_full
 
 
 def test_apply_module_actions_single_move() -> None:
     """Test applying a single move action."""
     module_names = ["pkg1", "pkg1.sub"]
     actions: list[mod_types.ModuleActionFull] = [
-        {"source": "pkg1", "dest": "pkg2", "action": "move"}
+        make_module_action_full("pkg1", dest="pkg2")
     ]
     detected_packages = {"pkg1"}
     result = mod_module_actions.apply_module_actions(
@@ -22,8 +23,8 @@ def test_apply_module_actions_multiple_actions() -> None:
     """Test applying multiple actions in sequence."""
     module_names = ["pkg1", "pkg1.sub", "pkg2", "pkg3"]
     actions: list[mod_types.ModuleActionFull] = [
-        {"source": "pkg1", "dest": "pkg1_new", "action": "move"},
-        {"source": "pkg2", "action": "delete"},
+        make_module_action_full("pkg1", dest="pkg1_new"),
+        make_module_action_full("pkg2", action="delete"),
     ]
     detected_packages = {"pkg1", "pkg2"}
     result = mod_module_actions.apply_module_actions(
@@ -37,8 +38,8 @@ def test_apply_module_actions_sequence_matters() -> None:
     """Test that action sequence matters (later actions see transformed state)."""
     module_names = ["pkg1", "pkg1.sub"]
     actions: list[mod_types.ModuleActionFull] = [
-        {"source": "pkg1", "dest": "pkg2", "action": "move"},
-        {"source": "pkg2.sub", "dest": "pkg2.renamed", "action": "move"},
+        make_module_action_full("pkg1", dest="pkg2"),
+        make_module_action_full("pkg2.sub", dest="pkg2.renamed"),
     ]
     detected_packages = {"pkg1"}
     result = mod_module_actions.apply_module_actions(
@@ -64,8 +65,8 @@ def test_apply_module_actions_copy_then_move() -> None:
     """Test copy then move in sequence."""
     module_names = ["pkg1"]
     actions: list[mod_types.ModuleActionFull] = [
-        {"source": "pkg1", "dest": "pkg2", "action": "copy"},
-        {"source": "pkg1", "dest": "pkg3", "action": "move"},
+        make_module_action_full("pkg1", dest="pkg2", action="copy"),
+        make_module_action_full("pkg1", dest="pkg3"),
     ]
     detected_packages = {"pkg1"}
     result = mod_module_actions.apply_module_actions(
@@ -89,13 +90,8 @@ def test_apply_module_actions_complex_scenario() -> None:
         "other_pkg.sub",
     ]
     actions: list[mod_types.ModuleActionFull] = [
-        {
-            "source": "apathetic_logs",
-            "dest": "grinch",
-            "action": "move",
-            "mode": "flatten",
-        },
-        {"source": "other_pkg.sub", "action": "delete"},
+        make_module_action_full("apathetic_logs", dest="grinch", mode="flatten"),
+        make_module_action_full("other_pkg.sub", action="delete"),
     ]
     detected_packages = {"apathetic_logs", "other_pkg"}
     result = mod_module_actions.apply_module_actions(
@@ -188,7 +184,7 @@ def test_apply_module_actions_combine_mode_and_user() -> None:
 
     # User action: pkg3 -> pkg3_new
     user_actions: list[mod_types.ModuleActionFull] = [
-        {"source": "pkg3", "dest": "pkg3_new", "action": "move"}
+        make_module_action_full("pkg3", dest="pkg3_new")
     ]
 
     # Combine: mode first, then user
@@ -210,7 +206,7 @@ def test_apply_module_actions_rename_top_level() -> None:
     """Test renaming a top-level module (pkg1 -> pkg2)."""
     module_names = ["pkg1", "pkg1.sub"]
     actions: list[mod_types.ModuleActionFull] = [
-        {"source": "pkg1", "dest": "pkg2", "action": "rename"}
+        make_module_action_full("pkg1", dest="pkg2", action="rename")
     ]
     detected_packages = {"pkg1"}
     result = mod_module_actions.apply_module_actions(
@@ -225,7 +221,7 @@ def test_apply_module_actions_rename_submodule() -> None:
     """Test renaming a submodule (pkg1.stuff -> pkg1.utils)."""
     module_names = ["pkg1", "pkg1.stuff", "pkg1.stuff.sub"]
     actions: list[mod_types.ModuleActionFull] = [
-        {"source": "pkg1.stuff", "dest": "utils", "action": "rename"}
+        make_module_action_full("pkg1.stuff", dest="utils", action="rename")
     ]
     detected_packages = {"pkg1"}
     result = mod_module_actions.apply_module_actions(
@@ -250,7 +246,7 @@ def test_apply_module_actions_rename_with_submodules() -> None:
         "pkg1.other",
     ]
     actions: list[mod_types.ModuleActionFull] = [
-        {"source": "pkg1.stuff", "dest": "utils", "action": "rename"}
+        make_module_action_full("pkg1.stuff", dest="utils", action="rename")
     ]
     detected_packages = {"pkg1"}
     result = mod_module_actions.apply_module_actions(

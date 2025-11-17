@@ -47,9 +47,8 @@ Exploring bundling options for generating the single-file release:
 ## 🧪 Tests
 - Organize tests in classes? or separate files?
 - split large test files
-- make sure for our config_types TypeDicts, we have a make_ factory in tests/utils that has sane defaults for all fields it can and named parameters for overriding each. that way a test can focus on just overiding the values it cares about. make sure our tests use the factories when appropriate. make sure to create extra factories for appropriate situations in tests.
 - can we split integration into ones that check serger output and those that don't? what do our integration tests that only run in one runtime_mode do?
-- remap tests to XX_, split tests into logical sections instead of subfolders
+- split tests into logical sections instead of subfolders
 - review all docs before v1.0
 - review all tests before v1.0
 - review all details/minimal statements before v1.0

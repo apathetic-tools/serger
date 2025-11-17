@@ -4,16 +4,13 @@ import pytest
 
 import serger.config.config_types as mod_types
 import serger.module_actions as mod_module_actions
+from tests.utils.buildconfig import make_module_action_full
 
 
 def test_apply_single_action_move() -> None:
     """Test apply_single_action routes to move handler."""
     module_names = ["pkg1", "pkg1.sub"]
-    action: mod_types.ModuleActionFull = {
-        "source": "pkg1",
-        "dest": "pkg2",
-        "action": "move",
-    }
+    action = make_module_action_full("pkg1", dest="pkg2")
     detected_packages = {"pkg1"}
     result = mod_module_actions.apply_single_action(
         module_names, action, detected_packages
@@ -25,11 +22,7 @@ def test_apply_single_action_move() -> None:
 def test_apply_single_action_copy() -> None:
     """Test apply_single_action routes to copy handler."""
     module_names = ["pkg1"]
-    action: mod_types.ModuleActionFull = {
-        "source": "pkg1",
-        "dest": "pkg2",
-        "action": "copy",
-    }
+    action = make_module_action_full("pkg1", dest="pkg2", action="copy")
     detected_packages = {"pkg1"}
     result = mod_module_actions.apply_single_action(
         module_names, action, detected_packages
@@ -84,10 +77,7 @@ def test_apply_single_action_invalid_type_error() -> None:
 def test_apply_single_action_default_move() -> None:
     """Test apply_single_action defaults to move."""
     module_names = ["pkg1"]
-    action: mod_types.ModuleActionFull = {
-        "source": "pkg1",
-        "dest": "pkg2",
-    }
+    action = make_module_action_full("pkg1", dest="pkg2")
     detected_packages = {"pkg1"}
     result = mod_module_actions.apply_single_action(
         module_names, action, detected_packages

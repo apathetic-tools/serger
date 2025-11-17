@@ -135,7 +135,166 @@ def make_build_input(
 
 
 # ---------------------------------------------------------------------------
-# Factories for post-processing configs
+# Factories for module actions
+# ---------------------------------------------------------------------------
+
+
+def make_module_action_full(
+    source: str,
+    *,
+    source_path: str | None = None,
+    dest: str | None = None,
+    action: mod_types.ModuleActionType = "move",
+    mode: mod_types.ModuleActionMode = "preserve",
+    scope: mod_types.ModuleActionScope | None = None,
+    affects: mod_types.ModuleActionAffects = "shims",
+    cleanup: mod_types.ModuleActionCleanup = "auto",
+) -> mod_types.ModuleActionFull:
+    """Create a ModuleActionFull with required fields and defaults.
+
+    Args:
+        source: Source module name (required)
+        source_path: Optional filesystem path
+        dest: Destination module name (required for move/copy)
+        action: Action type (defaults to "move")
+        mode: Action mode (defaults to "preserve")
+        scope: Action scope (defaults to None, will be set by resolver)
+        affects: What the action affects (defaults to "shims")
+        cleanup: Cleanup behavior (defaults to "auto")
+
+    Returns:
+        ModuleActionFull with all fields populated with defaults where applicable
+    """
+    result: dict[str, object] = {
+        "source": source,
+        "action": action,
+        "mode": mode,
+        "affects": affects,
+        "cleanup": cleanup,
+    }
+    if source_path is not None:
+        result["source_path"] = source_path
+    if dest is not None:
+        result["dest"] = dest
+    if scope is not None:
+        result["scope"] = scope
+    return cast("mod_types.ModuleActionFull", result)
+
+
+# ---------------------------------------------------------------------------
+# Factories for include configs
+# ---------------------------------------------------------------------------
+
+
+def make_include_config(
+    path: str,
+    *,
+    dest: str | None = None,
+) -> mod_types.IncludeConfig:
+    """Create an IncludeConfig with required fields.
+
+    Args:
+        path: Include path pattern (required)
+        dest: Optional destination override
+
+    Returns:
+        IncludeConfig with all specified fields
+    """
+    result: dict[str, object] = {"path": path}
+    if dest is not None:
+        result["dest"] = dest
+    return cast("mod_types.IncludeConfig", result)
+
+
+# ---------------------------------------------------------------------------
+# Factories for post-processing configs (unresolved)
+# ---------------------------------------------------------------------------
+
+
+def make_tool_config(
+    *,
+    command: str | None = None,
+    args: list[str] | None = None,
+    path: str | None = None,
+    options: list[str] | None = None,
+) -> mod_types.ToolConfig:
+    """Create a ToolConfig with optional fields.
+
+    Args:
+        command: Executable name (optional, defaults to key if missing)
+        args: Command arguments (optional, replaces defaults)
+        path: Custom executable path (optional)
+        options: Additional CLI arguments (optional, appends to args)
+
+    Returns:
+        ToolConfig with all specified fields
+    """
+    result: dict[str, object] = {}
+    if command is not None:
+        result["command"] = command
+    if args is not None:
+        result["args"] = args
+    if path is not None:
+        result["path"] = path
+    if options is not None:
+        result["options"] = options
+    return cast("mod_types.ToolConfig", result)
+
+
+def make_post_category_config(
+    *,
+    enabled: bool | None = None,
+    priority: list[str] | None = None,
+    tools: dict[str, mod_types.ToolConfig] | None = None,
+) -> mod_types.PostCategoryConfig:
+    """Create a PostCategoryConfig with optional fields.
+
+    Args:
+        enabled: Whether category is enabled (defaults to True if not specified)
+        priority: Tool names in priority order (optional)
+        tools: Dict of tool configs (optional)
+
+    Returns:
+        PostCategoryConfig with all specified fields
+    """
+    result: dict[str, object] = {}
+    if enabled is not None:
+        result["enabled"] = enabled
+    if priority is not None:
+        result["priority"] = priority
+    if tools is not None:
+        result["tools"] = tools
+    return cast("mod_types.PostCategoryConfig", result)
+
+
+def make_post_processing_config(
+    *,
+    enabled: bool | None = None,
+    category_order: list[str] | None = None,
+    categories: dict[str, mod_types.PostCategoryConfig] | None = None,
+) -> mod_types.PostProcessingConfig:
+    """Create a PostProcessingConfig with optional fields.
+
+    Args:
+        enabled: Master switch (defaults to True if not specified)
+        category_order: Order to run categories (optional)
+        categories: Category definitions (optional)
+
+    Returns:
+        PostProcessingConfig with all specified fields
+    """
+    result: dict[str, object] = {}
+    if enabled is not None:
+        result["enabled"] = enabled
+    if category_order is not None:
+        result["category_order"] = category_order
+    if categories is not None:
+        result["categories"] = categories
+    return cast("mod_types.PostProcessingConfig", result)
+
+
+# ---------------------------------------------------------------------------
+# Factories for post-processing configs (resolved)
 # ---------------------------------------------------------------------------
 
 

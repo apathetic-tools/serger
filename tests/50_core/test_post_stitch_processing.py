@@ -306,11 +306,9 @@ def test_post_stitch_processing_preserves_file_permissions() -> None:
         path.chmod(0o755)
 
     try:
-        config: mod_types.PostProcessingConfigResolved = {
-            "enabled": False,  # Disabled to avoid needing tools
-            "category_order": [],
-            "categories": {},
-        }
+        config = make_post_processing_config_resolved(
+            enabled=False  # Disabled to avoid needing tools
+        )
         mod_verify.post_stitch_processing(path, post_processing=config)
         # Permissions should be preserved (or at least executable)
         assert path.stat().st_mode & 0o111  # Executable bit
