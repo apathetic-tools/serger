@@ -2913,7 +2913,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                             break
 
                     # Log the rename
-                    logger.warning(
+                    logger.info(
                         "Auto-renamed...........%s.%s() → %s()",
                         module_name,
                         main_function_name,
@@ -2997,10 +2997,9 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                 "was not found in the stitched code"
             )
             raise RuntimeError(msg)
-        else:
-            # No main function found and main_name not specified
-            # This is a non-main build (acceptable)
-            logger.info("Main function...........not found (non-main build)")
+        # If no main function found and main_name not specified,
+        # this is a non-main build (acceptable)
+        # Note: We already logged this in stitch_modules, so we don't log again here
     # If main_mode == "none", don't add any __main__ block
 
     script_text = (
@@ -3478,6 +3477,11 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     if main_function_result is not None:
         function_name, _file_path, module_path = main_function_result
         logger.info("Main function...........%s.%s()", module_path, function_name)
+    else:
+        # Check if main_mode is "auto" to determine if this is a non-main build
+        main_mode = config.get("main_mode", "auto")
+        if main_mode == "auto":
+            logger.info("Main function...........not found (non-main build)")
 
     # Select which __main__ block to keep
     selected_main_block = select_main_block(
