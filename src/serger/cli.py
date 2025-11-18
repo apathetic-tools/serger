@@ -101,11 +101,6 @@ def _setup_parser() -> argparse.ArgumentParser:
             "Examples: 'dist/serger.py' (file) or 'bin/' (directory)."
         ),
     )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Simulate build actions without copying or deleting files.",
-    )
     parser.add_argument("-c", "--config", help="Path to build config file.")
 
     parser.add_argument(
@@ -201,7 +196,15 @@ def _setup_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run a built-in sanity test to verify tool correctness.",
     )
-    parser.add_argument(
+
+    # --- Build execution mode ---
+    build_mode = parser.add_mutually_exclusive_group()
+    build_mode.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Simulate build actions without copying or deleting files.",
+    )
+    build_mode.add_argument(
         "--validate-config",
         action="store_true",
         help=(

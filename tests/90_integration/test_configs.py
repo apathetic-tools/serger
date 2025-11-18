@@ -11,6 +11,11 @@ import serger.meta as mod_meta
 from tests.utils import make_test_package, write_config_file
 
 
+# --- constants --------------------------------------------------------------------
+
+ARGPARSE_ERROR_EXIT_CODE = 2
+
+
 def test_main_no_config(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -435,6 +440,52 @@ def test_validate_config_vs_dry_run_difference(
     assert "file(s) collected" in out1
     # Dry-run should mention stitching simulation
     assert "dry-run" in out2.lower() or "would stitch" in out2.lower()
+
+
+def test_validate_config_and_dry_run_mutually_exclusive(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--validate-config and --dry-run should be mutually exclusive."""
+    # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+    )
+
+    # --- execute (validate-config first) ---
+    monkeypatch.chdir(tmp_path)
+    # argparse should exit with SystemExit(2)
+    with pytest.raises(SystemExit) as e:
+        mod_cli.main(["--validate-config", "--dry-run"])
+
+    # --- verify ---
+    assert e.value.code == ARGPARSE_ERROR_EXIT_CODE
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
+    assert "not allowed with" in out.lower()
+    assert "--validate-config" in out
+    assert "--dry-run" in out
+
+    # --- execute (dry-run first) ---
+    # argparse should exit with SystemExit(2) regardless of order
+    with pytest.raises(SystemExit) as e2:
+        mod_cli.main(["--dry-run", "--validate-config"])
+
+    # --- verify ---
+    assert e2.value.code == ARGPARSE_ERROR_EXIT_CODE
+    captured2 = capsys.readouterr()
+    out2 = captured2.out + captured2.err
+    assert "not allowed with" in out2.lower()
+    assert "--validate-config" in out2
+    assert "--dry-run" in out2
 
 
 def test_main_with_custom_config(tmp_path: Path) -> None:
