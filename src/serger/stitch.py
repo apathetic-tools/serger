@@ -2193,14 +2193,14 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     all_imports: OrderedDict[str, None],
     parts: list[str],
     order_names: list[str],
-    _all_function_names: set[str],
+    all_function_names: set[str],  # noqa: ARG001
     detected_packages: set[str],
     module_mode: str,
     module_actions: list[ModuleActionFull],
     shim: ShimSetting,
-    _order_paths: list[Path] | None = None,
-    _package_root: Path | None = None,
-    _file_to_include: dict[Path, IncludeResolved] | None = None,
+    order_paths: list[Path] | None = None,  # noqa: ARG001
+    package_root: Path | None = None,  # noqa: ARG001
+    file_to_include: dict[Path, IncludeResolved] | None = None,  # noqa: ARG001
     _original_order_names_for_shims: list[str] | None = None,
     license_text: str,
     version: str,
@@ -2222,7 +2222,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         all_imports: Collected external imports
         parts: Module code sections
         order_names: List of module names (for shim generation)
-        _all_function_names: Set of all function names from all modules
+        all_function_names: Set of all function names from all modules
             (unused, kept for API consistency)
         config: Resolved configuration with main_mode and main_name
         selected_main_block: Selected __main__ block to use (if any)
@@ -2232,9 +2232,9 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         module_mode: How to generate import shims ("none", "multi", "force")
         module_actions: List of module actions (already normalized)
         shim: Shim setting ("all", "public", "none")
-        _order_paths: Optional list of file paths (unused, kept for API consistency)
-        _package_root: Optional common root (unused, kept for API consistency)
-        _file_to_include: Optional mapping (unused, kept for API consistency)
+        order_paths: Optional list of file paths (unused, kept for API consistency)
+        package_root: Optional common root (unused, kept for API consistency)
+        file_to_include: Optional mapping (unused, kept for API consistency)
         license_text: License text (will be formatted automatically)
         version: Version string
         commit: Commit hash
@@ -3853,7 +3853,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
         config=cast("RootConfigResolved", config),
         file_paths=order_paths,
         module_sources=module_sources,
-        _module_names=derived_module_names,
+        module_names=derived_module_names,
         package_root=package_root,
         file_to_include=file_to_include,
         detected_packages=detected_packages,
@@ -3889,7 +3889,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
         file_paths=order_paths,
         package_root=package_root,
         file_to_include=file_to_include,
-        _detected_packages=detected_packages,
+        detected_packages=detected_packages,
     )
 
     # Log main function status
@@ -3907,7 +3907,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
         main_blocks=all_main_blocks,
         main_function_result=main_function_result,
         file_paths=order_paths,
-        _module_names=derived_module_names,
+        module_names=derived_module_names,
     )
 
     # Log discarded blocks
@@ -3941,14 +3941,14 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
         all_imports=all_imports,
         parts=parts,
         order_names=derived_module_names,
-        _all_function_names=all_function_names,
+        all_function_names=all_function_names,
         detected_packages=detected_packages,
         module_mode=module_mode,
         module_actions=module_actions,
         shim=shim,
-        _order_paths=order_paths,
-        _package_root=package_root,
-        _file_to_include=file_to_include,
+        order_paths=order_paths,
+        package_root=package_root,
+        file_to_include=file_to_include,
         _original_order_names_for_shims=original_order_names_for_shims,
         license_text=license_text,
         version=version,

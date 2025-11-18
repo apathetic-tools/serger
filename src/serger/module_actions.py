@@ -489,7 +489,7 @@ def validate_no_conflicting_operations(  # noqa: C901, PLR0912, PLR0915
 def validate_module_actions(
     actions: list["ModuleActionFull"],
     original_modules: set[str],
-    _detected_packages: set[str],
+    detected_packages: set[str],  # noqa: ARG001
     *,
     scope: "ModuleActionScope | None" = None,
 ) -> None:
@@ -816,7 +816,7 @@ def _apply_delete_action(
 def apply_single_action(
     module_names: list[str],
     action: "ModuleActionFull",
-    _detected_packages: set[str],
+    detected_packages: set[str],  # noqa: ARG001
 ) -> list[str]:
     """Apply a single action to module names.
 
@@ -857,7 +857,7 @@ def apply_single_action(
 def apply_module_actions(
     module_names: list[str],
     actions: list["ModuleActionFull"],
-    _detected_packages: set[str],
+    detected_packages: set[str],
 ) -> list[str]:
     """Apply module actions to transform module names.
 
@@ -879,7 +879,7 @@ def apply_module_actions(
 
     # Apply each action in sequence
     for action in actions:
-        result = apply_single_action(result, action, _detected_packages)
+        result = apply_single_action(result, action, detected_packages)
 
     return result
 
@@ -1082,7 +1082,7 @@ def separate_actions_by_affects(
 def get_deleted_modules_from_actions(
     actions: list["ModuleActionFull"],
     initial_modules: list[str],
-    _detected_packages: set[str],
+    detected_packages: set[str],  # noqa: ARG001
 ) -> set[str]:
     """Get set of modules that are deleted by actions.
 

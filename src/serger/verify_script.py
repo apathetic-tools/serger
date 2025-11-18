@@ -78,19 +78,19 @@ def find_tool_executable(
 
 def build_tool_command(
     tool_label: str,
-    _category: str,
+    category: str,  # noqa: ARG001
     file_path: Path,
-    _tool_override: ToolConfigResolved | None = None,
+    tool_override: ToolConfigResolved | None = None,  # noqa: ARG001
     tools_dict: dict[str, ToolConfigResolved] | None = None,
 ) -> list[str] | None:
     """Build the full command to execute a tool.
 
     Args:
         tool_label: Tool name or custom label (simple tool name or custom instance)
-        _category: Category name (static_checker, formatter, import_sorter) -
+        category: Category name (static_checker, formatter, import_sorter) -
             unused, kept for API compatibility
         file_path: Path to the file to process
-        _tool_override: Optional tool override config (deprecated, unused)
+        tool_override: Optional tool override config (deprecated, unused)
         tools_dict: Dict of resolved tool configs keyed by label
             (includes defaults from resolved config)
 

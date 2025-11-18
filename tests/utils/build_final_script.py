@@ -99,7 +99,7 @@ def make_build_final_script_args(  # noqa: PLR0913
         "all_imports": all_imports,
         "parts": parts,
         "order_names": order_names,
-        "_all_function_names": all_function_names,
+        "all_function_names": all_function_names,
         "detected_packages": detected_packages,
         "module_mode": module_mode,
         "module_actions": module_actions,

@@ -19,7 +19,7 @@ from typing_extensions import NotRequired
 T = TypeVar("T")
 
 
-def cast_hint(_typ: type[T], value: Any) -> T:
+def cast_hint(typ: type[T], value: Any) -> T:  # noqa: ARG001
     """Explicit cast that documents intent but is purely for type hinting.
 
     A drop-in replacement for `typing.cast`, meant for places where:

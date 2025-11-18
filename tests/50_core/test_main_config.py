@@ -188,7 +188,7 @@ def test_find_main_function_main_mode_none(tmp_path: Path) -> None:
         config=config,
         file_paths=[file_path],
         module_sources={"main.py": "def main():\n    pass\n"},
-        _module_names=["main"],
+        module_names=["main"],
         package_root=tmp_path,
         file_to_include={
             file_path: {"path": "main.py", "root": tmp_path, "origin": "default"}
@@ -249,7 +249,7 @@ def test_find_main_function_with_main_name_module_path(tmp_path: Path) -> None:
         config=config,
         file_paths=[file_path],
         module_sources={"mypkg.main.py": "def main():\n    pass\n"},
-        _module_names=["mypkg.main"],
+        module_names=["mypkg.main"],
         package_root=tmp_path,
         file_to_include={
             file_path: {"path": "mypkg/main.py", "root": tmp_path, "origin": "default"}
@@ -312,7 +312,7 @@ def test_find_main_function_with_main_name_function_only(tmp_path: Path) -> None
         config=config,
         file_paths=[file_path],
         module_sources={"main.py": "def cli():\n    pass\n"},
-        _module_names=["main"],
+        module_names=["main"],
         package_root=tmp_path,
         file_to_include={
             file_path: {"path": "main.py", "root": tmp_path, "origin": "default"}
@@ -378,7 +378,7 @@ def test_find_main_function_with_package_config(tmp_path: Path) -> None:
         config=config,
         file_paths=[file_path],
         module_sources={"mypkg.main.py": "def main():\n    pass\n"},
-        _module_names=["mypkg.main"],
+        module_names=["mypkg.main"],
         package_root=tmp_path,
         file_to_include={
             file_path: {"path": "mypkg/main.py", "root": tmp_path, "origin": "default"}
@@ -448,7 +448,7 @@ def test_find_main_function_priority_main_py(tmp_path: Path) -> None:
             "mypkg.other.py": "def main():\n    pass\n",
             "mypkg.__main__.py": "def main():\n    pass\n",
         },
-        _module_names=["mypkg.other", "mypkg.__main__"],
+        module_names=["mypkg.other", "mypkg.__main__"],
         package_root=tmp_path,
         file_to_include={
             other_py: {"path": "mypkg/other.py", "root": tmp_path, "origin": "default"},
@@ -516,7 +516,7 @@ def test_find_main_function_not_found(tmp_path: Path) -> None:
         config=config,
         file_paths=[file_path],
         module_sources={"main.py": "def other():\n    pass\n"},
-        _module_names=["main"],
+        module_names=["main"],
         package_root=tmp_path,
         file_to_include={
             file_path: {"path": "main.py", "root": tmp_path, "origin": "default"}
@@ -984,7 +984,7 @@ def test_detect_main_blocks_single_block(tmp_path: Path) -> None:
         file_to_include={
             file_path: {"path": "main.py", "root": tmp_path, "origin": "default"}
         },
-        _detected_packages=set(),
+        detected_packages=set(),
     )
 
     # --- verify ---
@@ -1014,7 +1014,7 @@ def test_detect_main_blocks_multiple_blocks(tmp_path: Path) -> None:
             file1: {"path": "file1.py", "root": tmp_path, "origin": "default"},
             file2: {"path": "file2.py", "root": tmp_path, "origin": "default"},
         },
-        _detected_packages=set(),
+        detected_packages=set(),
     )
 
     # --- verify ---
@@ -1036,7 +1036,7 @@ def test_detect_main_blocks_no_blocks(tmp_path: Path) -> None:
         file_to_include={
             file_path: {"path": "main.py", "root": tmp_path, "origin": "default"}
         },
-        _detected_packages=set(),
+        detected_packages=set(),
     )
 
     # --- verify ---
@@ -1060,7 +1060,7 @@ def test_detect_main_blocks_with_package(tmp_path: Path) -> None:
         file_to_include={
             file_path: {"path": "mypkg/main.py", "root": tmp_path, "origin": "default"}
         },
-        _detected_packages={"mypkg"},
+        detected_packages={"mypkg"},
     )
 
     # --- verify ---
@@ -1083,7 +1083,7 @@ def test_detect_main_blocks_double_quotes(tmp_path: Path) -> None:
         file_to_include={
             file_path: {"path": "main.py", "root": tmp_path, "origin": "default"}
         },
-        _detected_packages=set(),
+        detected_packages=set(),
     )
 
     # --- verify ---
@@ -1113,7 +1113,7 @@ def test_select_main_block_priority_same_file(tmp_path: Path) -> None:
             file1: {"path": "file1.py", "root": tmp_path, "origin": "default"},
             file2: {"path": "file2.py", "root": tmp_path, "origin": "default"},
         },
-        _detected_packages=set(),
+        detected_packages=set(),
     )
 
     # Main function is in file1
@@ -1124,7 +1124,7 @@ def test_select_main_block_priority_same_file(tmp_path: Path) -> None:
         main_blocks=blocks,
         main_function_result=main_result,
         file_paths=[file1, file2],
-        _module_names=["file1", "file2"],
+        module_names=["file1", "file2"],
     )
 
     # --- verify ---
@@ -1149,7 +1149,7 @@ def test_select_main_block_priority_same_package(tmp_path: Path) -> None:
             file1: {"path": "mypkg/main.py", "root": tmp_path, "origin": "default"},
             file2: {"path": "mypkg/other.py", "root": tmp_path, "origin": "default"},
         },
-        _detected_packages={"mypkg"},
+        detected_packages={"mypkg"},
     )
 
     # Main function is in file1 (mypkg.main)
@@ -1160,7 +1160,7 @@ def test_select_main_block_priority_same_package(tmp_path: Path) -> None:
         main_blocks=blocks,
         main_function_result=main_result,
         file_paths=[file1, file2],
-        _module_names=["mypkg.main", "mypkg.other"],
+        module_names=["mypkg.main", "mypkg.other"],
     )
 
     # --- verify ---
@@ -1183,7 +1183,7 @@ def test_select_main_block_priority_earliest_include(tmp_path: Path) -> None:
             file1: {"path": "file1.py", "root": tmp_path, "origin": "default"},
             file2: {"path": "file2.py", "root": tmp_path, "origin": "default"},
         },
-        _detected_packages=set(),
+        detected_packages=set(),
     )
 
     # No main function
@@ -1194,7 +1194,7 @@ def test_select_main_block_priority_earliest_include(tmp_path: Path) -> None:
         main_blocks=blocks,
         main_function_result=main_result,
         file_paths=[file1, file2],
-        _module_names=["file1", "file2"],
+        module_names=["file1", "file2"],
     )
 
     # --- verify ---
@@ -1462,7 +1462,7 @@ def test_select_main_block_no_blocks() -> None:
         main_blocks=[],
         main_function_result=None,
         file_paths=[],
-        _module_names=[],
+        module_names=[],
     )
 
     # --- verify ---

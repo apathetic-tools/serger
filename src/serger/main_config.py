@@ -176,7 +176,7 @@ def find_main_function(  # noqa: PLR0912, C901, PLR0915
     config: "RootConfigResolved",
     file_paths: list[Path],
     module_sources: dict[str, str],
-    _module_names: list[str],  # Unused: we derive from module_to_file instead
+    module_names: list[str],  # noqa: ARG001  # Unused: we derive from module_to_file instead
     package_root: Path,
     file_to_include: dict[Path, "IncludeResolved"],
     detected_packages: set[str],
@@ -192,7 +192,7 @@ def find_main_function(  # noqa: PLR0912, C901, PLR0915
         config: Resolved configuration with main_mode and main_name
         file_paths: List of file paths being stitched (in order)
         module_sources: Mapping of module name to source code
-        _module_names: List of module names in order (unused, kept for API)
+        module_names: List of module names in order (unused, kept for API)
         package_root: Common root of all included files
         file_to_include: Mapping of file path to its include
         detected_packages: Pre-detected package names
@@ -428,7 +428,7 @@ def detect_main_blocks(  # noqa: PLR0912
     file_paths: list[Path],
     package_root: Path,
     file_to_include: dict[Path, "IncludeResolved"],
-    _detected_packages: set[str],
+    detected_packages: set[str],  # noqa: ARG001
 ) -> list[MainBlock]:
     """Detect all __main__ blocks in the provided file paths.
 
@@ -436,7 +436,7 @@ def detect_main_blocks(  # noqa: PLR0912
         file_paths: List of file paths to check (in order)
         package_root: Common root of all included files
         file_to_include: Mapping of file path to its include
-        _detected_packages: Pre-detected package names
+        detected_packages: Pre-detected package names
             (unused, kept for API consistency)
 
     Returns:
@@ -539,7 +539,7 @@ def select_main_block(
     main_blocks: list[MainBlock],
     main_function_result: tuple[str, Path, str] | None,
     file_paths: list[Path],
-    _module_names: list[str],
+    module_names: list[str],  # noqa: ARG001
 ) -> MainBlock | None:
     """Select which __main__ block to keep based on priority.
 
@@ -553,7 +553,7 @@ def select_main_block(
         main_function_result: Result from find_main_function()
             (function_name, file_path, module_path) or None
         file_paths: List of file paths in include order
-        _module_names: List of module names in include order
+        module_names: List of module names in include order
             (unused, kept for API consistency)
 
     Returns:
