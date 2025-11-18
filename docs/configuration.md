@@ -39,7 +39,8 @@ Serger can automatically extract metadata from `pyproject.toml`:
 - `package` - fallback from `[project] name`
 - `display_name` - indirectly through `package` fallback
 - `description` - fallback from `[project] description`
-- `license_header` - fallback from `[project] license`
+- `license` - fallback from `[project] license` (supports PEP 621 and PEP 639 formats)
+- `license_files` - fallback from `[project] license-files` (glob patterns)
 - `authors` - fallback from `[project] authors`
 - `version` - fallback from `[project] version` (stored as `_pyproject_version` for build metadata)
 

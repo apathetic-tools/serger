@@ -139,7 +139,7 @@ Serger uses itself to build itself! Here's its configuration:
   "display_name": "Serger",
   "description": "Stitch your module into a single file.",
   "repo": "https://github.com/apathetic-tools/serger",
-  "license_header": "License: MIT-aNOAI\nFull text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",
+  "license": "License: MIT-aNOAI\nFull text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",
   "include": [
     "src/apathetic_*/**/*.py",
     "src/serger/**/*.py"
@@ -250,7 +250,7 @@ if __name__ == "__main__":
   "display_name": "My Package",
   "description": "A simple package",
   "repo": "https://github.com/user/mypkg",
-  "license_header": "License: MIT"
+  "license": "License: MIT"
 }
 ```
 

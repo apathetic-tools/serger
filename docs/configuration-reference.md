@@ -75,7 +75,8 @@ All configuration options are specified at the root level of the config file:
 | `display_name` | `str` | No† | - | Display name for generated header. Falls back to `package` |
 | `description` | `str` | No† | - | Description for generated header. |
 | `repo` | `str` | No | - | Repository URL for generated header |
-| `license_header` | `str` | No† | - | License text for generated header. Fallback from `pyproject.toml` `[project] license`. |
+| `license` | `str \| dict` | No† | - | License text or configuration. String format: plain text (e.g., `"MIT"`). Dict format: `{text: str}`, `{expression: str}`, or `{file: str \| list[str]}` (glob patterns supported). Priority: `text` > `expression` > `file`. Fallback from `pyproject.toml` `[project] license`. |
+| `license_files` | `list[str]` | No | - | Additional license files (glob patterns). Content is appended to `license` field. |
 | `authors` | `str` | No† | - | Authors for generated header. |
 | `log_level` | `str` | No | `"info"` | Log verbosity: `trace`, `debug`, `info`, `warning`, `error` |
 | `respect_gitignore` | `bool` | No | `true` | Whether to respect `.gitignore` when selecting files |
@@ -1221,7 +1222,7 @@ Here's a complete example configuration file:
       "display_name": "Serger",
       "description": "Stitch your module into a single file.",
       "repo": "https://github.com/apathetic-tools/serger",
-      "license_header": "License: MIT-aNOAI\nFull text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",
+      "license": "License: MIT-aNOAI\nFull text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",
   "include": [
         "src/apathetic_*/**/*.py",
         "src/serger/**/*.py"

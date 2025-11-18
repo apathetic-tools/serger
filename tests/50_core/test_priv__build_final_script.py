@@ -31,8 +31,8 @@ class TestBuildFinalScriptBasic:
 
         assert result.startswith("#!/usr/bin/env python3\n")
 
-    def test_includes_license_header(self) -> None:
-        """Should include license header if provided."""
+    def test_includes_license(self) -> None:
+        """Should include license if provided."""
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
@@ -56,7 +56,7 @@ class TestBuildFinalScriptBasic:
         # Single line format: "License: <text>"
         assert "# License: MIT" in result
 
-    def test_includes_license_header_multi_line(self) -> None:
+    def test_includes_license_multi_line(self) -> None:
         """Should format multi-line license as block."""
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None

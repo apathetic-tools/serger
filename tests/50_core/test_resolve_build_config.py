@@ -729,7 +729,7 @@ authors = [
     assert resolved.get("package") == "pyproject-name"  # Package is always extracted
     assert resolved.get("description") == "config description"
     assert resolved.get("authors") == "Config Author <config@example.com>"
-    # license_header not set in config, so pyproject can fill it
+    # license not set in config, so pyproject can fill it
     assert resolved.get("license") == "MIT"
     # User version should win over pyproject version
     assert resolved.get("version") == "2.0.0"
@@ -809,7 +809,7 @@ authors = [
         display_name="config-name",  # Non-empty: should be preserved
         description="",  # Empty: should be preserved
         # authors not set: should be filled from pyproject
-        # license_header not set: should be filled from pyproject
+        # license not set: should be filled from pyproject
         use_pyproject_metadata=True,
     )
     args = _args()

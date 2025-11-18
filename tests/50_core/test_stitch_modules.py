@@ -1199,7 +1199,7 @@ class TestStitchModulesMetadata:
             assert '__AUTHORS__ = "Alice <alice@example.com>, Bob"' in content
             assert "__STANDALONE__ = True" in content
 
-    def test_license_header_with_file_content(self) -> None:
+    def test_license_with_file_content(self) -> None:
         """Should include license file content as comments with marker."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
@@ -1242,8 +1242,8 @@ class TestStitchModulesMetadata:
             assert "# Copyright (c) 2024 Test Author" in content
             assert "# All rights reserved." in content
 
-    def test_license_header_optional(self) -> None:
-        """Should handle empty license header gracefully."""
+    def test_license_optional(self) -> None:
+        """Should handle empty license gracefully."""
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             src_dir = tmp_path / "src"
