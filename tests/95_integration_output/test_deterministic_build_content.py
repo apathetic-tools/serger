@@ -1,8 +1,9 @@
-# tests/90_integration/test_deterministic_builds.py
-"""Integration tests for deterministic builds with disabled timestamps.
+# tests/95_integration_output/test_deterministic_build_content.py
+"""Integration tests for deterministic build output content.
 
-These tests verify that builds with `disable_build_timestamp=True` produce
-reproducible, deterministic output suitable for verification purposes.
+These tests verify that builds with disabled timestamps produce
+identical, reproducible output suitable for verification purposes.
+They check the actual content of generated build files.
 """
 
 import re
@@ -56,6 +57,51 @@ def test_disable_build_timestamp_produces_identical_outputs(
     # --- verify: outputs are identical ---
     assert content1 == content2, (
         "Two builds with disable_build_timestamp=True should produce identical output"
+    )
+
+
+def test_disable_build_timestamp_cli_produces_identical_outputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two builds using CLI --disable-build-timestamp produce identical output."""
+    # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+
+    # Create config WITHOUT disable_build_timestamp (will use CLI flag instead)
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+        # No disable_build_timestamp in config - will use CLI flag
+    )
+
+    monkeypatch.chdir(tmp_path)
+
+    # --- execute: first build with CLI flag ---
+    code1 = mod_cli.main(["--disable-build-timestamp"])
+    assert code1 == 0
+    output_file1 = tmp_path / "dist" / "mypkg.py"
+    assert output_file1.exists()
+    content1 = output_file1.read_text()
+
+    # Delete the output file to force a fresh build
+    output_file1.unlink()
+
+    # --- execute: second build with CLI flag ---
+    code2 = mod_cli.main(["--disable-build-timestamp"])
+    assert code2 == 0
+    output_file2 = tmp_path / "dist" / "mypkg.py"
+    assert output_file2.exists()
+    content2 = output_file2.read_text()
+
+    # --- verify: outputs are identical ---
+    assert content1 == content2, (
+        "Two builds with --disable-build-timestamp CLI flag should produce "
+        "identical output"
     )
 
 
