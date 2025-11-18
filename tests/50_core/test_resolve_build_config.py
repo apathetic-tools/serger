@@ -516,7 +516,7 @@ authors = [
     assert resolved.get("package") == "test-package"
     assert resolved.get("description") == "A test package"
     assert resolved.get("authors") == "Test Author <test@example.com>"
-    assert resolved.get("license_header") == "MIT"
+    assert resolved.get("license") == "MIT"
     assert resolved.get("version") == "1.2.3"
 
 
@@ -730,7 +730,7 @@ authors = [
     assert resolved.get("description") == "config description"
     assert resolved.get("authors") == "Config Author <config@example.com>"
     # license_header not set in config, so pyproject can fill it
-    assert resolved.get("license_header") == "MIT"
+    assert resolved.get("license") == "MIT"
     # User version should win over pyproject version
     assert resolved.get("version") == "2.0.0"
     assert resolved.get("version") != "1.0.0"  # Verify pyproject version was not used
@@ -762,7 +762,7 @@ authors = [
         display_name="",  # Explicitly set to empty
         description="",  # Explicitly set to empty
         authors="",  # Explicitly set to empty
-        license_header="",  # Explicitly set to empty
+        license="",  # Explicitly set to empty (will use fallback)
         use_pyproject_metadata=True,
     )
     args = _args()
@@ -775,7 +775,9 @@ authors = [
     assert resolved.get("display_name") == ""
     assert resolved.get("description") == ""
     assert resolved.get("authors") == ""
-    assert resolved.get("license_header") == ""
+    # License is always present - empty string resolves to fallback
+    assert resolved.get("license") is not None
+    assert resolved.get("license") != ""
     # Package is always extracted regardless
     assert resolved.get("package") == "pyproject-name"
     assert resolved.get("version") == "1.0.0"
@@ -822,7 +824,7 @@ authors = [
     assert resolved.get("description") == ""
     # Missing field filled from pyproject
     assert resolved.get("authors") == "Pyproject Author <pyproject@example.com>"
-    assert resolved.get("license_header") == "MIT"
+    assert resolved.get("license") == "MIT"
     assert resolved.get("package") == "pyproject-name"
     assert resolved.get("version") == "1.0.0"
 
@@ -856,7 +858,7 @@ authors = [
     assert resolved.get("display_name") == "test-package"
     assert resolved.get("package") == "test-package"
     assert resolved.get("description") == "A test package"
-    assert resolved.get("license_header") == "MIT"
+    assert resolved.get("license") == "MIT"
     assert resolved.get("authors") == "Test Author <test@example.com>"
     assert resolved.get("version") == "1.2.3"
 
@@ -888,7 +890,8 @@ license = "MIT"
     assert resolved.get("package") == "test-package"
     # Other metadata should NOT be extracted when use_pyproject_metadata is false
     assert resolved.get("description") is None
-    assert resolved.get("license_header") is None
+    # License is always present (uses fallback if not provided)
+    assert resolved.get("license") is not None
     assert "version" not in resolved or resolved.get("version") != "1.2.3"
 
 
@@ -3009,3 +3012,291 @@ def test_resolve_build_config_disable_build_timestamp_cli_override(
     # --- validate ---
     # CLI argument should take precedence
     assert resolved["disable_build_timestamp"] is True
+
+
+# ---------------------------------------------------------------------------
+# License field tests
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_build_config_license_string_format(
+    tmp_path: Path,
+) -> None:
+    """License field with string format should be stored as-is."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"], license="MIT")
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved.get("license") == "MIT"
+
+
+def test_resolve_build_config_license_dict_with_text(
+    tmp_path: Path,
+) -> None:
+    """License field with dict format and text key should use text value."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"], license={"text": "Custom License Text"})
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved.get("license") == "Custom License Text"
+
+
+def test_resolve_build_config_license_dict_with_expression(
+    tmp_path: Path,
+) -> None:
+    """License field with dict format and expression key should use expression."""
+    # --- setup ---
+    raw = make_build_input(
+        include=["src/**"], license={"expression": "MIT OR Apache-2.0"}
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved.get("license") == "MIT OR Apache-2.0"
+
+
+def test_resolve_build_config_license_dict_with_file(
+    tmp_path: Path,
+) -> None:
+    """License field with dict format and file key should read file."""
+    # --- setup ---
+    license_file = tmp_path / "LICENSE"
+    license_file.write_text("MIT License\n\nCopyright (c) 2024")
+    raw = make_build_input(include=["src/**"], license={"file": "LICENSE"})
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert "MIT License" in resolved.get("license", "")
+    assert "Copyright (c) 2024" in resolved.get("license", "")
+
+
+def test_resolve_build_config_license_dict_priority_text_over_expression(
+    tmp_path: Path,
+) -> None:
+    """License dict with both text and expression should prioritize text."""
+    # --- setup ---
+    raw = make_build_input(
+        include=["src/**"],
+        license={"text": "Text Value", "expression": "Expression Value"},
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved.get("license") == "Text Value"
+
+
+def test_resolve_build_config_license_dict_priority_text_over_file(
+    tmp_path: Path,
+) -> None:
+    """License dict with both text and file should prioritize text."""
+    # --- setup ---
+    license_file = tmp_path / "LICENSE"
+    license_file.write_text("File Content")
+    raw = make_build_input(
+        include=["src/**"], license={"text": "Text Value", "file": "LICENSE"}
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved.get("license") == "Text Value"
+
+
+def test_resolve_build_config_license_dict_priority_expression_over_file(
+    tmp_path: Path,
+) -> None:
+    """License dict with both expression and file should prioritize expression."""
+    # --- setup ---
+    license_file = tmp_path / "LICENSE"
+    license_file.write_text("File Content")
+    raw = make_build_input(
+        include=["src/**"],
+        license={"expression": "Expression Value", "file": "LICENSE"},
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved.get("license") == "Expression Value"
+
+
+def test_resolve_build_config_license_files_field(
+    tmp_path: Path,
+) -> None:
+    """license_files field should be resolved and appended to license."""
+    # --- setup ---
+    license_file = tmp_path / "LICENSE"
+    license_file.write_text("Main License")
+    additional_file = tmp_path / "NOTICE"
+    additional_file.write_text("Additional Terms")
+    raw = make_build_input(
+        include=["src/**"],
+        license="MIT",
+        license_files=["NOTICE"],
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    license_text = resolved.get("license", "")
+    assert "MIT" in license_text
+    assert "Additional Terms" in license_text
+
+
+def test_resolve_build_config_license_files_multiple_patterns(
+    tmp_path: Path,
+) -> None:
+    """license_files with multiple patterns should resolve all files."""
+    # --- setup ---
+    file1 = tmp_path / "LICENSE"
+    file1.write_text("License 1")
+    file2 = tmp_path / "NOTICE"
+    file2.write_text("Notice")
+    raw = make_build_input(
+        include=["src/**"],
+        license="MIT",
+        license_files=["LICENSE", "NOTICE"],
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    license_text = resolved.get("license", "")
+    assert "MIT" in license_text
+    assert "License 1" in license_text
+    assert "Notice" in license_text
+
+
+def test_resolve_build_config_license_files_glob_pattern(
+    tmp_path: Path,
+) -> None:
+    """license_files with glob pattern should match multiple files."""
+    # --- setup ---
+    (tmp_path / "licenses").mkdir()
+    file1 = tmp_path / "licenses" / "LICENSE"
+    file1.write_text("License 1")
+    file2 = tmp_path / "licenses" / "NOTICE"
+    file2.write_text("Notice")
+    raw = make_build_input(
+        include=["src/**"],
+        license="MIT",
+        license_files=["licenses/*"],
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    license_text = resolved.get("license", "")
+    assert "MIT" in license_text
+    assert "License 1" in license_text
+    assert "Notice" in license_text
+
+
+def test_resolve_build_config_license_missing_file(
+    tmp_path: Path,
+    module_logger: mod_logs.AppLogger,
+) -> None:
+    """License with missing file should log warning and append message."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"], license={"file": "MISSING"})
+    args = _args()
+
+    # --- execute ---
+    with module_logger.use_level("warning"):
+        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    license_text = resolved.get("license", "")
+    assert "See MISSING" in license_text
+    assert "if distributed alongside this file" in license_text
+
+
+def test_resolve_build_config_license_fallback_when_empty(
+    tmp_path: Path,
+) -> None:
+    """License should use fallback when no license provided."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"])
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    license_text = resolved.get("license", "")
+    assert license_text is not None
+    assert license_text != ""
+    assert "All rights reserved" in license_text
+
+
+def test_resolve_build_config_license_config_overrides_pyproject(
+    tmp_path: Path,
+) -> None:
+    """Config license should override pyproject license."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+license = "MIT"
+"""
+    )
+    raw = make_build_input(
+        include=["src/**"], license="Apache-2.0", use_pyproject_metadata=True
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved.get("license") == "Apache-2.0"
+
+
+def test_resolve_build_config_license_pyproject_fallback(
+    tmp_path: Path,
+) -> None:
+    """Pyproject license should be used when config license not set."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+license = "MIT"
+"""
+    )
+    raw = make_build_input(include=["src/**"], use_pyproject_metadata=True)
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved.get("license") == "MIT"

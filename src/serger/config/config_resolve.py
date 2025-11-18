@@ -17,6 +17,7 @@ from serger.constants import (
     DEFAULT_ENV_WATCH_INTERVAL,
     DEFAULT_EXTERNAL_IMPORTS,
     DEFAULT_INTERNAL_IMPORTS,
+    DEFAULT_LICENSE_FALLBACK,
     DEFAULT_MAIN_MODE,
     DEFAULT_MAIN_NAME,
     DEFAULT_MODULE_BASES,
@@ -424,6 +425,85 @@ def _extract_license_files_from_project(
         return [license_files_val]
 
     return None
+
+
+def _resolve_license_dict_value(
+    license_dict: dict[str, str | list[str]], base_dir: Path
+) -> str:
+    """Resolve license dict to text using priority: text > expression > file.
+
+    Args:
+        license_dict: License dict with text/expression/file keys
+        base_dir: Base directory for resolving relative paths and globs
+
+    Returns:
+        Resolved license text (empty string if none found)
+    """
+    # Check for text key (highest priority)
+    if "text" in license_dict:
+        text_val = license_dict.get("text")  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
+        if isinstance(text_val, str) and text_val:
+            return text_val
+    # Check for expression key (alias for text, second priority)
+    if "expression" in license_dict:
+        expr_val = license_dict.get("expression")  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
+        if isinstance(expr_val, str) and expr_val:
+            return expr_val
+    # Check for file key (lowest priority, only if text/expression not present)
+    if "file" in license_dict:
+        file_val = license_dict.get("file")  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
+        return _resolve_license_file_value(file_val, base_dir)
+    return ""
+
+
+def _resolve_license_field(
+    license_val: str | dict[str, str | list[str]] | None,
+    license_files_val: list[str] | None,
+    base_dir: Path,
+) -> str:
+    """Resolve license field (string or dict) and license_files to combined text.
+
+    Processing order: license field first, then license_files.
+
+    Args:
+        license_val: License value from config (str or dict)
+        license_files_val: License files patterns from config (list of glob patterns)
+        base_dir: Base directory for resolving relative paths and globs
+
+    Returns:
+        Combined license text (always non-empty, uses fallback if needed)
+    """
+    text_parts: list[str] = []
+
+    # Process license field first
+    if license_val is not None:
+        if isinstance(license_val, str):
+            # String format: Store as-is
+            if license_val:
+                text_parts.append(license_val)
+        else:
+            # Dict format: Resolve using priority
+            # pyright: ignore[reportUnnecessaryIsInstance] - needed for type narrowing
+            resolved_text = _resolve_license_dict_value(license_val, base_dir)
+            if resolved_text:
+                text_parts.append(resolved_text)
+
+    # Then process license_files field (append to license result)
+    if license_files_val:
+        resolved_files_text = _resolve_license_files_patterns(
+            license_files_val, base_dir
+        )
+        if resolved_files_text:
+            text_parts.append(resolved_files_text)
+
+    # Combine all text parts
+    combined_text = "\n\n".join(text_parts) if text_parts else ""
+
+    # Final fallback: If empty, use DEFAULT_LICENSE_FALLBACK
+    if not combined_text:
+        combined_text = DEFAULT_LICENSE_FALLBACK
+
+    return combined_text
 
 
 def extract_pyproject_metadata(
@@ -924,7 +1004,7 @@ def _apply_metadata_fields(
     Note: Package name is NOT set here - it's handled in _apply_pyproject_metadata()
     and is always extracted if available, regardless of use_pyproject_metadata.
 
-    Note: description, authors, and license_header are only applied when
+    Note: description, authors, and license are only applied when
     explicitly_requested is True (use_pyproject_metadata=True or pyproject_path set).
 
     Args:
@@ -934,7 +1014,7 @@ def _apply_metadata_fields(
         explicitly_requested: True if pyproject metadata should be used
             (use_pyproject_metadata=True, pyproject_path set, or default for
             configless builds). Controls whether description, authors, and
-            license_header are applied.
+            license are applied.
     """
     logger = get_app_logger()
 
@@ -948,7 +1028,7 @@ def _apply_metadata_fields(
     ):
         resolved_cfg["version"] = metadata.version
 
-    # For description, authors, license_header:
+    # For description, authors, license:
     # - Only applied when explicitly_requested is True (use_pyproject_metadata=True
     #   or pyproject_path set)
     # - None or missing = not set, can be filled by pyproject (fallback)
@@ -968,10 +1048,29 @@ def _apply_metadata_fields(
             if current is None:
                 resolved_cfg["authors"] = metadata.authors
 
-        if metadata.license_text:
-            current = resolved_cfg.get("license_header")
-            if current is None:
-                resolved_cfg["license_header"] = metadata.license_text
+        # Apply license from pyproject (only if not already set in config)
+        # Note: This only runs when explicitly_requested=True
+        # (use_pyproject_metadata=True or pyproject_path set),
+        # same as description and authors fields.
+        # Process license_text first, then license_files
+        if metadata.license_text or metadata.license_files:
+            current_license = resolved_cfg.get("license")
+            if current_license is None:
+                # Combine pyproject license_text (already resolved) with license_files
+                text_parts: list[str] = []
+                if metadata.license_text:
+                    text_parts.append(metadata.license_text)
+                if metadata.license_files:
+                    resolved_files_text = _resolve_license_files_patterns(
+                        metadata.license_files, pyproject_path.parent
+                    )
+                    if resolved_files_text:
+                        text_parts.append(resolved_files_text)
+                # Combine and use fallback if empty
+                pyproject_license_text = (
+                    "\n\n".join(text_parts) if text_parts else DEFAULT_LICENSE_FALLBACK
+                )
+                resolved_cfg["license"] = pyproject_license_text
 
     if metadata.has_any():
         logger.trace(f"[resolve_build_config] Extracted metadata from {pyproject_path}")
@@ -2157,13 +2256,35 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # No action needed here - value is already resolved if available
 
     # ------------------------------
+    # License resolution
+    # ------------------------------
+    # License is mandatory in resolved config (always present with fallback).
+    # Processing order: license field first, then license_files.
+    # Resolution order: config license -> pyproject license (if enabled) -> fallback
+    # Note: pyproject license is already applied in _apply_pyproject_metadata()
+    # above (only when use_pyproject_metadata=True or pyproject_path set),
+    # so we only need to handle config-provided license here.
+    license_val = build_cfg.get("license")
+    license_files_val = build_cfg.get("license_files")
+    if license_val is not None or license_files_val is not None:
+        # Resolve config-provided license (overrides pyproject if set)
+        resolved_license = _resolve_license_field(
+            license_val, license_files_val, config_dir
+        )
+        resolved_cfg["license"] = resolved_license
+    elif "license" not in resolved_cfg:
+        # No license in config or pyproject - use fallback
+        resolved_cfg["license"] = DEFAULT_LICENSE_FALLBACK
+
+    # ------------------------------
     # Stitching metadata fields (ensure all are present)
     # ------------------------------
     # Metadata fields are optional in resolved config.
     # Resolution order for most fields: user value -> pyproject value -> None (default)
     # Note: display_name has different priority (handled after package resolution)
+    # Note: license is handled above (always present with fallback)
     # Fields are only set if they have a value; otherwise they remain None/absent
-    for field in ("license_header", "description", "authors", "repo"):
+    for field in ("description", "authors", "repo"):
         if field not in resolved_cfg or resolved_cfg.get(field) is None:
             # Don't set to empty string - leave as None/absent
             pass
