@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import serger.config.config_types as mod_types
+import serger.constants as mod_constants
 
 
 # ---------------------------------------------------------------------------
@@ -74,6 +75,7 @@ def make_build_cfg(  # noqa: PLR0913
     main_mode: mod_types.MainMode = "auto",
     main_name: str | None = None,
     version: str | None = None,
+    license_text: str = mod_constants.DEFAULT_LICENSE_FALLBACK,
 ) -> mod_types.RootConfigResolved:
     """Return a fake, fully-populated RootConfigResolved."""
     if tmp_path is None:
@@ -106,6 +108,7 @@ def make_build_cfg(  # noqa: PLR0913
         "module_bases": module_bases if module_bases is not None else ["src"],
         "main_mode": main_mode,
         "main_name": main_name,
+        "license": license_text,
     }
     if package is not None:
         cfg["package"] = package
