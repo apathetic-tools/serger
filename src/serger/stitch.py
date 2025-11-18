@@ -2986,7 +2986,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
             "def _setup_pkg_modules("
             "pkg_name: str, module_names: list[str], "
             "name_mapping: dict[str, str] | None = None"
-            ") -> None:"
+            ") -> None:  # noqa: C901, PLR0912"
         )
         shim_blocks.append(
             '    """Set up package module attributes and register submodules."""'
@@ -3016,7 +3016,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         )
         shim_blocks.append("            # mypkg.public.utils)")
         shim_blocks.append("            _name_parts = _name.split('.')")
-        shim_blocks.append("            if len(_name_parts) > 2:")
+        shim_blocks.append("            if len(_name_parts) > 2:  # noqa: PLR2004")
         shim_blocks.append("                # Has at least one intermediate package")
         shim_blocks.append("                _parent_pkg = '.'.join(_name_parts[:-1])")
         shim_blocks.append(
@@ -3424,16 +3424,6 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
 
     script_text = (
         "#!/usr/bin/env python3\n"
-        f"# {header_line}\n"
-        f"{license_section}"
-        f"# Version: {version}\n"
-        f"# Commit: {commit}\n"
-        f"# Build Date: {build_date}\n"
-        f"{authors_line}"
-        f"{repo_line}"
-        "\n# noqa: E402\n"
-        "\n"
-        f"{future_block}\n"
         '"""\n'
         + (
             config.get("file_docstring", "")
@@ -3446,7 +3436,17 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                 f"Built: {build_date}\n" + (f"Authors: {authors}\n" if authors else "")
             )
         )
-        + '"""\n\n'
+        + '"""\n'
+        f"# {header_line}\n"
+        f"{license_section}"
+        f"# Version: {version}\n"
+        f"# Commit: {commit}\n"
+        f"# Build Date: {build_date}\n"
+        f"{authors_line}"
+        f"{repo_line}"
+        "\n# noqa: E402\n"
+        "\n"
+        f"{future_block}\n"
         f"{import_block}\n"
         "\n"
         # constants come *after* imports to avoid breaking __future__ rules

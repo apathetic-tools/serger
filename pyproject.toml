@@ -214,7 +214,6 @@ atomic = true                    # Fail instead of partial reordering if conflic
 [tool.mypy]
 python_version = "3.10"
 strict = true
-exclude = []
 
 # --- Pyright: static type checker (powers Pylance) ---
 [tool.pyright]

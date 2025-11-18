@@ -1609,8 +1609,15 @@ class TestStitchModulesDisplayConfig:
 
             content = out_path.read_text()
             lines = content.split("\n")
-            # First line after shebang should be formatted header
-            assert lines[1] == "# TestProject — A test project"
+            # Docstring now comes first (after shebang) per PEP 8
+            assert lines[1] == '"""'
+            # Find header after docstring
+            header_idx = next(
+                i
+                for i, line in enumerate(lines)
+                if line == "# TestProject — A test project"
+            )
+            assert header_idx > 1
 
     def test_only_display_name(self) -> None:
         """Should format header with only display name."""
@@ -1638,7 +1645,13 @@ class TestStitchModulesDisplayConfig:
 
             content = out_path.read_text()
             lines = content.split("\n")
-            assert lines[1] == "# TestProject"
+            # Docstring now comes first (after shebang) per PEP 8
+            assert lines[1] == '"""'
+            # Find header after docstring
+            header_idx = next(
+                i for i, line in enumerate(lines) if line == "# TestProject"
+            )
+            assert header_idx > 1
 
     def test_only_description(self) -> None:
         """Should format header with package name and description."""
@@ -1666,7 +1679,15 @@ class TestStitchModulesDisplayConfig:
 
             content = out_path.read_text()
             lines = content.split("\n")
-            assert lines[1] == "# testpkg — A test project"
+            # Docstring now comes first (after shebang) per PEP 8
+            assert lines[1] == '"""'
+            # Find header after docstring
+            header_idx = next(
+                i
+                for i, line in enumerate(lines)
+                if line == "# testpkg — A test project"
+            )
+            assert header_idx > 1
 
     def test_custom_header_overrides_display_name(self) -> None:
         """Should use custom_header when provided, overriding display_name."""
@@ -1697,8 +1718,13 @@ class TestStitchModulesDisplayConfig:
 
             content = out_path.read_text()
             lines = content.split("\n")
-            # First line after shebang should be custom header
-            assert lines[1] == "# Custom Header Text"
+            # Docstring now comes first (after shebang) per PEP 8
+            assert lines[1] == '"""'
+            # Find header after docstring
+            header_idx = next(
+                i for i, line in enumerate(lines) if line == "# Custom Header Text"
+            )
+            assert header_idx > 1
 
     def test_file_docstring_overrides_auto_generated(self) -> None:
         """Should use file_docstring when provided, overriding auto-generated."""
@@ -1760,7 +1786,11 @@ class TestStitchModulesDisplayConfig:
 
             content = out_path.read_text()
             lines = content.split("\n")
-            assert lines[1] == "# testpkg"
+            # Docstring now comes first (after shebang) per PEP 8
+            assert lines[1] == '"""'
+            # Find header after docstring
+            header_idx = next(i for i, line in enumerate(lines) if line == "# testpkg")
+            assert header_idx > 1
 
     def test_empty_strings_treated_as_not_provided(self) -> None:
         """Should treat empty strings as not provided."""
@@ -1789,7 +1819,11 @@ class TestStitchModulesDisplayConfig:
 
             content = out_path.read_text()
             lines = content.split("\n")
-            assert lines[1] == "# testpkg"
+            # Docstring now comes first (after shebang) per PEP 8
+            assert lines[1] == '"""'
+            # Find header after docstring
+            header_idx = next(i for i, line in enumerate(lines) if line == "# testpkg")
+            assert header_idx > 1
 
 
 class TestRepoField:

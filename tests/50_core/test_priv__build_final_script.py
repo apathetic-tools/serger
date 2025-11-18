@@ -564,8 +564,18 @@ class TestBuildFinalScriptDocstring:
         )
 
         lines = result.split("\n")
-        # First line after shebang should be custom header
-        assert lines[1] == "# My Custom Header"
+        # Docstring now comes first (after shebang) per PEP 8
+        # Header comment comes after the docstring
+        assert lines[1] == '"""'
+        # Find the header comment after the docstring closes
+        header_found = False
+        for i, line in enumerate(lines):
+            if line == "# My Custom Header":
+                header_found = True
+                # Header should come after docstring (which starts on line 1)
+                assert i > 1
+                break
+        assert header_found, "Custom header not found in output"
 
     def test_file_docstring_overrides_auto_generated(self) -> None:
         """Should use file_docstring when provided in config."""
