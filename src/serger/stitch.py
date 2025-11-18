@@ -2925,10 +2925,29 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         if module_mode != "flat" or all_packages:
             all_packages.add(package_name)
 
+        # Add detected packages that have modules in the final output
+        # This is important when files from outside the config directory are included
+        # and packages are detected via module_bases but not directly referenced
+        # in module names (e.g., when __init__.py is excluded)
+        # Only add packages that actually have modules (not deleted by actions)
+        all_module_names = set(shim_names) | set(module_names_for_structure)
+        for detected_pkg in detected_packages:
+            # Check if any module belongs to this package
+            # Module must start with package name (exact match or package.module)
+            # to ensure we only add packages that are actually used as packages,
+            # not just components of other package names
+            has_modules = any(
+                mod == detected_pkg or mod.startswith(f"{detected_pkg}.")
+                for mod in all_module_names
+            )
+            if has_modules:
+                all_packages.add(detected_pkg)
+
         logger.trace(
-            "Collected packages: %s (package_name=%s)",
+            "Collected packages: %s (package_name=%s, detected_packages=%s)",
             sorted(all_packages),
             package_name,
+            sorted(detected_packages),
         )
 
         # Sort packages by depth (shallowest first) to create parents before children
