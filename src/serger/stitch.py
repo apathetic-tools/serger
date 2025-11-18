@@ -3294,11 +3294,15 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
                     )
 
     # Generate formatted header line
-    header_line = _format_header_line(
-        display_name=display_name,
-        description=description,
-        package_name=package_name,
-    )
+    # Use custom_header if provided, otherwise use formatted header
+    if config and config.get("custom_header"):
+        header_line = config.get("custom_header", "")
+    else:
+        header_line = _format_header_line(
+            display_name=display_name,
+            description=description,
+            package_name=package_name,
+        )
 
     # Build license/header section
     # Format license text (single line or multi-line block format)
@@ -3388,12 +3392,17 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         "\n"
         f"{future_block}\n"
         '"""\n'
-        f"{header_line}\n"
-        "This single-file version is auto-generated from modular sources.\n"
-        f"Version: {version}\n"
-        f"Commit: {commit}\n"
-        f"Built: {build_date}\n"
-        + (f"Authors: {authors}\n" if authors else "")
+        + (
+            config.get("file_docstring", "")
+            if config and config.get("file_docstring")
+            else (
+                f"{header_line}\n"
+                "This single-file version is auto-generated from modular sources.\n"
+                f"Version: {version}\n"
+                f"Commit: {commit}\n"
+                f"Built: {build_date}\n" + (f"Authors: {authors}\n" if authors else "")
+            )
+        )
         + '"""\n\n'
         f"{import_block}\n"
         "\n"

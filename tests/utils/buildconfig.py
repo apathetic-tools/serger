@@ -76,6 +76,8 @@ def make_build_cfg(  # noqa: PLR0913
     main_name: str | None = None,
     version: str | None = None,
     license_text: str = mod_constants.DEFAULT_LICENSE_FALLBACK,
+    custom_header: str | None = None,
+    file_docstring: str | None = None,
 ) -> mod_types.RootConfigResolved:
     """Return a fake, fully-populated RootConfigResolved."""
     if tmp_path is None:
@@ -116,6 +118,10 @@ def make_build_cfg(  # noqa: PLR0913
         cfg["order"] = order
     if version is not None:
         cfg["version"] = version
+    if custom_header is not None:
+        cfg["custom_header"] = custom_header
+    if file_docstring is not None:
+        cfg["file_docstring"] = file_docstring
     return cast("mod_types.RootConfigResolved", cfg)
 
 

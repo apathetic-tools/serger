@@ -1668,6 +1668,73 @@ class TestStitchModulesDisplayConfig:
             lines = content.split("\n")
             assert lines[1] == "# testpkg — A test project"
 
+    def test_custom_header_overrides_display_name(self) -> None:
+        """Should use custom_header when provided, overriding display_name."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            out_path = tmp_path / "output.py"
+
+            (src_dir / "main.py").write_text("MAIN = 1\n")
+
+            file_paths, package_root, file_to_include, config = _setup_stitch_test(
+                src_dir, ["main"]
+            )
+            config["display_name"] = "TestProject"
+            config["description"] = "A test project"
+            config["custom_header"] = "Custom Header Text"
+
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+                license_text="MIT",
+                is_serger_build=is_serger_build_for_test(out_path),
+            )
+
+            content = out_path.read_text()
+            lines = content.split("\n")
+            # First line after shebang should be custom header
+            assert lines[1] == "# Custom Header Text"
+
+    def test_file_docstring_overrides_auto_generated(self) -> None:
+        """Should use file_docstring when provided, overriding auto-generated."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            out_path = tmp_path / "output.py"
+
+            (src_dir / "main.py").write_text("MAIN = 1\n")
+
+            file_paths, package_root, file_to_include, config = _setup_stitch_test(
+                src_dir, ["main"]
+            )
+            config["file_docstring"] = "Custom docstring content\nwith multiple lines"
+
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+                license_text="MIT",
+                is_serger_build=is_serger_build_for_test(out_path),
+            )
+
+            content = out_path.read_text()
+            # Find the docstring section
+            docstring_start = content.find('"""')
+            docstring_end = content.find('"""', docstring_start + 3)
+            docstring_content = content[docstring_start + 3 : docstring_end]
+            assert "Custom docstring content" in docstring_content
+            assert "with multiple lines" in docstring_content
+            # Should not contain auto-generated content
+            assert "This single-file version is auto-generated" not in docstring_content
+
     def test_neither_provided_defaults_to_package_name(self) -> None:
         """Should use package name when neither field provided."""
         with tempfile.TemporaryDirectory() as tmpdir:

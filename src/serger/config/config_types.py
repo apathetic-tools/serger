@@ -147,6 +147,8 @@ class RootConfig(TypedDict, total=False):
     description: str  # Description for header (defaults to blank)
     authors: str  # Authors for header (optional, can fallback to pyproject.toml)
     repo: str  # Repository URL for header (optional)
+    custom_header: str  # Custom header text (overrides display_name/description)
+    file_docstring: str  # Custom file docstring (overrides auto-generated docstring)
     # Import handling configuration
     internal_imports: InternalImportMode  # How to handle internal package imports
     external_imports: ExternalImportMode  # How to handle external imports
@@ -239,6 +241,8 @@ class RootConfigResolved(TypedDict):
     description: NotRequired[str]
     authors: NotRequired[str]
     repo: NotRequired[str]
+    custom_header: NotRequired[str]  # Custom header (overrides display_name)
+    file_docstring: NotRequired[str]  # Custom docstring (overrides auto-generated)
     post_processing: PostProcessingConfigResolved  # Post-processing configuration
     internal_imports: InternalImportMode  # How to handle internal imports
     external_imports: ExternalImportMode  # How to handle external imports

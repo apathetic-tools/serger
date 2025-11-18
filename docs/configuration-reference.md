@@ -74,6 +74,8 @@ All configuration options are specified at the root level of the config file:
 | `out` | `str` | Yes* | - | Output file path (relative to project root) |
 | `display_name` | `str` | No† | - | Display name for generated header. Falls back to `package` |
 | `description` | `str` | No† | - | Description for generated header. |
+| `custom_header` | `str` | No | - | Custom header text that overrides `display_name` and `description`. If provided, this exact text is used as the header comment instead of the formatted header. |
+| `file_docstring` | `str` | No | - | Custom file docstring that overrides the auto-generated docstring. If provided, this exact text is used as the module docstring instead of the auto-generated one. |
 | `repo` | `str` | No | - | Repository URL for generated header |
 | `license` | `str \| dict` | No† | - | License text or configuration. String format: plain text (e.g., `"MIT"`). Dict format: `{text: str}`, `{expression: str}`, or `{file: str \| list[str]}` (glob patterns supported). Priority: `text` > `expression` > `file`. Fallback from `pyproject.toml` `[project] license`. |
 | `license_files` | `list[str]` | No | - | Additional license files (glob patterns). Content is appended to `license` field. |

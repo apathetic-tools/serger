@@ -67,6 +67,8 @@ All configuration options are specified at the root level of the config file:
 |--------|------|----------|---------|-------------|
 | `package` | `str` | Yes* | - | Package name (used for import shims). Can be inferred automatically if not set (see [Package Resolution](#package-resolution) below). |
 | `description` | `str` | No | - | Description for generated header |
+| `custom_header` | `str` | No | - | Custom header text that overrides `display_name` and `description`. If provided, this exact text is used as the header comment instead of the formatted header. |
+| `file_docstring` | `str` | No | - | Custom file docstring that overrides the auto-generated docstring. If provided, this exact text is used as the module docstring instead of the auto-generated one. |
 | `include` | `list[str]` | Yes* | - | Glob patterns for files to include |
 | `exclude` | `list[str]` | No | `[]` | Glob patterns for files to exclude |
 | `out` | `str` | Yes* | - | Output file path (relative to project root) |

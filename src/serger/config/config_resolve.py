@@ -2290,6 +2290,15 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
             pass
 
     # ------------------------------
+    # Custom header and file docstring (pass through if present)
+    # ------------------------------
+    # These fields are truly optional and pass through as-is if provided
+    if "custom_header" in build_cfg:
+        resolved_cfg["custom_header"] = build_cfg["custom_header"]
+    if "file_docstring" in build_cfg:
+        resolved_cfg["file_docstring"] = build_cfg["file_docstring"]
+
+    # ------------------------------
     # Package resolution (steps 3-7)
     # ------------------------------
     # Order of operations:

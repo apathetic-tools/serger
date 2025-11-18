@@ -533,6 +533,79 @@ class TestBuildFinalScriptDocstring:
         assert "ghijkl" in docstring
         assert "2025-09-30" in docstring
 
+    def test_custom_header_overrides_formatting(self) -> None:
+        """Should use custom_header when provided in config."""
+        all_imports: OrderedDict[str, None] = OrderedDict()
+        all_imports["import sys\n"] = None
+
+        tmp_path = Path("/tmp")  # noqa: S108
+        config = make_build_cfg(
+            tmp_path,
+            include=[make_include_resolved("src", tmp_path)],
+            package="testpkg",
+            custom_header="My Custom Header",
+        )
+
+        result, _ = mod_stitch._build_final_script(
+            package_name="testpkg",
+            all_imports=all_imports,
+            parts=["# === main.py ===\nMAIN = 1\n"],
+            order_names=["main"],
+            _all_function_names=set(),
+            detected_packages={"testpkg"},
+            module_mode="multi",
+            module_actions=[],
+            shim="all",
+            license_text="",
+            version="1.0.0",
+            commit="abc123",
+            build_date="2025-01-01",
+            config=config,
+        )
+
+        lines = result.split("\n")
+        # First line after shebang should be custom header
+        assert lines[1] == "# My Custom Header"
+
+    def test_file_docstring_overrides_auto_generated(self) -> None:
+        """Should use file_docstring when provided in config."""
+        all_imports: OrderedDict[str, None] = OrderedDict()
+        all_imports["import sys\n"] = None
+
+        tmp_path = Path("/tmp")  # noqa: S108
+        config = make_build_cfg(
+            tmp_path,
+            include=[make_include_resolved("src", tmp_path)],
+            package="testpkg",
+            file_docstring="Custom docstring\nwith multiple lines",
+        )
+
+        result, _ = mod_stitch._build_final_script(
+            package_name="testpkg",
+            all_imports=all_imports,
+            parts=["# === main.py ===\nMAIN = 1\n"],
+            order_names=["main"],
+            _all_function_names=set(),
+            detected_packages={"testpkg"},
+            module_mode="multi",
+            module_actions=[],
+            shim="all",
+            license_text="",
+            version="1.0.0",
+            commit="abc123",
+            build_date="2025-01-01",
+            config=config,
+        )
+
+        # Find the docstring section
+        docstring_start = result.find('"""')
+        docstring_end = result.find('"""', docstring_start + 3)
+        docstring_content = result[docstring_start + 3 : docstring_end]
+        assert "Custom docstring" in docstring_content
+        assert "with multiple lines" in docstring_content
+        # Should not contain auto-generated content
+        assert "This single-file version is auto-generated" not in docstring_content
+
 
 class TestBuildFinalScriptMainShim:
     """Test main() shim generation."""
