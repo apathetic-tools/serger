@@ -140,7 +140,9 @@ class RootConfig(TypedDict, total=False):
     package: str  # Package name for imports (e.g., "serger")
     # Explicit module order for stitching (optional; auto-discovered if not provided)
     order: list[str]
-    license_header: str  # License header text for stitched output
+    # License text or dict with file/text/expression
+    license: str | dict[str, str | list[str]]
+    license_files: list[str]  # Additional license files (glob patterns)
     display_name: str  # Display name for header (defaults to package)
     description: str  # Description for header (defaults to blank)
     authors: str  # Authors for header (optional, can fallback to pyproject.toml)
@@ -232,7 +234,7 @@ class RootConfigResolved(TypedDict):
     package: NotRequired[str]
     order: NotRequired[list[str]]
     # Metadata fields (optional, resolved to user -> pyproject -> None)
-    license_header: NotRequired[str]
+    license: str  # License text (mandatory, always present with fallback)
     display_name: NotRequired[str]
     description: NotRequired[str]
     authors: NotRequired[str]

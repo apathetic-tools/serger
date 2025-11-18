@@ -70,7 +70,8 @@ class PyprojectMetadata:
     name: str = ""
     version: str = ""
     description: str = ""
-    license_text: str = ""
+    license_text: str = ""  # Combined license text
+    license_files: list[str] | None = None  # Additional license files (glob patterns)
     authors: str = ""
 
     def has_any(self) -> bool:

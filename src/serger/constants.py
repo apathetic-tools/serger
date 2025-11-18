@@ -67,6 +67,10 @@ DEFAULT_MAIN_MODE: str = "auto"  # Automatically detect and generate __main__ bl
 DEFAULT_MAIN_NAME: str | None = None  # Auto-detect main function (default)
 DEFAULT_DISABLE_BUILD_TIMESTAMP: bool = False  # Use real timestamps by default
 BUILD_TIMESTAMP_PLACEHOLDER: str = "<build-timestamp>"  # Placeholder
+DEFAULT_LICENSE_FALLBACK: str = (
+    "All rights reserved. See additional license files if distributed "
+    "alongside this file for additional terms."
+)
 
 # --- post-processing defaults ---
 DEFAULT_CATEGORY_ORDER: list[str] = ["static_checker", "formatter", "import_sorter"]

@@ -491,7 +491,7 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
     # Extract stitching fields from config
     package = build_cfg.get("package")
     order = build_cfg.get("order")
-    license_header = build_cfg.get("license_header", "")
+    license_text = build_cfg.get("license", "")
     out_entry = build_cfg["out"]
 
     # Collect included files to check if this is a stitch build
@@ -754,7 +754,7 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
             package_root=package_root,
             file_to_include=file_to_include,
             out_path=out_path,
-            license_header=license_header,
+            license_header=license_text,
             version=version,
             commit=commit,
             build_date=build_date,

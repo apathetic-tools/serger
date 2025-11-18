@@ -12,8 +12,8 @@
   // Repository URL (appears in generated header)
   "repo": "https://github.com/apathetic-tools/serger",
 
-  // License header text for stitched output
-  "license_header": "License: MIT-aNOAI\nFull text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",      
+  // License text for stitched output
+  "license": "License: MIT-aNOAI\nFull text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",      
 
   // Source modules to include in the stitch
   // These are glob patterns relative to the source directory
