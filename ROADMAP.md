@@ -53,9 +53,7 @@ Exploring bundling options for generating the single-file release:
 - implement stich mode: class (requires working assign import mode)
 - if we moved the sys.modules shims as we went, would that allow us to do imports as long as the order was correct?
 - now that we have a module_base, we can probably "Follow the imports" and add includes as we find them, they only need to give us the first include
-- expand module_bases with common places
 - add module_downloaded or somesuch
-- if we discover a package, add the parent directory to module_bases, at the end
 - review all details/minimal statements before v1.0
 
 

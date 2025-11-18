@@ -107,7 +107,9 @@ def make_build_cfg(  # noqa: PLR0913
         if post_processing is not None
         else make_post_processing_config_resolved(),
         "module_actions": module_actions if module_actions is not None else [],
-        "module_bases": module_bases if module_bases is not None else ["src"],
+        "module_bases": (
+            module_bases if module_bases is not None else ["src", "lib", "packages"]
+        ),
         "main_mode": main_mode,
         "main_name": main_name,
         "license": license_text,

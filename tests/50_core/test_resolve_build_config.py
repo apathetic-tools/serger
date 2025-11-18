@@ -2184,7 +2184,7 @@ def test_resolve_build_config_module_actions_invalid_source_path_type_raises_err
 def test_resolve_build_config_module_bases_defaults(
     tmp_path: Path,
 ) -> None:
-    """Module bases should default to ['src'] if not specified."""
+    """Module bases should default to ['src', 'lib', 'packages'] if not specified."""
     # --- setup ---
     raw = make_build_input(include=["src/**"])
     args = _args()
@@ -2193,7 +2193,8 @@ def test_resolve_build_config_module_bases_defaults(
     resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    assert resolved["module_bases"] == ["src"]
+    # src is extracted from include=["src/**"], then defaults add lib and packages
+    assert resolved["module_bases"] == ["src", "lib", "packages"]
 
 
 def test_resolve_build_config_module_bases_build_level(
@@ -2600,7 +2601,8 @@ def test_resolve_build_config_auto_include_does_not_set_when_empty_module_bases(
     make_test_package(pkg_dir)
 
     # Config with empty module_bases (shouldn't happen in practice, but test it)
-    # Even with empty module_bases, defaults add ["src"], so auto-include can work
+    # Even with empty module_bases, defaults add ["src", "lib", "packages"],
+    # so auto-include can work
     raw = make_build_input(package="mypkg", module_bases=[])
     args = _args()
 
@@ -2608,7 +2610,7 @@ def test_resolve_build_config_auto_include_does_not_set_when_empty_module_bases(
     resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # Defaults add ["src"] to module_bases, so auto-include can work
+    # Defaults add ["src", "lib", "packages"] to module_bases, so auto-include can work
     # Package "mypkg" is found in src/, so includes are auto-set
     assert len(resolved["include"]) == 1
     inc = resolved["include"][0]

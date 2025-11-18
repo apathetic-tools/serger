@@ -26,7 +26,7 @@ def test_zero_config_auto_detect_single_package_no_package_setting(
     - NO pyproject.toml
     - NO CLI arguments
     - src/mypkg/ exists (single package directory)
-    - module_bases defaults to ["src"]
+    - module_bases defaults to ["src", "lib", "packages"]
     - Should auto-detect mypkg as package and set includes to src/mypkg/
     - Build should succeed
     """
@@ -94,7 +94,7 @@ def test_zero_config_auto_detect_single_file_module_no_package_setting(
     - NO pyproject.toml
     - NO CLI arguments
     - src/mymodule.py exists (single-file module)
-    - module_bases defaults to ["src"]
+    - module_bases defaults to ["src", "lib", "packages"]
     - Should auto-detect mymodule as package and set includes to src/mymodule.py
     - Build should succeed
     """

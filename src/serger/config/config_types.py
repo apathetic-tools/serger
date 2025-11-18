@@ -194,7 +194,7 @@ class RootConfig(TypedDict, total=False):
     docstring_mode: DocstringMode
     # Module bases: ordered list of directories where packages can be found
     # - str: Single directory (convenience, converted to list[str] on resolve)
-    # - list[str]: Ordered list of directories (default: ["src"])
+    # - list[str]: Ordered list of directories (default: ["src", "lib", "packages"])
     module_bases: str | list[str]
     # Main function configuration
     # - "none": Don't generate __main__ block

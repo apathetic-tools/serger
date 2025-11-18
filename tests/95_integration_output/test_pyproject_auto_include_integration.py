@@ -25,7 +25,7 @@ def test_pyproject_auto_include_single_file_module_in_module_bases(
     - No config file
     - No CLI includes/arguments
     - src/mymodule.py exists (single-file module)
-    - module_bases defaults to ["src"]
+    - module_bases defaults to ["src", "lib", "packages"]
     - Auto-include should set includes to src/mymodule.py
     - Build should succeed
     """
@@ -104,7 +104,7 @@ def test_pyproject_auto_include_package_in_module_bases(
     - No CLI includes/arguments
     - src/mypkg/ exists (package directory, no __init__.py needed)
     - src/mypkg/module.py exists
-    - module_bases defaults to ["src"]
+    - module_bases defaults to ["src", "lib", "packages"]
     - Auto-include should set includes to src/mypkg
     - Build should succeed
     """
@@ -184,7 +184,7 @@ def test_pyproject_auto_include_configless_single_file_module(
     - NO config file (truly configless)
     - No CLI includes/arguments
     - src/mymodule.py exists (single-file module)
-    - module_bases defaults to ["src"]
+    - module_bases defaults to ["src", "lib", "packages"]
     - Auto-include should set includes to src/mymodule.py
     - Package should come from pyproject.toml
     - Build should succeed with all required information

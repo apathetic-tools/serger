@@ -63,7 +63,11 @@ DEFAULT_MODULE_MODE: str = "multi"  # Generate shims for all detected packages
 DEFAULT_SHIM: str = "all"  # Generate shims for all modules (default shim setting)
 DEFAULT_COMMENTS_MODE: str = "keep"  # Keep all comments (default comments mode)
 DEFAULT_DOCSTRING_MODE: str = "keep"  # Keep all docstrings (default docstring mode)
-DEFAULT_MODULE_BASES: list[str] = ["src"]  # Default directories to search for packages
+DEFAULT_MODULE_BASES: list[str] = [
+    "src",
+    "lib",
+    "packages",
+]  # Default directories to search for packages
 DEFAULT_MAIN_MODE: str = "auto"  # Automatically detect and generate __main__ block
 DEFAULT_MAIN_NAME: str | None = None  # Auto-detect main function (default)
 DEFAULT_DISABLE_BUILD_TIMESTAMP: bool = False  # Use real timestamps by default

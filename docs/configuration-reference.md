@@ -841,7 +841,7 @@ The `module_bases` setting specifies an ordered list of directories where Serger
 ### Configuration
 
 - **Type**: `str | list[str]`
-- **Default**: `["src"]`
+- **Default**: `["src", "lib", "packages"]`
 - **Can be set at**: Root level (cascades to all builds) or per-build (overrides root)
 
 ### Examples
@@ -869,7 +869,7 @@ The `module_bases` setting specifies an ordered list of directories where Serger
       "module_bases": ["src", "lib"]  // Overrides root-level setting
     }
   ],
-  "module_bases": ["src"]  // Default for all builds
+  "module_bases": ["src", "lib", "packages"]  // Default for all builds
 }
 ```
 
