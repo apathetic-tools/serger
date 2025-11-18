@@ -59,9 +59,6 @@ Exploring bundling options for generating the single-file release:
 - now that we have a module_base, we can probably "Follow the imports" and add includes as we find them, they only need to give us the first include
 - improve output so we are "quieter" when the user told us something, but make sure to mention when we made an assumption on behalf of the user
 - security issues with pulling files above CWD? (probably not much more than if you run from ~), could warn though
-- if we call a private function from another file (in src/ not in tests/) then it should not be private, change to public
-- if we use a parameter in a function that is set to unused prefix `_`, then we should rename it to used (no `_`)
-- are we double erroring on people by logging an error then raising? we don't want to lose details, check the CLI implementation for catching raised errors and how they are displayed ot the user so we can provide the appropriate details.
 - should more of our config settings be available to be set via ENV?
 - review all details/minimal statements before v1.0
 

@@ -492,7 +492,7 @@ def _handle_early_exits(args: argparse.Namespace) -> int | None:
 
     # --- Python version check ---
     if get_sys_version_info() < (3, 10):
-        logger.error("%s requires Python 3.10 or newer.", {PROGRAM_DISPLAY})
+        logger.error("%s requires Python 3.10 or newer.", PROGRAM_DISPLAY)
         return 1
 
     # --- Self-test mode ---
