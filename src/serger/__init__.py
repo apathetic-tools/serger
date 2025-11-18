@@ -34,6 +34,7 @@ from .config import (
     validate_config,
 )
 from .constants import (
+    DEFAULT_ENV_DISABLE_BUILD_TIMESTAMP,
     DEFAULT_ENV_LOG_LEVEL,
     DEFAULT_ENV_RESPECT_GITIGNORE,
     DEFAULT_ENV_WATCH_INTERVAL,
@@ -83,6 +84,7 @@ __all__ = [  # noqa: RUF022
     "RootConfigResolved",
     "validate_config",
     # constants
+    "DEFAULT_ENV_DISABLE_BUILD_TIMESTAMP",
     "DEFAULT_ENV_LOG_LEVEL",
     "DEFAULT_ENV_RESPECT_GITIGNORE",
     "DEFAULT_ENV_WATCH_INTERVAL",

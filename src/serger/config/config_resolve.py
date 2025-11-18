@@ -14,6 +14,8 @@ from serger.constants import (
     DEFAULT_COMMENTS_MODE,
     DEFAULT_DISABLE_BUILD_TIMESTAMP,
     DEFAULT_DOCSTRING_MODE,
+    DEFAULT_ENV_DISABLE_BUILD_TIMESTAMP,
+    DEFAULT_ENV_RESPECT_GITIGNORE,
     DEFAULT_ENV_WATCH_INTERVAL,
     DEFAULT_EXTERNAL_IMPORTS,
     DEFAULT_INTERNAL_IMPORTS,
@@ -31,6 +33,7 @@ from serger.constants import (
     DEFAULT_WATCH_INTERVAL,
 )
 from serger.logs import get_app_logger
+from serger.meta import PROGRAM_ENV
 from serger.module_actions import extract_module_name_from_source_path
 from serger.utils import make_includeresolved, make_pathresolved
 from serger.utils.utils_validation import validate_required_keys
@@ -1981,14 +1984,23 @@ def _resolve_excludes(
     # Determine whether to respect .gitignore
     if getattr(args, "respect_gitignore", None) is not None:
         respect_gitignore = args.respect_gitignore
-    elif "respect_gitignore" in resolved_cfg:
-        respect_gitignore = resolved_cfg["respect_gitignore"]
     else:
-        # fallback — true by default, overridden by root config if needed
-        respect_gitignore = (root_cfg or {}).get(
-            "respect_gitignore",
-            DEFAULT_RESPECT_GITIGNORE,
-        )
+        # Check ENV (SERGER_RESPECT_GITIGNORE or RESPECT_GITIGNORE)
+        env_respect = os.getenv(
+            f"{PROGRAM_ENV}_{DEFAULT_ENV_RESPECT_GITIGNORE}"
+        ) or os.getenv(DEFAULT_ENV_RESPECT_GITIGNORE)
+        if env_respect is not None:
+            # Parse boolean from string (accept "true", "1", "yes", etc.)
+            env_respect_lower = env_respect.lower()
+            respect_gitignore = env_respect_lower in ("true", "1", "yes", "on")
+        elif "respect_gitignore" in resolved_cfg:
+            respect_gitignore = resolved_cfg["respect_gitignore"]
+        else:
+            # fallback — true by default, overridden by root config if needed
+            respect_gitignore = (root_cfg or {}).get(
+                "respect_gitignore",
+                DEFAULT_RESPECT_GITIGNORE,
+            )
 
     if respect_gitignore:
         gitignore_path = config_dir / ".gitignore"
@@ -2226,8 +2238,22 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     if getattr(args, "disable_build_timestamp", None):
         # CLI argument takes precedence
         resolved_cfg["disable_build_timestamp"] = True
-    elif "disable_build_timestamp" not in resolved_cfg:
-        resolved_cfg["disable_build_timestamp"] = DEFAULT_DISABLE_BUILD_TIMESTAMP
+    else:
+        # Check ENV (SERGER_DISABLE_BUILD_TIMESTAMP or DISABLE_BUILD_TIMESTAMP)
+        env_disable = os.getenv(
+            f"{PROGRAM_ENV}_{DEFAULT_ENV_DISABLE_BUILD_TIMESTAMP}"
+        ) or os.getenv(DEFAULT_ENV_DISABLE_BUILD_TIMESTAMP)
+        if env_disable is not None:
+            # Parse boolean from string (accept "true", "1", "yes", etc.)
+            env_disable_lower = env_disable.lower()
+            resolved_cfg["disable_build_timestamp"] = env_disable_lower in (
+                "true",
+                "1",
+                "yes",
+                "on",
+            )
+        elif "disable_build_timestamp" not in resolved_cfg:
+            resolved_cfg["disable_build_timestamp"] = DEFAULT_DISABLE_BUILD_TIMESTAMP
 
     # ------------------------------
     # Post-processing
