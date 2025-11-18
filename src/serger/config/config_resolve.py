@@ -112,6 +112,210 @@ def _extract_authors_from_project(project: dict[str, Any]) -> str:
     return authors_text
 
 
+def _resolve_single_license_pattern(
+    pattern_str: str,
+    base_dir: Path,
+) -> list[Path]:
+    """Resolve a single license pattern to list of file paths.
+
+    Args:
+        pattern_str: Single file/glob pattern
+        base_dir: Base directory for resolving relative paths and globs
+
+    Returns:
+        List of resolved file paths (empty if no matches)
+    """
+    logger = get_app_logger()
+    if Path(pattern_str).is_absolute():
+        # Absolute path - use as-is but resolve
+        pattern_path = Path(pattern_str).resolve()
+        if pattern_path.is_file():
+            return [pattern_path]
+        if pattern_path.is_dir():
+            # Directory - skip (only files)
+            logger.warning(
+                "License pattern %r resolved to directory, skipping",
+                pattern_str,
+            )
+        return []
+    if has_glob_chars(pattern_str):
+        # Glob pattern - resolve relative to base_dir
+        all_matches = list(base_dir.glob(pattern_str))
+        return [p.resolve() for p in all_matches if p.is_file()]
+    # Literal file path - resolve relative to base_dir
+    file_path = (base_dir / pattern_str).resolve()
+    if file_path.exists() and file_path.is_file():
+        return [file_path]
+    return []
+
+
+def _check_duplicate_license_files(
+    pattern_to_files: dict[str, list[Path]],
+) -> None:
+    """Check for and log duplicate license files matched by multiple patterns.
+
+    Args:
+        pattern_to_files: Mapping of patterns to their matched files
+    """
+    logger = get_app_logger()
+    # Build reverse mapping: file -> patterns that matched it
+    file_to_patterns: dict[Path, list[str]] = {}
+    for pattern_str, files in pattern_to_files.items():
+        for file_path in files:
+            if file_path not in file_to_patterns:
+                file_to_patterns[file_path] = []
+            file_to_patterns[file_path].append(pattern_str)
+
+    # Find duplicates
+    duplicates = {
+        file_path: pattern_list
+        for file_path, pattern_list in file_to_patterns.items()
+        if len(pattern_list) > 1
+    }
+    if duplicates:
+        for file_path, pattern_list in sorted(duplicates.items()):
+            logger.warning(
+                "License file %s matched by multiple patterns: %s. Using file once.",
+                file_path,
+                ", ".join(sorted(pattern_list)),
+            )
+
+
+def _read_license_files(matched_files: set[Path]) -> list[str]:
+    """Read contents of all matched license files.
+
+    Args:
+        matched_files: Set of file paths to read
+
+    Returns:
+        List of file contents (empty strings for failed reads)
+    """
+    logger = get_app_logger()
+    text_parts: list[str] = []
+    for file_path in sorted(matched_files):
+        try:
+            content = file_path.read_text(encoding="utf-8")
+            text_parts.append(content)
+        except (OSError, UnicodeDecodeError) as e:  # noqa: PERF203
+            # PERF203: try/except in loop is intentional - we need to handle
+            # errors per file and continue processing other files
+            logger.warning(
+                "Failed to read license file %s: %s. Skipping file.",
+                file_path,
+                e,
+            )
+    return text_parts
+
+
+def _handle_missing_license_patterns(
+    patterns: list[str],
+    pattern_to_files: dict[str, list[Path]],
+    base_dir: Path,
+) -> list[str]:
+    """Handle missing license patterns and return warning messages.
+
+    Args:
+        patterns: Original list of patterns
+        pattern_to_files: Mapping of patterns to their matched files
+        base_dir: Base directory for logging
+
+    Returns:
+        List of warning messages for missing patterns
+    """
+    logger = get_app_logger()
+    missing_patterns = [
+        pattern_str
+        for pattern_str in patterns
+        if pattern_str not in pattern_to_files or not pattern_to_files[pattern_str]
+    ]
+
+    if not missing_patterns:
+        return []
+
+    warning_messages: list[str] = []
+    for pattern_str in sorted(missing_patterns):
+        logger.warning(
+            "License file/pattern not found: %s (resolved from %s)",
+            pattern_str,
+            base_dir,
+        )
+        warning_messages.append(
+            f"See {pattern_str} if distributed alongside this file "
+            "for additional terms."
+        )
+    return warning_messages
+
+
+def _resolve_license_file_or_pattern(
+    pattern: str | list[str],
+    base_dir: Path,
+) -> str:
+    """Resolve license file(s) or glob pattern(s) to combined text.
+
+    Resolves glob patterns to actual files (only files, not directories),
+    deduplicates if same file matched multiple times, follows symlinks,
+    and reads file contents (UTF-8 encoding).
+
+    Args:
+        pattern: Single file/glob pattern or list of file/glob patterns
+        base_dir: Base directory for resolving relative paths and globs
+
+    Returns:
+        Combined text from all matched files, or warning message for missing
+        files/patterns
+    """
+    patterns: list[str] = [pattern] if isinstance(pattern, str) else pattern
+
+    if not patterns:
+        return ""
+
+    # Collect all matched files (deduplicated)
+    matched_files: set[Path] = set()
+    pattern_to_files: dict[str, list[Path]] = {}
+
+    for pattern_str in patterns:
+        files = _resolve_single_license_pattern(pattern_str, base_dir)
+        matched_files.update(files)
+        pattern_to_files[pattern_str] = files
+
+    # Check for duplicates
+    _check_duplicate_license_files(pattern_to_files)
+
+    # Read all matched files
+    text_parts = _read_license_files(matched_files)
+
+    # Handle missing patterns/files
+    warning_messages = _handle_missing_license_patterns(
+        patterns, pattern_to_files, base_dir
+    )
+    text_parts.extend(warning_messages)
+
+    return "\n\n".join(text_parts) if text_parts else ""
+
+
+def _resolve_license_files_patterns(  # pyright: ignore[reportUnusedFunction]
+    patterns: list[str],
+    base_dir: Path,
+) -> str:
+    """Resolve list of license file glob patterns to combined text.
+
+    Resolves glob patterns to actual files (only files, not directories),
+    deduplicates if same file matched multiple times, follows symlinks,
+    and reads file contents (UTF-8 encoding).
+
+    Args:
+        patterns: List of glob patterns for license files
+        base_dir: Base directory for resolving relative paths and globs
+
+    Returns:
+        Combined text from all matched files (to be appended to license text)
+
+    Note: This function will be used in Phase 3 and Phase 4 of license
+    support implementation.
+    """
+    return _resolve_license_file_or_pattern(patterns, base_dir)
+
+
 def extract_pyproject_metadata(
     pyproject_path: Path, *, required: bool = False
 ) -> PyprojectMetadata | None:
