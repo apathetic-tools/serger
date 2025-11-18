@@ -659,6 +659,23 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
         xmsg = "No files remaining after exclusions"
         raise ValueError(xmsg)
 
+    # Warn about files outside project directory
+    cwd = Path.cwd().resolve()
+    config_root_resolved = Path(config_root).resolve()
+    for file_path in final_files:
+        file_path_resolved = file_path.resolve()
+        # Check if file is outside both config_root and CWD
+        is_outside_config = not file_path_resolved.is_relative_to(config_root_resolved)
+        is_outside_cwd = not file_path_resolved.is_relative_to(cwd)
+        if is_outside_config and is_outside_cwd:
+            logger.warning(
+                "Including file outside project directory: %s "
+                "(config root: %s, CWD: %s)",
+                file_path_resolved,
+                config_root_resolved,
+                cwd,
+            )
+
     # Compute package root for module name derivation (needed for auto-discovery)
     package_root = find_package_root(final_files)
 

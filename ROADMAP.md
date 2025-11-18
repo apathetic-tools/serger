@@ -58,8 +58,6 @@ Exploring bundling options for generating the single-file release:
 - might be able to optimize/cache package detection based on previous includes
 - now that we have a module_base, we can probably "Follow the imports" and add includes as we find them, they only need to give us the first include
 - improve output so we are "quieter" when the user told us something, but make sure to mention when we made an assumption on behalf of the user
-- security issues with pulling files above CWD? (probably not much more than if you run from ~), could warn though
-- should more of our config settings be available to be set via ENV?
 - review all details/minimal statements before v1.0
 
 

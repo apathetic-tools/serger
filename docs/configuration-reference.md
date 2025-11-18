@@ -131,6 +131,37 @@ Patterns use glob syntax and are resolved relative to the project root:
 - `**/__init__.py` — All `__init__.py` files anywhere
 - `tests/**` — Everything in the `tests` directory
 
+### Path Resolution
+
+Serger supports flexible path resolution for include patterns, exclude patterns, and file paths:
+
+**Absolute paths:**
+- Absolute paths are fully supported (e.g., `/home/user/project/src/mypkg/**/*.py`)
+- When an absolute path is specified, it is treated as its own root directory
+- Useful for referencing files outside the project directory or in multi-project setups
+
+**Relative paths:**
+- Relative paths can reference files above the current working directory (CWD)
+- Paths like `../parent/file.py` or `../../sibling/file.py` are valid
+- Relative paths are resolved relative to the config file's directory (config root)
+- Useful for multi-project roots or convenience when running from subdirectories
+
+**Config file discovery:**
+- Serger searches for config files by walking up the directory tree from CWD
+- The search continues until a config file is found or the filesystem root is reached
+- This allows placing config files at project roots even when running from subdirectories
+
+**Security considerations:**
+- Serger only includes Python files (`.py` extension) - other file types are automatically filtered
+- A warning is displayed when files are included from outside both the config root and CWD
+- This helps identify potentially unintended file inclusions while preserving flexibility for legitimate use cases
+- Users should review their configuration files before running builds, especially when using untrusted configs
+
+**Example use cases:**
+- Multi-project setups: Include files from sibling projects using `../other-project/src/**/*.py`
+- Convenience: Run Serger from a subdirectory while referencing files relative to the project root
+- Shared utilities: Reference common utilities in a parent directory structure
+
 ## Stitch Modes
 
 Serger supports different modes for combining multiple Python modules into a single file. Each mode has different characteristics and use cases:
