@@ -102,6 +102,8 @@ Simulate build actions without writing files.
 python3 serger.py --dry-run
 ```
 
+Note: `--dry-run` and `--validate-config` are mutually exclusive. You cannot use both flags together.
+
 #### `--validate-config`
 
 Validate configuration file and resolved settings without executing a build. Validates config syntax, file collection, and path resolution (includes CLI arguments and environment variables).
@@ -116,7 +118,7 @@ This command is useful for:
 - Validating that paths resolve correctly
 - Testing configuration with CLI arguments and environment variables
 
-Note: This performs lighter validation than `--dry-run`, which also simulates the full stitching process. `--validate-config` exits after file collection but before module stitching.
+Note: This performs lighter validation than `--dry-run`, which also simulates the full stitching process. `--validate-config` exits after file collection but before module stitching. `--validate-config` and `--dry-run` are mutually exclusive—you cannot use both flags together.
 
 #### `--watch [SECONDS]`
 
