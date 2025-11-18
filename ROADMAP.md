@@ -33,8 +33,7 @@ Planned command-line flags for future releases:
 - how do we store the intermitent module trees? the "source" and "shim" trees? do we map tree back to the original file module where we can find it?
 - stitch mode that prefixes symbols with the package name to keep it flat and avoid collisions. (would need to set up unprefixed import vars before every module)
 - interactive mode to solve problems as they come up and make a config
-- we need a way to specify --details, opposite of --quiet, for more INFO messages or less. (maybe a DETAILS and MINIMAL levels above and bellow INFO)
-- add a rename action that only lets you rename the last node?
+
 
 
 ## 🧩 Joiner Scripts (Build System)
@@ -53,9 +52,7 @@ Exploring bundling options for generating the single-file release:
 - implement stich mode: exec (see [docs/example_isolated_stiching.md](docs/example_isolated_stiching.md))
 - implement stich mode: class (requires working assign import mode)
 - if we moved the sys.modules shims as we went, would that allow us to do imports as long as the order was correct?
-- might be able to optimize/cache package detection based on previous includes
 - now that we have a module_base, we can probably "Follow the imports" and add includes as we find them, they only need to give us the first include
-- improve output so we are "quieter" when the user told us something, but make sure to mention when we made an assumption on behalf of the user
 - review all details/minimal statements before v1.0
 
 
@@ -72,16 +69,10 @@ Exploring bundling options for generating the single-file release:
 - API docs
 - review all docs before v1.0
 
-## AI tooling
-- command to do common tasks based on reddit advice for dealing with AI.
-- split out the sync ai command to a separate package, could include standard rules
 
 ## 💡 Ideas & Experiments
 Potential quality-of-life features:
 
-- split out and depend on (dev-only) a make_script CLI
-- split out and depend on (dev-only) a list-project CLI
-- split out and depend on (dev-only) a pytest multi-target plugin
 - publish to PyPI, NPM, PACKAGIST, others?
 
 ## Other Tool Ideas
@@ -93,6 +84,24 @@ Potential quality-of-life features:
 ### Type Ignore Comments
 - How can we report what we comment tool ignore (e.g. #noqa:), in src and in tests?
 - Evaluate ignores and determine if we can fix them instead of ignore them
+
+### Logging Library
+- we need a way to specify --details, opposite of --quiet, for more INFO messages or less. (maybe a DETAILS and MINIMAL levels above and bellow INFO)
+- improve output so we are "quieter" when the user told us something, but make sure to mention when we made an assumption on behalf of the user
+
+### list-project
+- split out and depend on (dev-only) a list-project CLI
+
+### Utils
+
+
+### AI sync
+- command to do common tasks based on reddit advice for dealing with AI.
+- split out the sync ai command to a separate package, could include standard rules
+
+### Tests
+- split out and depend on (dev-only) a pytest multi-target plugin
+
 
 > See [REJECTED.md](REJECTED.md) for experiments and ideas that were explored but intentionally not pursued.
 
