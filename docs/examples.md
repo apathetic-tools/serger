@@ -256,6 +256,99 @@ if __name__ == "__main__":
 
 This generates a single-file script with a header containing metadata.
 
+## License Configuration Examples
+
+Serger supports multiple license formats. Here are examples of different ways to specify licenses:
+
+### Simple String License
+
+```jsonc
+{
+  "package": "mypkg",
+  "license": "MIT"
+}
+```
+
+### License from File
+
+```jsonc
+{
+  "package": "mypkg",
+  "license": {
+    "file": "LICENSE"
+  }
+}
+```
+
+### License with Expression
+
+```jsonc
+{
+  "package": "mypkg",
+  "license": {
+    "expression": "MIT OR Apache-2.0"
+  }
+}
+```
+
+### License with Text Content
+
+```jsonc
+{
+  "package": "mypkg",
+  "license": {
+    "text": "MIT License\n\nCopyright (c) 2024 My Name"
+  }
+}
+```
+
+### License with Multiple Files
+
+```jsonc
+{
+  "package": "mypkg",
+  "license": {
+    "file": ["LICENSE", "NOTICE"]
+  }
+}
+```
+
+### License with Glob Patterns
+
+```jsonc
+{
+  "package": "mypkg",
+  "license": {
+    "file": "licenses/*.txt"
+  }
+}
+```
+
+### License with Additional Files
+
+```jsonc
+{
+  "package": "mypkg",
+  "license": "MIT",
+  "license_files": ["THIRD_PARTY_LICENSES.txt"]
+}
+```
+
+### Complex License Configuration
+
+```jsonc
+{
+  "package": "mypkg",
+  "license": {
+    "text": "MIT License",
+    "file": "LICENSE"
+  },
+  "license_files": ["NOTICE", "licenses/**/*.txt"]
+}
+```
+
+**Note**: In dict format, priority is `text` > `expression` > `file`. Only one key is used based on priority.
+
 ## Tips and Best Practices
 
 1. **Use JSONC for readability**: Comments make configs easier to understand

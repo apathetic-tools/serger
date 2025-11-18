@@ -894,6 +894,258 @@ Serger logs where the package name was determined from, for example:
 
 You can always override the auto-detected package by explicitly setting `package` in your config.
 
+## License Configuration
+
+Serger supports flexible license configuration with multiple formats and automatic fallback behavior. The `license` field can be specified as a string or a dictionary, and additional license files can be included via the `license_files` field.
+
+### Configuration Options
+
+| Option | Type | Required | Default | Description |
+|--------|------|----------|---------|-------------|
+| `license` | `str \| dict` | No† | - | License text or configuration. See formats below. |
+| `license_files` | `list[str]` | No | - | Additional license files (glob patterns). Content is appended to `license` field. |
+
+\† Can fallback from `pyproject.toml` metadata when enabled, or uses default fallback text.
+
+### License Field Formats
+
+The `license` field supports multiple formats:
+
+#### String Format
+
+Simple string format for plain text licenses:
+
+```jsonc
+{
+  "license": "MIT"
+}
+```
+
+```jsonc
+{
+  "license": "License: MIT-aNOAI\nFull text: https://github.com/user/repo/blob/main/LICENSE"
+}
+```
+
+#### Dict Format
+
+Dictionary format supports three keys with priority ordering:
+
+```jsonc
+{
+  "license": {
+    "text": "MIT License",
+    "expression": "MIT",
+    "file": "LICENSE"
+  }
+}
+```
+
+**Priority order**: `text` > `expression` > `file`
+
+- **`text`** (highest priority): Plain text license content. Used if present.
+- **`expression`** (second priority): License expression (e.g., SPDX identifier). Treated as plain text (no validation). Used if `text` is not present.
+- **`file`** (lowest priority): Path to license file(s). Can be a string (single file/glob) or list of strings (multiple files/globs). Glob patterns are supported. Used only if `text` and `expression` are not present.
+
+**Examples:**
+
+```jsonc
+// Using text key
+{
+  "license": {
+    "text": "MIT License\n\nCopyright (c) 2024"
+  }
+}
+
+// Using expression key
+{
+  "license": {
+    "expression": "MIT OR Apache-2.0"
+  }
+}
+
+// Using file key (single file)
+{
+  "license": {
+    "file": "LICENSE"
+  }
+}
+
+// Using file key (glob pattern)
+{
+  "license": {
+    "file": "licenses/*.txt"
+  }
+}
+
+// Using file key (multiple files)
+{
+  "license": {
+    "file": ["LICENSE", "NOTICE"]
+  }
+}
+```
+
+### License Files Field
+
+The `license_files` field allows you to specify additional license files whose content will be appended to the `license` field:
+
+```jsonc
+{
+  "license": "MIT",
+  "license_files": ["LICENSE", "THIRD_PARTY_LICENSES.txt"]
+}
+```
+
+```jsonc
+{
+  "license_files": ["licenses/**/*.txt"]
+}
+```
+
+**Behavior:**
+- Glob patterns are supported
+- Files are read and their content is appended to the `license` field
+- Processing order: `license` field is processed first, then `license_files` are appended
+- Missing files: A warning is logged and a message is appended: "See <filename> if distributed alongside this file for additional terms"
+- Duplicate files: If the same file is matched multiple times (e.g., via different glob patterns), it is deduplicated with a warning
+
+### Processing Order
+
+License resolution follows this order:
+
+1. **Config `license` field** (if provided)
+   - Process `license` field first (string or dict)
+   - Then process `license_files` field (append to license result)
+2. **pyproject.toml `license`** (if `use_pyproject_metadata=true` or `pyproject_path` is set)
+   - Supports PEP 621 (legacy) and PEP 639 (modern) formats
+   - `license-files` field is also extracted and appended
+3. **Default fallback** (if no license found)
+   - Uses: "All rights reserved. See additional license files if distributed alongside this file for additional terms."
+
+### Pyproject.toml Integration
+
+Serger automatically extracts license information from `pyproject.toml` when `use_pyproject_metadata=true` (default) or when `pyproject_path` is set.
+
+**Supported formats:**
+
+```toml
+# PEP 621 (legacy) - string format
+[project]
+license = "MIT"
+```
+
+```toml
+# PEP 621 (legacy) - dict format
+[project]
+license = { text = "MIT License" }
+```
+
+```toml
+# PEP 639 (modern) - string format
+[project]
+license = "MIT"
+```
+
+```toml
+# PEP 639 (modern) - dict format
+[project]
+license = { expression = "MIT" }
+```
+
+```toml
+# PEP 639 (modern) - file format
+[project]
+license = { file = "LICENSE" }
+```
+
+```toml
+# PEP 639 (modern) - license-files field
+[project]
+license = { expression = "MIT" }
+license-files = ["LICENSE", "NOTICE"]
+```
+
+**Priority**: Config `license` field overrides pyproject.toml license.
+
+### Output Formatting
+
+The license text is automatically formatted in the generated script header:
+
+- **Single line** (no line breaks): Formatted as `"License: <license text>"`
+- **Multi-line** (has line breaks): Formatted as a block:
+  ```
+  # ============LICENSE============
+  # <license text line 1>
+  # <license text line 2>
+  # ...
+  # ================================
+  ```
+
+### Examples
+
+**Simple string license:**
+
+```jsonc
+{
+  "package": "mypkg",
+  "license": "MIT"
+}
+```
+
+**License from file:**
+
+```jsonc
+{
+  "package": "mypkg",
+  "license": {
+    "file": "LICENSE"
+  }
+}
+```
+
+**License with additional files:**
+
+```jsonc
+{
+  "package": "mypkg",
+  "license": "MIT",
+  "license_files": ["THIRD_PARTY_LICENSES.txt"]
+}
+```
+
+**Complex license with text and files:**
+
+```jsonc
+{
+  "package": "mypkg",
+  "license": {
+    "text": "MIT License\n\nCopyright (c) 2024",
+    "file": "LICENSE"
+  },
+  "license_files": ["NOTICE", "licenses/*.txt"]
+}
+```
+
+**Using pyproject.toml (no config license):**
+
+```toml
+# pyproject.toml
+[project]
+name = "mypkg"
+license = { expression = "MIT", file = "LICENSE" }
+license-files = ["NOTICE"]
+```
+
+```jsonc
+// .serger.jsonc
+{
+  "package": "mypkg",
+  "use_pyproject_metadata": true
+  // License automatically extracted from pyproject.toml
+}
+```
+
 ## Main Configuration
 
 Serger provides automatic detection and generation of `__main__` blocks for executable scripts. The `main_mode` and `main_name` settings control how main functions are found and how `__main__` blocks are handled in the stitched output.
