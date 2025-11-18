@@ -36,7 +36,7 @@ class TestBuildFinalScriptBasic:
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        license_text = "License: MIT"
+        license_text = "MIT"
         result, _ = mod_stitch._build_final_script(
             package_name="testpkg",
             all_imports=all_imports,
@@ -47,14 +47,45 @@ class TestBuildFinalScriptBasic:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header=license_text,
+            license_text=license_text,
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
         )
 
-        assert "# === License ===" in result
-        assert f"# {license_text}" in result
+        # Single line format: "License: <text>"
+        assert "# License: MIT" in result
+
+    def test_includes_license_header_multi_line(self) -> None:
+        """Should format multi-line license as block."""
+        all_imports: OrderedDict[str, None] = OrderedDict()
+        all_imports["import sys\n"] = None
+
+        license_text = (
+            "MIT License\n\nCopyright (c) 2024 Test Author\nAll rights reserved."
+        )
+        result, _ = mod_stitch._build_final_script(
+            package_name="testpkg",
+            all_imports=all_imports,
+            parts=["# === main.py ===\nMAIN = 1\n"],
+            order_names=["main"],
+            _all_function_names=set(),
+            detected_packages={"testpkg"},
+            module_mode="multi",
+            module_actions=[],
+            shim="all",
+            license_text=license_text,
+            version="1.0.0",
+            commit="abc123",
+            build_date="2025-01-01",
+        )
+
+        # Multi-line format: ====LICENSE==== block
+        assert "# ============LICENSE============" in result
+        assert "# ================================" in result
+        assert "# MIT License" in result
+        assert "# Copyright (c) 2024 Test Author" in result
+        assert "# All rights reserved." in result
 
     def test_includes_metadata_comments(self) -> None:
         """Should include version, commit, and date comments."""
@@ -71,7 +102,7 @@ class TestBuildFinalScriptBasic:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="2.3.4",
             commit="def456",
             build_date="2025-06-15",
@@ -114,7 +145,7 @@ class TestBuildFinalScriptMetadata:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="3.2.1",
             commit="abc123",
             build_date="2025-01-01",
@@ -137,7 +168,7 @@ class TestBuildFinalScriptMetadata:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="1.0.0",
             commit="xyz789",
             build_date="2025-01-01",
@@ -160,7 +191,7 @@ class TestBuildFinalScriptMetadata:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="1.0.0",
             commit="abc123",
             build_date="2025-12-25 15:30:00 UTC",
@@ -197,7 +228,7 @@ class TestBuildFinalScriptMetadata:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
@@ -226,7 +257,7 @@ class TestBuildFinalScriptImports:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
@@ -254,7 +285,7 @@ class TestBuildFinalScriptImports:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
@@ -283,7 +314,7 @@ class TestBuildFinalScriptShims:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
@@ -309,7 +340,7 @@ class TestBuildFinalScriptShims:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
@@ -345,7 +376,7 @@ class TestBuildFinalScriptShims:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
@@ -374,7 +405,7 @@ class TestBuildFinalScriptShims:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
@@ -405,7 +436,7 @@ class TestBuildFinalScriptParts:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
@@ -437,7 +468,7 @@ class TestBuildFinalScriptParts:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
@@ -467,7 +498,7 @@ class TestBuildFinalScriptDocstring:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
@@ -491,7 +522,7 @@ class TestBuildFinalScriptDocstring:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="5.6.7",
             commit="ghijkl",
             build_date="2025-09-30",
@@ -535,7 +566,7 @@ class TestBuildFinalScriptMainShim:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
@@ -577,7 +608,7 @@ class TestBuildFinalScriptMainShim:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
@@ -619,7 +650,7 @@ class TestBuildFinalScriptMainShim:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
@@ -661,7 +692,7 @@ class TestBuildFinalScriptMainShim:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
@@ -698,7 +729,7 @@ class TestBuildFinalScriptMainShim:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
@@ -735,7 +766,7 @@ class TestBuildFinalScriptMainShim:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",
@@ -780,7 +811,7 @@ class TestBuildFinalScriptMainShim:
             module_mode="multi",
             module_actions=[],
             shim="all",
-            license_header="",
+            license_text="",
             version="1.0.0",
             commit="abc123",
             build_date="2025-01-01",

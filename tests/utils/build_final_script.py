@@ -22,7 +22,7 @@ def make_build_final_script_args(  # noqa: PLR0913
     module_mode: str = "multi",
     module_actions: list[mod_config.ModuleActionFull] | None = None,
     shim: mod_config.ShimSetting = "all",
-    license_header: str = "",
+    license_text: str = "",
     version: str = "1.0.0",
     commit: str = "abc123",
     build_date: str = "2025-01-01",
@@ -47,7 +47,7 @@ def make_build_final_script_args(  # noqa: PLR0913
         module_mode: How to generate import shims (defaults to "multi")
         module_actions: List of module actions (defaults to empty list)
         shim: Shim setting (defaults to "all")
-        license_header: License header text
+        license_text: License text (will be formatted automatically)
         version: Version string
         commit: Commit hash
         build_date: Build timestamp
@@ -104,7 +104,7 @@ def make_build_final_script_args(  # noqa: PLR0913
         "module_mode": module_mode,
         "module_actions": module_actions,
         "shim": shim,
-        "license_header": license_header,
+        "license_text": license_text,
         "version": version,
         "commit": commit,
         "build_date": build_date,

@@ -3300,3 +3300,240 @@ license = "MIT"
 
     # --- validate ---
     assert resolved.get("license") == "MIT"
+
+
+def test_resolve_build_config_license_combined_with_license_files(
+    tmp_path: Path,
+) -> None:
+    """License field combined with license_files should include both."""
+    # --- setup ---
+    license_file = tmp_path / "LICENSE"
+    license_file.write_text("Main License Text")
+    additional_file = tmp_path / "NOTICE"
+    additional_file.write_text("Additional Terms")
+    raw = make_build_input(
+        include=["src/**"],
+        license="MIT",
+        license_files=["NOTICE"],
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    license_text = resolved.get("license", "")
+    assert "MIT" in license_text
+    assert "Additional Terms" in license_text
+
+
+def test_resolve_build_config_license_dict_file_list(
+    tmp_path: Path,
+) -> None:
+    """License dict with file key as list should read all files."""
+    # --- setup ---
+    file1 = tmp_path / "LICENSE1"
+    file1.write_text("License 1")
+    file2 = tmp_path / "LICENSE2"
+    file2.write_text("License 2")
+    raw = make_build_input(
+        include=["src/**"], license={"file": ["LICENSE1", "LICENSE2"]}
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    license_text = resolved.get("license", "")
+    assert "License 1" in license_text
+    assert "License 2" in license_text
+
+
+def test_resolve_build_config_license_dict_file_glob_pattern(
+    tmp_path: Path,
+) -> None:
+    """License dict with file key as glob pattern should match files."""
+    # --- setup ---
+    (tmp_path / "licenses").mkdir()
+    file1 = tmp_path / "licenses" / "LICENSE.txt"
+    file1.write_text("License Text")
+    file2 = tmp_path / "licenses" / "LICENSE.md"
+    file2.write_text("License Markdown")
+    raw = make_build_input(include=["src/**"], license={"file": "licenses/LICENSE.*"})
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    license_text = resolved.get("license", "")
+    assert "License Text" in license_text
+    assert "License Markdown" in license_text
+
+
+def test_resolve_build_config_license_pyproject_combined_with_license_files(
+    tmp_path: Path,
+) -> None:
+    """Pyproject license combined with license-files should include both."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+license = "MIT"
+license-files = ["NOTICE.txt"]
+"""
+    )
+    notice_file = tmp_path / "NOTICE.txt"
+    notice_file.write_text("Additional Terms")
+    raw = make_build_input(include=["src/**"], use_pyproject_metadata=True)
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    license_text = resolved.get("license", "")
+    assert "MIT" in license_text
+    assert "Additional Terms" in license_text
+
+
+def test_resolve_build_config_license_pyproject_dict_file_combined_with_license_files(
+    tmp_path: Path,
+) -> None:
+    """Pyproject license dict with file combined with license-files."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+license = { file = "LICENSE.txt" }
+license-files = ["NOTICE.txt"]
+"""
+    )
+    license_file = tmp_path / "LICENSE.txt"
+    license_file.write_text("Main License")
+    notice_file = tmp_path / "NOTICE.txt"
+    notice_file.write_text("Additional Terms")
+    raw = make_build_input(include=["src/**"], use_pyproject_metadata=True)
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    license_text = resolved.get("license", "")
+    assert "Main License" in license_text
+    assert "Additional Terms" in license_text
+
+
+def test_resolve_build_config_license_pyproject_glob_pattern(
+    tmp_path: Path,
+) -> None:
+    """Pyproject license with glob pattern should match multiple files."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+license = { file = "licenses/LICENSE.*" }
+"""
+    )
+    (tmp_path / "licenses").mkdir()
+    file1 = tmp_path / "licenses" / "LICENSE.txt"
+    file1.write_text("License Text")
+    file2 = tmp_path / "licenses" / "LICENSE.md"
+    file2.write_text("License Markdown")
+    raw = make_build_input(include=["src/**"], use_pyproject_metadata=True)
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    license_text = resolved.get("license", "")
+    assert "License Text" in license_text
+    assert "License Markdown" in license_text
+
+
+def test_resolve_build_config_license_pyproject_license_files_glob_pattern(
+    tmp_path: Path,
+) -> None:
+    """Pyproject license-files with glob pattern should match files."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+license = "MIT"
+license-files = ["licenses/*"]
+"""
+    )
+    (tmp_path / "licenses").mkdir()
+    file1 = tmp_path / "licenses" / "NOTICE.txt"
+    file1.write_text("Notice")
+    file2 = tmp_path / "licenses" / "TERMS.txt"
+    file2.write_text("Terms")
+    raw = make_build_input(include=["src/**"], use_pyproject_metadata=True)
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    license_text = resolved.get("license", "")
+    assert "MIT" in license_text
+    assert "Notice" in license_text
+    assert "Terms" in license_text
+
+
+def test_resolve_build_config_license_use_pyproject_metadata_false(
+    tmp_path: Path,
+) -> None:
+    """License from pyproject should NOT be used when use_pyproject_metadata=False."""
+    # --- setup ---
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+license = "MIT"
+"""
+    )
+    raw = make_build_input(include=["src/**"], use_pyproject_metadata=False)
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # License should use fallback, not pyproject license
+    license_text = resolved.get("license", "")
+    assert license_text != "MIT"
+    assert "All rights reserved" in license_text
+
+
+def test_resolve_build_config_license_pyproject_path_enables_license(
+    tmp_path: Path,
+) -> None:
+    """Setting pyproject_path should enable license extraction.
+
+    This should work even without explicit use_pyproject_metadata.
+    """
+    # --- setup ---
+    pyproject = tmp_path / "custom.toml"
+    pyproject.write_text(
+        """[project]
+name = "test-package"
+license = "MIT"
+"""
+    )
+    raw = make_build_input(include=["src/**"], pyproject_path="custom.toml")
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # pyproject_path should enable license extraction
+    assert resolved.get("license") == "MIT"

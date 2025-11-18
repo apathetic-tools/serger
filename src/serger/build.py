@@ -754,7 +754,7 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
             package_root=package_root,
             file_to_include=file_to_include,
             out_path=out_path,
-            license_header=license_text,
+            license_text=license_text,
             version=version,
             commit=commit,
             build_date=build_date,

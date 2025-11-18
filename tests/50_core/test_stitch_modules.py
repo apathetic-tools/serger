@@ -1176,7 +1176,7 @@ class TestStitchModulesMetadata:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
-                license_header="License: MIT",
+                license_text="MIT",
                 version="2.1.3",
                 commit="def456",
                 build_date="2025-06-15 10:30:00 UTC",
@@ -1184,8 +1184,7 @@ class TestStitchModulesMetadata:
             )
 
             content = out_path.read_text()
-            # Header comments
-            assert "# === License ===" in content
+            # Header comments - single line format
             assert "# License: MIT" in content
             assert "# Version: 2.1.3" in content
             assert "# Commit: def456" in content
@@ -1227,7 +1226,7 @@ class TestStitchModulesMetadata:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
-                license_header=license_content,
+                license_text=license_content,
                 version="1.0.0",
                 commit="abc123",
                 build_date="2024-01-01 00:00:00 UTC",
@@ -1235,8 +1234,9 @@ class TestStitchModulesMetadata:
             )
 
             content = out_path.read_text()
-            # Check for license marker
-            assert "# === License ===" in content
+            # Check for multi-line license block format
+            assert "# ============LICENSE============" in content
+            assert "# ================================" in content
             # Check that license content is included as comments
             assert "# MIT License" in content
             assert "# Copyright (c) 2024 Test Author" in content
@@ -1263,7 +1263,7 @@ class TestStitchModulesMetadata:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
-                license_header="",
+                license_text="",
                 is_serger_build=is_serger_build_for_test(out_path),
             )
 
@@ -1603,7 +1603,7 @@ class TestStitchModulesDisplayConfig:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
-                license_header="# License: MIT\n",
+                license_text="MIT",
                 is_serger_build=is_serger_build_for_test(out_path),
             )
 

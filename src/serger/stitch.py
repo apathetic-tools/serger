@@ -2151,6 +2151,42 @@ def _format_header_line(
     return f"{package_name}"
 
 
+def _format_license(license_text: str) -> str:
+    """Format license text for inclusion in generated script.
+
+    Rules:
+    - Single line (no linebreaks): Format as "License: <license text>"
+    - Multi-line (has linebreaks): Use block format with ====LICENSE==== header
+
+    Args:
+        license_text: License text to format
+
+    Returns:
+        Formatted license text with "# " prefix on each line, or empty string
+    """
+    if not license_text:
+        return ""
+
+    stripped = license_text.strip()
+    if not stripped:
+        return ""
+
+    # Check if license text has linebreaks
+    has_linebreaks = "\n" in stripped
+
+    if has_linebreaks:
+        # Multi-line format: Use block format
+        lines = stripped.split("\n")
+        prefixed_lines = [f"# {line}" for line in lines]
+        return (
+            "# ============LICENSE============\n"
+            + "\n".join(prefixed_lines)
+            + "\n# ================================\n"
+        )
+    # Single line format: "License: <license text>"
+    return f"# License: {stripped}\n"
+
+
 def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     *,
     package_name: str,
@@ -2166,7 +2202,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     _package_root: Path | None = None,
     _file_to_include: dict[Path, IncludeResolved] | None = None,
     _original_order_names_for_shims: list[str] | None = None,
-    license_header: str,
+    license_text: str,
     version: str,
     commit: str,
     build_date: str,
@@ -2199,7 +2235,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         _order_paths: Optional list of file paths (unused, kept for API consistency)
         _package_root: Optional common root (unused, kept for API consistency)
         _file_to_include: Optional mapping (unused, kept for API consistency)
-        license_header: License header text
+        license_text: License text (will be formatted automatically)
         version: Version string
         commit: Commit hash
         build_date: Build timestamp
@@ -3265,14 +3301,8 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     )
 
     # Build license/header section
-    # Prefix each line of the license header with "# " if provided
-    license_section = ""
-    if license_header:
-        # Add clear marker for license section
-        license_section = "# === License ===\n"
-        lines = license_header.strip().split("\n")
-        prefixed_lines = [f"# {line}" for line in lines]
-        license_section += "\n".join(prefixed_lines) + "\n"
+    # Format license text (single line or multi-line block format)
+    license_section = _format_license(license_text)
     repo_line = f"# Repo: {repo}\n" if repo else ""
     authors_line = f"# Authors: {authors}\n" if authors else ""
 
@@ -3394,7 +3424,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
     package_root: Path,
     file_to_include: dict[Path, IncludeResolved],
     out_path: Path,
-    license_header: str = "",
+    license_text: str = "",
     version: str = "unknown",
     commit: str = "unknown",
     build_date: str = "unknown",
@@ -3425,7 +3455,8 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
         package_root: Common root of all included files
         file_to_include: Mapping of file path to its include (for dest access)
         out_path: Path where final stitched script should be written
-        license_header: Optional license header text for generated script
+        license_text: Optional license text for generated script
+            (will be formatted automatically)
         version: Version string to embed in script metadata
         commit: Commit hash to embed in script metadata
         build_date: Build timestamp to embed in script metadata
@@ -3910,7 +3941,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
         _package_root=package_root,
         _file_to_include=file_to_include,
         _original_order_names_for_shims=original_order_names_for_shims,
-        license_header=license_header,
+        license_text=license_text,
         version=version,
         commit=commit,
         build_date=build_date,
