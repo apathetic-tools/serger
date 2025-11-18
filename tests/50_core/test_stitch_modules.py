@@ -1548,14 +1548,14 @@ class TestStitchModulesOutput:
         self, content: str, description: str
     ) -> None:
         """Should recognize serger builds with different quote styles and case."""
-        # Access private function through module for testing
-        _is_serger_build = mod_stitch._is_serger_build  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+        # Access function through module for testing
+        is_serger_build = mod_stitch.is_serger_build
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             test_file = tmp_path / "test.py"
             test_file.write_text(content)
-            assert _is_serger_build(test_file), f"Failed for: {description}"
+            assert is_serger_build(test_file), f"Failed for: {description}"
 
     @pytest.mark.parametrize(
         ("content", "description"),
@@ -1568,14 +1568,14 @@ class TestStitchModulesOutput:
         self, content: str, description: str
     ) -> None:
         """Should reject files that are not serger builds."""
-        # Access private function through module for testing
-        _is_serger_build = mod_stitch._is_serger_build  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+        # Access function through module for testing
+        is_serger_build = mod_stitch.is_serger_build
 
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             test_file = tmp_path / "test.py"
             test_file.write_text(content)
-            assert not _is_serger_build(test_file), f"Failed for: {description}"
+            assert not is_serger_build(test_file), f"Failed for: {description}"
 
 
 class TestStitchModulesDisplayConfig:

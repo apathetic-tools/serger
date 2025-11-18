@@ -11,10 +11,10 @@ from .config import IncludeResolved, PathResolved, RootConfigResolved
 from .constants import BUILD_TIMESTAMP_PLACEHOLDER, DEFAULT_DRY_RUN
 from .logs import get_app_logger
 from .stitch import (
-    _is_serger_build,  # pyright: ignore[reportPrivateUsage]
     compute_module_order,
     detect_packages_from_files,
     extract_commit,
+    is_serger_build,
     stitch_modules,
 )
 from .utils.utils_validation import validate_required_keys
@@ -565,8 +565,8 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
     # Safety check: Don't overwrite files that aren't serger builds
     # (fail fast before doing expensive work)
     # Compute once and pass down to avoid recomputation
-    is_serger_build = not out_path.exists() or _is_serger_build(out_path)
-    if out_path.exists() and not is_serger_build:
+    is_serger_build_result = not out_path.exists() or is_serger_build(out_path)
+    if out_path.exists() and not is_serger_build_result:
         xmsg = (
             f"Refusing to overwrite {out_path} because it does not appear "
             "to be a serger-generated build. If you want to overwrite this "
@@ -582,14 +582,14 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
 
     # Validate and normalize module_actions if present
     # (needed when module_actions are set after config resolution, e.g., in tests)
-    # Import here to avoid circular dependency and private function usage
+    # Import here to avoid circular dependency
     from serger.config.config_resolve import (  # noqa: PLC0415
-        _validate_and_normalize_module_actions,  # pyright: ignore[reportPrivateUsage]
+        validate_and_normalize_module_actions,
     )
 
     module_actions_raw = build_cfg.get("module_actions")
     if module_actions_raw:
-        module_actions = _validate_and_normalize_module_actions(
+        module_actions = validate_and_normalize_module_actions(
             module_actions_raw,
             config_dir=config_root,
         )
@@ -759,7 +759,7 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
             commit=commit,
             build_date=build_date,
             post_processing=post_processing,
-            is_serger_build=is_serger_build,
+            is_serger_build=is_serger_build_result,
         )
         logger.info("✅ Stitch completed → %s\n", out_path)
     except RuntimeError as e:

@@ -675,7 +675,7 @@ def _resolve_pyproject_path(
     return config_dir / "pyproject.toml"
 
 
-def _validate_and_normalize_module_actions(  # noqa: C901, PLR0912, PLR0915
+def validate_and_normalize_module_actions(  # noqa: C901, PLR0912, PLR0915
     module_actions: ModuleActions,
     config_dir: Path | None = None,
 ) -> list[ModuleActionFull]:
@@ -2155,7 +2155,7 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # ------------------------------
     if "module_actions" in resolved_cfg:
         # Validate and normalize to list format
-        resolved_cfg["module_actions"] = _validate_and_normalize_module_actions(
+        resolved_cfg["module_actions"] = validate_and_normalize_module_actions(
             resolved_cfg["module_actions"], config_dir=config_dir
         )
     else:

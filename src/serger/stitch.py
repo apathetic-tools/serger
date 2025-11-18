@@ -130,7 +130,7 @@ def extract_commit(root_path: Path) -> str:
 _MAX_LINES_TO_CHECK_FOR_SERGER_BUILD = 100
 
 
-def _is_serger_build(file_path: Path) -> bool:  # pyright: ignore[reportUnusedFunction]
+def is_serger_build(file_path: Path) -> bool:
     """Check if a file is a serger-generated build.
 
     Reads the first ~100 lines of the file and checks for the

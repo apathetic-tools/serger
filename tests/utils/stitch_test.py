@@ -17,4 +17,4 @@ def is_serger_build_for_test(out_path: Path) -> bool:
     """
     if not out_path.exists():
         return True  # Safe to write new files
-    return mod_stitch._is_serger_build(out_path)  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+    return mod_stitch.is_serger_build(out_path)
