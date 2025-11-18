@@ -316,6 +316,116 @@ def _resolve_license_files_patterns(  # pyright: ignore[reportUnusedFunction]
     return _resolve_license_file_or_pattern(patterns, base_dir)
 
 
+def _resolve_license_file_value(file_val: Any, base_dir: Path) -> str:
+    """Resolve license file value (str or list[str]) to text.
+
+    Args:
+        file_val: File value from license dict (str or list[str])
+        base_dir: Base directory for resolving relative paths and globs
+
+    Returns:
+        Combined text from resolved files (empty string if none found)
+    """
+    if file_val is None:
+        return ""
+
+    if isinstance(file_val, str):
+        return _resolve_license_file_or_pattern(file_val, base_dir)
+
+    if isinstance(file_val, list):
+        # Convert to list of strings
+        pattern_list: list[str] = []
+        for item in file_val:  # pyright: ignore[reportUnknownVariableType]
+            if isinstance(item, str):
+                pattern_list.append(item)
+            elif item is not None:
+                pattern_list.append(str(item))  # pyright: ignore[reportUnknownArgumentType]
+        if pattern_list:
+            return _resolve_license_file_or_pattern(pattern_list, base_dir)
+
+    return ""
+
+
+def _extract_license_from_project(license_val: Any, base_dir: Path) -> str:
+    """Extract license text from project license field.
+
+    Handles string format and dict format with file/text/expression keys.
+    Priority: text > expression > file.
+
+    Args:
+        license_val: License value from project dict (str or dict)
+        base_dir: Base directory for resolving relative paths and globs
+
+    Returns:
+        Combined license text (empty string if no license found)
+    """
+    if isinstance(license_val, str):
+        # String format: Store as-is
+        return license_val
+
+    if not isinstance(license_val, dict):
+        return ""
+
+    # Dict format: Handle text, expression, and file keys
+    # Priority: text > expression > file
+    text_parts: list[str] = []
+
+    # Check for text key (highest priority)
+    if "text" in license_val:
+        text_val = license_val.get("text")  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
+        if isinstance(text_val, str) and text_val:
+            text_parts.append(text_val)
+    # Check for expression key (alias for text, second priority)
+    elif "expression" in license_val:
+        expr_val = license_val.get("expression")  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
+        if isinstance(expr_val, str) and expr_val:
+            text_parts.append(expr_val)
+
+    # Check for file key (lowest priority, only if text/expression not present)
+    if not text_parts and "file" in license_val:
+        file_val = license_val.get("file")  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
+        resolved_text = _resolve_license_file_value(file_val, base_dir)
+        if resolved_text:
+            text_parts.append(resolved_text)
+
+    # Combine all text parts
+    if text_parts:
+        return "\n\n".join(text_parts)
+
+    return ""
+
+
+def _extract_license_files_from_project(
+    license_files_val: Any,
+) -> list[str] | None:
+    """Extract license-files field from project dict.
+
+    Args:
+        license_files_val: License-files value from project dict
+
+    Returns:
+        List of license file patterns, or None if not present
+    """
+    if license_files_val is None:
+        return None
+
+    if isinstance(license_files_val, list):
+        # Convert to list of strings
+        license_files: list[str] = []
+        for item in license_files_val:  # pyright: ignore[reportUnknownVariableType]
+            if isinstance(item, str):
+                license_files.append(item)
+            elif item is not None:
+                license_files.append(str(item))  # pyright: ignore[reportUnknownArgumentType]
+        return license_files if license_files else None
+
+    if isinstance(license_files_val, str):
+        # Single string pattern
+        return [license_files_val]
+
+    return None
+
+
 def extract_pyproject_metadata(
     pyproject_path: Path, *, required: bool = False
 ) -> PyprojectMetadata | None:
@@ -355,37 +465,13 @@ def extract_pyproject_metadata(
     version = project.get("version", "")
     description = project.get("description", "")
 
-    # Handle license (can be string or dict with "file" key)
-    license_text = ""
+    # Handle license (can be string or dict with file/text/expression keys)
     license_val = project.get("license")
-    if isinstance(license_val, str):
-        license_text = license_val
-    elif isinstance(license_val, dict) and "file" in license_val:
-        file_val = license_val.get("file")  # pyright: ignore[reportUnknownVariableType,reportUnknownMemberType]
-        if isinstance(file_val, str):
-            filename = file_val
-        else:
-            filename = str(file_val) if file_val is not None else "LICENSE"  # pyright: ignore[reportUnknownArgumentType]
-        # Resolve license file path relative to pyproject.toml directory
-        license_file_path = pyproject_path.parent / filename
-        if license_file_path.exists() and license_file_path.is_file():
-            try:
-                # Read license file content
-                license_content = license_file_path.read_text(encoding="utf-8")
-                license_text = license_content
-            except (OSError, UnicodeDecodeError) as e:
-                # If reading fails, fall back to message
-                logger = get_app_logger()
-                logger.warning(
-                    "Failed to read license file %s: %s. "
-                    "Falling back to file reference message.",
-                    license_file_path,
-                    e,
-                )
-                license_text = f"See {filename} if distributed alongside this script"
-        else:
-            # File doesn't exist, fall back to message
-            license_text = f"See {filename} if distributed alongside this script"
+    license_text = _extract_license_from_project(license_val, pyproject_path.parent)
+
+    # Extract license-files field (list of glob patterns)
+    license_files_val = project.get("license-files")
+    license_files = _extract_license_files_from_project(license_files_val)
 
     # Extract authors
     authors_text = _extract_authors_from_project(project)
@@ -395,6 +481,7 @@ def extract_pyproject_metadata(
         version=version if isinstance(version, str) else "",
         description=description if isinstance(description, str) else "",
         license_text=license_text,
+        license_files=license_files,
         authors=authors_text,
     )
 
