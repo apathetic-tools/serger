@@ -96,11 +96,18 @@ python3 serger.py --config custom.jsonc
 
 #### `--dry-run`
 
-Simulate build actions without writing files.
+Simulate the full pre-stitch pipeline without writing files. This command processes all pre-stitch steps including module actions, excludes, package detection, order resolution, and config preparation, then exits just before the actual stitching begins.
 
 ```bash
 python3 serger.py --dry-run
 ```
+
+Dry-run shows a comprehensive summary including:
+- Package name
+- Number of files that would be stitched (after exclusions and module actions)
+- Output path
+- Detected packages (in debug/verbose mode)
+- Order resolution method (explicit vs auto-discovered) and module count (in debug/verbose mode)
 
 Note: `--dry-run` and `--validate-config` are mutually exclusive. You cannot use both flags together.
 
@@ -118,7 +125,7 @@ This command is useful for:
 - Validating that paths resolve correctly
 - Testing configuration with CLI arguments and environment variables
 
-Note: This performs lighter validation than `--dry-run`, which also simulates the full stitching process. `--validate-config` exits after file collection but before module stitching. `--validate-config` and `--dry-run` are mutually exclusive—you cannot use both flags together.
+Note: `--validate-config` performs lighter validation than `--dry-run`. `--validate-config` exits after file collection, while `--dry-run` simulates the full pre-stitch pipeline (including module actions, excludes, package detection, and order resolution) and exits just before stitching. `--validate-config` and `--dry-run` are mutually exclusive—you cannot use both flags together.
 
 #### `--watch [SECONDS]`
 

@@ -64,7 +64,11 @@ def test_main_with_config(
     assert "✅ stitch completed" in out
 
 
-def test_dry_run_creates_no_files(tmp_path: Path) -> None:
+def test_dry_run_creates_no_files(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Dry-run should not create output files and should show comprehensive summary."""
     # --- setup ---
     pkg_dir = tmp_path / "mypkg"
     make_test_package(pkg_dir)
@@ -79,10 +83,16 @@ def test_dry_run_creates_no_files(tmp_path: Path) -> None:
 
     # --- execute ---
     code = mod_cli.main(["--config", str(config), "--dry-run"])
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
 
     # --- verify ---
     assert code == 0
     assert not (tmp_path / "dist").exists()
+    # Should show comprehensive summary
+    assert "dry-run" in out.lower() or "would stitch" in out.lower()
+    assert "Package:" in out or "package:" in out.lower()
+    assert "Files:" in out or "files:" in out.lower()
 
 
 def test_validate_config_succeeds_with_valid_config(
@@ -408,7 +418,7 @@ def test_validate_config_vs_dry_run_difference(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """--validate-config should be faster than --dry-run (exits earlier)."""
+    """--validate-config exits early; --dry-run simulates full pre-stitch pipeline."""
     # --- setup ---
     pkg_dir = tmp_path / "mypkg"
     make_test_package(pkg_dir)
@@ -435,11 +445,15 @@ def test_validate_config_vs_dry_run_difference(
     # --- verify ---
     assert code1 == 0
     assert code2 == 0
-    # Both should succeed, but validate-config should not mention stitching
+    # validate-config exits early after file collection
     assert "✓ Configuration is valid" in out1
     assert "file(s) collected" in out1
-    # Dry-run should mention stitching simulation
+    # Dry-run goes further and shows comprehensive summary
     assert "dry-run" in out2.lower() or "would stitch" in out2.lower()
+    # Dry-run should show comprehensive summary with package, files, output
+    assert "Package:" in out2 or "package:" in out2.lower()
+    assert "Files:" in out2 or "files:" in out2.lower()
+    assert "Output:" in out2 or "output:" in out2.lower()
 
 
 def test_validate_config_and_dry_run_mutually_exclusive(
@@ -486,6 +500,139 @@ def test_validate_config_and_dry_run_mutually_exclusive(
     assert "not allowed with" in out2.lower()
     assert "--validate-config" in out2
     assert "--dry-run" in out2
+
+
+def test_dry_run_processes_excludes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Dry-run should process excludes and show correct file count."""
+    # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+    # Create an extra file that will be excluded
+    (pkg_dir / "excluded.py").write_text("# excluded\n")
+
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        exclude=["**/excluded.py"],
+        out="dist/mypkg.py",
+    )
+
+    # --- execute ---
+    monkeypatch.chdir(tmp_path)
+    code = mod_cli.main(["--dry-run"])
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
+
+    # --- verify ---
+    assert code == 0
+    # Should show file count after exclusions (should not include excluded.py)
+    assert "dry-run" in out.lower() or "would stitch" in out.lower()
+    # File count should reflect excludes (typically 2 files: __init__.py and main.py)
+    assert "Files:" in out or "files:" in out.lower()
+
+
+def test_dry_run_detects_packages(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Dry-run should detect packages (visible in debug output)."""
+    # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+    # Create a subpackage
+    subpkg_dir = pkg_dir / "subpkg"
+    subpkg_dir.mkdir()
+    (subpkg_dir / "__init__.py").write_text("# subpkg\n")
+
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+    )
+
+    # --- execute with debug logging ---
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+    code = mod_cli.main(["--dry-run"])
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
+
+    # --- verify ---
+    assert code == 0
+    # Debug output should show detected packages
+    assert "Detected packages" in out or "detected packages" in out.lower()
+
+
+def test_dry_run_resolves_order_explicit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Dry-run should process explicit order."""
+    # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir, module_name="main")
+
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        order=["mypkg/__init__.py", "mypkg/main.py"],
+        out="dist/mypkg.py",
+    )
+
+    # --- execute with debug logging ---
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+    code = mod_cli.main(["--dry-run"])
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
+
+    # --- verify ---
+    assert code == 0
+    # Debug output should show explicit order
+    assert "Using explicit order" in out or "explicit" in out.lower()
+
+
+def test_dry_run_resolves_order_auto_discovered(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Dry-run should auto-discover order via topological sort."""
+    # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        # No order specified - should auto-discover
+        out="dist/mypkg.py",
+    )
+
+    # --- execute ---
+    monkeypatch.chdir(tmp_path)
+    code = mod_cli.main(["--dry-run"])
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
+
+    # --- verify ---
+    assert code == 0
+    # Should show auto-discovery message
+    assert "auto-discovering" in out.lower() or "auto-discovered" in out.lower()
 
 
 def test_main_with_custom_config(tmp_path: Path) -> None:

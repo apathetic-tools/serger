@@ -20,7 +20,6 @@ Planned command-line flags for future releases:
 - should we have parity of the CLI with the config file features?
 - `--self-update` — update serger itself
 - `--no-update-check` — skip automatic update check
-- expand dry-run to flow through more of the code
 
 
 ## ⚙️ Config File Enhancements

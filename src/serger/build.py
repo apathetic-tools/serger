@@ -558,13 +558,6 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
         logger.info("✓ Configuration is valid (%s)", " • ".join(summary_parts))
         return
 
-    if dry_run:
-        if included_files and package:
-            logger.info("🧪 (dry-run) Would stitch %s to: %s", package, out_path)
-        else:
-            logger.info("🧪 (dry-run) Would write to: %s", out_path)
-        return
-
     if not included_files:
         # No files to stitch - this is not a stitch build
         # Return early (package validation already skipped above)
@@ -776,8 +769,29 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
         disable_timestamp=disable_timestamp,
     )
 
-    # Create parent directory if needed
-    out_path.parent.mkdir(parents=True, exist_ok=True)
+    # Create parent directory if needed (skip in dry-run)
+    if not dry_run:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Dry-run exit: simulate full pre-stitch pipeline, exit before stitching
+    if dry_run:
+        # Build comprehensive summary
+        dry_run_summary_parts: list[str] = []
+        dry_run_summary_parts.append(f"Package: {package}")
+        dry_run_summary_parts.append(f"Files: {len(final_files)} module(s)")
+        dry_run_summary_parts.append(f"Output: {out_path}")
+
+        # Add detected packages (if verbose/debug)
+        if detected_packages:
+            packages_str = ", ".join(sorted(detected_packages))
+            logger.debug("Detected packages: %s", packages_str)
+
+        # Add order resolution method
+        order_method = "explicit" if order is not None else "auto-discovered"
+        logger.debug("Order: %s (%d modules)", order_method, len(order_paths))
+
+        logger.info("🧪 (dry-run) Would stitch: %s", " • ".join(dry_run_summary_parts))
+        return
 
     logger.info("🧵 Stitching %s → %s", package, out_path)
 
