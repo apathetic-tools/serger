@@ -80,6 +80,363 @@ def test_dry_run_creates_no_files(tmp_path: Path) -> None:
     assert not (tmp_path / "dist").exists()
 
 
+def test_validate_config_succeeds_with_valid_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--validate-config should succeed with valid configuration."""
+    # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+    )
+
+    # --- execute ---
+    monkeypatch.chdir(tmp_path)
+    code = mod_cli.main(["--validate-config"])
+
+    # --- verify ---
+    assert code == 0
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
+    assert "✓ Configuration is valid" in out
+    assert "file(s) collected" in out or "collected" in out
+    # Should not create output files
+    assert not (tmp_path / "dist").exists()
+
+
+def test_validate_config_fails_with_invalid_path_format(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--validate-config should fail with invalid path format."""
+    # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    # Create config with invalid output path type (should be string, not dict)
+    config_data = {
+        "package": "mypkg",
+        "include": ["mypkg/**/*.py"],
+        "out": {"invalid": "path"},  # Invalid: out should be a string, not dict
+    }
+    config.write_text(json.dumps(config_data))
+
+    # --- execute ---
+    monkeypatch.chdir(tmp_path)
+    code = mod_cli.main(["--validate-config"])
+
+    # --- verify ---
+    # Should fail during config resolution/validation
+    assert code == 1
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
+    # May fail at schema validation or our custom validation
+    assert (
+        "validation failed" in out.lower()
+        or "invalid" in out.lower()
+        or "error" in out.lower()
+    )
+
+
+def test_validate_config_with_cli_args(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--validate-config should work with CLI arguments."""
+    # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+    )
+
+    # --- execute ---
+    monkeypatch.chdir(tmp_path)
+    code = mod_cli.main(
+        ["--validate-config", "--include", "mypkg/**/*.py", "--out", "custom.py"]
+    )
+
+    # --- verify ---
+    assert code == 0
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
+    assert "✓ Configuration is valid" in out
+
+
+def test_validate_config_with_module_actions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--validate-config should validate module actions syntax."""
+    # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+        module_actions={"old_module": "new_module"},
+    )
+
+    # --- execute ---
+    monkeypatch.chdir(tmp_path)
+    code = mod_cli.main(["--validate-config"])
+
+    # --- verify ---
+    assert code == 0
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
+    assert "✓ Configuration is valid" in out
+
+
+def test_validate_config_exits_early_no_build(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """--validate-config should exit early without executing build."""
+    # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+    )
+
+    # --- execute ---
+    monkeypatch.chdir(tmp_path)
+    code = mod_cli.main(["--validate-config"])
+
+    # --- verify ---
+    assert code == 0
+    # Should not create output files (exits before build)
+    assert not (tmp_path / "dist").exists()
+
+
+def test_validate_config_cli_only_mode(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--validate-config should work in CLI-only mode (no config file)."""
+    # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+    # Create a pyproject.toml for package auto-detection
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text('[project]\nname = "mypkg"\nversion = "1.0.0"\n')
+
+    # --- execute ---
+    # Package will be auto-detected from pyproject.toml
+    monkeypatch.chdir(tmp_path)
+    code = mod_cli.main(
+        [
+            "--validate-config",
+            "--include",
+            "mypkg/**/*.py",
+            "--out",
+            "dist/mypkg.py",
+        ]
+    )
+
+    # --- verify ---
+    assert code == 0
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
+    assert "✓ Configuration is valid" in out
+    assert "file(s) collected" in out or "collected" in out
+    # Should not create output files
+    assert not (tmp_path / "dist").exists()
+
+
+def test_validate_config_no_files_collected(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--validate-config should handle case where no files are collected."""
+    # --- setup ---
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["nonexistent/**/*.py"],  # Pattern that matches nothing
+        out="dist/mypkg.py",
+    )
+
+    # --- execute ---
+    monkeypatch.chdir(tmp_path)
+    code = mod_cli.main(["--validate-config"])
+
+    # --- verify ---
+    assert code == 0  # Validation succeeds even if no files found
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
+    assert "✓ Configuration is valid" in out
+    assert "no files" in out or "not a stitch build" in out
+
+
+def test_validate_config_with_excludes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--validate-config should work with exclude patterns."""
+    # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+    # Create a test file that should be excluded
+    (pkg_dir / "test_file.py").write_text("# test file\n")
+
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        exclude=["**/test*.py"],
+        out="dist/mypkg.py",
+    )
+
+    # --- execute ---
+    monkeypatch.chdir(tmp_path)
+    code = mod_cli.main(["--validate-config"])
+
+    # --- verify ---
+    assert code == 0
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
+    assert "✓ Configuration is valid" in out
+
+
+def test_validate_config_with_multiple_includes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--validate-config should work with multiple include patterns."""
+    # --- setup ---
+    pkg_dir1 = tmp_path / "pkg1"
+    pkg_dir1.mkdir()
+    (pkg_dir1 / "__init__.py").write_text("# pkg1\n")
+    (pkg_dir1 / "module1.py").write_text("# module1\n")
+
+    pkg_dir2 = tmp_path / "pkg2"
+    pkg_dir2.mkdir()
+    (pkg_dir2 / "__init__.py").write_text("# pkg2\n")
+    (pkg_dir2 / "module2.py").write_text("# module2\n")
+
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="pkg1",
+        include=["pkg1/**/*.py", "pkg2/**/*.py"],
+        out="dist/combined.py",
+    )
+
+    # --- execute ---
+    monkeypatch.chdir(tmp_path)
+    code = mod_cli.main(["--validate-config"])
+
+    # --- verify ---
+    assert code == 0
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
+    assert "✓ Configuration is valid" in out
+    assert "file(s) collected" in out
+
+
+def test_validate_config_fails_with_missing_package(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--validate-config should fail when package is missing for stitch build."""
+    # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    # Write config directly without package (helper requires package)
+    config_data = {
+        "include": ["mypkg/**/*.py"],
+        "out": "dist/mypkg.py",
+    }
+    config.write_text(json.dumps(config_data))
+
+    # --- execute ---
+    monkeypatch.chdir(tmp_path)
+    code = mod_cli.main(["--validate-config"])
+
+    # --- verify ---
+    # Should fail because package is required for stitch builds
+    assert code == 1
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
+    assert "package" in out.lower() or "error" in out.lower()
+
+
+def test_validate_config_vs_dry_run_difference(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """--validate-config should be faster than --dry-run (exits earlier)."""
+    # --- setup ---
+    pkg_dir = tmp_path / "mypkg"
+    make_test_package(pkg_dir)
+
+    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="dist/mypkg.py",
+    )
+
+    # --- execute validate-config ---
+    monkeypatch.chdir(tmp_path)
+    code1 = mod_cli.main(["--validate-config"])
+    captured1 = capsys.readouterr()
+    out1 = captured1.out + captured1.err
+
+    # --- execute dry-run ---
+    code2 = mod_cli.main(["--dry-run"])
+    captured2 = capsys.readouterr()
+    out2 = captured2.out + captured2.err
+
+    # --- verify ---
+    assert code1 == 0
+    assert code2 == 0
+    # Both should succeed, but validate-config should not mention stitching
+    assert "✓ Configuration is valid" in out1
+    assert "file(s) collected" in out1
+    # Dry-run should mention stitching simulation
+    assert "dry-run" in out2.lower() or "would stitch" in out2.lower()
+
+
 def test_main_with_custom_config(tmp_path: Path) -> None:
     # --- setup ---
     pkg_dir = tmp_path / "mypkg"

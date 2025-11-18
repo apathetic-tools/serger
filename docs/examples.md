@@ -356,7 +356,8 @@ Serger supports multiple license formats. Here are examples of different ways to
 3. **Respect `.gitignore`**: Enable `respect_gitignore` to avoid including unwanted files
 4. **Use watch mode for development**: Automatically rebuild on file changes
 5. **Test the output**: Run `--selftest` or test the generated script
-6. **Use dry-run**: Test your config with `--dry-run` before building
+6. **Validate configuration**: Use `--validate-config` to check config syntax and file collection before building
+7. **Use dry-run**: Test your config with `--dry-run` to simulate the full build process
 
 ## Common Patterns
 

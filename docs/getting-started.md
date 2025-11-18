@@ -47,6 +47,16 @@ python3 serger.py --selftest
 
 You should see output indicating that the self-test passed successfully.
 
+## Validate Configuration
+
+Before running your first build, you can validate your configuration:
+
+```bash
+python3 serger.py --validate-config
+```
+
+This checks your configuration syntax, verifies that file patterns match actual files, and validates path resolution without executing a build. It's faster than `--dry-run` and useful for quick configuration checks.
+
 ## Basic Usage
 
 ### Quick Example

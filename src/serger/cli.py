@@ -202,6 +202,15 @@ def _setup_parser() -> argparse.ArgumentParser:
         help="Run a built-in sanity test to verify tool correctness.",
     )
     parser.add_argument(
+        "--validate-config",
+        action="store_true",
+        help=(
+            "Validate configuration file and resolved settings without "
+            "executing a build. Validates config syntax, file collection, "
+            "and path resolution (includes CLI arguments and environment variables)."
+        ),
+    )
+    parser.add_argument(
         "--disable-build-timestamp",
         action="store_true",
         help="Disable build timestamps for deterministic builds (uses placeholder).",
@@ -554,6 +563,7 @@ def _execute_build(
     )
 
     resolved["dry_run"] = getattr(args, "dry_run", DEFAULT_DRY_RUN)
+    resolved["validate_config"] = getattr(args, "validate_config", False)
 
     if watch_enabled:
         watch_interval = resolved["watch_interval"]
@@ -571,7 +581,7 @@ def _execute_build(
 # --------------------------------------------------------------------------- #
 
 
-def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911
+def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911, PLR0912
     logger = get_app_logger()  # init (use env + defaults)
 
     try:
@@ -596,6 +606,10 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911
         # --- Validate package ---
         if not _validate_package(config.root_cfg, config.resolved, args):
             return 1
+
+        # --- Validate-config notice ---
+        if getattr(args, "validate_config", None):
+            logger.info("🔍 Validating configuration...")
 
         # --- Dry-run notice ---
         if getattr(args, "dry_run", None):

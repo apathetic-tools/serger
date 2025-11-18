@@ -2581,4 +2581,8 @@ def resolve_config(
     # Add watch_interval to resolved config
     resolved["watch_interval"] = watch_interval
 
+    # Set runtime flags with defaults (will be overridden in _execute_build if set)
+    resolved["dry_run"] = False
+    resolved["validate_config"] = False
+
     return resolved

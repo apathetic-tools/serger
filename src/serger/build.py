@@ -487,6 +487,7 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
     )
     logger = get_app_logger()
     dry_run = build_cfg.get("dry_run", DEFAULT_DRY_RUN)
+    validate_config = build_cfg.get("validate_config", False)
 
     # Extract stitching fields from config
     package = build_cfg.get("package")
@@ -540,6 +541,22 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
     # Only use package for output path if we have included files (stitch build)
     if is_directory and included_files and package:
         out_path = out_path / f"{package}.py"
+
+    # --- Validate-config exit point ---
+    # Exit after file collection but before expensive stitching work
+    if validate_config:
+        # Build summary (accounting for output already shown)
+        summary_parts: list[str] = []
+        if included_files:
+            summary_parts.append(f"{len(included_files)} file(s) collected")
+            if package:
+                summary_parts.append(f"package: {package}")
+        else:
+            summary_parts.append("no files (not a stitch build)")
+        if out_path:
+            summary_parts.append(f"output: {out_path}")
+        logger.info("✓ Configuration is valid (%s)", " • ".join(summary_parts))
+        return
 
     if dry_run:
         if included_files and package:

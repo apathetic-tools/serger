@@ -153,6 +153,7 @@ def test_find_main_function_main_mode_none(tmp_path: Path) -> None:
         "log_level": "INFO",
         "watch_interval": 1.0,
         "dry_run": False,
+        "validate_config": False,
         "__meta__": {
             "cli_root": tmp_path,
             "config_root": tmp_path,
@@ -212,6 +213,7 @@ def test_find_main_function_with_main_name_module_path(tmp_path: Path) -> None:
         "log_level": "INFO",
         "watch_interval": 1.0,
         "dry_run": False,
+        "validate_config": False,
         "__meta__": {
             "cli_root": tmp_path,
             "config_root": tmp_path,
@@ -277,6 +279,7 @@ def test_find_main_function_with_main_name_function_only(tmp_path: Path) -> None
         "log_level": "INFO",
         "watch_interval": 1.0,
         "dry_run": False,
+        "validate_config": False,
         "__meta__": {
             "cli_root": tmp_path,
             "config_root": tmp_path,
@@ -340,6 +343,7 @@ def test_find_main_function_with_package_config(tmp_path: Path) -> None:
         "log_level": "INFO",
         "watch_interval": 1.0,
         "dry_run": False,
+        "validate_config": False,
         "__meta__": {
             "cli_root": tmp_path,
             "config_root": tmp_path,
@@ -406,6 +410,7 @@ def test_find_main_function_priority_main_py(tmp_path: Path) -> None:
         "log_level": "INFO",
         "watch_interval": 1.0,
         "dry_run": False,
+        "validate_config": False,
         "__meta__": {
             "cli_root": tmp_path,
             "config_root": tmp_path,
@@ -481,6 +486,7 @@ def test_find_main_function_not_found(tmp_path: Path) -> None:
         "log_level": "INFO",
         "watch_interval": 1.0,
         "dry_run": False,
+        "validate_config": False,
         "__meta__": {
             "cli_root": tmp_path,
             "config_root": tmp_path,

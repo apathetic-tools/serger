@@ -141,6 +141,7 @@ def test_root_config_resolved_has_module_actions(tmp_path: Path) -> None:
         "respect_gitignore": True,
         "log_level": "info",
         "dry_run": False,
+        "validate_config": False,
         "watch_interval": 1.0,
         "stitch_mode": "raw",
         "module_mode": "multi",

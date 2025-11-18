@@ -223,8 +223,9 @@ class RootConfigResolved(TypedDict):
     # Runtime behavior
     watch_interval: float
 
-    # Runtime flag (CLI only, not persisted in normal configs)
+    # Runtime flags (CLI only, not persisted in normal configs)
     dry_run: bool
+    validate_config: bool
 
     # Global provenance (optional, for audit/debug)
     __meta__: MetaBuildConfigResolved
