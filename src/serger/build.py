@@ -692,9 +692,24 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
     # Detect packages once from final files (after all exclusions)
     logger.debug("Detecting packages from included files (after exclusions)...")
     module_bases = build_cfg.get("module_bases", [])
-    detected_packages = detect_packages_from_files(
+    detected_packages, discovered_parent_dirs = detect_packages_from_files(
         final_files, package, module_bases=module_bases, config_dir=config_root
     )
+
+    # Add discovered package parent directories to module_bases (lowest priority)
+    if discovered_parent_dirs:
+        # Deduplicate while preserving order (add at end)
+        seen_bases = set(module_bases)
+        for parent_dir in discovered_parent_dirs:
+            if parent_dir not in seen_bases:
+                seen_bases.add(parent_dir)
+                module_bases.append(parent_dir)
+                logger.debug(
+                    "[MODULE_BASES] Added discovered package parent directory: %s",
+                    parent_dir,
+                )
+        # Update build_cfg with extended module_bases
+        build_cfg["module_bases"] = module_bases
 
     # Resolve order paths (order is list[str] of paths, or None for auto-discovery)
     topo_paths: list[Path] | None = None

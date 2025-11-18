@@ -1490,6 +1490,97 @@ def _normalize_path_with_root(
     return root, rel
 
 
+def _extract_module_bases_from_includes(  # noqa: PLR0912
+    includes: list[IncludeResolved],
+    config_dir: Path,
+) -> list[str]:
+    """Extract parent directories from includes to use as module_bases.
+
+    For each include, extracts the first directory component that contains
+    packages (e.g., "src/" from "src/mypkg/main.py" or "src/mypkg/**/*.py").
+    Normalized relative to config_dir. Skips filesystem root and config_dir
+    itself. Returns a deduplicated list preserving order.
+
+    Args:
+        includes: List of resolved includes
+        config_dir: Config directory for normalizing paths
+
+    Returns:
+        List of module base directories (relative to config_dir when possible)
+    """
+    logger = get_app_logger()
+    config_dir_resolved = config_dir.resolve()
+    bases: list[str] = []
+    seen_bases: set[str] = set()
+
+    for inc in includes:
+        # Get the root directory for this include
+        include_root = Path(inc["root"]).resolve()
+        include_path = inc["path"]
+
+        # Extract the first directory component from the path
+        if isinstance(include_path, Path):
+            # Resolved Path object: get first component
+            path_parts = include_path.parts
+            if path_parts:
+                # Get first directory component
+                first_dir = path_parts[0]
+                parent_dir = (include_root / first_dir).resolve()
+            else:
+                parent_dir = include_root
+        else:
+            # String pattern: extract first directory component
+            path_str = str(include_path)
+            # Remove glob patterns and trailing slashes
+            if path_str.endswith("/**"):
+                # Recursive pattern: remove "/**"
+                path_str = path_str.removesuffix("/**")
+            elif path_str.endswith("/"):
+                # Directory: remove trailing slash
+                path_str = path_str.rstrip("/")
+
+            # Extract first directory component
+            # For "src/mypkg/main.py" → "src"
+            # For "src/mypkg/**/*.py" → "src"
+            # For "lib/otherpkg/" → "lib"
+            if "/" in path_str:
+                # Get first component (before first /)
+                first_component = path_str.split("/", 1)[0]
+                # Remove any glob chars from first component
+                if has_glob_chars(first_component):
+                    # If first component has glob, use include_root
+                    parent_dir = include_root
+                else:
+                    parent_dir = (include_root / first_component).resolve()
+            else:
+                # Single filename or pattern: use root
+                parent_dir = include_root
+
+        # Skip if parent is filesystem root or config_dir itself
+        if parent_dir in {parent_dir.anchor, config_dir_resolved}:
+            continue
+
+        # Try to make relative to config_dir, otherwise use absolute
+        try:
+            base_rel = str(parent_dir.relative_to(config_dir_resolved))
+            base_str = base_rel if base_rel else "."
+        except ValueError:
+            # Not relative to config_dir, use absolute path
+            base_str = str(parent_dir)
+
+        # Deduplicate while preserving order
+        if base_str not in seen_bases:
+            seen_bases.add(base_str)
+            bases.append(base_str)
+            logger.trace(
+                "[MODULE_BASES] Extracted base from include: %s → %s",
+                inc["path"],
+                base_str,
+            )
+
+    return bases
+
+
 # --------------------------------------------------------------------------- #
 # main per-build resolver
 # --------------------------------------------------------------------------- #
@@ -2097,6 +2188,19 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
         f"[resolve_build_config] Resolved {len(resolved_cfg['include'])} include(s)"
     )
 
+    # --- Extract module_bases from includes (before resolving module_bases) ---
+    # Separate CLI and config includes for priority ordering
+    cli_includes: list[IncludeResolved] = [
+        inc for inc in resolved_cfg["include"] if inc["origin"] == "cli"
+    ]
+    config_includes: list[IncludeResolved] = [
+        inc for inc in resolved_cfg["include"] if inc["origin"] == "config"
+    ]
+
+    # Extract bases from includes (CLI first, then config)
+    cli_bases = _extract_module_bases_from_includes(cli_includes, config_dir)
+    config_bases = _extract_module_bases_from_includes(config_includes, config_dir)
+
     # --- Excludes ---------------------------
     resolved_cfg["exclude"] = _resolve_excludes(
         resolved_cfg,
@@ -2198,14 +2302,54 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # ------------------------------
     # Module bases
     # ------------------------------
-    # Convert str to list[str] if needed
+    # Convert str to list[str] if needed, then merge with bases from includes
     if "module_bases" in resolved_cfg:
         module_bases = resolved_cfg["module_bases"]
-        resolved_cfg["module_bases"] = (
+        config_module_bases = (
             [module_bases] if isinstance(module_bases, str) else module_bases
         )
     else:
-        resolved_cfg["module_bases"] = DEFAULT_MODULE_BASES
+        config_module_bases = DEFAULT_MODULE_BASES
+
+    # Merge with priority: CLI includes > config includes > config module_bases >
+    # defaults
+    # Deduplicate while preserving priority order
+    merged_bases: list[str] = []
+    seen_bases: set[str] = set()
+
+    # Add CLI bases first (highest priority)
+    for base in cli_bases:
+        if base not in seen_bases:
+            seen_bases.add(base)
+            merged_bases.append(base)
+
+    # Add config bases (second priority)
+    for base in config_bases:
+        if base not in seen_bases:
+            seen_bases.add(base)
+            merged_bases.append(base)
+
+    # Add config module_bases (third priority)
+    for base in config_module_bases:
+        if base not in seen_bases:
+            seen_bases.add(base)
+            merged_bases.append(base)
+
+    # Add defaults last (lowest priority, but should already be in config_module_bases)
+    for base in DEFAULT_MODULE_BASES:
+        if base not in seen_bases:
+            seen_bases.add(base)
+            merged_bases.append(base)
+
+    resolved_cfg["module_bases"] = merged_bases
+    if cli_bases or config_bases:
+        logger.debug(
+            "[MODULE_BASES] Extracted bases from includes: CLI=%s, config=%s, "
+            "merged=%s",
+            cli_bases,
+            config_bases,
+            merged_bases,
+        )
 
     # ------------------------------
     # Main mode

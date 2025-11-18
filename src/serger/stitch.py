@@ -1854,7 +1854,7 @@ def detect_packages_from_files(
     *,
     module_bases: list[str] | None = None,
     config_dir: Path | None = None,
-) -> set[str]:
+) -> tuple[set[str], list[str]]:
     """Detect packages from file paths.
 
     If files are under module_bases directories, treats everything after the
@@ -1869,10 +1869,14 @@ def detect_packages_from_files(
         config_dir: Optional config directory for resolving relative module_bases
 
     Returns:
-        Set of detected package names (always includes package_name)
+        Tuple of (set of detected package names, list of parent directories).
+        Package names always includes package_name. Parent directories are
+        normalized relative to config_dir when possible, deduplicated.
     """
     logger = get_app_logger()
     detected: set[str] = set()
+    parent_dirs: list[Path] = []
+    seen_parents: set[Path] = set()
 
     # Detect packages from files
     for file_path in file_paths:
@@ -1883,15 +1887,52 @@ def detect_packages_from_files(
             # Extract package name from directory name
             pkg_name = pkg_root.name
             detected.add(pkg_name)
+
+            # Extract parent directory (module base)
+            parent_dir = pkg_root.parent.resolve()
+            # Skip if parent is filesystem root or config_dir itself
+            config_dir_resolved = config_dir.resolve() if config_dir else None
+            # Check if parent is filesystem root (parent of root equals root)
+            is_root = parent_dir.parent == parent_dir
+            if (
+                not is_root
+                and config_dir_resolved is not None
+                and parent_dir != config_dir_resolved
+                and parent_dir not in seen_parents
+            ):
+                seen_parents.add(parent_dir)
+                parent_dirs.append(parent_dir)
+
             logger.trace(
-                "[PKG_DETECT] Detected package %s from %s (root: %s)",
+                "[PKG_DETECT] Detected package %s from %s (root: %s, parent: %s)",
                 pkg_name,
                 file_path,
                 pkg_root,
+                parent_dir,
             )
 
     # Always include configured package (for fallback and multi-package scenarios)
     detected.add(package_name)
+
+    # Normalize parent directories relative to config_dir
+    normalized_parents: list[str] = []
+    seen_normalized: set[str] = set()
+    config_dir_resolved = config_dir.resolve() if config_dir else None
+
+    for parent_dir in parent_dirs:
+        if config_dir_resolved:
+            try:
+                base_rel = str(parent_dir.relative_to(config_dir_resolved))
+                base_str = base_rel if base_rel else "."
+            except ValueError:
+                # Not relative to config_dir, use absolute path
+                base_str = str(parent_dir)
+        else:
+            base_str = str(parent_dir)
+
+        if base_str not in seen_normalized:
+            seen_normalized.add(base_str)
+            normalized_parents.append(base_str)
 
     if len(detected) == 1 and package_name in detected:
         logger.debug(
@@ -1905,7 +1946,7 @@ def detect_packages_from_files(
             sorted(detected),
         )
 
-    return detected
+    return detected, normalized_parents
 
 
 def force_mtime_advance(path: Path, seconds: float = 1.0, max_tries: int = 50) -> None:
@@ -3621,7 +3662,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
             config_dir_raw = meta.get("config_root")  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
             if isinstance(config_dir_raw, Path):
                 config_dir = config_dir_raw
-        detected_packages = detect_packages_from_files(
+        detected_packages, _discovered_parent_dirs = detect_packages_from_files(
             order_paths,
             package_name,
             module_bases=module_bases,

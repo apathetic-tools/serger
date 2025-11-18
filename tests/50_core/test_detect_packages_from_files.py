@@ -19,7 +19,9 @@ class TestDetectPackagesFromFiles:
             module_file = pkg_dir / "module.py"
             module_file.write_text("# module\n")
 
-            result = mod_stitch.detect_packages_from_files([module_file], "mypkg")
+            result, _parent_dirs = mod_stitch.detect_packages_from_files(
+                [module_file], "mypkg"
+            )
 
             assert result == {"mypkg"}
 
@@ -38,7 +40,9 @@ class TestDetectPackagesFromFiles:
             file2 = pkg2_dir / "module2.py"
             file2.write_text("# module2\n")
 
-            result = mod_stitch.detect_packages_from_files([file1, file2], "default")
+            result, _parent_dirs = mod_stitch.detect_packages_from_files(
+                [file1, file2], "default"
+            )
 
             assert result == {"pkg1", "pkg2", "default"}
 
@@ -49,7 +53,7 @@ class TestDetectPackagesFromFiles:
             loose_file = Path(tmpdir) / "script.py"
             loose_file.write_text("# script\n")
 
-            result = mod_stitch.detect_packages_from_files(
+            result, _parent_dirs = mod_stitch.detect_packages_from_files(
                 [loose_file], "configured_pkg"
             )
 
@@ -71,7 +75,9 @@ class TestDetectPackagesFromFiles:
             file2 = inner_pkg / "module2.py"
             file2.write_text("# module2\n")
 
-            result = mod_stitch.detect_packages_from_files([file1, file2], "default")
+            result, _parent_dirs = mod_stitch.detect_packages_from_files(
+                [file1, file2], "default"
+            )
 
             # Should detect "outer" (top-level package) for both files
             assert "outer" in result
@@ -94,7 +100,7 @@ class TestDetectPackagesFromFiles:
             loose_file = loose_dir / "script.py"
             loose_file.write_text("# script\n")
 
-            result = mod_stitch.detect_packages_from_files(
+            result, _parent_dirs = mod_stitch.detect_packages_from_files(
                 [pkg_file, loose_file], "default"
             )
 
@@ -116,7 +122,7 @@ class TestDetectPackagesFromFiles:
             file3 = pkg_dir / "module3.py"
             file3.write_text("# module3\n")
 
-            result = mod_stitch.detect_packages_from_files(
+            result, _parent_dirs = mod_stitch.detect_packages_from_files(
                 [file1, file2, file3], "mypkg"
             )
 
@@ -125,7 +131,7 @@ class TestDetectPackagesFromFiles:
 
     def test_empty_file_list_returns_configured_package(self) -> None:
         """Should return configured package when no files provided."""
-        result = mod_stitch.detect_packages_from_files([], "default_pkg")
+        result, _parent_dirs = mod_stitch.detect_packages_from_files([], "default_pkg")
 
         assert result == {"default_pkg"}
 
@@ -145,8 +151,12 @@ class TestDetectPackagesFromFiles:
             file2.write_text("# module2\n")
 
             # Call multiple times with different file order
-            result1 = mod_stitch.detect_packages_from_files([file1, file2], "default")
-            result2 = mod_stitch.detect_packages_from_files([file2, file1], "default")
+            result1, _parent_dirs1 = mod_stitch.detect_packages_from_files(
+                [file1, file2], "default"
+            )
+            result2, _parent_dirs2 = mod_stitch.detect_packages_from_files(
+                [file2, file1], "default"
+            )
 
             # Results should be identical (sets are unordered, but contents same)
             assert result1 == result2
@@ -164,7 +174,7 @@ class TestDetectPackagesFromFiles:
             module_file = pkg_dir / "module.py"
             module_file.write_text("# module\n")
 
-            result = mod_stitch.detect_packages_from_files(
+            result, _parent_dirs = mod_stitch.detect_packages_from_files(
                 [module_file],
                 "default",
                 module_bases=["src"],
@@ -188,7 +198,7 @@ class TestDetectPackagesFromFiles:
             module_file = pkg_dir / "module.py"
             module_file.write_text("# module\n")
 
-            result = mod_stitch.detect_packages_from_files(
+            result, _parent_dirs = mod_stitch.detect_packages_from_files(
                 [module_file],
                 "default",
                 module_bases=["src"],
@@ -220,7 +230,7 @@ class TestDetectPackagesFromFiles:
             file2 = pkg2_dir / "module2.py"
             file2.write_text("# module2\n")
 
-            result = mod_stitch.detect_packages_from_files(
+            result, _parent_dirs = mod_stitch.detect_packages_from_files(
                 [file1, file2],
                 "default",
                 module_bases=["src"],
@@ -253,7 +263,7 @@ class TestDetectPackagesFromFiles:
             file2 = pkg2_dir / "module2.py"
             file2.write_text("# module2\n")
 
-            result = mod_stitch.detect_packages_from_files(
+            result, _parent_dirs = mod_stitch.detect_packages_from_files(
                 [file1, file2],
                 "default",
                 module_bases=["src", "lib"],

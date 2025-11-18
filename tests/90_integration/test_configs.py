@@ -388,13 +388,15 @@ def test_validate_config_fails_with_missing_package(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """--validate-config should fail when package is missing for stitch build."""
+    """--validate-config passes when package is auto-discovered from includes."""
     # --- setup ---
     pkg_dir = tmp_path / "mypkg"
     make_test_package(pkg_dir)
 
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     # Write config directly without package (helper requires package)
+    # With auto-discovery, module_bases are extracted from includes, and package
+    # is auto-detected from module_bases, so validation should pass
     config_data = {
         "include": ["mypkg/**/*.py"],
         "out": "dist/mypkg.py",
@@ -406,11 +408,12 @@ def test_validate_config_fails_with_missing_package(
     code = mod_cli.main(["--validate-config"])
 
     # --- verify ---
-    # Should fail because package is required for stitch builds
-    assert code == 1
+    # Should pass because package is auto-discovered from module_bases
+    # (extracted from includes)
+    assert code == 0
     captured = capsys.readouterr()
     out = captured.out + captured.err
-    assert "package" in out.lower() or "error" in out.lower()
+    assert "valid" in out.lower() or "collected" in out.lower()
 
 
 def test_validate_config_vs_dry_run_difference(

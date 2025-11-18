@@ -58,7 +58,7 @@ class TestCollectModulesBasic:
             )
 
             # Detect packages for the test
-            detected_packages = mod_stitch.detect_packages_from_files(
+            detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
                 file_paths, "testpkg"
             )
 
@@ -92,7 +92,7 @@ class TestCollectModulesBasic:
             )
 
             # Detect packages for the test
-            detected_packages = mod_stitch.detect_packages_from_files(
+            detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
                 file_paths, "testpkg"
             )
 
@@ -124,7 +124,7 @@ class TestCollectModulesBasic:
             )
 
             # Detect packages for the test
-            detected_packages = mod_stitch.detect_packages_from_files(
+            detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
                 file_paths, "testpkg"
             )
 
@@ -158,7 +158,7 @@ class TestCollectModulesBasic:
             file_paths.append(missing_path)
 
             # Detect packages for the test
-            detected_packages = mod_stitch.detect_packages_from_files(
+            detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
                 file_paths, "testpkg"
             )
 
@@ -196,7 +196,7 @@ class TestCollectModulesBasic:
             )
 
             # Detect packages for the test
-            detected_packages = mod_stitch.detect_packages_from_files(
+            detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
                 file_paths, "testpkg"
             )
 
@@ -229,7 +229,7 @@ class TestCollectModulesBasic:
             )
 
             # Detect packages for the test
-            detected_packages = mod_stitch.detect_packages_from_files(
+            detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
                 file_paths, "testpkg"
             )
 
@@ -279,7 +279,7 @@ class TestCollectModulesImportHandling:
             )
 
             # Detect packages for the test
-            detected_packages = mod_stitch.detect_packages_from_files(
+            detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
                 file_paths, "testpkg"
             )
 
@@ -311,7 +311,7 @@ class TestCollectModulesImportHandling:
             )
 
             # Detect packages for the test
-            detected_packages = mod_stitch.detect_packages_from_files(
+            detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
                 file_paths, "testpkg"
             )
 
@@ -346,7 +346,7 @@ class TestCollectModulesImportHandling:
             )
 
             # Detect packages for the test
-            detected_packages = mod_stitch.detect_packages_from_files(
+            detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
                 file_paths, "testpkg"
             )
 
@@ -382,7 +382,7 @@ class TestCollectModulesSources:
             )
 
             # Detect packages for the test
-            detected_packages = mod_stitch.detect_packages_from_files(
+            detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
                 file_paths, "testpkg"
             )
 
@@ -412,7 +412,7 @@ class TestCollectModulesSources:
             )
 
             # Detect packages for the test
-            detected_packages = mod_stitch.detect_packages_from_files(
+            detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
                 file_paths, "testpkg"
             )
 
@@ -441,7 +441,7 @@ class TestCollectModulesSources:
             )
 
             # Detect packages for the test
-            detected_packages = mod_stitch.detect_packages_from_files(
+            detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
                 file_paths, "testpkg"
             )
 
@@ -496,7 +496,7 @@ class TestCollectModulesMultiPackage:
             file_to_include[file_paths[1]] = include2
 
             # Detect packages for the test
-            detected_packages = mod_stitch.detect_packages_from_files(
+            detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
                 file_paths, "pkg1"
             )
 
@@ -546,7 +546,7 @@ class TestCollectModulesMultiPackage:
                 file_to_include[file_path] = include
 
             # Detect packages for the test
-            detected_packages = mod_stitch.detect_packages_from_files(
+            detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
                 file_paths, "pkg1"
             )
 
