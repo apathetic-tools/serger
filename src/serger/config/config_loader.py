@@ -375,13 +375,45 @@ def load_and_validate_config(
 
     # --- Validate schema ---
     validation_result = validate_config(parsed_cfg)
-    _validation_summary(validation_result, config_path)
     if not validation_result.valid:
-        xmsg = f"Configuration file {config_path.name} contains validation errors."
+        # Build comprehensive error message with all details
+        mode = "strict mode" if validation_result.strict else "lenient mode"
+        counts: list[str] = []
+        if validation_result.errors:
+            error_count = len(validation_result.errors)
+            counts.append(f"{error_count} error{plural(validation_result.errors)}")
+        if validation_result.strict_warnings:
+            warning_count = len(validation_result.strict_warnings)
+            counts.append(
+                f"{warning_count} strict warning"
+                f"{plural(validation_result.strict_warnings)}"
+            )
+        counts_msg = f"\nFound {', '.join(counts)}." if counts else ""
+
+        # Build detailed error message with newlines
+        error_parts: list[str] = []
+        error_parts.append(
+            f"Failed to validate configuration file {config_path.name} "
+            f"({mode}).{counts_msg}"
+        )
+
+        if validation_result.errors:
+            msg_summary = "\n  • ".join(validation_result.errors)
+            error_parts.append(f"\nErrors:\n  • {msg_summary}")
+
+        if validation_result.strict_warnings:
+            msg_summary = "\n  • ".join(validation_result.strict_warnings)
+            error_parts.append(
+                f"\nStrict warnings (treated as errors):\n  • {msg_summary}"
+            )
+
+        xmsg = "".join(error_parts)
         exception = ValueError(xmsg)
-        exception.silent = True  # type: ignore[attr-defined]
         exception.data = validation_result  # type: ignore[attr-defined]
         raise exception
+
+    # Log validation summary (only if valid or has warnings)
+    _validation_summary(validation_result, config_path)
 
     # --- Upgrade to RootConfig type ---
     root_cfg: RootConfig = cast_hint(RootConfig, parsed_cfg)
