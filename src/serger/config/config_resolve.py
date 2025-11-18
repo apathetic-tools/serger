@@ -161,7 +161,26 @@ def extract_pyproject_metadata(
             filename = file_val
         else:
             filename = str(file_val) if file_val is not None else "LICENSE"  # pyright: ignore[reportUnknownArgumentType]
-        license_text = f"See {filename} if distributed alongside this script"
+        # Resolve license file path relative to pyproject.toml directory
+        license_file_path = pyproject_path.parent / filename
+        if license_file_path.exists() and license_file_path.is_file():
+            try:
+                # Read license file content
+                license_content = license_file_path.read_text(encoding="utf-8")
+                license_text = license_content
+            except (OSError, UnicodeDecodeError) as e:
+                # If reading fails, fall back to message
+                logger = get_app_logger()
+                logger.warning(
+                    "Failed to read license file %s: %s. "
+                    "Falling back to file reference message.",
+                    license_file_path,
+                    e,
+                )
+                license_text = f"See {filename} if distributed alongside this script"
+        else:
+            # File doesn't exist, fall back to message
+            license_text = f"See {filename} if distributed alongside this script"
 
     # Extract authors
     authors_text = _extract_authors_from_project(project)

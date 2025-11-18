@@ -53,6 +53,7 @@ class TestBuildFinalScriptBasic:
             build_date="2025-01-01",
         )
 
+        assert "# === License ===" in result
         assert f"# {license_text}" in result
 
     def test_includes_metadata_comments(self) -> None:

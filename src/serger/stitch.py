@@ -3268,9 +3268,11 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     # Prefix each line of the license header with "# " if provided
     license_section = ""
     if license_header:
+        # Add clear marker for license section
+        license_section = "# === License ===\n"
         lines = license_header.strip().split("\n")
         prefixed_lines = [f"# {line}" for line in lines]
-        license_section = "\n".join(prefixed_lines) + "\n"
+        license_section += "\n".join(prefixed_lines) + "\n"
     repo_line = f"# Repo: {repo}\n" if repo else ""
     authors_line = f"# Authors: {authors}\n" if authors else ""
 

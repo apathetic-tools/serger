@@ -1185,6 +1185,7 @@ class TestStitchModulesMetadata:
 
             content = out_path.read_text()
             # Header comments
+            assert "# === License ===" in content
             assert "# License: MIT" in content
             assert "# Version: 2.1.3" in content
             assert "# Commit: def456" in content
@@ -1198,6 +1199,48 @@ class TestStitchModulesMetadata:
             assert '__commit__ = "def456"' in content
             assert '__AUTHORS__ = "Alice <alice@example.com>, Bob"' in content
             assert "__STANDALONE__ = True" in content
+
+    def test_license_header_with_file_content(self) -> None:
+        """Should include license file content as comments with marker."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            out_path = tmp_path / "output.py"
+
+            # Create a simple module
+            (src_dir / "main.py").write_text("MAIN = 1\n")
+
+            # License content with multiple lines
+            license_content = (
+                "MIT License\n\nCopyright (c) 2024 Test Author\nAll rights reserved."
+            )
+
+            # Use helper to set up proper config
+            file_paths, package_root, file_to_include, config = _setup_stitch_test(
+                src_dir, ["main"]
+            )
+
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+                license_header=license_content,
+                version="1.0.0",
+                commit="abc123",
+                build_date="2024-01-01 00:00:00 UTC",
+                is_serger_build=is_serger_build_for_test(out_path),
+            )
+
+            content = out_path.read_text()
+            # Check for license marker
+            assert "# === License ===" in content
+            # Check that license content is included as comments
+            assert "# MIT License" in content
+            assert "# Copyright (c) 2024 Test Author" in content
+            assert "# All rights reserved." in content
 
     def test_license_header_optional(self) -> None:
         """Should handle empty license header gracefully."""

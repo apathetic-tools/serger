@@ -37,7 +37,31 @@ authors = [
 
 
 def test_extract_pyproject_metadata_license_file_format() -> None:
-    """Should handle license with file format."""
+    """Should read license file content when license points to a file."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        pyproject_path = Path(tmpdir) / "pyproject.toml"
+        license_path = Path(tmpdir) / "LICENSE.txt"
+
+        # Create pyproject.toml
+        pyproject_path.write_text(
+            """[project]
+name = "test-package"
+version = "1.0.0"
+license = { file = "LICENSE.txt" }
+"""
+        )
+
+        # Create license file
+        license_content = "MIT License\n\nCopyright (c) 2024 Test Author"
+        license_path.write_text(license_content)
+
+        metadata = mod_config_resolve.extract_pyproject_metadata(pyproject_path)
+        assert metadata is not None
+        assert metadata.license_text == license_content
+
+
+def test_extract_pyproject_metadata_license_file_missing() -> None:
+    """Should fall back to message when license file doesn't exist."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
         f.write(
             """[project]
