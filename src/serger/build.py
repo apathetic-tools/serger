@@ -17,6 +17,7 @@ from .stitch import (
     is_serger_build,
     stitch_modules,
 )
+from .utils import shorten_path_for_display
 from .utils.utils_validation import validate_required_keys
 
 
@@ -132,7 +133,12 @@ def collect_included_files(
             exclude_root = Path(exc["root"]).resolve()
             exclude_patterns = [str(exc["path"])]
             if is_excluded_raw(file_path, exclude_patterns, exclude_root):
-                logger.trace(f"[COLLECT] Excluded {file_path} by pattern {exc['path']}")
+                exc_display = shorten_path_for_display(exc)
+                logger.trace(
+                    "[COLLECT] Excluded %s by pattern %s",
+                    file_path,
+                    exc_display,
+                )
                 is_excluded = True
                 break
         if not is_excluded:
@@ -554,7 +560,13 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
         else:
             summary_parts.append("no files (not a stitch build)")
         if out_path:
-            summary_parts.append(f"output: {out_path}")
+            meta = build_cfg["__meta__"]
+            out_display = shorten_path_for_display(
+                out_path,
+                cwd=meta.get("cli_root"),
+                config_dir=meta.get("config_root"),
+            )
+            summary_parts.append(f"output: {out_display}")
         logger.info("✓ Configuration is valid (%s)", " • ".join(summary_parts))
         return
 
@@ -693,7 +705,7 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
     logger.debug("Detecting packages from included files (after exclusions)...")
     module_bases = build_cfg.get("module_bases", [])
     detected_packages, discovered_parent_dirs = detect_packages_from_files(
-        final_files, package, module_bases=module_bases, config_dir=config_root
+        final_files, package, module_bases=module_bases
     )
 
     # Add discovered package parent directories to module_bases (lowest priority)
@@ -808,7 +820,13 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
         logger.info("🧪 (dry-run) Would stitch: %s", " • ".join(dry_run_summary_parts))
         return
 
-    logger.info("🧵 Stitching %s → %s", package, out_path)
+    meta = build_cfg["__meta__"]
+    out_display = shorten_path_for_display(
+        out_path,
+        cwd=meta.get("cli_root"),
+        config_dir=meta.get("config_root"),
+    )
+    logger.info("🧵 Stitching %s → %s", package, out_display)
 
     try:
         stitch_modules(
@@ -824,7 +842,7 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
             post_processing=post_processing,
             is_serger_build=is_serger_build_result,
         )
-        logger.info("✅ Stitch completed → %s\n", out_path)
+        logger.info("✅ Stitch completed → %s\n", out_display)
     except RuntimeError as e:
         xmsg = f"Stitch build failed: {e}"
         raise RuntimeError(xmsg) from e

@@ -2194,7 +2194,16 @@ def test_resolve_build_config_module_bases_defaults(
 
     # --- validate ---
     # src is extracted from include=["src/**"], then defaults add lib and packages
-    assert resolved["module_bases"] == ["src", "lib", "packages"]
+    # module_bases are now stored as absolute paths
+    module_bases = resolved["module_bases"]
+    expected_count = 3
+    assert len(module_bases) == expected_count
+    # Check that all are absolute paths
+    assert all(Path(base).is_absolute() for base in module_bases)
+    # Check that they resolve to the expected directories
+    expected_dirs = {"src", "lib", "packages"}
+    actual_dirs = {Path(base).name for base in module_bases}
+    assert actual_dirs == expected_dirs
 
 
 def test_resolve_build_config_module_bases_build_level(
@@ -2210,13 +2219,12 @@ def test_resolve_build_config_module_bases_build_level(
 
     # --- validate ---
     # src is auto-discovered from include=["src/**"], lib/vendor are from config
-    # All should be present
-    assert "src" in resolved["module_bases"]
-    assert "lib" in resolved["module_bases"]
-    assert "vendor" in resolved["module_bases"]
+    # All should be present (module_bases are now absolute paths)
+    # Note: defaults may also be present, so check that expected bases are included
+    module_bases = resolved["module_bases"]
+    base_names = {Path(b).name for b in module_bases}
     expected_bases = {"src", "lib", "vendor"}
-    actual_bases = {b for b in resolved["module_bases"] if b in expected_bases}
-    assert len(actual_bases) == 3  # noqa: PLR2004
+    assert expected_bases.issubset(base_names)
 
 
 def test_resolve_build_config_module_bases_cascades_from_root(
@@ -2232,13 +2240,12 @@ def test_resolve_build_config_module_bases_cascades_from_root(
 
     # --- validate ---
     # src is auto-discovered from include=["src/**"], lib/vendor are from config
-    # All should be present
-    assert "src" in resolved["module_bases"]
-    assert "lib" in resolved["module_bases"]
-    assert "vendor" in resolved["module_bases"]
+    # All should be present (module_bases are now absolute paths)
+    # Note: defaults may also be present, so check that expected bases are included
+    module_bases = resolved["module_bases"]
+    base_names = {Path(b).name for b in module_bases}
     expected_bases = {"src", "lib", "vendor"}
-    actual_bases = {b for b in resolved["module_bases"] if b in expected_bases}
-    assert len(actual_bases) == 3  # noqa: PLR2004
+    assert expected_bases.issubset(base_names)
 
 
 def test_resolve_build_config_module_bases_build_overrides_root(
@@ -2254,12 +2261,12 @@ def test_resolve_build_config_module_bases_build_overrides_root(
 
     # --- validate ---
     # src is auto-discovered from include=["src/**"], custom is from module_bases
-    # Both should be present
-    assert "src" in resolved["module_bases"]
-    assert "custom" in resolved["module_bases"]
+    # Both should be present (module_bases are now absolute paths)
+    # Note: defaults may also be present, so check that expected bases are included
+    module_bases = resolved["module_bases"]
+    base_names = {Path(b).name for b in module_bases}
     expected_bases = {"src", "custom"}
-    actual_bases = {b for b in resolved["module_bases"] if b in expected_bases}
-    assert len(actual_bases) == 2  # noqa: PLR2004
+    assert expected_bases.issubset(base_names)
 
 
 def test_resolve_build_config_module_bases_string_conversion(
@@ -2275,12 +2282,12 @@ def test_resolve_build_config_module_bases_string_conversion(
 
     # --- validate ---
     # src is auto-discovered from include=["src/**"], lib is from module_bases="lib"
-    # Both should be present (order may vary based on implementation)
-    assert "src" in resolved["module_bases"]
-    assert "lib" in resolved["module_bases"]
+    # Both should be present (module_bases are now absolute paths)
+    # Note: defaults may also be present, so check that expected bases are included
+    module_bases = resolved["module_bases"]
+    base_names = {Path(b).name for b in module_bases}
     expected_bases = {"src", "lib"}
-    actual_bases = {b for b in resolved["module_bases"] if b in expected_bases}
-    assert len(actual_bases) == 2  # noqa: PLR2004  # noqa: PLR2004
+    assert expected_bases.issubset(base_names)
 
 
 def test_resolve_build_config_module_bases_string_cascades_from_root(
@@ -2300,12 +2307,12 @@ def test_resolve_build_config_module_bases_string_cascades_from_root(
     # Both src and lib should be present
     # String conversion: "lib" should be converted to ["lib"]
     # Auto-discovery: "src" should be extracted from include=["src/**"]
-    # Both should be in the final list
-    assert "src" in resolved["module_bases"]
-    assert "lib" in resolved["module_bases"]
+    # Both should be in the final list (module_bases are now absolute paths)
+    # Note: defaults may also be present, so check that expected bases are included
+    module_bases = resolved["module_bases"]
+    base_names = {Path(b).name for b in module_bases}
     expected_bases = {"src", "lib"}
-    actual_bases = {b for b in resolved["module_bases"] if b in expected_bases}
-    assert len(actual_bases) == 2  # noqa: PLR2004
+    assert expected_bases.issubset(base_names)
 
 
 # ---------------------------------------------------------------------------

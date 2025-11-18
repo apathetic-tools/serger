@@ -174,11 +174,12 @@ class TestDetectPackagesFromFiles:
             module_file = pkg_dir / "module.py"
             module_file.write_text("# module\n")
 
+            # Convert relative module_bases to absolute paths
+            module_bases_abs = [str((config_dir / "src").resolve())]
             result, _parent_dirs = mod_stitch.detect_packages_from_files(
                 [module_file],
                 "default",
-                module_bases=["src"],
-                config_dir=config_dir,
+                module_bases=module_bases_abs,
             )
 
             # Should detect "mypkg" via module_bases even without __init__.py
@@ -198,11 +199,12 @@ class TestDetectPackagesFromFiles:
             module_file = pkg_dir / "module.py"
             module_file.write_text("# module\n")
 
+            # Convert relative module_bases to absolute paths
+            module_bases_abs = [str((config_dir / "src").resolve())]
             result, _parent_dirs = mod_stitch.detect_packages_from_files(
                 [module_file],
                 "default",
-                module_bases=["src"],
-                config_dir=config_dir,
+                module_bases=module_bases_abs,
             )
 
             # Should detect "mypkg" via __init__.py (not module_bases)
@@ -230,11 +232,12 @@ class TestDetectPackagesFromFiles:
             file2 = pkg2_dir / "module2.py"
             file2.write_text("# module2\n")
 
+            # Convert relative module_bases to absolute paths
+            module_bases_abs = [str((config_dir / "src").resolve())]
             result, _parent_dirs = mod_stitch.detect_packages_from_files(
                 [file1, file2],
                 "default",
-                module_bases=["src"],
-                config_dir=config_dir,
+                module_bases=module_bases_abs,
             )
 
             # Should detect "pkg1" via module_bases, but not "pkg2" (outside base)
@@ -263,11 +266,15 @@ class TestDetectPackagesFromFiles:
             file2 = pkg2_dir / "module2.py"
             file2.write_text("# module2\n")
 
+            # Convert relative module_bases to absolute paths
+            module_bases_abs = [
+                str((config_dir / "src").resolve()),
+                str((config_dir / "lib").resolve()),
+            ]
             result, _parent_dirs = mod_stitch.detect_packages_from_files(
                 [file1, file2],
                 "default",
-                module_bases=["src", "lib"],
-                config_dir=config_dir,
+                module_bases=module_bases_abs,
             )
 
             # Should detect both packages via their respective module_bases

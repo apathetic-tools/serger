@@ -35,7 +35,11 @@ from serger.constants import (
 from serger.logs import get_app_logger
 from serger.meta import PROGRAM_ENV
 from serger.module_actions import extract_module_name_from_source_path
-from serger.utils import make_includeresolved, make_pathresolved
+from serger.utils import (
+    make_includeresolved,
+    make_pathresolved,
+    shorten_paths_for_display,
+)
 from serger.utils.utils_validation import validate_required_keys
 
 from .config_types import (
@@ -1498,15 +1502,15 @@ def _extract_module_bases_from_includes(  # noqa: PLR0912
 
     For each include, extracts the first directory component that contains
     packages (e.g., "src/" from "src/mypkg/main.py" or "src/mypkg/**/*.py").
-    Normalized relative to config_dir. Skips filesystem root and config_dir
-    itself. Returns a deduplicated list preserving order.
+    Returns absolute paths. Skips filesystem root and config_dir itself.
+    Returns a deduplicated list preserving order.
 
     Args:
         includes: List of resolved includes
-        config_dir: Config directory for normalizing paths
+        config_dir: Config directory for resolving paths
 
     Returns:
-        List of module base directories (relative to config_dir when possible)
+        List of module base directories as absolute paths
     """
     logger = get_app_logger()
     config_dir_resolved = config_dir.resolve()
@@ -1560,13 +1564,8 @@ def _extract_module_bases_from_includes(  # noqa: PLR0912
         if parent_dir in {parent_dir.anchor, config_dir_resolved}:
             continue
 
-        # Try to make relative to config_dir, otherwise use absolute
-        try:
-            base_rel = str(parent_dir.relative_to(config_dir_resolved))
-            base_str = base_rel if base_rel else "."
-        except ValueError:
-            # Not relative to config_dir, use absolute path
-            base_str = str(parent_dir)
+        # Store as absolute path
+        base_str = str(parent_dir)
 
         # Deduplicate while preserving order
         if base_str not in seen_bases:
@@ -1588,7 +1587,7 @@ def _extract_module_bases_from_includes(  # noqa: PLR0912
 
 def _get_first_level_modules_from_base(
     base_str: str,
-    config_dir: Path,
+    _config_dir: Path,
 ) -> list[str]:
     """Get first-level module/package names from a single module_base directory.
 
@@ -1602,8 +1601,8 @@ def _get_first_level_modules_from_base(
     - .py files at first level are modules
 
     Args:
-        base_str: Module base directory path (relative or absolute)
-        config_dir: Config directory for resolving relative paths
+        base_str: Module base directory path (absolute)
+        _config_dir: Config directory (unused, kept for compatibility)
 
     Returns:
         Sorted list of first-level module/package names found in the base
@@ -1611,8 +1610,8 @@ def _get_first_level_modules_from_base(
     logger = get_app_logger()
     modules: list[str] = []
 
-    # Resolve base path relative to config_dir
-    base_path = (config_dir / base_str).resolve()
+    # base_str is already an absolute path
+    base_path = Path(base_str).resolve()
 
     if not base_path.exists() or not base_path.is_dir():
         logger.trace(
@@ -1671,8 +1670,8 @@ def _get_first_level_modules_from_bases(
     modules from each base sorted but not deduplicated across bases.
 
     Args:
-        module_bases: List of module base directory paths (relative or absolute)
-        config_dir: Config directory for resolving relative paths
+        module_bases: List of module base directory paths (absolute)
+        config_dir: Config directory (unused, kept for compatibility)
 
     Returns:
         List of first-level module/package names found in module_bases,
@@ -1788,7 +1787,8 @@ def _infer_packages_from_includes(  # noqa: C901, PLR0912, PLR0915
         for path_str in path_strings:
             # Check if path is within any module_base
             for base_str in module_bases:
-                base_path = (config_dir / base_str).resolve()
+                # base_str is already an absolute path
+                base_path = Path(base_str).resolve()
                 # Try to resolve path relative to config_dir
                 try:
                     path_obj = (config_dir / path_str).resolve()
@@ -1870,7 +1870,8 @@ def _infer_packages_from_includes(  # noqa: C901, PLR0912, PLR0915
                 path_obj = (config_dir / path_str).resolve()
                 # Try to find first-level directory relative to module_bases
                 for base_str in module_bases:
-                    base_path = (config_dir / base_str).resolve()
+                    # base_str is already an absolute path
+                    base_path = Path(base_str).resolve()
                     try:
                         rel_path = path_obj.relative_to(base_path)
                         parts = list(rel_path.parts)
@@ -2318,37 +2319,55 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     seen_bases: set[str] = set()
 
     # Add CLI bases first (highest priority)
+    # (already absolute from _extract_module_bases_from_includes)
     for base in cli_bases:
         if base not in seen_bases:
             seen_bases.add(base)
             merged_bases.append(base)
 
     # Add config bases (second priority)
+    # (already absolute from _extract_module_bases_from_includes)
     for base in config_bases:
         if base not in seen_bases:
             seen_bases.add(base)
             merged_bases.append(base)
 
-    # Add config module_bases (third priority)
+    # Add config module_bases (third priority) - resolve relative paths to absolute
     for base in config_module_bases:
-        if base not in seen_bases:
-            seen_bases.add(base)
-            merged_bases.append(base)
+        # Resolve relative paths to absolute
+        base_path = (config_dir / base).resolve()
+        base_abs = str(base_path)
+        if base_abs not in seen_bases:
+            seen_bases.add(base_abs)
+            merged_bases.append(base_abs)
 
     # Add defaults last (lowest priority, but should already be in config_module_bases)
+    # Resolve relative paths to absolute
     for base in DEFAULT_MODULE_BASES:
-        if base not in seen_bases:
-            seen_bases.add(base)
-            merged_bases.append(base)
+        base_path = (config_dir / base).resolve()
+        base_abs = str(base_path)
+        if base_abs not in seen_bases:
+            seen_bases.add(base_abs)
+            merged_bases.append(base_abs)
 
     resolved_cfg["module_bases"] = merged_bases
     if cli_bases or config_bases:
+        # Use display helpers for logging
+        display_bases = shorten_paths_for_display(
+            merged_bases, cwd=cwd, config_dir=config_dir
+        )
+        display_cli = shorten_paths_for_display(
+            cli_bases, cwd=cwd, config_dir=config_dir
+        )
+        display_config = shorten_paths_for_display(
+            config_bases, cwd=cwd, config_dir=config_dir
+        )
         logger.debug(
             "[MODULE_BASES] Extracted bases from includes: CLI=%s, config=%s, "
             "merged=%s",
-            cli_bases,
-            config_bases,
-            merged_bases,
+            display_cli,
+            display_config,
+            display_bases,
         )
 
     # ------------------------------
@@ -2607,7 +2626,8 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
             # Can be either a directory (package) or a .py file (module)
             package_path: str | None = None
             for base_str in module_bases_list:
-                base_path = (config_dir / base_str).resolve()
+                # base_str is already an absolute path
+                base_path = Path(base_str).resolve()
                 package_dir = base_path / package
                 package_file = base_path / f"{package}.py"
 

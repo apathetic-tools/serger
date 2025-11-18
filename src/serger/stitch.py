@@ -67,7 +67,7 @@ from .module_actions import (
     validate_action_source_exists,
     validate_module_actions,
 )
-from .utils import derive_module_name
+from .utils import derive_module_name, shorten_path_for_display
 from .utils.utils_validation import validate_required_keys
 from .verify_script import (
     _cleanup_error_files,  # pyright: ignore[reportPrivateUsage]
@@ -1752,7 +1752,7 @@ def _find_package_root_for_file(
     file_path: Path,
     *,
     module_bases: list[str] | None = None,
-    config_dir: Path | None = None,
+    _config_dir: Path | None = None,
 ) -> Path | None:
     """Find the package root for a file.
 
@@ -1762,8 +1762,8 @@ def _find_package_root_for_file(
 
     Args:
         file_path: Path to the Python file
-        module_bases: Optional list of module base directories
-        config_dir: Optional config directory for resolving relative module_bases
+        module_bases: Optional list of module base directories (absolute paths)
+        _config_dir: Optional config directory (unused, kept for compatibility)
 
     Returns:
         Path to the package root directory, or None if not found
@@ -1819,10 +1819,10 @@ def _find_package_root_for_file(
         current_dir = parent
 
     # If no __init__.py found, check if file is under any module_bases directory
-    if module_bases and config_dir and last_package_dir is None:
-        config_dir_resolved = config_dir.resolve()
+    if module_bases and last_package_dir is None:
         for base_str in module_bases:
-            base_path = (config_dir_resolved / base_str).resolve()
+            # base_str is already an absolute path
+            base_path = Path(base_str).resolve()
             try:
                 # Check if file is under this base
                 rel_path = file_path_resolved.relative_to(base_path)
@@ -1853,7 +1853,7 @@ def detect_packages_from_files(
     package_name: str,
     *,
     module_bases: list[str] | None = None,
-    config_dir: Path | None = None,
+    _config_dir: Path | None = None,
 ) -> tuple[set[str], list[str]]:
     """Detect packages from file paths.
 
@@ -1865,13 +1865,13 @@ def detect_packages_from_files(
     Args:
         file_paths: List of file paths to check
         package_name: Configured package name (used as fallback)
-        module_bases: Optional list of module base directories
-        config_dir: Optional config directory for resolving relative module_bases
+        module_bases: Optional list of module base directories (absolute paths)
+        _config_dir: Optional config directory (unused, kept for compatibility)
 
     Returns:
         Tuple of (set of detected package names, list of parent directories).
         Package names always includes package_name. Parent directories are
-        normalized relative to config_dir when possible, deduplicated.
+        returned as absolute paths, deduplicated.
     """
     logger = get_app_logger()
     detected: set[str] = set()
@@ -1880,9 +1880,7 @@ def detect_packages_from_files(
 
     # Detect packages from files
     for file_path in file_paths:
-        pkg_root = _find_package_root_for_file(
-            file_path, module_bases=module_bases, config_dir=config_dir
-        )
+        pkg_root = _find_package_root_for_file(file_path, module_bases=module_bases)
         if pkg_root:
             # Extract package name from directory name
             pkg_name = pkg_root.name
@@ -1890,16 +1888,9 @@ def detect_packages_from_files(
 
             # Extract parent directory (module base)
             parent_dir = pkg_root.parent.resolve()
-            # Skip if parent is filesystem root or config_dir itself
-            config_dir_resolved = config_dir.resolve() if config_dir else None
             # Check if parent is filesystem root (parent of root equals root)
             is_root = parent_dir.parent == parent_dir
-            if (
-                not is_root
-                and config_dir_resolved is not None
-                and parent_dir != config_dir_resolved
-                and parent_dir not in seen_parents
-            ):
+            if not is_root and parent_dir not in seen_parents:
                 seen_parents.add(parent_dir)
                 parent_dirs.append(parent_dir)
 
@@ -1914,22 +1905,12 @@ def detect_packages_from_files(
     # Always include configured package (for fallback and multi-package scenarios)
     detected.add(package_name)
 
-    # Normalize parent directories relative to config_dir
+    # Return parent directories as absolute paths
     normalized_parents: list[str] = []
     seen_normalized: set[str] = set()
-    config_dir_resolved = config_dir.resolve() if config_dir else None
 
     for parent_dir in parent_dirs:
-        if config_dir_resolved:
-            try:
-                base_rel = str(parent_dir.relative_to(config_dir_resolved))
-                base_str = base_rel if base_rel else "."
-            except ValueError:
-                # Not relative to config_dir, use absolute path
-                base_str = str(parent_dir)
-        else:
-            base_str = str(parent_dir)
-
+        base_str = str(parent_dir)
         if base_str not in seen_normalized:
             seen_normalized.add(base_str)
             normalized_parents.append(base_str)
@@ -2066,7 +2047,8 @@ def _collect_modules(  # noqa: PLR0912, PLR0915
 
     for file_path in file_paths:
         if not file_path.exists():
-            logger.warning("Skipping missing file: %s", file_path)
+            file_display = shorten_path_for_display(file_path)
+            logger.warning("Skipping missing file: %s", file_display)
             continue
 
         # Derive module name from file path
@@ -2153,7 +2135,8 @@ def _collect_modules(  # noqa: PLR0912, PLR0915
         header = f"# === {module_name} ==="
         parts.append(f"\n{header}\n{module_body.strip()}\n\n")
 
-        logger.trace("Processed module: %s (from %s)", module_name, file_path)
+        file_display = shorten_path_for_display(file_path)
+        logger.trace("Processed module: %s (from %s)", module_name, file_display)
 
     return module_sources, all_imports, parts, derived_module_names
 
@@ -3656,17 +3639,10 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
             and all(isinstance(x, str) for x in module_bases_raw)  # pyright: ignore[reportUnknownVariableType]
             else None
         )
-        config_dir = None
-        meta = config.get("__meta__")
-        if meta and isinstance(meta, dict):
-            config_dir_raw = meta.get("config_root")  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
-            if isinstance(config_dir_raw, Path):
-                config_dir = config_dir_raw
         detected_packages, _discovered_parent_dirs = detect_packages_from_files(
             order_paths,
             package_name,
             module_bases=module_bases,
-            config_dir=config_dir,
         )
 
     # --- Validation Phase ---
@@ -4026,7 +4002,8 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
         raise RuntimeError(xmsg) from e
 
     # --- Output (compilation succeeded) ---
-    logger.debug("Writing output file: %s", out_path)
+    out_display = shorten_path_for_display(out_path)
+    logger.debug("Writing output file: %s", out_display)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(final_script, encoding="utf-8")
     out_path.chmod(0o755)
