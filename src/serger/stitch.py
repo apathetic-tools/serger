@@ -126,6 +126,50 @@ def extract_commit(root_path: Path) -> str:
     return "unknown"
 
 
+# Maximum number of lines to read when checking if a file is a serger build
+_MAX_LINES_TO_CHECK_FOR_SERGER_BUILD = 100
+
+
+def _is_serger_build(file_path: Path) -> bool:  # pyright: ignore[reportUnusedFunction]
+    """Check if a file is a serger-generated build.
+
+    Reads the first ~100 lines of the file and checks for the
+    __STITCH_SOURCE__ variable that serger embeds in all generated files.
+
+    Args:
+        file_path: Path to the file to check
+
+    Returns:
+        True if the file appears to be a serger build, False otherwise
+    """
+    if not file_path.exists():
+        return False
+
+    try:
+        # Read first N lines to catch the constants section
+        # where __STITCH_SOURCE__ is defined
+        with file_path.open(encoding="utf-8") as f:
+            lines: list[str] = []
+            for i, line in enumerate(f):
+                if i >= _MAX_LINES_TO_CHECK_FOR_SERGER_BUILD:
+                    break
+                lines.append(line)
+
+        content = "".join(lines)
+
+        # Check for __STITCH_SOURCE__ variable assignment with value "serger"
+        # Pattern matches: __STITCH_SOURCE__ = "serger" or __STITCH_SOURCE__ = 'serger'
+        # Uses capturing group to ensure opening and closing quotes match
+        # Case-insensitive for both variable name and "serger" value
+        pattern = r'__STITCH_SOURCE__\s*=\s*(["\'])serger\1'
+        return bool(re.search(pattern, content, re.IGNORECASE))
+
+    except (OSError, UnicodeDecodeError):
+        # If we can't read the file, assume it's not a serger build
+        # (safer to err on the side of caution)
+        return False
+
+
 def split_imports(  # noqa: C901, PLR0912, PLR0915
     text: str,
     package_names: list[str],
@@ -3341,7 +3385,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     return script_text, sorted(detected_packages)
 
 
-def stitch_modules(  # noqa: PLR0915, PLR0912, C901
+def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
     *,
     config: dict[str, object],
     file_paths: list[Path],
@@ -3353,6 +3397,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
     commit: str = "unknown",
     build_date: str = "unknown",
     post_processing: PostProcessingConfigResolved | None = None,
+    is_serger_build: bool,
 ) -> None:
     """Orchestrate stitching of multiple Python modules into a single file.
 
@@ -3383,12 +3428,26 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, C901
         commit: Commit hash to embed in script metadata
         build_date: Build timestamp to embed in script metadata
         post_processing: Post-processing configuration (if None, skips post-processing)
+        is_serger_build: Whether the output file is safe to overwrite.
+                True if file doesn't exist or is a serger build, False otherwise.
+                Pre-computed in run_build() to avoid recomputation.
 
     Raises:
-        RuntimeError: If any validation or stitching step fails
+        RuntimeError: If any validation or stitching step fails, or if attempting
+                to overwrite a non-serger file (is_serger_build=False)
         AssertionError: If mtime advancing fails
     """
     logger = get_app_logger()
+
+    # Bail out early if attempting to overwrite a non-serger file
+    # (primary check is in run_build, this is defensive for direct calls)
+    if out_path.exists() and not is_serger_build:
+        xmsg = (
+            f"Refusing to overwrite {out_path} because it does not appear "
+            "to be a serger-generated build. If you want to overwrite this "
+            "file, please delete it first or rename it."
+        )
+        raise RuntimeError(xmsg)
 
     # package is required for stitching
     validate_required_keys(config, {"package"}, "config")

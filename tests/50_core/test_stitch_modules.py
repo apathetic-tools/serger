@@ -13,7 +13,7 @@ import pytest
 import serger.build as mod_build
 import serger.config.config_types as mod_config_types
 import serger.stitch as mod_stitch
-from tests.utils import run_with_output
+from tests.utils import is_serger_build_for_test, run_with_output
 from tests.utils.buildconfig import make_include_resolved
 
 
@@ -89,6 +89,7 @@ class TestStitchModulesValidation:
                     package_root=package_root,
                     file_to_include=file_to_include,
                     out_path=out_path,
+                    is_serger_build=is_serger_build_for_test(out_path),
                 )
 
     def test_missing_order_field(self) -> None:
@@ -115,6 +116,7 @@ class TestStitchModulesValidation:
                     package_root=package_root,
                     file_to_include=file_to_include,
                     out_path=out_path,
+                    is_serger_build=is_serger_build_for_test(out_path),
                 )
 
     def test_invalid_package_type(self) -> None:
@@ -143,6 +145,7 @@ class TestStitchModulesValidation:
                     package_root=package_root,
                     file_to_include=file_to_include,
                     out_path=out_path,
+                    is_serger_build=is_serger_build_for_test(out_path),
                 )
 
     def test_invalid_order_type(self) -> None:
@@ -171,6 +174,7 @@ class TestStitchModulesValidation:
                     package_root=package_root,
                     file_to_include=file_to_include,
                     out_path=out_path,
+                    is_serger_build=is_serger_build_for_test(out_path),
                 )
 
     def test_invalid_stitch_mode(self) -> None:
@@ -199,6 +203,7 @@ class TestStitchModulesValidation:
                     package_root=package_root,
                     file_to_include=file_to_include,
                     out_path=out_path,
+                    is_serger_build=is_serger_build_for_test(out_path),
                 )
 
     def test_unimplemented_stitch_mode_class(self) -> None:
@@ -227,6 +232,7 @@ class TestStitchModulesValidation:
                     package_root=package_root,
                     file_to_include=file_to_include,
                     out_path=out_path,
+                    is_serger_build=is_serger_build_for_test(out_path),
                 )
 
     def test_unimplemented_stitch_mode_exec(self) -> None:
@@ -255,6 +261,7 @@ class TestStitchModulesValidation:
                     package_root=package_root,
                     file_to_include=file_to_include,
                     out_path=out_path,
+                    is_serger_build=is_serger_build_for_test(out_path),
                 )
 
 
@@ -286,6 +293,7 @@ class TestStitchModulesBasic:
                 version="1.0.0",
                 commit="abc123",
                 build_date="2025-01-01",
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             # Verify output exists and contains both modules
@@ -323,6 +331,7 @@ class TestStitchModulesBasic:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             content = out_path.read_text()
@@ -361,6 +370,7 @@ class TestStitchModulesBasic:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             content = out_path.read_text()
@@ -417,6 +427,7 @@ class TestStitchModulesBasic:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             content = out_path.read_text()
@@ -450,6 +461,7 @@ class TestStitchModulesBasic:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             content = out_path.read_text()
@@ -503,6 +515,7 @@ class TestStitchModulesBasic:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             content = out_path.read_text()
@@ -537,6 +550,7 @@ class TestStitchModulesCollisionDetection:
                     package_root=package_root,
                     file_to_include=file_to_include,
                     out_path=out_path,
+                    is_serger_build=is_serger_build_for_test(out_path),
                 )
 
     def test_collision_detection_classes(self) -> None:
@@ -562,6 +576,7 @@ class TestStitchModulesCollisionDetection:
                     package_root=package_root,
                     file_to_include=file_to_include,
                     out_path=out_path,
+                    is_serger_build=is_serger_build_for_test(out_path),
                 )
 
     def test_no_collision_with_ignored_names(self) -> None:
@@ -587,6 +602,7 @@ class TestStitchModulesCollisionDetection:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
     def test_collision_detection_with_assign_mode(self) -> None:
@@ -621,6 +637,7 @@ class TestStitchModulesCollisionDetection:
                     package_root=package_root,
                     file_to_include=file_to_include,
                     out_path=out_path,
+                    is_serger_build=is_serger_build_for_test(out_path),
                 )
 
 
@@ -653,6 +670,7 @@ class TestStitchModulesAssignMode:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             # Verify output compiles
@@ -712,6 +730,7 @@ class TestStitchModulesAssignMode:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             # Verify output compiles
@@ -762,6 +781,7 @@ class TestStitchModulesAssignMode:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             # Verify output compiles
@@ -807,6 +827,7 @@ class TestStitchModulesAssignMode:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             # Verify output compiles
@@ -855,6 +876,7 @@ class TestStitchModulesAssignMode:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             # Verify output compiles
@@ -905,6 +927,7 @@ class TestStitchModulesAssignMode:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             # Verify output compiles
@@ -981,6 +1004,7 @@ class TestStitchModulesAssignMode:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             # Verify output compiles
@@ -1055,6 +1079,7 @@ class TestStitchModulesOtherImportModes:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             # Verify output compiles
@@ -1112,6 +1137,7 @@ class TestStitchModulesOtherImportModes:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             # Verify output compiles
@@ -1154,6 +1180,7 @@ class TestStitchModulesMetadata:
                 version="2.1.3",
                 commit="def456",
                 build_date="2025-06-15 10:30:00 UTC",
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             content = out_path.read_text()
@@ -1194,6 +1221,7 @@ class TestStitchModulesMetadata:
                 file_to_include=file_to_include,
                 out_path=out_path,
                 license_header="",
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             content = out_path.read_text()
@@ -1224,6 +1252,7 @@ class TestStitchModulesShims:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             content = out_path.read_text()
@@ -1276,6 +1305,7 @@ class TestStitchModulesShims:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             content = out_path.read_text()
@@ -1320,6 +1350,7 @@ class TestStitchModulesOutput:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             # Output file should exist
@@ -1347,6 +1378,7 @@ class TestStitchModulesOutput:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             # Check executable bit is set
@@ -1374,10 +1406,133 @@ class TestStitchModulesOutput:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             # Verify it compiles
             py_compile.compile(str(out_path), doraise=True)
+
+    def test_refuses_to_overwrite_non_serger_file(self) -> None:
+        """Should refuse to overwrite files that aren't serger builds."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            out_path = tmp_path / "output.py"
+
+            # Create a non-serger Python file at the output path
+            out_path.write_text("#!/usr/bin/env python3\nprint('Hello, world!')\n")
+
+            (src_dir / "main.py").write_text("MAIN = 1\n")
+
+            file_paths, package_root, file_to_include, config = _setup_stitch_test(
+                src_dir, ["main"]
+            )
+
+            # Should raise RuntimeError when trying to overwrite
+            with pytest.raises(RuntimeError, match="does not appear to be a serger"):
+                mod_stitch.stitch_modules(
+                    config=config,
+                    file_paths=file_paths,
+                    package_root=package_root,
+                    file_to_include=file_to_include,
+                    out_path=out_path,
+                    is_serger_build=is_serger_build_for_test(out_path),
+                )
+
+            # Original file should still exist and be unchanged
+            assert out_path.exists()
+            assert "Hello, world!" in out_path.read_text()
+
+    def test_allows_overwriting_serger_build(self) -> None:
+        """Should allow overwriting files that are serger builds."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src"
+            src_dir.mkdir()
+            out_path = tmp_path / "output.py"
+
+            (src_dir / "main.py").write_text("MAIN = 1\n")
+
+            file_paths, package_root, file_to_include, config = _setup_stitch_test(
+                src_dir, ["main"]
+            )
+
+            # First build - creates the file
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
+            )
+
+            # Verify it's a serger build
+            content = out_path.read_text()
+            assert "__STITCH_SOURCE__" in content
+
+            # Modify source and rebuild - should succeed
+            (src_dir / "main.py").write_text("MAIN = 2\n")
+
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
+            )
+
+            # Verify it was overwritten with new content
+            new_content = out_path.read_text()
+            assert "MAIN = 2" in new_content
+            assert "__STITCH_SOURCE__" in new_content
+
+    @pytest.mark.parametrize(
+        ("content", "description"),
+        [
+            ('__STITCH_SOURCE__ = "serger"\n', "double quotes, lowercase"),
+            ("__STITCH_SOURCE__ = 'serger'\n", "single quotes, lowercase"),
+            ('__STITCH_SOURCE__ = "SERGER"\n', "double quotes, uppercase"),
+            ("__STITCH_SOURCE__ = 'Serger'\n", "single quotes, mixed case"),
+            ('  __STITCH_SOURCE__  =  "serger"  \n', "with whitespace"),
+            ('__stitch_source__ = "serger"\n', "lowercase variable name"),
+            ('__Stitch_Source__ = "serger"\n', "mixed case variable name"),
+        ],
+    )
+    def test_is_serger_build_recognizes_serger_builds(
+        self, content: str, description: str
+    ) -> None:
+        """Should recognize serger builds with different quote styles and case."""
+        # Access private function through module for testing
+        _is_serger_build = mod_stitch._is_serger_build  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            test_file = tmp_path / "test.py"
+            test_file.write_text(content)
+            assert _is_serger_build(test_file), f"Failed for: {description}"
+
+    @pytest.mark.parametrize(
+        ("content", "description"),
+        [
+            ('__STITCH_SOURCE__ = "other_tool"\n', "non-serger value"),
+            ("print('Hello, world!')\n", "missing variable"),
+        ],
+    )
+    def test_is_serger_build_rejects_non_serger_files(
+        self, content: str, description: str
+    ) -> None:
+        """Should reject files that are not serger builds."""
+        # Access private function through module for testing
+        _is_serger_build = mod_stitch._is_serger_build  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            test_file = tmp_path / "test.py"
+            test_file.write_text(content)
+            assert not _is_serger_build(test_file), f"Failed for: {description}"
 
 
 class TestStitchModulesDisplayConfig:
@@ -1406,6 +1561,7 @@ class TestStitchModulesDisplayConfig:
                 file_to_include=file_to_include,
                 out_path=out_path,
                 license_header="# License: MIT\n",
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             content = out_path.read_text()
@@ -1434,6 +1590,7 @@ class TestStitchModulesDisplayConfig:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             content = out_path.read_text()
@@ -1461,6 +1618,7 @@ class TestStitchModulesDisplayConfig:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             content = out_path.read_text()
@@ -1487,6 +1645,7 @@ class TestStitchModulesDisplayConfig:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             content = out_path.read_text()
@@ -1515,6 +1674,7 @@ class TestStitchModulesDisplayConfig:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             content = out_path.read_text()
@@ -1546,6 +1706,7 @@ class TestRepoField:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             content = out_path.read_text()
@@ -1572,6 +1733,7 @@ class TestRepoField:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             content = out_path.read_text()
@@ -1598,6 +1760,7 @@ class TestRepoField:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             content = out_path.read_text()
@@ -1626,6 +1789,7 @@ class TestRepoField:
                 out_path=out_path,
                 version="1.0.0",
                 build_date="2025-01-01 12:00:00 UTC",
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
             content = out_path.read_text()
@@ -1686,6 +1850,7 @@ class TestRepoField:
                     package_root=package_root,
                     file_to_include=file_to_include,
                     out_path=out_path,
+                    is_serger_build=is_serger_build_for_test(out_path),
                 )
 
                 content = out_path.read_text()

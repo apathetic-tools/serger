@@ -12,6 +12,7 @@ import serger.build as mod_build
 import serger.config.config_types as mod_config_types
 import serger.stitch as mod_stitch
 import serger.verify_script as mod_verify
+from tests.utils import is_serger_build_for_test
 from tests.utils.buildconfig import make_include_resolved
 
 
@@ -65,6 +66,7 @@ def test_stitch_modules_compiles_in_memory_before_writing() -> None:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
         assert verify_called, "verify_compiles_string should have been called"
@@ -125,6 +127,7 @@ def test_stitch_modules_writes_error_file_on_compilation_failure() -> None:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
         # Should raise with error details
@@ -185,6 +188,7 @@ def test_stitch_modules_cleans_up_error_files_on_success() -> None:
             package_root=package_root,
             file_to_include=file_to_include,
             out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
         )
 
         # Old error files should be deleted
@@ -245,6 +249,7 @@ def test_stitch_modules_handles_actual_compilation_failure() -> None:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
         # Should raise with error details
@@ -315,6 +320,7 @@ def test_stitch_modules_error_file_has_correct_date_format() -> None:
                 package_root=package_root,
                 file_to_include=file_to_include,
                 out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
         # Check error file name format

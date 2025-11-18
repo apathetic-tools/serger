@@ -11,6 +11,7 @@ from .config import IncludeResolved, PathResolved, RootConfigResolved
 from .constants import BUILD_TIMESTAMP_PLACEHOLDER, DEFAULT_DRY_RUN
 from .logs import get_app_logger
 from .stitch import (
+    _is_serger_build,  # pyright: ignore[reportPrivateUsage]
     compute_module_order,
     detect_packages_from_files,
     extract_commit,
@@ -561,6 +562,18 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
         )
         raise ValueError(xmsg)
 
+    # Safety check: Don't overwrite files that aren't serger builds
+    # (fail fast before doing expensive work)
+    # Compute once and pass down to avoid recomputation
+    is_serger_build = not out_path.exists() or _is_serger_build(out_path)
+    if out_path.exists() and not is_serger_build:
+        xmsg = (
+            f"Refusing to overwrite {out_path} because it does not appear "
+            "to be a serger-generated build. If you want to overwrite this "
+            "file, please delete it first or rename it."
+        )
+        raise RuntimeError(xmsg)
+
     # Get config root for resolving order paths and validating module_actions
     validate_required_keys(
         build_cfg["__meta__"], {"config_root"}, "build_cfg['__meta__']"
@@ -746,6 +759,7 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
             commit=commit,
             build_date=build_date,
             post_processing=post_processing,
+            is_serger_build=is_serger_build,
         )
         logger.info("✅ Stitch completed → %s\n", out_path)
     except RuntimeError as e:

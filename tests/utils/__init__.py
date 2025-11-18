@@ -19,6 +19,7 @@ from .package import make_test_package
 from .patch_everywhere import patch_everywhere
 from .proj_root import PROJ_ROOT
 from .runtime_swap import runtime_swap
+from .stitch_test import is_serger_build_for_test
 from .strip_common_prefix import strip_common_prefix
 from .subprocess_output import (
     SubprocessResult,
@@ -55,6 +56,8 @@ __all__ = [  # noqa: RUF022
     "PROJ_ROOT",
     # runtime_swap
     "runtime_swap",
+    # stitch_test
+    "is_serger_build_for_test",
     # strip_common_prefix
     "strip_common_prefix",
     # subprocess_output

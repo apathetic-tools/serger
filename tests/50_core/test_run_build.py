@@ -13,6 +13,7 @@ import pytest
 
 import serger.build as mod_build
 from tests.utils import make_build_cfg, make_include_resolved
+from tests.utils.buildconfig import make_resolved
 
 
 def test_run_build_stitch_simple_modules(
@@ -278,3 +279,70 @@ def test_run_build_auto_discovers_order(
         "Auto-discovered order should respect dependencies: "
         f"base at {base_pos}, derived at {derived_pos}, main at {main_pos}"
     )
+
+
+def test_run_build_refuses_to_overwrite_non_serger_file(
+    tmp_path: Path,
+) -> None:
+    """Should refuse to overwrite files that aren't serger builds."""
+    # --- setup ---
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "main.py").write_text("MAIN = 1\n")
+
+    out_file = tmp_path / "dist" / "script.py"
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    # Create a non-serger Python file at the output path
+    out_file.write_text("#!/usr/bin/env python3\nprint('Hello, world!')\n")
+
+    cfg = make_build_cfg(
+        tmp_path,
+        [make_include_resolved("src/*.py", tmp_path)],
+        out=make_resolved("dist/script.py", tmp_path),
+    )
+    cfg["package"] = "testpkg"
+    cfg["order"] = ["src/main.py"]
+
+    # --- execute & verify ---
+    with pytest.raises(RuntimeError, match="does not appear to be a serger"):
+        mod_build.run_build(cfg)
+
+    # Original file should still exist and be unchanged
+    assert out_file.exists()
+    assert "Hello, world!" in out_file.read_text()
+
+
+def test_run_build_allows_overwriting_serger_build(
+    tmp_path: Path,
+) -> None:
+    """Should allow overwriting files that are serger builds."""
+    # --- setup ---
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "main.py").write_text("MAIN = 1\n")
+
+    cfg = make_build_cfg(
+        tmp_path,
+        [make_include_resolved("src/*.py", tmp_path)],
+        out=make_resolved("dist/script.py", tmp_path),
+    )
+    cfg["package"] = "testpkg"
+    cfg["order"] = ["src/main.py"]
+
+    # First build - creates the file
+    mod_build.run_build(cfg)
+
+    out_file = tmp_path / "dist" / "script.py"
+    # Verify it's a serger build
+    content = out_file.read_text()
+    assert "__STITCH_SOURCE__" in content
+
+    # Modify source and rebuild - should succeed
+    (src / "main.py").write_text("MAIN = 2\n")
+
+    mod_build.run_build(cfg)
+
+    # Verify it was overwritten with new content
+    new_content = out_file.read_text()
+    assert "MAIN = 2" in new_content
+    assert "__STITCH_SOURCE__" in new_content
