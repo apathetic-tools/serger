@@ -815,11 +815,13 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
     # Extract metadata for embedding
     # Use config_root for finding pyproject.toml (project root) and for git
     config_root = build_cfg["__meta__"]["config_root"]
+    # Resolve to absolute path for git operations
+    git_root = config_root.resolve()
     disable_timestamp = build_cfg.get("disable_build_timestamp", False)
     version, commit, build_date = _extract_build_metadata(
         build_cfg=build_cfg,
         project_root=config_root,
-        git_root=config_root,  # Use project root for git operations, not package_root
+        git_root=git_root,  # Use resolved project root for git operations
         disable_timestamp=disable_timestamp,
     )
 

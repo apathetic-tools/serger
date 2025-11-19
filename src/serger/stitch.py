@@ -109,9 +109,10 @@ def extract_commit(root_path: Path) -> str:
     if not (os.getenv("CI") or os.getenv("GIT_TAG") or os.getenv("GITHUB_REF")):
         return "unknown (local build)"
     try:
+        # Convert Path to string for subprocess compatibility
         result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],  # noqa: S607
-            cwd=root_path,
+            cwd=str(root_path),
             capture_output=True,
             text=True,
             check=True,
