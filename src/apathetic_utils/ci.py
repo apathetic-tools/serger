@@ -4,6 +4,10 @@
 import os
 
 
+# CI environment variable names that indicate CI environment
+CI_ENV_VARS = ("CI", "GITHUB_ACTIONS", "GIT_TAG", "GITHUB_REF")
+
+
 def is_ci() -> bool:
     """Check if running in a CI environment.
 
@@ -16,9 +20,4 @@ def is_ci() -> bool:
     Returns:
         True if running in CI, False otherwise
     """
-    return bool(
-        os.getenv("CI")
-        or os.getenv("GITHUB_ACTIONS")
-        or os.getenv("GIT_TAG")
-        or os.getenv("GITHUB_REF")
-    )
+    return bool(any(os.getenv(var) for var in CI_ENV_VARS))

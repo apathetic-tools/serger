@@ -42,6 +42,7 @@ def test_build_script_respects_ci_env(
 
     # Reset any pre-existing CI vars
     env = dict(os.environ)
+    # Clear all CI-related environment variables
     for key in ("CI", "GITHUB_ACTIONS", "GIT_TAG", "GITHUB_REF"):
         env.pop(key, None)
 

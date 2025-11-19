@@ -12,7 +12,7 @@ from .buildconfig import (
     make_tool_config_resolved,
     write_config_file,
 )
-from .ci import is_ci
+from .ci import clear_ci_env, is_ci
 from .config_validate import make_summary
 from .force_mtime_advance import force_mtime_advance
 from .package import make_test_package
@@ -43,6 +43,7 @@ __all__ = [  # noqa: RUF022
     "make_tool_config_resolved",
     "write_config_file",
     # ci
+    "clear_ci_env",
     "is_ci",
     # config_validate
     "make_summary",

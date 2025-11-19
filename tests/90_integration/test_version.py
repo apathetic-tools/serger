@@ -8,6 +8,7 @@ import pytest
 
 import serger.cli as mod_cli
 import serger.meta as mod_meta
+from tests.utils import is_ci
 
 
 def test_version_flag(
@@ -25,15 +26,13 @@ def test_version_flag(
 
     if os.getenv("RUNTIME_MODE") in {"singlefile"}:
         # Standalone version — commit is determined at build time
-        # Check the actual output: if script has a commit hash, it was built in CI
-        # If it has "unknown (local build)", it was built locally
-        # We check the actual output rather than is_ci() at runtime because
-        # the script's commit is embedded at build time, not runtime
-        has_commit_hash = bool(re.search(r"\([0-9a-f]{4,}\)", out))
-        has_unknown_local = "(unknown (local build))".lower() in out
-        assert has_commit_hash or has_unknown_local, (
-            f"Expected either commit hash or 'unknown (local build)' in output: {out!r}"
-        )
+        # If we're running in CI, the script was built in CI and should have
+        # a commit hash. If we're running locally, the script was built locally
+        # and should show "unknown (local build)"
+        if is_ci():
+            assert re.search(r"\([0-9a-f]{4,}\)", out)
+        else:
+            assert "(unknown (local build))".lower() in out
     else:
         # installed (source) version — should always have a live git commit hash
         assert re.search(r"\([0-9a-f]{4,}\)", out)
