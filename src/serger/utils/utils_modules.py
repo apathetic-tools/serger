@@ -138,20 +138,23 @@ def _interpret_dest_for_module_name(  # noqa: PLR0911
         return dest_path / file_path.name
 
 
-def derive_module_name(
+def derive_module_name(  # noqa: PLR0912, PLR0915
     file_path: Path,
     package_root: Path,
     include: IncludeResolved | None = None,
+    module_bases: list[str] | None = None,
 ) -> str:
     """Derive module name from file path for shim generation.
 
     Default behavior: Preserve directory structure from file path relative to
     package root. With dest: Preserve structure from dest path instead.
+    With module_bases: For external files, derive relative to matching module_base.
 
     Args:
         file_path: The file path to derive module name from
         package_root: Common root of all included files
         include: Optional include that produced this file (for dest access)
+        module_bases: Optional list of module base directories for external files
 
     Returns:
         Derived module name (e.g., "core.base" from "src/core/base.py")
@@ -210,11 +213,35 @@ def derive_module_name(
     try:
         rel_path = file_path_resolved.relative_to(package_root_resolved)
     except ValueError:
-        # File not under package root - use just filename
-        logger.trace(
-            f"[DERIVE] file={file_path} not under root={package_root}, using filename",
-        )
-        rel_path = Path(file_path.name)
+        # File not under package root - check if it's under any module_base
+        if module_bases:
+            # Try each module_base in order (first match wins)
+            for module_base_str in module_bases:
+                module_base = Path(module_base_str).resolve()
+                try:
+                    rel_path = file_path_resolved.relative_to(module_base)
+                    logger.trace(
+                        f"[DERIVE] file={file_path} not under root={package_root}, "
+                        f"but under module_base={module_base}, using relative path",
+                    )
+                    break
+                except ValueError:
+                    # Not under this module_base, try next
+                    continue
+            else:
+                # Not under any module_base - use just filename
+                logger.trace(
+                    f"[DERIVE] file={file_path} not under root={package_root} "
+                    f"or any module_base, using filename",
+                )
+                rel_path = Path(file_path.name)
+        else:
+            # No module_bases - use just filename
+            logger.trace(
+                f"[DERIVE] file={file_path} not under root={package_root}, "
+                f"using filename",
+            )
+            rel_path = Path(file_path.name)
 
     # Convert path to module name, preserving directory structure
     # path/to/file.py → path.to.file

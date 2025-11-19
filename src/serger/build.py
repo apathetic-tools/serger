@@ -744,6 +744,7 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
             package,
             file_to_include,
             detected_packages=detected_packages,
+            module_bases=module_bases,
         )
         logger.debug("Auto-discovered order (%d modules)", len(order_paths))
         # When auto-discovered, order_paths IS the topological order, so we can reuse it

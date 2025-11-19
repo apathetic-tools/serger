@@ -242,10 +242,21 @@ def find_main_function(  # noqa: PLR0912, C901, PLR0915
                 # If we can't read the file, skip the check
                 pass
 
+    # Extract module_bases from config for external files
+    module_bases_raw = config.get("module_bases")
+    module_bases: list[str] | None = None
+    if module_bases_raw is not None:
+        if isinstance(module_bases_raw, str):
+            module_bases = [module_bases_raw]
+        elif isinstance(module_bases_raw, list):
+            module_bases = [str(mb) for mb in module_bases_raw]
+
     module_to_file: dict[str, Path] = {}
     for file_path in file_paths:
         include = file_to_include.get(file_path)
-        module_name = derive_module_name(file_path, package_root, include)
+        module_name = derive_module_name(
+            file_path, package_root, include, module_bases=module_bases
+        )
 
         # If package_root is a package directory, preserve package structure
         if is_package_dir and package_name_from_root:

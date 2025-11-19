@@ -113,3 +113,36 @@ def test_derive_with_dest_glob_pattern(tmp_path: Path) -> None:
     # --- verify ---
     # Should interpret dest relative to glob prefix
     assert result == "custom.base"
+
+
+def test_derive_external_file_with_module_bases(tmp_path: Path) -> None:
+    """Should use module_bases to derive module name for external files."""
+    # --- setup ---
+    # Create external project structure
+    external_proj = tmp_path / "external_proj"
+    external_src = external_proj / "src"
+    external_pkg = external_src / "mypkg"
+    external_pkg.mkdir(parents=True)
+    external_file = external_pkg / "module.py"
+    external_file.write_text("MODULE = 1")
+
+    # Current project (different location)
+    current_proj = tmp_path / "current_proj"
+    current_proj.mkdir()
+    package_root = current_proj  # package_root is in current project
+
+    # module_bases points to external project src
+    module_bases = [str(external_src)]
+
+    # --- execute ---
+    # File is external (not under package_root), but should use module_bases
+    result = mod_utils_modules.derive_module_name(
+        external_file, package_root, module_bases=module_bases
+    )
+
+    # --- verify ---
+    # Should derive relative to module_base, not use full absolute path
+    assert result == "mypkg.module"
+    # Should NOT contain full absolute path parts
+    assert "external_proj" not in result
+    assert "current_proj" not in result
