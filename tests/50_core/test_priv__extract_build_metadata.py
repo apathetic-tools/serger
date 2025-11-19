@@ -26,7 +26,7 @@ def test_extract_build_metadata_with_version() -> None:
     build_cfg = make_build_cfg(tmp_path, version="1.2.3")
 
     version, commit, build_date = mod_build._extract_build_metadata(
-        build_cfg, tmp_path, tmp_path
+        build_cfg=build_cfg, project_root=tmp_path, git_root=tmp_path
     )
 
     assert version == "1.2.3"
@@ -46,7 +46,7 @@ def test_extract_build_metadata_without_version_uses_timestamp() -> None:
         # Capture timestamp before and after to ensure it's recent
         before = datetime.now(timezone.utc)
         version, commit, build_date = mod_build._extract_build_metadata(
-            build_cfg, tmp_path, tmp_path
+            build_cfg=build_cfg, project_root=tmp_path, git_root=tmp_path
         )
         after = datetime.now(timezone.utc)
 
@@ -76,7 +76,7 @@ def test_extract_build_metadata_with_config_version() -> None:
     build_cfg = make_build_cfg(tmp_path, version="3.0.0")
 
     version, _commit, _build_date = mod_build._extract_build_metadata(
-        build_cfg, tmp_path
+        build_cfg=build_cfg, project_root=tmp_path
     )
 
     # Should use version from resolved config
@@ -90,7 +90,7 @@ def test_extract_build_metadata_with_pyproject_version_fallback() -> None:
     build_cfg = make_build_cfg(tmp_path, version="2.0.0")
 
     version, _commit, _build_date = mod_build._extract_build_metadata(
-        build_cfg, tmp_path
+        build_cfg=build_cfg, project_root=tmp_path
     )
 
     # Should use version from resolved config
@@ -107,7 +107,7 @@ def test_extract_build_metadata_missing_pyproject() -> None:
 
         before = datetime.now(timezone.utc)
         version, _commit, build_date = mod_build._extract_build_metadata(
-            build_cfg, tmp_path
+            build_cfg=build_cfg, project_root=tmp_path
         )
         after = datetime.now(timezone.utc)
 
@@ -133,7 +133,10 @@ def test_extract_build_metadata_disable_timestamp_true() -> None:
     build_cfg = make_build_cfg(tmp_path)
 
     version, commit, build_date = mod_build._extract_build_metadata(
-        build_cfg, tmp_path, tmp_path, disable_timestamp=True
+        build_cfg=build_cfg,
+        project_root=tmp_path,
+        git_root=tmp_path,
+        disable_timestamp=True,
     )
 
     # Should use placeholder for build_date
@@ -150,7 +153,10 @@ def test_extract_build_metadata_disable_timestamp_true_with_version() -> None:
     build_cfg = make_build_cfg(tmp_path, version="1.2.3")
 
     version, commit, build_date = mod_build._extract_build_metadata(
-        build_cfg, tmp_path, tmp_path, disable_timestamp=True
+        build_cfg=build_cfg,
+        project_root=tmp_path,
+        git_root=tmp_path,
+        disable_timestamp=True,
     )
 
     # Should use placeholder for build_date
@@ -169,7 +175,10 @@ def test_extract_build_metadata_disable_timestamp_false() -> None:
 
         before = datetime.now(timezone.utc)
         version, commit, build_date = mod_build._extract_build_metadata(
-            build_cfg, tmp_path, tmp_path, disable_timestamp=False
+            build_cfg=build_cfg,
+            project_root=tmp_path,
+            git_root=tmp_path,
+            disable_timestamp=False,
         )
         after = datetime.now(timezone.utc)
 

@@ -427,10 +427,10 @@ def find_package_root(file_paths: list[Path]) -> Path:
 
 
 def _extract_build_metadata(
+    *,
     build_cfg: RootConfigResolved,
     project_root: Path,
     git_root: Path | None = None,
-    *,
     disable_timestamp: bool = False,
 ) -> tuple[str, str, str]:
     """Extract version, commit, and build date for embedding.
@@ -813,13 +813,13 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
     }
 
     # Extract metadata for embedding
-    # Use config_root for finding pyproject.toml (project root), package_root for git
+    # Use config_root for finding pyproject.toml (project root) and for git
     config_root = build_cfg["__meta__"]["config_root"]
     disable_timestamp = build_cfg.get("disable_build_timestamp", False)
     version, commit, build_date = _extract_build_metadata(
-        build_cfg,
-        config_root,
-        package_root,
+        build_cfg=build_cfg,
+        project_root=config_root,
+        git_root=config_root,  # Use project root for git operations, not package_root
         disable_timestamp=disable_timestamp,
     )
 
