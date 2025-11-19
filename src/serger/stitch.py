@@ -135,15 +135,31 @@ def extract_commit(root_path: Path) -> str:
         if not commit_hash:
             logger.warning("git rev-parse returned empty string")
             commit_hash = "unknown"
+        else:
+            # Log success in CI for debugging
+            logger.debug(
+                "Extracted commit hash: %s from %s", commit_hash, resolved_path
+            )
 
     except subprocess.CalledProcessError as e:
+        stderr_msg = e.stderr.strip() or "no error message"
         logger.warning(
-            "git rev-parse failed: %s (stderr: %s)",
-            e.stderr.strip() or "no error message",
+            "git rev-parse failed at %s: %s (stderr: %s, returncode: %s)",
+            resolved_path,
+            stderr_msg,
+            stderr_msg,
             e.returncode,
         )
     except FileNotFoundError:
         logger.warning("git not available in environment")
+
+    # In CI, always log the final commit value for debugging
+    if os.getenv("CI"):
+        logger.info(
+            "Final commit hash for embedding: %s (from %s)",
+            commit_hash,
+            resolved_path,
+        )
 
     return commit_hash
 
