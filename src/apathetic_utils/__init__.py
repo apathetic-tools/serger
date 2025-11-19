@@ -1,5 +1,6 @@
 """Apathetic utilities package."""
 
+from apathetic_utils.ci import is_ci
 from apathetic_utils.files import load_jsonc, load_toml
 from apathetic_utils.matching import fnmatchcase_portable, is_excluded_raw
 from apathetic_utils.paths import get_glob_root, has_glob_chars, normalize_path_string
@@ -20,6 +21,8 @@ from apathetic_utils.types import (
 
 
 __all__ = [  # noqa: RUF022
+    # ci
+    "is_ci",
     # files
     "load_jsonc",
     "load_toml",

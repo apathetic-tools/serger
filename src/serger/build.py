@@ -451,7 +451,7 @@ def _extract_build_metadata(
     # Note: Version is fully resolved during config resolution, so we just need
     # to check the resolved config and fall back to timestamp if not set
     version = build_cfg.get("version")
-    # Use git_root for commit extraction (package root), fallback to project_root
+    # Use git_root for commit extraction (project root), fallback to project_root
     commit_path = git_root if git_root is not None else project_root
     logger = get_app_logger()
     logger.info(

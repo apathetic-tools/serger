@@ -25,7 +25,7 @@ import serger.meta as mod_meta
 __runtime_mode__ = "singlefile"
 
 
-def test_standalone_script_metadata_and_execution() -> None:
+def test_standalone_script_metadata_and_execution() -> None:  # noqa: PLR0912, PLR0915
     """Ensure the generated script.py script is complete and functional."""
     # --- setup ---
     script = PROJ_ROOT / "dist" / f"{mod_meta.PROGRAM_SCRIPT}.py"
@@ -52,16 +52,86 @@ def test_standalone_script_metadata_and_execution() -> None:
     assert declared_version, "Version not found in pyproject.toml"
 
     # - Read standalone script text -
-    # Debug: log script path and first few lines in CI
+    # Debug: log script path and metadata in CI
     if is_ci():
-        print(f"  Reading script from: {script}")
-        print(f"  Script exists: {script.exists()}")
+        print(f"\n[DEBUG] Script path: {script}")
+        print(f"[DEBUG] Script exists: {script.exists()}")
         if script.exists():
-            first_lines = script.read_text(encoding="utf-8").split("\n")[:20]
-            print("  First 20 lines of script:")
-            for i, line in enumerate(first_lines, 1):
-                if "commit" in line.lower():
-                    print(f"    {i}: {line}")
+            script_text_full = script.read_text(encoding="utf-8")
+            script_lines = script_text_full.split("\n")
+            print(
+                f"[DEBUG] Script size: {len(script_text_full)} chars, "
+                f"{len(script_lines)} lines"
+            )
+
+            # Show first 30 lines
+            print("[DEBUG] First 30 lines of script:")
+            for i, line in enumerate(script_lines[:30], 1):
+                print(f"  {i:3d}: {line}")
+
+            # Find all commit-related lines
+            commit_lines_with_nums = [
+                (i, line)
+                for i, line in enumerate(script_lines, 1)
+                if "commit" in line.lower()
+            ]
+            num_commit_lines = len(commit_lines_with_nums)
+            print(f"[DEBUG] Found {num_commit_lines} lines containing 'commit':")
+            for line_num, line_content in commit_lines_with_nums[:10]:  # Show first 10
+                print(f"  Line {line_num:4d}: {line_content}")
+
+            # Extract metadata constants
+            version_const = re.search(
+                r'__version__\s*=\s*["\']([^"\']+)["\']', script_text_full
+            )
+            commit_const = re.search(
+                r'__commit__\s*=\s*["\']([^"\']+)["\']', script_text_full
+            )
+            build_date_const = re.search(
+                r'__build_date__\s*=\s*["\']([^"\']+)["\']', script_text_full
+            )
+
+            print("[DEBUG] Python constants found:")
+            if version_const:
+                print(f"  __version__ = {version_const.group(1)}")
+            else:
+                print("  __version__ = NOT FOUND")
+            if commit_const:
+                print(f"  __commit__ = {commit_const.group(1)}")
+            else:
+                print("  __commit__ = NOT FOUND")
+            if build_date_const:
+                print(f"  __build_date__ = {build_date_const.group(1)}")
+            else:
+                print("  __build_date__ = NOT FOUND")
+
+            # Extract header metadata
+            header_version = re.search(
+                r"^# Version:\s*([^\n]+)", script_text_full, re.MULTILINE
+            )
+            header_commit = re.search(
+                r"^# Commit:\s*([^\n]+)", script_text_full, re.MULTILINE
+            )
+            header_build_date = re.search(
+                r"^# Build Date:\s*([^\n]+)", script_text_full, re.MULTILINE
+            )
+
+            print("[DEBUG] Header comments found:")
+            if header_version:
+                print(f"  # Version: {header_version.group(1)}")
+            else:
+                print("  # Version: NOT FOUND")
+            if header_commit:
+                print(f"  # Commit: {header_commit.group(1)}")
+            else:
+                print("  # Commit: NOT FOUND")
+            if header_build_date:
+                print(f"  # Build Date: {header_build_date.group(1)}")
+            else:
+                print("  # Build Date: NOT FOUND")
+
+            print()  # Blank line for readability
+
     text = script.read_text(encoding="utf-8").lower()
 
     # - Metadata presence checks -
@@ -87,8 +157,16 @@ def test_standalone_script_metadata_and_execution() -> None:
                 for line in text.split("\n")
                 if "commit" in line.lower() and line.strip().startswith("#")
             ]
+            print(
+                "[DEBUG] Commit match failed. "
+                "Searching for pattern: ^# Commit:\\s*([0-9a-f]{4,})"
+            )
+            print(f"[DEBUG] Found {len(commit_lines)} commit-related comment lines:")
+            for i, line in enumerate(commit_lines[:10], 1):
+                print(f"  {i}: {line}")
             msg = f"Missing commit stamp. Found commit lines: {commit_lines[:5]}"
             raise AssertionError(msg)
+        print(f"[DEBUG] Commit match successful: {commit_match.group(1)}")
     else:
         commit_match = re.search(
             r"^# Commit:\s*unknown \(local build\)",

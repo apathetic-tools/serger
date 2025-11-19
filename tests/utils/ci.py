@@ -1,20 +1,18 @@
 # tests/utils/ci.py
+"""CI environment detection utilities for tests.
 
-import os
+This module re-exports is_ci from apathetic_utils.ci for backward compatibility.
+"""
+
+import apathetic_utils.ci as mod_ci
+
+
+__all__ = ["is_ci"]
 
 
 def is_ci() -> bool:
     """Check if running in a CI environment.
 
-    Returns True if any of the following environment variables are set:
-    - CI: Generic CI indicator (set by most CI systems)
-    - GITHUB_ACTIONS: GitHub Actions specific
-    - GIT_TAG: Indicates a tagged build
-    - GITHUB_REF: GitHub Actions ref (branch/tag)
+    Re-exports apathetic_utils.ci.is_ci for backward compatibility.
     """
-    return bool(
-        os.getenv("CI")
-        or os.getenv("GITHUB_ACTIONS")
-        or os.getenv("GIT_TAG")
-        or os.getenv("GITHUB_REF")
-    )
+    return mod_ci.is_ci()

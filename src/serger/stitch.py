@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import cast
 
 from apathetic_utils import literal_to_set
+from apathetic_utils.ci import is_ci
 
 from .config import (
     CommentsMode,
@@ -106,26 +107,34 @@ def extract_commit(root_path: Path) -> str:  # noqa: PLR0915
     """
     logger = get_app_logger()
     # Comprehensive logging for troubleshooting
+    in_ci = is_ci()
     ci_env = os.getenv("CI")
+    github_actions = os.getenv("GITHUB_ACTIONS")
     git_tag = os.getenv("GIT_TAG")
     github_ref = os.getenv("GITHUB_REF")
     logger.info(
-        "extract_commit called: root_path=%s, CI=%s, GIT_TAG=%s, GITHUB_REF=%s",
+        "extract_commit called: root_path=%s, in_ci=%s, CI=%s, GITHUB_ACTIONS=%s, "
+        "GIT_TAG=%s, GITHUB_REF=%s",
         root_path,
+        in_ci,
         ci_env,
+        github_actions,
         git_tag,
         github_ref,
     )
     logger.trace(
-        "extract_commit: root_path=%s, CI=%s, GIT_TAG=%s, GITHUB_REF=%s",
+        "extract_commit: root_path=%s, in_ci=%s, CI=%s, GITHUB_ACTIONS=%s, "
+        "GIT_TAG=%s, GITHUB_REF=%s",
         root_path,
+        in_ci,
         ci_env,
+        github_actions,
         git_tag,
         github_ref,
     )
 
     # Only embed commit hash if in CI or release tag context
-    if not (ci_env or git_tag or github_ref):
+    if not in_ci:
         result = "unknown (local build)"
         logger.info("extract_commit: Not in CI context, returning: %s", result)
         logger.trace("extract_commit: Not in CI, returning: %s", result)
@@ -219,7 +228,7 @@ def extract_commit(root_path: Path) -> str:  # noqa: PLR0915
         logger.trace("extract_commit: git not found in PATH")
 
     # In CI, always log the final commit value for debugging
-    if os.getenv("CI"):
+    if in_ci:
         logger.info(
             "Final commit hash for embedding: %s (from %s)",
             commit_hash,
@@ -3633,7 +3642,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         version,
         build_date,
     )
-    if os.getenv("CI"):
+    if is_ci():
         logger.info("Writing commit to script: %s", commit)
         logger.trace("_build_final_script: CI mode: commit=%s", commit)
 
