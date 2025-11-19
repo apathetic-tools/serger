@@ -257,4 +257,6 @@ Desktop.ini
 !.github/
 
 # AI files
+.plan/
+.plans/
 .claude/settings.local.json
