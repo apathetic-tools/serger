@@ -1372,6 +1372,7 @@ def compute_module_order(  # noqa: C901, PLR0912
     *,
     detected_packages: set[str],
     module_bases: list[str] | None = None,
+    user_provided_module_bases: list[str] | None = None,
 ) -> list[Path]:
     """Compute correct module order based on import dependencies.
 
@@ -1385,6 +1386,8 @@ def compute_module_order(  # noqa: C901, PLR0912
         file_to_include: Mapping of file path to its include (for dest access)
         detected_packages: Pre-detected package names
         module_bases: Optional list of module base directories for external files
+        user_provided_module_bases: Optional list of user-provided module bases
+            (from config, excludes auto-discovered package directories)
 
     Returns:
         Topologically sorted list of file paths
@@ -1399,7 +1402,11 @@ def compute_module_order(  # noqa: C901, PLR0912
     for file_path in file_paths:
         include = file_to_include.get(file_path)
         module_name = derive_module_name(
-            file_path, package_root, include, module_bases=module_bases
+            file_path,
+            package_root,
+            include,
+            module_bases=module_bases,
+            user_provided_module_bases=user_provided_module_bases,
         )
         file_to_module[file_path] = module_name
         module_to_file[module_name] = file_path
@@ -1523,6 +1530,7 @@ def suggest_order_mismatch(
     detected_packages: set[str],
     topo_paths: list[Path] | None = None,
     module_bases: list[str] | None = None,
+    user_provided_module_bases: list[str] | None = None,
 ) -> None:
     """Warn if module order violates dependencies.
 
@@ -1536,6 +1544,8 @@ def suggest_order_mismatch(
                     skips recomputing the order. If None, computes it via
                     compute_module_order.
         module_bases: Optional list of module base directories for external files
+        user_provided_module_bases: Optional list of user-provided module bases
+            (from config, excludes auto-discovered package directories)
     """
     logger = get_app_logger()
     if topo_paths is None:
@@ -1560,12 +1570,20 @@ def suggest_order_mismatch(
         for p in mismatched:
             include = file_to_include.get(p)
             module_name = derive_module_name(
-                p, package_root, include, module_bases=module_bases
+                p,
+                package_root,
+                include,
+                module_bases=module_bases,
+                user_provided_module_bases=user_provided_module_bases,
             )
             logger.warning("  - %s appears before one of its dependencies", module_name)
         topo_modules = [
             derive_module_name(
-                p, package_root, file_to_include.get(p), module_bases=module_bases
+                p,
+                package_root,
+                file_to_include.get(p),
+                module_bases=module_bases,
+                user_provided_module_bases=user_provided_module_bases,
             )
             for p in topo_paths
         ]
@@ -2035,6 +2053,7 @@ def _collect_modules(  # noqa: PLR0912, PLR0915
     comments_mode: CommentsMode = "keep",
     docstring_mode: DocstringMode = "keep",
     module_bases: list[str] | None = None,
+    user_provided_module_bases: list[str] | None = None,
 ) -> tuple[dict[str, str], OrderedDict[str, None], list[str], list[str]]:
     """Collect and process module sources from file paths.
 
@@ -2049,6 +2068,8 @@ def _collect_modules(  # noqa: PLR0912, PLR0915
         comments_mode: How to handle comments in stitched output
         docstring_mode: How to handle docstrings in stitched output
         module_bases: Optional list of module base directories for external files
+        user_provided_module_bases: Optional list of user-provided module bases
+            (from config, excludes auto-discovered package directories)
 
     Returns:
         Tuple of (module_sources, all_imports, parts, derived_module_names)
@@ -2114,7 +2135,11 @@ def _collect_modules(  # noqa: PLR0912, PLR0915
         # Derive module name from file path
         include = file_to_include.get(file_path)
         module_name = derive_module_name(
-            file_path, package_root, include, module_bases=module_bases
+            file_path,
+            package_root,
+            include,
+            module_bases=module_bases,
+            user_provided_module_bases=user_provided_module_bases,
         )
 
         # If package_root is a package directory, preserve package structure
@@ -3710,11 +3735,18 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
     # module_bases is validated and normalized to list[str] in config resolution
     # It's always present in resolved config, but .get() returns object | None
     module_bases_raw = config.get("module_bases")
+    user_provided_module_bases_raw = config.get("_user_provided_module_bases")
     module_bases: list[str] | None = None
     if module_bases_raw is not None:  # pyright: ignore[reportUnnecessaryComparison]
         # Type narrowing: module_bases is list[str] after config resolution
         # Cast is safe because module_bases is validated in config resolution
         module_bases = [str(mb) for mb in cast("list[str]", module_bases_raw)]  # pyright: ignore[reportUnnecessaryCast]
+    user_provided_module_bases: list[str] | None = None
+    if user_provided_module_bases_raw is not None:  # pyright: ignore[reportUnnecessaryComparison]
+        # Type narrowing: _user_provided_module_bases is list[str] after build
+        user_provided_module_bases = [
+            str(mb) for mb in cast("list[str]", user_provided_module_bases_raw)
+        ]  # pyright: ignore[reportUnnecessaryCast]
 
     # --- Package Detection (once, at the start) ---
     # Use pre-detected packages from run_build (already excludes exclude_paths)
@@ -3756,6 +3788,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
         detected_packages=detected_packages,
         topo_paths=topo_paths,
         module_bases=module_bases,
+        user_provided_module_bases=user_provided_module_bases,
     )
 
     # --- Apply affects: "stitching" actions to filter files ---
@@ -3777,7 +3810,11 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
         for file_path in order_paths:
             include = file_to_include.get(file_path)
             module_name = derive_module_name(
-                file_path, package_root, include, module_bases=module_bases
+                file_path,
+                package_root,
+                include,
+                module_bases=module_bases,
+                user_provided_module_bases=user_provided_module_bases,
             )
 
             # If package_root is a package directory, preserve package structure
@@ -3940,6 +3977,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
         comments_mode,
         docstring_mode,
         module_bases=module_bases,
+        user_provided_module_bases=user_provided_module_bases,
     )
 
     # --- Parse AST once for all modules ---

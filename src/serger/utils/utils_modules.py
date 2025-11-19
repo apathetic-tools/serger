@@ -138,11 +138,12 @@ def _interpret_dest_for_module_name(  # noqa: PLR0911
         return dest_path / file_path.name
 
 
-def derive_module_name(  # noqa: PLR0912, PLR0915
+def derive_module_name(  # noqa: PLR0912, PLR0915, C901
     file_path: Path,
     package_root: Path,
     include: IncludeResolved | None = None,
     module_bases: list[str] | None = None,
+    user_provided_module_bases: list[str] | None = None,
 ) -> str:
     """Derive module name from file path for shim generation.
 
@@ -155,6 +156,8 @@ def derive_module_name(  # noqa: PLR0912, PLR0915
         package_root: Common root of all included files
         include: Optional include that produced this file (for dest access)
         module_bases: Optional list of module base directories for external files
+        user_provided_module_bases: Optional list of user-provided module bases
+            (from config, excludes auto-discovered package directories)
 
     Returns:
         Derived module name (e.g., "core.base" from "src/core/base.py")
@@ -209,37 +212,100 @@ def derive_module_name(  # noqa: PLR0912, PLR0915
         )
         return module_name
 
-    # Default: derive from file path relative to package root, preserving structure
+    # Check if file is under package_root
+    package_root_rel: Path | None = None
     try:
-        rel_path = file_path_resolved.relative_to(package_root_resolved)
+        package_root_rel = file_path_resolved.relative_to(package_root_resolved)
+        is_under_package_root = True
     except ValueError:
-        # File not under package root - check if it's under any module_base
-        if module_bases:
-            # Try each module_base in order (first match wins)
-            for module_base_str in module_bases:
-                module_base = Path(module_base_str).resolve()
-                try:
-                    rel_path = file_path_resolved.relative_to(module_base)
+        is_under_package_root = False
+
+    # Check module_bases if provided
+    # If file is under both package_root and a module_base, prefer module_base
+    # when it's more specific (deeper in the tree than package_root)
+    # BUT: Don't use module_base if it's the file's parent directory
+    # (would lose package name)
+    # Use user_provided_module_bases for the fix (external files),
+    # fall back to all module_bases for backward compatibility
+    rel_path = None
+    # Prefer user-provided module_bases (from config) over auto-discovered ones
+    bases_to_use = (
+        user_provided_module_bases if user_provided_module_bases else module_bases
+    )
+    if bases_to_use:
+        file_parent = file_path_resolved.parent
+        # Try each module_base in order (first match wins)
+        for module_base_str in bases_to_use:
+            module_base = Path(module_base_str).resolve()
+            # Skip if module_base is the file's parent directory
+            # (this would cause files in package dirs to lose their package name)
+            if module_base == file_parent:
+                logger.trace(
+                    f"[DERIVE] file={file_path} parent={file_parent} equals "
+                    f"module_base={module_base}, skipping (would lose package name)",
+                )
+                continue
+            try:
+                module_base_rel = file_path_resolved.relative_to(module_base)
+                # Use module_base if:
+                # 1. File is not under package_root, OR
+                # 2. File is under both, but module_base is more specific (deeper)
+                if not is_under_package_root:
+                    rel_path = module_base_rel
                     logger.trace(
                         f"[DERIVE] file={file_path} not under root={package_root}, "
                         f"but under module_base={module_base}, using relative path",
                     )
                     break
+                # Check if module_base is more specific (deeper) than package_root
+                try:
+                    module_base.relative_to(package_root_resolved)
+                    # module_base is under package_root - check if it's deeper
+                    package_root_parts = len(package_root_resolved.parts)
+                    module_base_parts = len(module_base.parts)
+                    # Only use module_base if it's strictly deeper (more specific)
+                    if module_base_parts > package_root_parts:
+                        # module_base is deeper, use it
+                        rel_path = module_base_rel
+                        logger.trace(
+                            f"[DERIVE] file={file_path} under both root={package_root} "
+                            f"and module_base={module_base}, using module_base "
+                            f"(more specific: {module_base_parts} > "
+                            f"{package_root_parts})",
+                        )
+                        break
+                    # module_base is at same level or higher, don't use it
+                    # (preserve original behavior for files under package_root)
                 except ValueError:
-                    # Not under this module_base, try next
-                    continue
-            else:
-                # Not under any module_base - use just filename
-                logger.trace(
-                    f"[DERIVE] file={file_path} not under root={package_root} "
-                    f"or any module_base, using filename",
-                )
-                rel_path = Path(file_path.name)
-        else:
-            # No module_bases - use just filename
+                    # module_base is not under package_root
+                    # Only use it if file is also not under package_root
+                    # (if file is under package_root, preserve original behavior)
+                    if not is_under_package_root:
+                        rel_path = module_base_rel
+                        logger.trace(
+                            f"[DERIVE] file={file_path} not under root={package_root}, "
+                            f"but under module_base={module_base}, using module_base",
+                        )
+                        break
+                    # File is under package_root but module_base is not
+                    # Don't use module_base (preserve original behavior)
+            except ValueError:
+                # Not under this module_base, try next
+                continue
+
+    # If not using module_base, derive from file path relative to package root
+    if rel_path is None:
+        if is_under_package_root and package_root_rel is not None:
+            rel_path = package_root_rel
             logger.trace(
-                f"[DERIVE] file={file_path} not under root={package_root}, "
-                f"using filename",
+                f"[DERIVE] file={file_path} under package_root={package_root}, "
+                f"using relative path",
+            )
+        else:
+            # File not under package root or any module_base - use just filename
+            logger.trace(
+                f"[DERIVE] file={file_path} not under root={package_root} "
+                f"or any module_base, using filename",
             )
             rel_path = Path(file_path.name)
 

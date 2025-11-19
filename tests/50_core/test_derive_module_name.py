@@ -146,3 +146,47 @@ def test_derive_external_file_with_module_bases(tmp_path: Path) -> None:
     # Should NOT contain full absolute path parts
     assert "external_proj" not in result
     assert "current_proj" not in result
+
+
+def test_derive_external_file_under_common_package_root(tmp_path: Path) -> None:
+    """Should prioritize module_bases even when file is under package_root.
+
+    This tests the case where package_root is computed as the common ancestor
+    of both local and external files, so the external file IS under package_root.
+    In this case, module_bases should still be used to derive the module name.
+    """
+    # --- setup ---
+    # Create external project structure
+    external_proj = tmp_path / "home" / "user" / "external_proj"
+    external_src = external_proj / "src"
+    external_pkg = external_src / "apathetic_logging"
+    external_pkg.mkdir(parents=True)
+    external_file = external_pkg / "register_logger_name.py"
+    external_file.write_text("def register(): pass")
+
+    # Current project (under same common ancestor)
+    current_proj = tmp_path / "home" / "user" / "current_proj"
+    current_src = current_proj / "src"
+    current_src.mkdir(parents=True)
+    local_file = current_src / "app.py"
+    local_file.write_text("import apathetic_logging")
+
+    # package_root is common ancestor (includes both projects)
+    package_root = tmp_path / "home" / "user"
+    # module_bases points to external project src
+    module_bases = [str(external_src)]
+
+    # --- execute ---
+    # File IS under package_root, but should still use module_bases
+    result = mod_utils_modules.derive_module_name(
+        external_file, package_root, module_bases=module_bases
+    )
+
+    # --- verify ---
+    # Should derive relative to module_base, not from package_root
+    assert result == "apathetic_logging.register_logger_name"
+    # Should NOT contain full absolute path parts from package_root
+    assert "home" not in result
+    assert "user" not in result
+    assert "external_proj" not in result
+    assert "current_proj" not in result
