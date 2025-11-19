@@ -25,7 +25,10 @@ def test_version_flag(
     assert re.search(r"\d+\.\d+\.\d+", out)
 
     if os.getenv("RUNTIME_MODE") in {"singlefile"}:
-        # Standalone version — commit may be known or local
+        # Standalone version — commit is determined at build time
+        # If we're running in CI, the script was built in CI and should have
+        # a commit hash. If we're running locally, the script was built locally
+        # and should show "unknown (local build)"
         if is_ci():
             assert re.search(r"\([0-9a-f]{4,}\)", out)
         else:
