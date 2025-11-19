@@ -3549,6 +3549,11 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         # Note: We already logged this in stitch_modules, so we don't log again here
     # If main_mode == "none", don't add any __main__ block
 
+    # Log commit value being written to script (for CI debugging)
+    logger = get_app_logger()
+    if os.getenv("CI"):
+        logger.info("Writing commit to script: %s", commit)
+
     script_text = (
         "#!/usr/bin/env python3\n"
         '"""\n'
