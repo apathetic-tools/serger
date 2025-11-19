@@ -70,6 +70,15 @@ def test_standalone_script_metadata_and_execution() -> None:
         commit_match = re.search(
             r"^# Commit:\s*([0-9a-f]{4,})", text, re.MULTILINE | re.IGNORECASE
         )
+        # Debug: show what commit lines exist
+        if not commit_match:
+            commit_lines = [
+                line
+                for line in text.split("\n")
+                if "commit" in line.lower() and line.strip().startswith("#")
+            ]
+            msg = f"Missing commit stamp. Found commit lines: {commit_lines[:5]}"
+            raise AssertionError(msg)
     else:
         commit_match = re.search(
             r"^# Commit:\s*unknown \(local build\)",
