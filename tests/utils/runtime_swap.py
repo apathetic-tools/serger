@@ -55,23 +55,51 @@ def ensure_standalone_script_up_to_date(root: Path) -> Path:
                 break
 
     # Debug: log whether rebuild is needed
-    if os.getenv("CI"):
-        print(
+    # Use sys.stderr to ensure output is visible even if stdout is captured
+    ci_env = os.getenv("CI")
+    github_ref = os.getenv("GITHUB_REF")
+    git_tag = os.getenv("GIT_TAG")
+    print(
+        f"[TRACE ensure_standalone_script_up_to_date] "
+        f"needs_rebuild={needs_rebuild}, bin_path={bin_path}, "
+        f"CI={ci_env}, GITHUB_REF={github_ref}, GIT_TAG={git_tag}",
+        file=sys.stderr,
+    )
+    if ci_env:
+        msg = (
             f"  ensure_standalone_script_up_to_date: "
-            f"needs_rebuild={needs_rebuild}, bin_path={bin_path}"
+            f"needs_rebuild={needs_rebuild}, bin_path={bin_path}, "
+            f"CI={ci_env}, GITHUB_REF={github_ref}, GIT_TAG={git_tag}"
         )
+        print(msg, file=sys.stderr)
+        print(msg)  # Also print to stdout
 
     if needs_rebuild:
         print("⚙️  Rebuilding standalone bundle (python -m serger)...")
         # Log CI environment for debugging
         ci_env = os.getenv("CI")
         github_ref = os.getenv("GITHUB_REF")
-        print(f"  CI env vars: CI={ci_env}, GITHUB_REF={github_ref}")
+        git_tag = os.getenv("GIT_TAG")
+        env_copy = os.environ.copy()
+        print(
+            f"[TRACE ensure_standalone_script_up_to_date] REBUILDING: "
+            f"CI={ci_env}, GITHUB_REF={github_ref}, GIT_TAG={git_tag}, "
+            f"sys.executable={sys.executable}, cwd={root}",
+            file=sys.stderr,
+        )
+        print(f"  CI env vars: CI={ci_env}, GITHUB_REF={github_ref}, GIT_TAG={git_tag}")
+        print(f"  Running: {sys.executable} -m serger in {root}")
+        print(f"  Environment keys: {sorted(env_copy.keys())}")
         subprocess.run(  # noqa: S603
             [sys.executable, "-m", "serger"],
             check=True,
             cwd=root,
-            env=os.environ.copy(),
+            env=env_copy,
+        )
+        print(
+            f"[TRACE ensure_standalone_script_up_to_date] Rebuild complete, "
+            f"bin_path.exists()={bin_path.exists()}",
+            file=sys.stderr,
         )
         # force mtime update in case contents identical
         bin_path.touch()

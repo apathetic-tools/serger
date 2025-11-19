@@ -13,6 +13,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
@@ -93,7 +94,7 @@ def extract_version(pyproject_path: Path) -> str:
     return match.group(1) if match else "unknown"
 
 
-def extract_commit(root_path: Path) -> str:
+def extract_commit(root_path: Path) -> str:  # noqa: PLR0915
     """Extract git commit hash.
 
     Only embeds commit hash if in CI or release tag context.
@@ -105,40 +106,110 @@ def extract_commit(root_path: Path) -> str:
         Short commit hash, or "unknown (local build)" if not in CI
     """
     logger = get_app_logger()
+    # Comprehensive logging for troubleshooting
+    ci_env = os.getenv("CI")
+    git_tag = os.getenv("GIT_TAG")
+    github_ref = os.getenv("GITHUB_REF")
+    logger.info(
+        "extract_commit called: root_path=%s, CI=%s, GIT_TAG=%s, GITHUB_REF=%s",
+        root_path,
+        ci_env,
+        git_tag,
+        github_ref,
+    )
+    print(  # noqa: T201
+        f"[TRACE extract_commit] root_path={root_path}, "
+        f"CI={ci_env}, GIT_TAG={git_tag}, GITHUB_REF={github_ref}",
+        file=sys.stderr,
+    )
+
     # Only embed commit hash if in CI or release tag context
-    if not (os.getenv("CI") or os.getenv("GIT_TAG") or os.getenv("GITHUB_REF")):
-        return "unknown (local build)"
+    if not (ci_env or git_tag or github_ref):
+        result = "unknown (local build)"
+        logger.info("extract_commit: Not in CI context, returning: %s", result)
+        print(f"[TRACE extract_commit] Not in CI, returning: {result}", file=sys.stderr)  # noqa: T201
+        return result
 
     # Resolve path and verify it exists
     resolved_path = root_path.resolve()
+    logger.info("extract_commit: resolved_path=%s", resolved_path)
+    print(f"[TRACE extract_commit] resolved_path={resolved_path}", file=sys.stderr)  # noqa: T201
+
     if not resolved_path.exists():
         logger.warning("Git root path does not exist: %s", resolved_path)
+        print(  # noqa: T201
+            f"[TRACE extract_commit] Path does not exist: {resolved_path}",
+            file=sys.stderr,
+        )
         return "unknown"
 
     # Check if .git exists (directory or file for worktrees)
     git_dir = resolved_path / ".git"
-    if not (git_dir.exists() or (resolved_path.parent / ".git").exists()):
+    parent_git = resolved_path.parent / ".git"
+    git_dir_exists = git_dir.exists()
+    parent_git_exists = parent_git.exists()
+    logger.info(
+        "extract_commit: git_dir=%s (exists=%s), parent_git=%s (exists=%s)",
+        git_dir,
+        git_dir_exists,
+        parent_git,
+        parent_git_exists,
+    )
+    print(  # noqa: T201
+        f"[TRACE extract_commit] git_dir={git_dir} (exists={git_dir_exists}), "
+        f"parent_git={parent_git} (exists={parent_git_exists})",
+        file=sys.stderr,
+    )
+
+    if not (git_dir_exists or parent_git_exists):
         logger.warning("No .git directory found at %s", resolved_path)
+        print(  # noqa: T201
+            "[TRACE extract_commit] No .git found, returning 'unknown'",
+            file=sys.stderr,
+        )
         return "unknown"
 
     commit_hash = "unknown"
     try:
         # Convert Path to string for subprocess compatibility
-        result = subprocess.run(
+        cwd_str = str(resolved_path)
+        logger.info("extract_commit: Running git rev-parse in: %s", cwd_str)
+        print(  # noqa: T201
+            f"[TRACE extract_commit] Running git rev-parse in: {cwd_str}",
+            file=sys.stderr,
+        )
+
+        git_result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],  # noqa: S607
-            cwd=str(resolved_path),
+            cwd=cwd_str,
             capture_output=True,
             text=True,
             check=True,
         )
-        commit_hash = result.stdout.strip()
+        commit_hash = git_result.stdout.strip()
+        logger.info(
+            "extract_commit: git rev-parse stdout=%r, stderr=%r",
+            git_result.stdout,
+            git_result.stderr,
+        )
+        print(  # noqa: T201
+            f"[TRACE extract_commit] git rev-parse stdout={git_result.stdout!r}, "
+            f"stderr={git_result.stderr!r}",
+            file=sys.stderr,
+        )
+
         if not commit_hash:
             logger.warning("git rev-parse returned empty string")
+            print(  # noqa: T201
+                "[TRACE extract_commit] Empty commit hash, using 'unknown'",
+                file=sys.stderr,
+            )
             commit_hash = "unknown"
         else:
-            # Log success in CI for debugging
-            logger.debug(
-                "Extracted commit hash: %s from %s", commit_hash, resolved_path
+            logger.info("extract_commit: Successfully extracted: %s", commit_hash)
+            print(  # noqa: T201
+                f"[TRACE extract_commit] Successfully extracted: {commit_hash}",
+                file=sys.stderr,
             )
 
     except subprocess.CalledProcessError as e:
@@ -150,8 +221,17 @@ def extract_commit(root_path: Path) -> str:
             stderr_msg,
             e.returncode,
         )
+        print(  # noqa: T201
+            f"[TRACE extract_commit] git rev-parse failed: returncode={e.returncode}, "
+            f"stderr={stderr_msg}",
+            file=sys.stderr,
+        )
     except FileNotFoundError:
         logger.warning("git not available in environment")
+        print(  # noqa: T201
+            "[TRACE extract_commit] git not found in PATH",
+            file=sys.stderr,
+        )
 
     # In CI, always log the final commit value for debugging
     if os.getenv("CI"):
@@ -159,6 +239,11 @@ def extract_commit(root_path: Path) -> str:
             "Final commit hash for embedding: %s (from %s)",
             commit_hash,
             resolved_path,
+        )
+        print(  # noqa: T201
+            f"[TRACE extract_commit] FINAL RESULT: {commit_hash} "
+            f"(from {resolved_path})",
+            file=sys.stderr,
         )
 
     return commit_hash
@@ -3551,8 +3636,20 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
 
     # Log commit value being written to script (for CI debugging)
     logger = get_app_logger()
+    logger.info(
+        "_build_final_script: Writing commit to script: %s (version=%s, build_date=%s)",
+        commit,
+        version,
+        build_date,
+    )
+    print(  # noqa: T201
+        f"[TRACE _build_final_script] Writing commit={commit}, version={version}, "
+        f"build_date={build_date}",
+        file=sys.stderr,
+    )
     if os.getenv("CI"):
         logger.info("Writing commit to script: %s", commit)
+        print(f"[TRACE _build_final_script] CI mode: commit={commit}", file=sys.stderr)  # noqa: T201
 
     script_text = (
         "#!/usr/bin/env python3\n"
