@@ -2982,12 +2982,14 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         shim_blocks.append("    return _mod")
         shim_blocks.append("")
 
+        # ignores must be on their own line
+        # or they may get reformated to the wrong place
+        shim_blocks.append("def _setup_pkg_modules(  # noqa: C901, PLR0912")
         shim_blocks.append(
-            "def _setup_pkg_modules("
             "pkg_name: str, module_names: list[str], "
             "name_mapping: dict[str, str] | None = None"
-            ") -> None:  # noqa: C901, PLR0912"
         )
+        shim_blocks.append(") -> None:")
         shim_blocks.append(
             '    """Set up package module attributes and register submodules."""'
         )
