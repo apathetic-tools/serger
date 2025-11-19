@@ -52,6 +52,16 @@ def test_standalone_script_metadata_and_execution() -> None:
     assert declared_version, "Version not found in pyproject.toml"
 
     # - Read standalone script text -
+    # Debug: log script path and first few lines in CI
+    if is_ci():
+        print(f"  Reading script from: {script}")
+        print(f"  Script exists: {script.exists()}")
+        if script.exists():
+            first_lines = script.read_text(encoding="utf-8").split("\n")[:20]
+            print("  First 20 lines of script:")
+            for i, line in enumerate(first_lines, 1):
+                if "commit" in line.lower():
+                    print(f"    {i}: {line}")
     text = script.read_text(encoding="utf-8").lower()
 
     # - Metadata presence checks -
