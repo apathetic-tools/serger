@@ -108,23 +108,44 @@ def extract_commit(root_path: Path) -> str:
     # Only embed commit hash if in CI or release tag context
     if not (os.getenv("CI") or os.getenv("GIT_TAG") or os.getenv("GITHUB_REF")):
         return "unknown (local build)"
+
+    # Resolve path and verify it exists
+    resolved_path = root_path.resolve()
+    if not resolved_path.exists():
+        logger.warning("Git root path does not exist: %s", resolved_path)
+        return "unknown"
+
+    # Check if .git exists (directory or file for worktrees)
+    git_dir = resolved_path / ".git"
+    if not (git_dir.exists() or (resolved_path.parent / ".git").exists()):
+        logger.warning("No .git directory found at %s", resolved_path)
+        return "unknown"
+
+    commit_hash = "unknown"
     try:
         # Convert Path to string for subprocess compatibility
         result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],  # noqa: S607
-            cwd=str(root_path),
+            cwd=str(resolved_path),
             capture_output=True,
             text=True,
             check=True,
         )
-        return result.stdout.strip()
+        commit_hash = result.stdout.strip()
+        if not commit_hash:
+            logger.warning("git rev-parse returned empty string")
+            commit_hash = "unknown"
 
     except subprocess.CalledProcessError as e:
-        logger.warning("git rev-parse failed: %s", e.stderr.strip())
+        logger.warning(
+            "git rev-parse failed: %s (stderr: %s)",
+            e.stderr.strip() or "no error message",
+            e.returncode,
+        )
     except FileNotFoundError:
         logger.warning("git not available in environment")
 
-    return "unknown"
+    return commit_hash
 
 
 # Maximum number of lines to read when checking if a file is a serger build
