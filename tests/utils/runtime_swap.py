@@ -54,6 +54,13 @@ def ensure_standalone_script_up_to_date(root: Path) -> Path:
                 needs_rebuild = True
                 break
 
+    # Debug: log whether rebuild is needed
+    if os.getenv("CI"):
+        print(
+            f"  ensure_standalone_script_up_to_date: "
+            f"needs_rebuild={needs_rebuild}, bin_path={bin_path}"
+        )
+
     if needs_rebuild:
         print("⚙️  Rebuilding standalone bundle (python -m serger)...")
         # Log CI environment for debugging
