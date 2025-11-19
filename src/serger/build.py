@@ -1,7 +1,6 @@
 # src/serger/build.py
 
 
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
@@ -461,14 +460,15 @@ def _extract_build_metadata(
         git_root,
         commit_path,
     )
-    print(  # noqa: T201
-        f"[TRACE _extract_build_metadata] project_root={project_root}, "
-        f"git_root={git_root}, commit_path={commit_path}",
-        file=sys.stderr,
+    logger.trace(
+        "_extract_build_metadata: project_root=%s, git_root=%s, commit_path=%s",
+        project_root,
+        git_root,
+        commit_path,
     )
     commit = extract_commit(commit_path)
     logger.info("_extract_build_metadata: extracted commit=%s", commit)
-    print(f"[TRACE _extract_build_metadata] extracted commit={commit}", file=sys.stderr)  # noqa: T201
+    logger.trace("_extract_build_metadata: extracted commit=%s", commit)
 
     if disable_timestamp:
         build_date = BUILD_TIMESTAMP_PLACEHOLDER
