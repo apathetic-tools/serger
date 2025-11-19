@@ -1627,8 +1627,10 @@ def _is_inside_string_literal(text: str, pos: int) -> bool:
     return in_string
 
 
-def verify_no_broken_imports(  # noqa: C901
-    final_text: str, package_names: list[str]
+def verify_no_broken_imports(  # noqa: C901, PLR0912
+    final_text: str,
+    package_names: list[str],
+    internal_imports: "InternalImportMode | None" = None,
 ) -> None:
     """Verify all internal imports have been resolved in stitched script.
 
@@ -1636,16 +1638,28 @@ def verify_no_broken_imports(  # noqa: C901
         final_text: Final stitched script text
         package_names: List of all package names to check
             (e.g., ["serger", "apathetic_logs"])
+        internal_imports: How internal imports are handled. If "keep", validation
+            is skipped for kept imports since they are intentionally preserved.
 
     Raises:
         RuntimeError: If unresolved imports remain
     """
+    # When internal_imports is "keep", skip validation for kept imports
+    # since they are intentionally preserved and will work at runtime
+    if internal_imports == "keep":
+        return
+
     broken: set[str] = set()
 
     for package_name in package_names:
         # Pattern for nested imports: package.core.base or package.core
         # Matches: import package.module or import package.sub.module
         import_pattern = re.compile(rf"\bimport {re.escape(package_name)}\.([\w.]+)")
+        # Pattern for top-level package import: import package
+        # Matches: import package (without "from" and without a dot)
+        import_package_pattern = re.compile(
+            rf"\bimport {re.escape(package_name)}\b(?!\s*\.)"
+        )
         # Pattern for from imports: from package.core import base or
         # from package.core.base import something
         from_pattern = re.compile(
@@ -1687,7 +1701,7 @@ def verify_no_broken_imports(  # noqa: C901
                 or shim_pattern_new.search(final_text) is not None
             )
 
-        # Check import statements
+        # Check import statements (nested: import package.module)
         for m in import_pattern.finditer(final_text):
             # Skip if inside string literal (docstring/comment)
             if _is_inside_string_literal(final_text, m.start()):
@@ -1697,6 +1711,39 @@ def verify_no_broken_imports(  # noqa: C901
             full_module_name = f"{package_name}.{mod_suffix}"
             if not module_exists(full_module_name, mod_suffix):
                 broken.add(full_module_name)
+
+        # Check top-level package import: import package
+        for m in import_package_pattern.finditer(final_text):
+            # Skip if inside string literal (docstring/comment)
+            if _is_inside_string_literal(final_text, m.start()):
+                continue
+
+            # For top-level package imports, check if the package itself exists
+            # This would be in a header like # === package === or
+            # # === package.__init__ ===
+            # OR it could be created via shims (when __init__.py is excluded)
+            header_pattern = re.compile(
+                rf"# === {re.escape(package_name)}(?:\.__init__)? ==="
+            )
+            # Check for shim-created package:
+            # Old pattern: _pkg = 'package_name' followed by sys.modules[_pkg] = _mod
+            # New pattern: _create_pkg_module('package_name')
+            # Handle both single and double quotes (formatter may change them)
+            escaped_name = re.escape(package_name)
+            shim_pattern_old = re.compile(
+                rf"_pkg\s*=\s*(?:['\"]){escaped_name}(?:['\"]).*?"
+                rf"sys\.modules\[_pkg\]\s*=\s*_mod",
+                re.DOTALL,
+            )
+            shim_pattern_new = re.compile(
+                rf"_create_pkg_module\s*\(\s*(?:['\"]){escaped_name}(?:['\"])"
+            )
+            if (
+                not header_pattern.search(final_text)
+                and not shim_pattern_old.search(final_text)
+                and not shim_pattern_new.search(final_text)
+            ):
+                broken.add(package_name)
 
         # Check from ... import statements
         for m in from_pattern.finditer(final_text):
@@ -4004,7 +4051,9 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
 
     # --- Verification ---
     logger.debug("Verifying assembled script...")
-    verify_no_broken_imports(final_script, sorted(detected_packages))
+    verify_no_broken_imports(
+        final_script, sorted(detected_packages), internal_imports=internal_imports
+    )
 
     # --- Compile in-memory before writing ---
     logger.debug("Compiling stitched code in-memory...")

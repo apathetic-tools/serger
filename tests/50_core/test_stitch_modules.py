@@ -1150,6 +1150,92 @@ class TestStitchModulesOtherImportModes:
             # Note: Execution may fail because internal imports don't work
             # in stitched mode, but we verify the structure is correct
 
+    def test_internal_imports_keep_with_excluded_init(self) -> None:
+        """Test that internal_imports: 'keep' works when __init__.py is excluded.
+
+        This tests a scenario where:
+        - A package is included in the stitch
+        - __init__.py is excluded
+        - A source file imports the package at top level
+        - internal_imports: "keep" is set
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            src_dir = tmp_path / "src" / "mypkg"
+            src_dir.mkdir(parents=True)
+            out_path = tmp_path / "output.py"
+
+            # Create a module in the package
+            (src_dir / "module.py").write_text("# Module in mypkg\nVALUE = 42\n")
+
+            # Create __init__.py (will be excluded)
+            (src_dir / "__init__.py").write_text("# Package init\n")
+
+            # Create source file that imports the package
+            # Use "from package import ..." to trigger validation
+            source_dir = tmp_path / "source"
+            source_dir.mkdir()
+            (source_dir / "app.py").write_text(
+                "# Application file\nfrom mypkg import module\n\n"
+                "def main() -> int:\n"
+                "    # Access the package\n"
+                "    value = module.VALUE\n"
+                "    assert value == 42\n"
+                "    return 0\n"
+            )
+
+            # Create file paths
+            file_paths = [
+                (source_dir / "app.py").resolve(),
+                (src_dir / "module.py").resolve(),
+            ]
+
+            # Compute package root
+            package_root = mod_build.find_package_root(file_paths)
+
+            # Create file_to_include mapping
+            file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
+            include_src = make_include_resolved("src", tmp_path)
+            include_source = make_include_resolved("source", tmp_path)
+            for file_path in file_paths:
+                if "source" in str(file_path):
+                    file_to_include[file_path] = include_source
+                else:
+                    file_to_include[file_path] = include_src
+
+            # Create config
+            config: dict[str, Any] = {
+                "package": "test_app",
+                "order": file_paths,
+                "exclude_names": [src_dir / "__init__.py"],
+                "stitch_mode": "raw",
+                "module_bases": ["src"],
+                "internal_imports": "keep",  # Keep internal imports
+                "module_mode": "multi",  # Generate shims for packages
+            }
+
+            # Should succeed (currently fails with "Unresolved internal imports: mypkg")
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
+            )
+
+            # Verify stitched file exists
+            assert out_path.exists(), "Stitched file should be created"
+
+            # Verify the import is kept in the output
+            stitched_content = out_path.read_text()
+            assert "from mypkg import module" in stitched_content, (
+                "Import statement should be kept in stitched output"
+            )
+
+            # Verify it compiles
+            compile(stitched_content, str(out_path), "exec")
+
 
 class TestStitchModulesMetadata:
     """Test metadata embedding in output."""
