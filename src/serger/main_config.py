@@ -9,7 +9,7 @@ import ast
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from serger.utils.utils_modules import derive_module_name
 
@@ -243,13 +243,15 @@ def find_main_function(  # noqa: PLR0912, C901, PLR0915
                 pass
 
     # Extract module_bases from config for external files
+    # module_bases is validated and normalized to list[str] in config resolution
+    # It's always present in RootConfigResolved, but .get() returns object | None
     module_bases_raw = config.get("module_bases")
     module_bases: list[str] | None = None
-    if module_bases_raw is not None:
-        if isinstance(module_bases_raw, str):
-            module_bases = [module_bases_raw]
-        elif isinstance(module_bases_raw, list):
-            module_bases = [str(mb) for mb in module_bases_raw]
+    if module_bases_raw is not None:  # pyright: ignore[reportUnnecessaryComparison]
+        # Type narrowing: config is RootConfigResolved where module_bases is list[str]
+        # Cast is safe because module_bases is validated in config resolution
+        # mypy sees cast as redundant, but pyright needs it for type narrowing
+        module_bases = [str(mb) for mb in cast("list[str]", module_bases_raw)]  # type: ignore[redundant-cast]  # pyright: ignore[reportUnnecessaryCast]
 
     module_to_file: dict[str, Path] = {}
     for file_path in file_paths:

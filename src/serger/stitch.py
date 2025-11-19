@@ -3707,14 +3707,14 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
 
     # Extract module_bases from config
     # (needed for package detection and module derivation)
+    # module_bases is validated and normalized to list[str] in config resolution
+    # It's always present in resolved config, but .get() returns object | None
     module_bases_raw = config.get("module_bases")
     module_bases: list[str] | None = None
-    if module_bases_raw is not None:
-        if isinstance(module_bases_raw, str):
-            module_bases = [module_bases_raw]
-        elif isinstance(module_bases_raw, list):
-            module_bases = [str(mb) for mb in module_bases_raw]
-        # If it's not a string or list, leave as None (invalid type)
+    if module_bases_raw is not None:  # pyright: ignore[reportUnnecessaryComparison]
+        # Type narrowing: module_bases is list[str] after config resolution
+        # Cast is safe because module_bases is validated in config resolution
+        module_bases = [str(mb) for mb in cast("list[str]", module_bases_raw)]  # pyright: ignore[reportUnnecessaryCast]
 
     # --- Package Detection (once, at the start) ---
     # Use pre-detected packages from run_build (already excludes exclude_paths)
