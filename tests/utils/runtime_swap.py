@@ -56,6 +56,10 @@ def ensure_standalone_script_up_to_date(root: Path) -> Path:
 
     if needs_rebuild:
         print("⚙️  Rebuilding standalone bundle (python -m serger)...")
+        # Log CI environment for debugging
+        ci_env = os.getenv("CI")
+        github_ref = os.getenv("GITHUB_REF")
+        print(f"  CI env vars: CI={ci_env}, GITHUB_REF={github_ref}")
         subprocess.run(  # noqa: S603
             [sys.executable, "-m", "serger"],
             check=True,
