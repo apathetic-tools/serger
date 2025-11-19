@@ -42,7 +42,7 @@ def test_build_script_respects_ci_env(
 
     # Reset any pre-existing CI vars
     env = dict(os.environ)
-    for key in ("CI", "GIT_TAG", "GITHUB_REF"):
+    for key in ("CI", "GITHUB_ACTIONS", "GIT_TAG", "GITHUB_REF"):
         env.pop(key, None)
 
     # Apply simulated environment
