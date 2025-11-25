@@ -6,6 +6,9 @@ alwaysApply: true
 ---
 
 ### Git Commit Conventions
+
+We follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification.
+
 - NEVER include AI tool attribution or Co-Authored-By trailers in commit messages
 - Write clean, conventional commit messages following the format: `type(scope): subject`
   - **type**: The type of change (feat, fix, docs, style, refactor, test, chore)

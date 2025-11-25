@@ -1,0 +1,27 @@
+---
+description: Communication and interaction guidelines
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+### Asking Questions
+
+When asking questions, **wait for response** before proceeding. Exception: direct instructions (e.g., "add a function") are confirmation.
+
+### Handling Developer Questions
+
+If developer asks ANY question (including "do we need X?", "can we Y?"), you **must**:
+1. Answer completely with recommendations
+2. Ask what to do and **stop** - no implementation
+3. Wait for response
+
+Exploratory work (reading/searching) is allowed; no code changes.
+
+### Troubleshooting When Stuck
+
+Ask user for insight. Also ask if you should: stash changes, rollback, or add isolated changes one at a time. If yes, create plan in `.plan/` per `.ai/templates/plan_debug_rollback.tmpl.md` and consult `.ai/workflows/plan_debug_rollback.md`.
+
+### Using Plan Documents
+
+For complex features, refactors, API changes, or multi-phase work, use the plan format (`.ai/workflows/plan_feature.md`). Plans help coordinate work, track progress, and ensure all phases are completed.

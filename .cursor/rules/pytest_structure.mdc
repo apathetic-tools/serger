@@ -1,0 +1,32 @@
+---
+description: Python Pytest directory structure conventions
+globs:
+  - "tests/**/*.py"
+alwaysApply: false
+---
+
+### PyTest Structure
+
+## Packages
+- Only `tests/` and `tests/utils/` should have `__init__.py`. Do NOT add `__init__.py` to test subdirectories (e.g., `tests/0_tooling/`, `tests/3_independant/`, `tests/5_core/`, etc.). Test subdirectories are not Python packages.
+- Use `tests/utils/` to colocate utilities that are generally helpful for tests or used in multiple test files.
+
+## Imports
+- Never import from one test_* file into another test_* file.
+- Never use `from <package> import <func>` for any `src/` packages, instead use `import <package> as mod_<package>` then use `mod_<package>.<func>`
+- Don't import general utilities not under test from `src/` as test setup helpers. You may call related src functions in a test even if they are not primarily under test. Use `tests/utils/`as helpers only even if you have to replicate the src utility.
+- You can import constants from `src/` code to use in tests, follow import rules.
+- When writting new tests, be aware of our test utilities in `tests/utils/`, especially `patch_everywhere`
+
+## Directories
+- Integration tests go in their own directories separate from unit tests.
+
+## Files
+- Unit tests should have a single file per function tested.
+- Integration tests should have a single file per feature or topic.
+- Tests primarily testing private functions go in their own file `test_priv__<function name no leading underscore>.py` with a file level ignore statement.
+- Tests primarily acting as a lint rule go in their own file  `test_lint__<purpose>.py` and should not be modified as a means of ignoring the failure. Fix the error reported instead.
+
+## Runtime
+- Tests run with `test` log-level by default so trace and debug statements bypass capsys and go to __stderr__.
+- Tests are usually run twice, once against the `src/` directory, and again using our `tests/utils/runtime_swap.py` against the `dist/<package>.py` stitched file.

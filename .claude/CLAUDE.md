@@ -320,9 +320,35 @@ Please help me resolve the remaining issues to get `poetry run poe check:fix` pa
 - ❌ **Bad**: Exclude `tests/9_integration/test_main_config.py` from mypy checking
 - ✅ **Good**: Rename `tests/9_integration/test_main_config.py` to `tests/9_integration/test_main_config_integration.py`
 
+# Communication
+
+### Asking Questions
+
+When asking questions, **wait for response** before proceeding. Exception: direct instructions (e.g., "add a function") are confirmation.
+
+### Handling Developer Questions
+
+If developer asks ANY question (including "do we need X?", "can we Y?"), you **must**:
+1. Answer completely with recommendations
+2. Ask what to do and **stop** - no implementation
+3. Wait for response
+
+Exploratory work (reading/searching) is allowed; no code changes.
+
+### Troubleshooting When Stuck
+
+Ask user for insight. Also ask if you should: stash changes, rollback, or add isolated changes one at a time. If yes, create plan in `.plan/` per `.ai/templates/plan_debug_rollback.tmpl.md` and consult `.ai/workflows/plan_debug_rollback.md`.
+
+### Using Plan Documents
+
+For complex features, refactors, API changes, or multi-phase work, use the plan format (`.ai/workflows/plan_feature.md`). Plans help coordinate work, track progress, and ensure all phases are completed.
+
 # Git Conventions
 
 ### Git Commit Conventions
+
+We follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification.
+
 - NEVER include AI tool attribution or Co-Authored-By trailers in commit messages
 - Write clean, conventional commit messages following the format: `type(scope): subject`
   - **type**: The type of change (feat, fix, docs, style, refactor, test, chore)
@@ -382,6 +408,34 @@ Serger is a Python module stitcher that combines multiple source files into a si
 - `src/serger/` - Main source code
 - `tests/` - Test suite
 - `dev/` - Development scripts
+
+# Pytest Structure
+
+### PyTest Structure
+
+## Packages
+- Only `tests/` and `tests/utils/` should have `__init__.py`. Do NOT add `__init__.py` to test subdirectories (e.g., `tests/0_tooling/`, `tests/3_independant/`, `tests/5_core/`, etc.). Test subdirectories are not Python packages.
+- Use `tests/utils/` to colocate utilities that are generally helpful for tests or used in multiple test files.
+
+## Imports
+- Never import from one test_* file into another test_* file.
+- Never use `from <package> import <func>` for any `src/` packages, instead use `import <package> as mod_<package>` then use `mod_<package>.<func>`
+- Don't import general utilities not under test from `src/` as test setup helpers. You may call related src functions in a test even if they are not primarily under test. Use `tests/utils/`as helpers only even if you have to replicate the src utility.
+- You can import constants from `src/` code to use in tests, follow import rules.
+- When writting new tests, be aware of our test utilities in `tests/utils/`, especially `patch_everywhere`
+
+## Directories
+- Integration tests go in their own directories separate from unit tests.
+
+## Files
+- Unit tests should have a single file per function tested.
+- Integration tests should have a single file per feature or topic.
+- Tests primarily testing private functions go in their own file `test_priv__<function name no leading underscore>.py` with a file level ignore statement.
+- Tests primarily acting as a lint rule go in their own file  `test_lint__<purpose>.py` and should not be modified as a means of ignoring the failure. Fix the error reported instead.
+
+## Runtime
+- Tests run with `test` log-level by default so trace and debug statements bypass capsys and go to __stderr__.
+- Tests are usually run twice, once against the `src/` directory, and again using our `tests/utils/runtime_swap.py` against the `dist/<package>.py` stitched file.
 
 # Type Checking
 
