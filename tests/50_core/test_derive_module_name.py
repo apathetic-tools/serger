@@ -115,8 +115,8 @@ def test_derive_with_dest_glob_pattern(tmp_path: Path) -> None:
     assert result == "custom.base"
 
 
-def test_derive_external_file_with_module_bases(tmp_path: Path) -> None:
-    """Should use module_bases to derive module name for external files."""
+def test_derive_external_file_with_source_bases(tmp_path: Path) -> None:
+    """Should use source_bases to derive module name for external files."""
     # --- setup ---
     # Create external project structure
     external_proj = tmp_path / "external_proj"
@@ -131,13 +131,13 @@ def test_derive_external_file_with_module_bases(tmp_path: Path) -> None:
     current_proj.mkdir()
     package_root = current_proj  # package_root is in current project
 
-    # module_bases points to external project src
-    module_bases = [str(external_src)]
+    # source_bases points to external project src
+    source_bases = [str(external_src)]
 
     # --- execute ---
-    # File is external (not under package_root), but should use module_bases
+    # File is external (not under package_root), but should use source_bases
     result = mod_utils_modules.derive_module_name(
-        external_file, package_root, module_bases=module_bases
+        external_file, package_root, source_bases=source_bases
     )
 
     # --- verify ---
@@ -149,11 +149,11 @@ def test_derive_external_file_with_module_bases(tmp_path: Path) -> None:
 
 
 def test_derive_external_file_under_common_package_root(tmp_path: Path) -> None:
-    """Should prioritize module_bases even when file is under package_root.
+    """Should prioritize source_bases even when file is under package_root.
 
     This tests the case where package_root is computed as the common ancestor
     of both local and external files, so the external file IS under package_root.
-    In this case, module_bases should still be used to derive the module name.
+    In this case, source_bases should still be used to derive the module name.
     """
     # --- setup ---
     # Create external project structure
@@ -173,13 +173,13 @@ def test_derive_external_file_under_common_package_root(tmp_path: Path) -> None:
 
     # package_root is common ancestor (includes both projects)
     package_root = tmp_path / "home" / "user"
-    # module_bases points to external project src
-    module_bases = [str(external_src)]
+    # source_bases points to external project src
+    source_bases = [str(external_src)]
 
     # --- execute ---
-    # File IS under package_root, but should still use module_bases
+    # File IS under package_root, but should still use source_bases
     result = mod_utils_modules.derive_module_name(
-        external_file, package_root, module_bases=module_bases
+        external_file, package_root, source_bases=source_bases
     )
 
     # --- verify ---

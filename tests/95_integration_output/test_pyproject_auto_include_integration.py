@@ -1,7 +1,7 @@
 # tests/95_integration_output/test_pyproject_auto_include_integration.py
 """Integration tests for pyproject.toml auto-include feature.
 
-Tests that when pyproject.toml has a name matching a module in module_bases,
+Tests that when pyproject.toml has a name matching a module in source_bases,
 auto-include works correctly without requiring explicit includes.
 """
 
@@ -13,19 +13,19 @@ import serger.cli as mod_cli
 import serger.meta as mod_meta
 
 
-def test_pyproject_auto_include_single_file_module_in_module_bases(
+def test_pyproject_auto_include_single_file_module_in_source_bases(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Build succeeds when pyproject name matches single-file module in module_bases.
+    """Build succeeds when pyproject name matches single-file module in source_bases.
 
     Scenario:
     - Has pyproject.toml with name = "mymodule"
     - No config file
     - No CLI includes/arguments
     - src/mymodule.py exists (single-file module)
-    - module_bases defaults to ["src", "lib", "packages"]
+    - source_bases defaults to ["src", "lib", "packages"]
     - Auto-include should set includes to src/mymodule.py
     - Build should succeed
     """
@@ -50,13 +50,13 @@ version = "1.0.0"
 """
     )
 
-    # Create minimal config with module_bases but no package or includes
+    # Create minimal config with source_bases but no package or includes
     # Package should come from pyproject.toml, includes should be auto-set
     # Need to enable use_pyproject_metadata since we have a config file
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     config.write_text(
         """{
-    "module_bases": ["src"],
+    "source_bases": ["src"],
     "out": "dist",
     "use_pyproject_metadata": true
 }
@@ -91,12 +91,12 @@ version = "1.0.0"
     assert "Hello from mymodule" in content
 
 
-def test_pyproject_auto_include_package_in_module_bases(
+def test_pyproject_auto_include_package_in_source_bases(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Build should succeed when pyproject name matches package in module_bases.
+    """Build should succeed when pyproject name matches package in source_bases.
 
     Scenario:
     - Has pyproject.toml with name = "mypkg"
@@ -104,7 +104,7 @@ def test_pyproject_auto_include_package_in_module_bases(
     - No CLI includes/arguments
     - src/mypkg/ exists (package directory, no __init__.py needed)
     - src/mypkg/module.py exists
-    - module_bases defaults to ["src", "lib", "packages"]
+    - source_bases defaults to ["src", "lib", "packages"]
     - Auto-include should set includes to src/mypkg
     - Build should succeed
     """
@@ -131,13 +131,13 @@ version = "1.0.0"
 """
     )
 
-    # Create minimal config with module_bases but no package or includes
+    # Create minimal config with source_bases but no package or includes
     # Package should come from pyproject.toml, includes should be auto-set
     # Need to enable use_pyproject_metadata since we have a config file
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     config.write_text(
         """{
-    "module_bases": ["src"],
+    "source_bases": ["src"],
     "out": "dist",
     "use_pyproject_metadata": true
 }
@@ -184,7 +184,7 @@ def test_pyproject_auto_include_configless_single_file_module(
     - NO config file (truly configless)
     - No CLI includes/arguments
     - src/mymodule.py exists (single-file module)
-    - module_bases defaults to ["src", "lib", "packages"]
+    - source_bases defaults to ["src", "lib", "packages"]
     - Auto-include should set includes to src/mymodule.py
     - Package should come from pyproject.toml
     - Build should succeed with all required information

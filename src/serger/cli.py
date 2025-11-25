@@ -363,7 +363,7 @@ def _validate_package(  # noqa: PLR0912
 
     This is the detailed validation that provides helpful error messages with
     context:
-    - Lists available modules/packages found in module_bases
+    - Lists available modules/packages found in source_bases
     - Explains why auto-detection failed (multiple modules, no modules, etc.)
     - Suggests solutions based on the specific situation
     - Respects strict_config to determine error vs warning
@@ -413,7 +413,7 @@ def _validate_package(  # noqa: PLR0912
 
     if not has_explicit_package_key and config_missing_package:
         # Collect context for better error messages
-        module_bases = resolved.get("module_bases", [])
+        source_bases = resolved.get("source_bases", [])
         config_dir: Path | None = None
         meta = resolved.get("__meta__")
         if meta and isinstance(meta, dict):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -421,14 +421,14 @@ def _validate_package(  # noqa: PLR0912
             if isinstance(config_dir_raw, Path):  # pyright: ignore[reportUnnecessaryIsInstance]
                 config_dir = config_dir_raw
 
-        # Get all modules found in module_bases for helpful error messages
+        # Get all modules found in source_bases for helpful error messages
         all_modules: list[str] = []
-        if module_bases and config_dir:
+        if source_bases and config_dir:
             from .config.config_resolve import (  # noqa: PLC0415
                 _get_first_level_modules_from_bases,  # pyright: ignore[reportPrivateUsage]
             )
 
-            all_modules = _get_first_level_modules_from_bases(module_bases, config_dir)
+            all_modules = _get_first_level_modules_from_bases(source_bases, config_dir)
             # Remove duplicates while preserving order
             seen: set[str] = set()
             unique_modules: list[str] = []
@@ -439,17 +439,17 @@ def _validate_package(  # noqa: PLR0912
             all_modules = unique_modules
 
         # Build helpful error message based on what was found
-        if not module_bases:
+        if not source_bases:
             msg = (
                 "No package name found.\n"
-                "   Use 'package' in your config, or set 'module_bases' to enable "
+                "   Use 'package' in your config, or set 'source_bases' to enable "
                 "auto-detection."
             )
         elif len(all_modules) == 0:
             msg = (
-                "No package name found. No modules found in module_bases: "
-                f"{module_bases}.\n"
-                "   Use 'package' in your config, or ensure module_bases contain "
+                "No package name found. No modules found in source_bases: "
+                f"{source_bases}.\n"
+                "   Use 'package' in your config, or ensure source_bases contain "
                 "Python modules/packages."
             )
         elif len(all_modules) == 1:
@@ -457,7 +457,7 @@ def _validate_package(  # noqa: PLR0912
             # helpful message
             msg = (
                 f"No package name found. Found single module '{all_modules[0]}' "
-                f"in module_bases: {module_bases}.\n"
+                f"in source_bases: {source_bases}.\n"
                 "   This should have been auto-detected. Please specify 'package' "
                 "explicitly or report this as a bug."
             )
@@ -465,8 +465,8 @@ def _validate_package(  # noqa: PLR0912
             # Multiple modules found - explain why auto-detection failed
             modules_str = ", ".join(f"'{m}'" for m in all_modules)
             msg = (
-                f"No package name found. Found multiple modules in module_bases "
-                f"{module_bases}: {modules_str}.\n"
+                f"No package name found. Found multiple modules in source_bases "
+                f"{source_bases}: {modules_str}.\n"
                 "   Please specify 'package' explicitly in your config to "
                 "indicate which module to use."
             )

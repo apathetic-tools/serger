@@ -68,7 +68,7 @@ All configuration options are specified at the root level of the config file:
 
 | Option | Type | Required | Default | Description |
 |--------|------|----------|---------|-------------|
-| `package` | `str` | Yes† | - | Package name (used for import shims). Can be inferred from `pyproject.toml` name, includes, or `module_bases`. |
+| `package` | `str` | Yes† | - | Package name (used for import shims). Can be inferred from `pyproject.toml` name, includes, or `source_bases`. |
 | `include` | `list[str]` | Yes* | - | Glob patterns for files to include |
 | `exclude` | `list[str]` | No | `[]` | Glob patterns for files to exclude |
 | `out` | `str` | Yes* | - | Output file path (relative to project root) |
@@ -95,7 +95,7 @@ All configuration options are specified at the root level of the config file:
 | `module_actions` | `dict \| list` | No | - | Custom module transformations (see [Module Actions](#module-actions)) |
 | `comments_mode` | `str` | No | `"keep"` | How to handle comments in stitched output (see [Comment Handling](#comment-handling)) |
 | `docstring_mode` | `str \| dict` | No | `"keep"` | How to handle docstrings in stitched output (see [Docstring Handling](#docstring-handling)) |
-| `module_bases` | `str \| list[str]` | No | `["src"]` | Ordered list of directories where packages can be found (see [Module Bases](#module-bases)) |
+| `source_bases` | `str \| list[str]` | No | `["src"]` | Ordered list of directories where packages can be found (see [Source Bases](#source-bases)) |
 | `main_mode` | `"none" \| "auto"` | No | `"auto"` | How to handle main function detection and `__main__` block generation (see [Main Configuration](#main-configuration)) |
 | `main_name` | `str \| None` | No | `None` | Specification for which main function to use (see [Main Configuration](#main-configuration)) |
 
@@ -834,9 +834,9 @@ External imports are imports from packages not being stitched (e.g., `import os`
 }
 ```
 
-## Module Bases
+## Source Bases
 
-The `module_bases` setting specifies an ordered list of directories where Serger can find packages. This setting is used to determine where to search for Python packages when resolving module paths.
+The `source_bases` setting specifies an ordered list of directories where Serger can find packages. This setting is used to determine where to search for Python packages when resolving module paths.
 
 ### Configuration
 
@@ -849,14 +849,14 @@ The `module_bases` setting specifies an ordered list of directories where Serger
 **Single directory (string convenience):**
 ```jsonc
 {
-  "module_bases": "lib"
+  "source_bases": "lib"
 }
 ```
 
 **Multiple directories (list):**
 ```jsonc
 {
-  "module_bases": ["src", "lib", "vendor"]
+  "source_bases": ["src", "lib", "vendor"]
 }
 ```
 
@@ -866,10 +866,10 @@ The `module_bases` setting specifies an ordered list of directories where Serger
   "package": "mypkg",
   "include": ["src/mypkg/**/*.py"],
   "out": "dist/mypkg.py",
-      "module_bases": ["src", "lib"]  // Overrides root-level setting
+      "source_bases": ["src", "lib"]  // Overrides root-level setting
     }
   ],
-  "module_bases": ["src", "lib", "packages"]  // Default for all builds
+  "source_bases": ["src", "lib", "packages"]  // Default for all builds
 }
 ```
 
@@ -889,15 +889,15 @@ The `package` field is required for stitch builds, but can be automatically infe
 2. **pyproject.toml** - Extracted from `[project] name` if available
 3. **Include paths** - Inferred from the include patterns you provide
 4. **Main function detection** - If multiple modules exist, prefers the one containing a `main()` function or `if __name__ == "__main__"` block
-5. **Single module auto-detection** - When exactly one first-level module exists in any `module_base`
-6. **First package in module_bases order** - Falls back to the first module found in `module_bases` order when multiple modules exist
+5. **Single module auto-detection** - When exactly one first-level module exists in any `source_base`
+6. **First package in source_bases order** - Falls back to the first module found in `source_bases` order when multiple modules exist
 
 ### Details
 
 **Include path inference:**
 - Analyzes your include patterns to extract package names
 - Uses `__init__.py` and `__main__.py` markers when available
-- Validates against `module_bases` to ensure packages exist
+- Validates against `source_bases` to ensure packages exist
 - Uses the most common package when multiple candidates are found
 
 **Main function detection:**
@@ -906,13 +906,13 @@ The `package` field is required for stitch builds, but can be automatically infe
 - Helps identify the "main" package in multi-package projects
 
 **Single module auto-detection:**
-- Scans `module_bases` directories for first-level modules/packages
-- Only triggers when exactly one module exists across all `module_bases`
+- Scans `source_bases` directories for first-level modules/packages
+- Only triggers when exactly one module exists across all `source_bases`
 - Supports both package directories and single-file modules
 
 **First package fallback:**
-- Uses the first module found in `module_bases` order when all other methods fail
-- Preserves the order specified in `module_bases` configuration
+- Uses the first module found in `source_bases` order when all other methods fail
+- Preserves the order specified in `source_bases` configuration
 - Provides a predictable fallback for ambiguous cases
 
 ### Logging
@@ -922,8 +922,8 @@ Serger logs where the package name was determined from, for example:
 - `Package name 'mypkg' extracted from pyproject.toml for resolution`
 - `Package name 'mypkg' inferred from include paths. Set 'package' in config to override.`
 - `Package name 'mypkg' detected via main() function. Set 'package' in config to override.`
-- `Package name 'mypkg' auto-detected from single module in module_base 'src'. Set 'package' in config to override.`
-- `Package name 'mypkg' selected from module_bases (first found). Set 'package' in config to override.`
+- `Package name 'mypkg' auto-detected from single module in source_base 'src'. Set 'package' in config to override.`
+- `Package name 'mypkg' selected from source_bases (first found). Set 'package' in config to override.`
 
 You can always override the auto-detected package by explicitly setting `package` in your config.
 

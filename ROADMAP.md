@@ -53,7 +53,7 @@ Exploring bundling options for generating the single-file release:
 - if we moved the sys.modules shims as we went, would that allow us to do imports as long as the order was correct?
 - now that we have a module_base, we can probably "Follow the imports" and add includes as we find them, they only need to give us the first include
 - add module_downloaded or somesuch
-- should we store module_bases as absolute paths? only shorten for display based on cwd/config_dir?
+- should we store source_bases as absolute paths? only shorten for display based on cwd/config_dir?
 - review all details/minimal statements before v1.0
 
 

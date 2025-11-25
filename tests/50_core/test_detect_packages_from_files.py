@@ -162,8 +162,8 @@ class TestDetectPackagesFromFiles:
             assert result1 == result2
             assert sorted(result1) == sorted(result2)
 
-    def test_detects_package_via_module_bases_without_init(self) -> None:
-        """Should detect package via module_bases even without __init__.py."""
+    def test_detects_package_via_source_bases_without_init(self) -> None:
+        """Should detect package via source_bases even without __init__.py."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_dir = Path(tmpdir)
             src_dir = config_dir / "src"
@@ -174,56 +174,56 @@ class TestDetectPackagesFromFiles:
             module_file = pkg_dir / "module.py"
             module_file.write_text("# module\n")
 
-            # Convert relative module_bases to absolute paths
-            module_bases_abs = [str((config_dir / "src").resolve())]
+            # Convert relative source_bases to absolute paths
+            source_bases_abs = [str((config_dir / "src").resolve())]
             result, _parent_dirs = mod_stitch.detect_packages_from_files(
                 [module_file],
                 "default",
-                module_bases=module_bases_abs,
+                source_bases=source_bases_abs,
             )
 
-            # Should detect "mypkg" via module_bases even without __init__.py
+            # Should detect "mypkg" via source_bases even without __init__.py
             assert "mypkg" in result
             assert "default" in result
 
-    def test_init_py_takes_precedence_over_module_bases(self) -> None:
-        """__init__.py should take precedence over module_bases detection."""
+    def test_init_py_takes_precedence_over_source_bases(self) -> None:
+        """__init__.py should take precedence over source_bases detection."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_dir = Path(tmpdir)
             src_dir = config_dir / "src"
             src_dir.mkdir()
-            # Package directory with __init__.py (should use this, not module_bases)
+            # Package directory with __init__.py (should use this, not source_bases)
             pkg_dir = src_dir / "mypkg"
             pkg_dir.mkdir()
             (pkg_dir / "__init__.py").write_text("# package\n")
             module_file = pkg_dir / "module.py"
             module_file.write_text("# module\n")
 
-            # Convert relative module_bases to absolute paths
-            module_bases_abs = [str((config_dir / "src").resolve())]
+            # Convert relative source_bases to absolute paths
+            source_bases_abs = [str((config_dir / "src").resolve())]
             result, _parent_dirs = mod_stitch.detect_packages_from_files(
                 [module_file],
                 "default",
-                module_bases=module_bases_abs,
+                source_bases=source_bases_abs,
             )
 
-            # Should detect "mypkg" via __init__.py (not module_bases)
+            # Should detect "mypkg" via __init__.py (not source_bases)
             assert "mypkg" in result
             assert "default" in result
 
-    def test_module_bases_only_applies_to_files_under_base(self) -> None:
-        """module_bases should only apply to files under the base, not elsewhere."""
+    def test_source_bases_only_applies_to_files_under_base(self) -> None:
+        """source_bases should only apply to files under the base, not elsewhere."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_dir = Path(tmpdir)
             src_dir = config_dir / "src"
             src_dir.mkdir()
-            # File under module_bases (should use module_bases logic)
+            # File under source_bases (should use source_bases logic)
             pkg1_dir = src_dir / "pkg1"
             pkg1_dir.mkdir()
             file1 = pkg1_dir / "module1.py"
             file1.write_text("# module1\n")
 
-            # File outside module_bases (should require __init__.py)
+            # File outside source_bases (should require __init__.py)
             other_dir = config_dir / "other"
             other_dir.mkdir()
             pkg2_dir = other_dir / "pkg2"
@@ -232,21 +232,21 @@ class TestDetectPackagesFromFiles:
             file2 = pkg2_dir / "module2.py"
             file2.write_text("# module2\n")
 
-            # Convert relative module_bases to absolute paths
-            module_bases_abs = [str((config_dir / "src").resolve())]
+            # Convert relative source_bases to absolute paths
+            source_bases_abs = [str((config_dir / "src").resolve())]
             result, _parent_dirs = mod_stitch.detect_packages_from_files(
                 [file1, file2],
                 "default",
-                module_bases=module_bases_abs,
+                source_bases=source_bases_abs,
             )
 
-            # Should detect "pkg1" via module_bases, but not "pkg2" (outside base)
+            # Should detect "pkg1" via source_bases, but not "pkg2" (outside base)
             assert "pkg1" in result
             assert "pkg2" not in result
             assert "default" in result
 
-    def test_module_bases_with_multiple_bases(self) -> None:
-        """Should detect packages from multiple module_bases."""
+    def test_source_bases_with_multiple_bases(self) -> None:
+        """Should detect packages from multiple source_bases."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_dir = Path(tmpdir)
             src_dir = config_dir / "src"
@@ -266,18 +266,18 @@ class TestDetectPackagesFromFiles:
             file2 = pkg2_dir / "module2.py"
             file2.write_text("# module2\n")
 
-            # Convert relative module_bases to absolute paths
-            module_bases_abs = [
+            # Convert relative source_bases to absolute paths
+            source_bases_abs = [
                 str((config_dir / "src").resolve()),
                 str((config_dir / "lib").resolve()),
             ]
             result, _parent_dirs = mod_stitch.detect_packages_from_files(
                 [file1, file2],
                 "default",
-                module_bases=module_bases_abs,
+                source_bases=source_bases_abs,
             )
 
-            # Should detect both packages via their respective module_bases
+            # Should detect both packages via their respective source_bases
             assert "pkg1" in result
             assert "pkg2" in result
             assert "default" in result

@@ -142,21 +142,21 @@ def derive_module_name(  # noqa: PLR0912, PLR0915, C901
     file_path: Path,
     package_root: Path,
     include: IncludeResolved | None = None,
-    module_bases: list[str] | None = None,
-    user_provided_module_bases: list[str] | None = None,
+    source_bases: list[str] | None = None,
+    user_provided_source_bases: list[str] | None = None,
 ) -> str:
     """Derive module name from file path for shim generation.
 
     Default behavior: Preserve directory structure from file path relative to
     package root. With dest: Preserve structure from dest path instead.
-    With module_bases: For external files, derive relative to matching module_base.
+    With source_bases: For external files, derive relative to matching module_base.
 
     Args:
         file_path: The file path to derive module name from
         package_root: Common root of all included files
         include: Optional include that produced this file (for dest access)
-        module_bases: Optional list of module base directories for external files
-        user_provided_module_bases: Optional list of user-provided module bases
+        source_bases: Optional list of module base directories for external files
+        user_provided_source_bases: Optional list of user-provided module bases
             (from config, excludes auto-discovered package directories)
 
     Returns:
@@ -220,17 +220,17 @@ def derive_module_name(  # noqa: PLR0912, PLR0915, C901
     except ValueError:
         is_under_package_root = False
 
-    # Check module_bases if provided
+    # Check source_bases if provided
     # If file is under both package_root and a module_base, prefer module_base
     # when it's more specific (deeper in the tree than package_root)
     # BUT: Don't use module_base if it's the file's parent directory
     # (would lose package name)
-    # Use user_provided_module_bases for the fix (external files),
-    # fall back to all module_bases for backward compatibility
+    # Use user_provided_source_bases for the fix (external files),
+    # fall back to all source_bases for backward compatibility
     rel_path = None
-    # Prefer user-provided module_bases (from config) over auto-discovered ones
+    # Prefer user-provided source_bases (from config) over auto-discovered ones
     bases_to_use = (
-        user_provided_module_bases if user_provided_module_bases else module_bases
+        user_provided_source_bases if user_provided_source_bases else source_bases
     )
     if bases_to_use:
         file_parent = file_path_resolved.parent

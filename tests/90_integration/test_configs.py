@@ -395,8 +395,8 @@ def test_validate_config_fails_with_missing_package(
 
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     # Write config directly without package (helper requires package)
-    # With auto-discovery, module_bases are extracted from includes, and package
-    # is auto-detected from module_bases, so validation should pass
+    # With auto-discovery, source_bases are extracted from includes, and package
+    # is auto-detected from source_bases, so validation should pass
     config_data = {
         "include": ["mypkg/**/*.py"],
         "out": "dist/mypkg.py",
@@ -408,7 +408,7 @@ def test_validate_config_fails_with_missing_package(
     code = mod_cli.main(["--validate-config"])
 
     # --- verify ---
-    # Should pass because package is auto-discovered from module_bases
+    # Should pass because package is auto-discovered from source_bases
     # (extracted from includes)
     assert code == 0
     captured = capsys.readouterr()
@@ -753,7 +753,7 @@ def test_main_invalid_config(tmp_path: Path) -> None:
         # Missing include but CLI provides --include - no warning
         # Package will be inferred from include path
         (
-            {"out": "dist/mypkg.py", "module_bases": ["."]},
+            {"out": "dist/mypkg.py", "source_bases": ["."]},
             ["--include", "mypkg/**/*.py"],
             0,
             None,
@@ -762,7 +762,7 @@ def test_main_invalid_config(tmp_path: Path) -> None:
         # Missing include but CLI provides --add-include - no warning
         # Package will be inferred from include path
         (
-            {"out": "dist/mypkg.py", "module_bases": ["."]},
+            {"out": "dist/mypkg.py", "source_bases": ["."]},
             ["--add-include", "mypkg/**/*.py"],
             0,
             None,

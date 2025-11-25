@@ -13,7 +13,7 @@ Considered implementing caching for package detection to avoid redundant filesys
 ### Reason for Rejection
 - Negligible performance benefit: even with 100 files in the same package hierarchy, only saves ~197 redundant `__init__.py` stat calls, which translates to approximately 0.2ms saved (filesystem stat calls are very fast at ~0.001ms each)
 - Package detection is already fast and not a bottleneck; build time is dominated by post-processing tools (ruff/black: ~1.5–1.8 seconds)
-- Implementation complexity exceeds benefit: would require cache state management, handling edge cases (symlinks, different filesystem types, module_bases context), and maintaining cache invalidation logic
+- Implementation complexity exceeds benefit: would require cache state management, handling edge cases (symlinks, different filesystem types, source_bases context), and maintaining cache invalidation logic
 - Current implementation is simple, correct, and maintainable; adding caching would introduce indirection and state management complexity
 - Doesn't align with serger's target audience of small-to-medium, focused projects where package detection overhead is minimal
 

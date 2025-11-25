@@ -150,7 +150,7 @@ def test_root_config_resolved_has_module_actions(tmp_path: Path) -> None:
         "external_imports": "top",
         "comments_mode": "keep",
         "docstring_mode": "keep",
-        "module_bases": ["src"],
+        "source_bases": ["src"],
         "post_processing": {
             "enabled": True,
             "category_order": [],

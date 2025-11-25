@@ -1209,7 +1209,7 @@ class TestStitchModulesOtherImportModes:
                 "order": file_paths,
                 "exclude_names": [src_dir / "__init__.py"],
                 "stitch_mode": "raw",
-                "module_bases": ["src"],
+                "source_bases": ["src"],
                 "internal_imports": "keep",  # Keep internal imports
                 "module_mode": "multi",  # Generate shims for packages
             }

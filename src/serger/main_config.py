@@ -242,22 +242,22 @@ def find_main_function(  # noqa: PLR0912, C901, PLR0915
                 # If we can't read the file, skip the check
                 pass
 
-    # Extract module_bases from config for external files
-    # module_bases is validated and normalized to list[str] in config resolution
+    # Extract source_bases from config for external files
+    # source_bases is validated and normalized to list[str] in config resolution
     # It's always present in RootConfigResolved, but .get() returns object | None
-    module_bases_raw = config.get("module_bases")
-    module_bases: list[str] | None = None
-    if module_bases_raw is not None:  # pyright: ignore[reportUnnecessaryComparison]
-        # Type narrowing: config is RootConfigResolved where module_bases is list[str]
-        # Cast is safe because module_bases is validated in config resolution
+    source_bases_raw = config.get("source_bases")
+    source_bases: list[str] | None = None
+    if source_bases_raw is not None:  # pyright: ignore[reportUnnecessaryComparison]
+        # Type narrowing: config is RootConfigResolved where source_bases is list[str]
+        # Cast is safe because source_bases is validated in config resolution
         # mypy sees cast as redundant, but pyright needs it for type narrowing
-        module_bases = [str(mb) for mb in cast("list[str]", module_bases_raw)]  # type: ignore[redundant-cast]  # pyright: ignore[reportUnnecessaryCast]
+        source_bases = [str(mb) for mb in cast("list[str]", source_bases_raw)]  # type: ignore[redundant-cast]  # pyright: ignore[reportUnnecessaryCast]
 
     module_to_file: dict[str, Path] = {}
     for file_path in file_paths:
         include = file_to_include.get(file_path)
         module_name = derive_module_name(
-            file_path, package_root, include, module_bases=module_bases
+            file_path, package_root, include, source_bases=source_bases
         )
 
         # If package_root is a package directory, preserve package structure

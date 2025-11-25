@@ -192,10 +192,10 @@ class RootConfig(TypedDict, total=False):
     #   Each location value can be "keep", "strip", or "public"
     #   Omitted locations default to "keep"
     docstring_mode: DocstringMode
-    # Module bases: ordered list of directories where packages can be found
+    # Source bases: ordered list of directories where packages can be found
     # - str: Single directory (convenience, converted to list[str] on resolve)
     # - list[str]: Ordered list of directories (default: ["src", "lib", "packages"])
-    module_bases: str | list[str]
+    source_bases: str | list[str]
     # Main function configuration
     # - "none": Don't generate __main__ block
     # - "auto": Automatically detect and generate __main__ block (default)
@@ -254,9 +254,9 @@ class RootConfigResolved(TypedDict):
     module_actions: list[ModuleActionFull]
     comments_mode: CommentsMode  # How to handle comments in stitched output
     docstring_mode: DocstringMode  # How to handle docstrings in stitched output
-    # Module bases: ordered list of directories where packages can be found
+    # Source bases: ordered list of directories where packages can be found
     # (always present, resolved to list[str])
-    module_bases: list[str]
+    source_bases: list[str]
     # Main function configuration (always present, resolved with defaults)
     main_mode: MainMode
     # Main function name specification (always present, resolved with defaults)

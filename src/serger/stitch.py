@@ -1488,8 +1488,8 @@ def compute_module_order(  # noqa: C901, PLR0912
     file_to_include: dict[Path, IncludeResolved],
     *,
     detected_packages: set[str],
-    module_bases: list[str] | None = None,
-    user_provided_module_bases: list[str] | None = None,
+    source_bases: list[str] | None = None,
+    user_provided_source_bases: list[str] | None = None,
 ) -> list[Path]:
     """Compute correct module order based on import dependencies.
 
@@ -1502,8 +1502,8 @@ def compute_module_order(  # noqa: C901, PLR0912
         _package_name: Root package name (unused, kept for API consistency)
         file_to_include: Mapping of file path to its include (for dest access)
         detected_packages: Pre-detected package names
-        module_bases: Optional list of module base directories for external files
-        user_provided_module_bases: Optional list of user-provided module bases
+        source_bases: Optional list of module base directories for external files
+        user_provided_source_bases: Optional list of user-provided module bases
             (from config, excludes auto-discovered package directories)
 
     Returns:
@@ -1522,8 +1522,8 @@ def compute_module_order(  # noqa: C901, PLR0912
             file_path,
             package_root,
             include,
-            module_bases=module_bases,
-            user_provided_module_bases=user_provided_module_bases,
+            source_bases=source_bases,
+            user_provided_source_bases=user_provided_source_bases,
         )
         file_to_module[file_path] = module_name
         module_to_file[module_name] = file_path
@@ -1646,8 +1646,8 @@ def suggest_order_mismatch(
     *,
     detected_packages: set[str],
     topo_paths: list[Path] | None = None,
-    module_bases: list[str] | None = None,
-    user_provided_module_bases: list[str] | None = None,
+    source_bases: list[str] | None = None,
+    user_provided_source_bases: list[str] | None = None,
 ) -> None:
     """Warn if module order violates dependencies.
 
@@ -1660,8 +1660,8 @@ def suggest_order_mismatch(
         topo_paths: Optional pre-computed topological order. If provided,
                     skips recomputing the order. If None, computes it via
                     compute_module_order.
-        module_bases: Optional list of module base directories for external files
-        user_provided_module_bases: Optional list of user-provided module bases
+        source_bases: Optional list of module base directories for external files
+        user_provided_source_bases: Optional list of user-provided module bases
             (from config, excludes auto-discovered package directories)
     """
     logger = get_app_logger()
@@ -1672,7 +1672,7 @@ def suggest_order_mismatch(
             _package_name,
             file_to_include,
             detected_packages=detected_packages,
-            module_bases=module_bases,
+            source_bases=source_bases,
         )
 
     # compare order_paths to topological sort
@@ -1690,8 +1690,8 @@ def suggest_order_mismatch(
                 p,
                 package_root,
                 include,
-                module_bases=module_bases,
-                user_provided_module_bases=user_provided_module_bases,
+                source_bases=source_bases,
+                user_provided_source_bases=user_provided_source_bases,
             )
             logger.warning("  - %s appears before one of its dependencies", module_name)
         topo_modules = [
@@ -1699,8 +1699,8 @@ def suggest_order_mismatch(
                 p,
                 package_root,
                 file_to_include.get(p),
-                module_bases=module_bases,
-                user_provided_module_bases=user_provided_module_bases,
+                source_bases=source_bases,
+                user_provided_source_bases=user_provided_source_bases,
             )
             for p in topo_paths
         ]
@@ -1944,18 +1944,18 @@ def verify_no_broken_imports(  # noqa: C901, PLR0912
 def _find_package_root_for_file(
     file_path: Path,
     *,
-    module_bases: list[str] | None = None,
+    source_bases: list[str] | None = None,
     _config_dir: Path | None = None,
 ) -> Path | None:
     """Find the package root for a file.
 
     First checks for __init__.py files (definitive package marker).
-    If no __init__.py found and file is under a module_bases directory,
+    If no __init__.py found and file is under a source_bases directory,
     treats everything after the matching base prefix as a package structure.
 
     Args:
         file_path: Path to the Python file
-        module_bases: Optional list of module base directories (absolute paths)
+        source_bases: Optional list of module base directories (absolute paths)
         _config_dir: Optional config directory (unused, kept for compatibility)
 
     Returns:
@@ -1995,7 +1995,7 @@ def _find_package_root_for_file(
             )
             return last_package_dir
             # No __init__.py found yet, continue walking up
-            # (we'll check module_bases after this loop if needed)
+            # (we'll check source_bases after this loop if needed)
 
         # Move up one level
         parent = current_dir.parent
@@ -2007,13 +2007,13 @@ def _find_package_root_for_file(
                     last_package_dir,
                 )
                 return last_package_dir
-            # No __init__.py found, break to check module_bases
+            # No __init__.py found, break to check source_bases
             break
         current_dir = parent
 
-    # If no __init__.py found, check if file is under any module_bases directory
-    if module_bases and last_package_dir is None:
-        for base_str in module_bases:
+    # If no __init__.py found, check if file is under any source_bases directory
+    if source_bases and last_package_dir is None:
+        for base_str in source_bases:
             # base_str is already an absolute path
             base_path = Path(base_str).resolve()
             try:
@@ -2028,7 +2028,7 @@ def _find_package_root_for_file(
                 package_dir = base_path / rel_path.parts[0]
                 if package_dir.exists() and package_dir.is_dir():
                     logger.trace(
-                        "[PKG_ROOT] Found package via module_bases: %s (base: %s)",
+                        "[PKG_ROOT] Found package via source_bases: %s (base: %s)",
                         package_dir,
                         base_path,
                     )
@@ -2045,12 +2045,12 @@ def detect_packages_from_files(
     file_paths: list[Path],
     package_name: str,
     *,
-    module_bases: list[str] | None = None,
+    source_bases: list[str] | None = None,
     _config_dir: Path | None = None,
 ) -> tuple[set[str], list[str]]:
     """Detect packages from file paths.
 
-    If files are under module_bases directories, treats everything after the
+    If files are under source_bases directories, treats everything after the
     matching base prefix as a package structure (regardless of __init__.py).
     Otherwise, follows Python's import rules: only detects regular packages
     (with __init__.py files). Falls back to configured package_name if none detected.
@@ -2058,7 +2058,7 @@ def detect_packages_from_files(
     Args:
         file_paths: List of file paths to check
         package_name: Configured package name (used as fallback)
-        module_bases: Optional list of module base directories (absolute paths)
+        source_bases: Optional list of module base directories (absolute paths)
         _config_dir: Optional config directory (unused, kept for compatibility)
 
     Returns:
@@ -2073,7 +2073,7 @@ def detect_packages_from_files(
 
     # Detect packages from files
     for file_path in file_paths:
-        pkg_root = _find_package_root_for_file(file_path, module_bases=module_bases)
+        pkg_root = _find_package_root_for_file(file_path, source_bases=source_bases)
         if pkg_root:
             # Extract package name from directory name
             pkg_name = pkg_root.name
@@ -2169,8 +2169,8 @@ def _collect_modules(  # noqa: PLR0912, PLR0915
     internal_imports: InternalImportMode = "force_strip",
     comments_mode: CommentsMode = "keep",
     docstring_mode: DocstringMode = "keep",
-    module_bases: list[str] | None = None,
-    user_provided_module_bases: list[str] | None = None,
+    source_bases: list[str] | None = None,
+    user_provided_source_bases: list[str] | None = None,
 ) -> tuple[dict[str, str], OrderedDict[str, None], list[str], list[str]]:
     """Collect and process module sources from file paths.
 
@@ -2184,8 +2184,8 @@ def _collect_modules(  # noqa: PLR0912, PLR0915
         internal_imports: How to handle internal imports
         comments_mode: How to handle comments in stitched output
         docstring_mode: How to handle docstrings in stitched output
-        module_bases: Optional list of module base directories for external files
-        user_provided_module_bases: Optional list of user-provided module bases
+        source_bases: Optional list of module base directories for external files
+        user_provided_source_bases: Optional list of user-provided module bases
             (from config, excludes auto-discovered package directories)
 
     Returns:
@@ -2255,8 +2255,8 @@ def _collect_modules(  # noqa: PLR0912, PLR0915
             file_path,
             package_root,
             include,
-            module_bases=module_bases,
-            user_provided_module_bases=user_provided_module_bases,
+            source_bases=source_bases,
+            user_provided_source_bases=user_provided_source_bases,
         )
 
         # If package_root is a package directory, preserve package structure
@@ -3131,7 +3131,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
 
         # Add detected packages that have modules in the final output
         # This is important when files from outside the config directory are included
-        # and packages are detected via module_bases but not directly referenced
+        # and packages are detected via source_bases but not directly referenced
         # in module names (e.g., when __init__.py is excluded)
         # Only add packages that actually have modules (not deleted by actions)
         all_module_names = set(shim_names) | set(module_names_for_structure)
@@ -3865,22 +3865,22 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
 
     logger.info("Starting stitch process for package: %s", package_name)
 
-    # Extract module_bases from config
+    # Extract source_bases from config
     # (needed for package detection and module derivation)
-    # module_bases is validated and normalized to list[str] in config resolution
+    # source_bases is validated and normalized to list[str] in config resolution
     # It's always present in resolved config, but .get() returns object | None
-    module_bases_raw = config.get("module_bases")
-    user_provided_module_bases_raw = config.get("_user_provided_module_bases")
-    module_bases: list[str] | None = None
-    if module_bases_raw is not None:  # pyright: ignore[reportUnnecessaryComparison]
-        # Type narrowing: module_bases is list[str] after config resolution
-        # Cast is safe because module_bases is validated in config resolution
-        module_bases = [str(mb) for mb in cast("list[str]", module_bases_raw)]  # pyright: ignore[reportUnnecessaryCast]
-    user_provided_module_bases: list[str] | None = None
-    if user_provided_module_bases_raw is not None:  # pyright: ignore[reportUnnecessaryComparison]
-        # Type narrowing: _user_provided_module_bases is list[str] after build
-        user_provided_module_bases = [
-            str(mb) for mb in cast("list[str]", user_provided_module_bases_raw)
+    source_bases_raw = config.get("source_bases")
+    user_provided_source_bases_raw = config.get("_user_provided_source_bases")
+    source_bases: list[str] | None = None
+    if source_bases_raw is not None:  # pyright: ignore[reportUnnecessaryComparison]
+        # Type narrowing: source_bases is list[str] after config resolution
+        # Cast is safe because source_bases is validated in config resolution
+        source_bases = [str(mb) for mb in cast("list[str]", source_bases_raw)]  # pyright: ignore[reportUnnecessaryCast]
+    user_provided_source_bases: list[str] | None = None
+    if user_provided_source_bases_raw is not None:  # pyright: ignore[reportUnnecessaryComparison]
+        # Type narrowing: _user_provided_source_bases is list[str] after build
+        user_provided_source_bases = [
+            str(mb) for mb in cast("list[str]", user_provided_source_bases_raw)
         ]  # pyright: ignore[reportUnnecessaryCast]
 
     # --- Package Detection (once, at the start) ---
@@ -3896,7 +3896,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
         detected_packages, _discovered_parent_dirs = detect_packages_from_files(
             order_paths,
             package_name,
-            module_bases=module_bases,
+            source_bases=source_bases,
         )
 
     # --- Validation Phase ---
@@ -3922,8 +3922,8 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
         file_to_include,
         detected_packages=detected_packages,
         topo_paths=topo_paths,
-        module_bases=module_bases,
-        user_provided_module_bases=user_provided_module_bases,
+        source_bases=source_bases,
+        user_provided_source_bases=user_provided_source_bases,
     )
 
     # --- Apply affects: "stitching" actions to filter files ---
@@ -3948,8 +3948,8 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
                 file_path,
                 package_root,
                 include,
-                module_bases=module_bases,
-                user_provided_module_bases=user_provided_module_bases,
+                source_bases=source_bases,
+                user_provided_source_bases=user_provided_source_bases,
             )
 
             # If package_root is a package directory, preserve package structure
@@ -4100,7 +4100,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
         raise TypeError(msg)
     docstring_mode = cast("DocstringMode", docstring_mode_raw)
 
-    # module_bases already extracted above (before package detection)
+    # source_bases already extracted above (before package detection)
     module_sources, all_imports, parts, derived_module_names = _collect_modules(
         order_paths,
         package_root,
@@ -4111,8 +4111,8 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
         internal_imports,
         comments_mode,
         docstring_mode,
-        module_bases=module_bases,
-        user_provided_module_bases=user_provided_module_bases,
+        source_bases=source_bases,
+        user_provided_source_bases=user_provided_source_bases,
     )
 
     # --- Parse AST once for all modules ---

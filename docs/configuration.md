@@ -53,7 +53,7 @@ The `package` field can be automatically inferred if not explicitly set. Serger 
 1. **Explicitly provided** - If `package` is set in your config, it is always used
 2. **pyproject.toml** - Extracted from `[project] name` if available
 3. **Include paths** - Inferred from the include patterns you provide
-4. **module_bases** - Auto-detected from modules found in `module_bases` directories
+4. **source_bases** - Auto-detected from modules found in `source_bases` directories
 
 See the [Configuration Reference](/configuration-reference) for details.
 

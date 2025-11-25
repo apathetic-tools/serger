@@ -63,7 +63,7 @@ DEFAULT_MODULE_MODE: str = "multi"  # Generate shims for all detected packages
 DEFAULT_SHIM: str = "all"  # Generate shims for all modules (default shim setting)
 DEFAULT_COMMENTS_MODE: str = "keep"  # Keep all comments (default comments mode)
 DEFAULT_DOCSTRING_MODE: str = "keep"  # Keep all docstrings (default docstring mode)
-DEFAULT_MODULE_BASES: list[str] = [
+DEFAULT_SOURCE_BASES: list[str] = [
     "src",
     "lib",
     "packages",

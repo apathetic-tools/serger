@@ -2181,7 +2181,7 @@ def test_resolve_build_config_module_actions_invalid_source_path_type_raises_err
         mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
 
-def test_resolve_build_config_module_bases_defaults(
+def test_resolve_build_config_source_bases_defaults(
     tmp_path: Path,
 ) -> None:
     """Module bases should default to ['src', 'lib', 'packages'] if not specified."""
@@ -2194,24 +2194,24 @@ def test_resolve_build_config_module_bases_defaults(
 
     # --- validate ---
     # src is extracted from include=["src/**"], then defaults add lib and packages
-    # module_bases are now stored as absolute paths
-    module_bases = resolved["module_bases"]
+    # source_bases are now stored as absolute paths
+    source_bases = resolved["source_bases"]
     expected_count = 3
-    assert len(module_bases) == expected_count
+    assert len(source_bases) == expected_count
     # Check that all are absolute paths
-    assert all(Path(base).is_absolute() for base in module_bases)
+    assert all(Path(base).is_absolute() for base in source_bases)
     # Check that they resolve to the expected directories
     expected_dirs = {"src", "lib", "packages"}
-    actual_dirs = {Path(base).name for base in module_bases}
+    actual_dirs = {Path(base).name for base in source_bases}
     assert actual_dirs == expected_dirs
 
 
-def test_resolve_build_config_module_bases_build_level(
+def test_resolve_build_config_source_bases_build_level(
     tmp_path: Path,
 ) -> None:
     """Module bases should use build-level value when specified."""
     # --- setup ---
-    raw = make_build_input(include=["src/**"], module_bases=["lib", "vendor"])
+    raw = make_build_input(include=["src/**"], source_bases=["lib", "vendor"])
     args = _args()
 
     # --- execute ---
@@ -2219,20 +2219,20 @@ def test_resolve_build_config_module_bases_build_level(
 
     # --- validate ---
     # src is auto-discovered from include=["src/**"], lib/vendor are from config
-    # All should be present (module_bases are now absolute paths)
+    # All should be present (source_bases are now absolute paths)
     # Note: defaults may also be present, so check that expected bases are included
-    module_bases = resolved["module_bases"]
-    base_names = {Path(b).name for b in module_bases}
+    source_bases = resolved["source_bases"]
+    base_names = {Path(b).name for b in source_bases}
     expected_bases = {"src", "lib", "vendor"}
     assert expected_bases.issubset(base_names)
 
 
-def test_resolve_build_config_module_bases_cascades_from_root(
+def test_resolve_build_config_source_bases_cascades_from_root(
     tmp_path: Path,
 ) -> None:
     """Module bases should be set when provided in config."""
     # --- setup ---
-    raw = make_build_input(include=["src/**"], module_bases=["lib", "vendor"])
+    raw = make_build_input(include=["src/**"], source_bases=["lib", "vendor"])
     args = _args()
 
     # --- execute ---
@@ -2240,64 +2240,64 @@ def test_resolve_build_config_module_bases_cascades_from_root(
 
     # --- validate ---
     # src is auto-discovered from include=["src/**"], lib/vendor are from config
-    # All should be present (module_bases are now absolute paths)
+    # All should be present (source_bases are now absolute paths)
     # Note: defaults may also be present, so check that expected bases are included
-    module_bases = resolved["module_bases"]
-    base_names = {Path(b).name for b in module_bases}
+    source_bases = resolved["source_bases"]
+    base_names = {Path(b).name for b in source_bases}
     expected_bases = {"src", "lib", "vendor"}
     assert expected_bases.issubset(base_names)
 
 
-def test_resolve_build_config_module_bases_build_overrides_root(
+def test_resolve_build_config_source_bases_build_overrides_root(
     tmp_path: Path,
 ) -> None:
     """Build-level module bases should override root-level."""
     # --- setup ---
-    raw = make_build_input(include=["src/**"], module_bases=["custom"])
+    raw = make_build_input(include=["src/**"], source_bases=["custom"])
     args = _args()
 
     # --- execute ---
     resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # src is auto-discovered from include=["src/**"], custom is from module_bases
-    # Both should be present (module_bases are now absolute paths)
+    # src is auto-discovered from include=["src/**"], custom is from source_bases
+    # Both should be present (source_bases are now absolute paths)
     # Note: defaults may also be present, so check that expected bases are included
-    module_bases = resolved["module_bases"]
-    base_names = {Path(b).name for b in module_bases}
+    source_bases = resolved["source_bases"]
+    base_names = {Path(b).name for b in source_bases}
     expected_bases = {"src", "custom"}
     assert expected_bases.issubset(base_names)
 
 
-def test_resolve_build_config_module_bases_string_conversion(
+def test_resolve_build_config_source_bases_string_conversion(
     tmp_path: Path,
 ) -> None:
     """Module bases string should be converted to list[str] on resolve."""
     # --- setup ---
-    raw = make_build_input(include=["src/**"], module_bases="lib")
+    raw = make_build_input(include=["src/**"], source_bases="lib")
     args = _args()
 
     # --- execute ---
     resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # src is auto-discovered from include=["src/**"], lib is from module_bases="lib"
-    # Both should be present (module_bases are now absolute paths)
+    # src is auto-discovered from include=["src/**"], lib is from source_bases="lib"
+    # Both should be present (source_bases are now absolute paths)
     # Note: defaults may also be present, so check that expected bases are included
-    module_bases = resolved["module_bases"]
-    base_names = {Path(b).name for b in module_bases}
+    source_bases = resolved["source_bases"]
+    base_names = {Path(b).name for b in source_bases}
     expected_bases = {"src", "lib"}
     assert expected_bases.issubset(base_names)
 
 
-def test_resolve_build_config_module_bases_string_cascades_from_root(
+def test_resolve_build_config_source_bases_string_cascades_from_root(
     tmp_path: Path,
 ) -> None:
     """Module bases string should be converted to list[str] on resolve."""
     # --- setup ---
     # Note: include=["src/**"] causes src to be auto-discovered and added to
-    # module_bases with higher priority than config module_bases
-    raw = make_build_input(include=["src/**"], module_bases="lib")
+    # source_bases with higher priority than config source_bases
+    raw = make_build_input(include=["src/**"], source_bases="lib")
     args = _args()
 
     # --- execute ---
@@ -2307,16 +2307,16 @@ def test_resolve_build_config_module_bases_string_cascades_from_root(
     # Both src and lib should be present
     # String conversion: "lib" should be converted to ["lib"]
     # Auto-discovery: "src" should be extracted from include=["src/**"]
-    # Both should be in the final list (module_bases are now absolute paths)
+    # Both should be in the final list (source_bases are now absolute paths)
     # Note: defaults may also be present, so check that expected bases are included
-    module_bases = resolved["module_bases"]
-    base_names = {Path(b).name for b in module_bases}
+    source_bases = resolved["source_bases"]
+    base_names = {Path(b).name for b in source_bases}
     expected_bases = {"src", "lib"}
     assert expected_bases.issubset(base_names)
 
 
 # ---------------------------------------------------------------------------
-# Auto-include from package and module_bases
+# Auto-include from package and source_bases
 # ---------------------------------------------------------------------------
 
 
@@ -2332,7 +2332,7 @@ def test_resolve_build_config_auto_include_single_base_single_package(
     make_test_package(pkg_dir)
 
     # Config with package but no includes
-    raw = make_build_input(package="mypkg", module_bases=["src"])
+    raw = make_build_input(package="mypkg", source_bases=["src"])
     args = _args()
 
     # --- execute ---
@@ -2362,7 +2362,7 @@ def test_resolve_build_config_auto_include_multiple_bases_multiple_packages(
     make_test_package(lib_pkg)
 
     # Config with package matching first base
-    raw = make_build_input(package="srcpkg", module_bases=["src", "lib"])
+    raw = make_build_input(package="srcpkg", source_bases=["src", "lib"])
     args = _args()
 
     # --- execute ---
@@ -2392,7 +2392,7 @@ def test_resolve_build_config_auto_include_same_package_first_match_wins(
     make_test_package(lib_pkg)
 
     # Config with package matching both bases
-    raw = make_build_input(package="mypkg", module_bases=["src", "lib"])
+    raw = make_build_input(package="mypkg", source_bases=["src", "lib"])
     args = _args()
 
     # --- execute ---
@@ -2421,7 +2421,7 @@ def test_resolve_build_config_auto_include_multiple_packages_in_single_base(
     make_test_package(pkg2_dir)
 
     # Config with package matching one of them
-    raw = make_build_input(package="pkg2", module_bases=["src"])
+    raw = make_build_input(package="pkg2", source_bases=["src"])
     args = _args()
 
     # --- execute ---
@@ -2447,7 +2447,7 @@ def test_resolve_build_config_auto_include_does_not_override_existing_includes(
 
     # Config with includes already set
     raw = make_build_input(
-        package="mypkg", module_bases=["src"], include=["src/other/**"]
+        package="mypkg", source_bases=["src"], include=["src/other/**"]
     )
     args = _args()
 
@@ -2473,7 +2473,7 @@ def test_resolve_build_config_auto_include_does_not_override_cli_includes(
     make_test_package(pkg_dir)
 
     # Config with package but no includes, CLI provides includes
-    raw = make_build_input(package="mypkg", module_bases=["src"])
+    raw = make_build_input(package="mypkg", source_bases=["src"])
     args = _args(include=["cli_src/**"])
 
     # --- execute ---
@@ -2498,7 +2498,7 @@ def test_resolve_build_config_auto_include_does_not_override_add_include(
     make_test_package(pkg_dir)
 
     # Config with package but no includes, CLI provides add-include
-    raw = make_build_input(package="mypkg", module_bases=["src"])
+    raw = make_build_input(package="mypkg", source_bases=["src"])
     args = _args(add_include=["extra/**"])
 
     # --- execute ---
@@ -2517,7 +2517,7 @@ def test_resolve_build_config_auto_include_does_not_set_when_package_not_found(
 ) -> None:
     """Auto-include should not set when package is provided but not found.
 
-    When a package is explicitly provided but doesn't exist in module_bases,
+    When a package is explicitly provided but doesn't exist in source_bases,
     we don't auto-set includes (respects user's explicit choice even if invalid).
     """
     # --- setup ---
@@ -2528,9 +2528,9 @@ def test_resolve_build_config_auto_include_does_not_set_when_package_not_found(
     pkg_dir2 = src_dir / "anotherpkg"
     make_test_package(pkg_dir2)
 
-    # Config with package that doesn't exist in module_bases
+    # Config with package that doesn't exist in source_bases
     # User explicitly provided package, so we respect it (even if invalid)
-    raw = make_build_input(package="nonexistent", module_bases=["src"])
+    raw = make_build_input(package="nonexistent", source_bases=["src"])
     args = _args()
 
     # --- execute ---
@@ -2539,7 +2539,7 @@ def test_resolve_build_config_auto_include_does_not_set_when_package_not_found(
     # --- validate ---
     # Package should remain as user provided (even if not found)
     assert resolved.get("package") == "nonexistent"
-    # Should not auto-set includes when package not found in module_bases
+    # Should not auto-set includes when package not found in source_bases
     assert len(resolved["include"]) == 0
 
 
@@ -2549,7 +2549,7 @@ def test_resolve_build_config_auto_include_does_not_set_when_no_package(
     """Auto-include should set when package is auto-detected from multiple modules.
 
     With the new enhanced auto-detection, when multiple modules exist and no package
-    is provided, step 7 (first package in module_bases order) will select the first
+    is provided, step 7 (first package in source_bases order) will select the first
     module found, and includes will be auto-set based on that package.
     """
     # --- setup ---
@@ -2562,14 +2562,14 @@ def test_resolve_build_config_auto_include_does_not_set_when_no_package(
 
     # Config without package
     # Multiple modules - step 7 will select first one found
-    raw = make_build_input(module_bases=["src"])
+    raw = make_build_input(source_bases=["src"])
     args = _args()
 
     # --- execute ---
     resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # Package should be auto-detected (first in module_bases order)
+    # Package should be auto-detected (first in source_bases order)
     assert resolved.get("package") in ("mypkg", "otherpkg")
     # Includes should be auto-set based on detected package
     assert len(resolved["include"]) > 0
@@ -2586,7 +2586,7 @@ def test_resolve_build_config_auto_include_does_not_set_when_explicit_empty_incl
     make_test_package(pkg_dir)
 
     # Config with explicitly empty includes
-    raw = make_build_input(package="mypkg", module_bases=["src"], include=[])
+    raw = make_build_input(package="mypkg", source_bases=["src"], include=[])
     args = _args()
 
     # --- execute ---
@@ -2597,27 +2597,27 @@ def test_resolve_build_config_auto_include_does_not_set_when_explicit_empty_incl
     assert len(resolved["include"]) == 0
 
 
-def test_resolve_build_config_auto_include_does_not_set_when_empty_module_bases(
+def test_resolve_build_config_auto_include_does_not_set_when_empty_source_bases(
     tmp_path: Path,
 ) -> None:
-    """Auto-include works when defaults provide module_bases."""
+    """Auto-include works when defaults provide source_bases."""
     # --- setup ---
     src_dir = tmp_path / "src"
     src_dir.mkdir()
     pkg_dir = src_dir / "mypkg"
     make_test_package(pkg_dir)
 
-    # Config with empty module_bases (shouldn't happen in practice, but test it)
-    # Even with empty module_bases, defaults add ["src", "lib", "packages"],
+    # Config with empty source_bases (shouldn't happen in practice, but test it)
+    # Even with empty source_bases, defaults add ["src", "lib", "packages"],
     # so auto-include can work
-    raw = make_build_input(package="mypkg", module_bases=[])
+    raw = make_build_input(package="mypkg", source_bases=[])
     args = _args()
 
     # --- execute ---
     resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
-    # Defaults add ["src", "lib", "packages"] to module_bases, so auto-include can work
+    # Defaults add ["src", "lib", "packages"] to source_bases, so auto-include can work
     # Package "mypkg" is found in src/, so includes are auto-set
     assert len(resolved["include"]) == 1
     inc = resolved["include"][0]
@@ -2636,7 +2636,7 @@ def test_resolve_build_config_auto_include_works_with_single_file_module(
     module_file.write_text('def hello():\n    return "world"\n', encoding="utf-8")
 
     # Config with package matching the module file
-    raw = make_build_input(package="mymodule", module_bases=["src"])
+    raw = make_build_input(package="mymodule", source_bases=["src"])
     args = _args()
 
     # --- execute ---
@@ -2653,7 +2653,7 @@ def test_resolve_build_config_auto_include_works_with_single_file_module(
 def test_resolve_build_config_auto_detect_single_module_when_package_not_found(
     tmp_path: Path,
 ) -> None:
-    """Respect user's explicit package choice even if not found in module_bases.
+    """Respect user's explicit package choice even if not found in source_bases.
 
     When a package is explicitly provided, we respect it (even if invalid).
     Auto-detection only happens when no package is provided.
@@ -2664,9 +2664,9 @@ def test_resolve_build_config_auto_detect_single_module_when_package_not_found(
     pkg_dir = src_dir / "mypkg"
     make_test_package(pkg_dir)
 
-    # Config with package that doesn't exist in module_bases
+    # Config with package that doesn't exist in source_bases
     # User explicitly provided package, so we respect it
-    raw = make_build_input(package="nonexistent", module_bases=["src"])
+    raw = make_build_input(package="nonexistent", source_bases=["src"])
     args = _args()
 
     # --- execute ---
@@ -2691,7 +2691,7 @@ def test_resolve_build_config_auto_detect_single_module_when_no_package(
 
     # Config without package
     # But there's exactly 1 module, so we should auto-detect it
-    raw = make_build_input(module_bases=["src"])
+    raw = make_build_input(source_bases=["src"])
     args = _args()
 
     # --- execute ---
@@ -2718,7 +2718,7 @@ def test_resolve_build_config_auto_detect_single_file_module_when_no_package(
 
     # Config without package
     # But there's exactly 1 module file, so we should auto-detect it
-    raw = make_build_input(module_bases=["src"])
+    raw = make_build_input(source_bases=["src"])
     args = _args()
 
     # --- execute ---
@@ -2751,7 +2751,7 @@ def test_resolve_build_config_auto_include_works_with_pyproject_package(
     )
 
     # Config with use_pyproject_metadata enabled but no includes
-    raw = make_build_input(module_bases=["src"], use_pyproject_metadata=True)
+    raw = make_build_input(source_bases=["src"], use_pyproject_metadata=True)
     args = _args()
 
     # --- execute ---
@@ -2778,7 +2778,7 @@ def test_resolve_build_config_infer_package_from_include_paths(
 
     # Config with includes but no package
     # Step 3: Infer from include paths
-    raw = make_build_input(include=["src/mypkg/**"], module_bases=["src"])
+    raw = make_build_input(include=["src/mypkg/**"], source_bases=["src"])
     args = _args()
 
     # --- execute ---
@@ -2804,7 +2804,7 @@ def test_resolve_build_config_infer_package_from_include_paths_with_init_py(
     # Config with includes pointing to __init__.py but no package
     raw = make_build_input(
         include=["src/mypkg/__init__.py", "src/mypkg/module.py"],
-        module_bases=["src"],
+        source_bases=["src"],
     )
     args = _args()
 
@@ -2842,7 +2842,7 @@ def test_resolve_build_config_infer_package_from_include_paths_most_common(
             "src/pkg1/mod2.py",
             "src/pkg2/mod1.py",
         ],
-        module_bases=["src"],
+        source_bases=["src"],
     )
     args = _args()
 
@@ -2873,7 +2873,7 @@ def test_resolve_build_config_main_function_detection_in_package_resolution(
 
     # Config without package, multiple modules exist
     # Step 4: Main function detection should prefer pkg2
-    raw = make_build_input(module_bases=["src"])
+    raw = make_build_input(source_bases=["src"])
     args = _args()
 
     # --- execute ---
@@ -2905,7 +2905,7 @@ def test_resolve_build_config_main_function_detection_with_name_main_block(
 
     # Config without package, multiple modules exist
     # Step 4: Main function detection should prefer pkg2
-    raw = make_build_input(module_bases=["src"])
+    raw = make_build_input(source_bases=["src"])
     args = _args()
 
     # --- execute ---

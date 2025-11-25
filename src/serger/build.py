@@ -718,12 +718,12 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
 
     # Detect packages once from final files (after all exclusions)
     logger.debug("Detecting packages from included files (after exclusions)...")
-    module_bases = build_cfg.get("module_bases", [])
-    # Save user-provided module_bases (from config, before adding discovered ones)
+    source_bases = build_cfg.get("source_bases", [])
+    # Save user-provided source_bases (from config, before adding discovered ones)
     # Filter out package directories (those with __init__.py) as they shouldn't be used
     # for module name derivation (would lose package name)
-    user_provided_module_bases: list[str] = []
-    for base_str in module_bases:
+    user_provided_source_bases: list[str] = []
+    for base_str in source_bases:
         base_path = Path(base_str)
         # Skip if this is a package directory (has __init__.py)
         # Package directories extracted from includes shouldn't be used for derivation
@@ -733,31 +733,31 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
                 base_str,
             )
             continue
-        user_provided_module_bases.append(base_str)
+        user_provided_source_bases.append(base_str)
     detected_packages, discovered_parent_dirs = detect_packages_from_files(
-        final_files, package, module_bases=module_bases
+        final_files, package, source_bases=source_bases
     )
 
-    # Add discovered package parent directories to module_bases (lowest priority)
+    # Add discovered package parent directories to source_bases (lowest priority)
     if discovered_parent_dirs:
         # Deduplicate while preserving order (add at end)
-        seen_bases = set(module_bases)
+        seen_bases = set(source_bases)
         for parent_dir in discovered_parent_dirs:
             if parent_dir not in seen_bases:
                 seen_bases.add(parent_dir)
-                module_bases.append(parent_dir)
+                source_bases.append(parent_dir)
                 logger.debug(
                     "[MODULE_BASES] Added discovered package parent directory: %s",
                     parent_dir,
                 )
-        # Update build_cfg with extended module_bases
-        build_cfg["module_bases"] = module_bases
-    # Store user-provided module_bases (filtered) for use in derive_module_name
+        # Update build_cfg with extended source_bases
+        build_cfg["source_bases"] = source_bases
+    # Store user-provided source_bases (filtered) for use in derive_module_name
     # This excludes package directories extracted from includes
     # Use dict update to avoid TypedDict type error for internal field
     build_cfg_dict: dict[str, object] = build_cfg  # type: ignore[assignment]
-    build_cfg_dict["_user_provided_module_bases"] = (
-        user_provided_module_bases if user_provided_module_bases else []
+    build_cfg_dict["_user_provided_source_bases"] = (
+        user_provided_source_bases if user_provided_source_bases else []
     )
 
     # Resolve order paths (order is list[str] of paths, or None for auto-discovery)
@@ -781,8 +781,8 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
             package,
             file_to_include,
             detected_packages=detected_packages,
-            module_bases=module_bases,
-            user_provided_module_bases=user_provided_module_bases,
+            source_bases=source_bases,
+            user_provided_source_bases=user_provided_source_bases,
         )
         logger.debug("Auto-discovered order (%d modules)", len(order_paths))
         # When auto-discovered, order_paths IS the topological order, so we can reuse it
@@ -820,9 +820,9 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
         "main_mode": build_cfg.get("main_mode", "auto"),
         "main_name": build_cfg.get("main_name"),
         "detected_packages": detected_packages,  # Pre-detected packages
-        "module_bases": module_bases,  # For package detection fallback
-        "_user_provided_module_bases": build_cfg.get(
-            "_user_provided_module_bases", []
+        "source_bases": source_bases,  # For package detection fallback
+        "_user_provided_source_bases": build_cfg.get(
+            "_user_provided_source_bases", []
         ),  # User-provided (filtered) for derive_module_name
         "__meta__": build_cfg["__meta__"],  # For config_dir access in fallback
     }

@@ -71,7 +71,7 @@ def make_build_cfg(  # noqa: PLR0913
     order: list[str] | None = None,
     watch_interval: float = 1.0,
     module_actions: list[mod_types.ModuleActionFull] | None = None,
-    module_bases: list[str] | None = None,
+    source_bases: list[str] | None = None,
     main_mode: mod_types.MainMode = "auto",
     main_name: str | None = None,
     version: str | None = None,
@@ -107,8 +107,8 @@ def make_build_cfg(  # noqa: PLR0913
         if post_processing is not None
         else make_post_processing_config_resolved(),
         "module_actions": module_actions if module_actions is not None else [],
-        "module_bases": (
-            module_bases if module_bases is not None else ["src", "lib", "packages"]
+        "source_bases": (
+            source_bases if source_bases is not None else ["src", "lib", "packages"]
         ),
         "main_mode": main_mode,
         "main_name": main_name,

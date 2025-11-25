@@ -22,11 +22,11 @@ from serger.constants import (
     DEFAULT_LICENSE_FALLBACK,
     DEFAULT_MAIN_MODE,
     DEFAULT_MAIN_NAME,
-    DEFAULT_MODULE_BASES,
     DEFAULT_MODULE_MODE,
     DEFAULT_OUT_DIR,
     DEFAULT_RESPECT_GITIGNORE,
     DEFAULT_SHIM,
+    DEFAULT_SOURCE_BASES,
     DEFAULT_STITCH_MODE,
     DEFAULT_STRICT_CONFIG,
     DEFAULT_USE_PYPROJECT_METADATA,
@@ -1494,11 +1494,11 @@ def _normalize_path_with_root(
     return root, rel
 
 
-def _extract_module_bases_from_includes(  # noqa: PLR0912
+def _extract_source_bases_from_includes(  # noqa: PLR0912
     includes: list[IncludeResolved],
     config_dir: Path,
 ) -> list[str]:
-    """Extract parent directories from includes to use as module_bases.
+    """Extract parent directories from includes to use as source_bases.
 
     For each include, extracts the first directory component that contains
     packages (e.g., "src/" from "src/mypkg/main.py" or "src/mypkg/**/*.py").
@@ -1596,7 +1596,7 @@ def _get_first_level_modules_from_base(
 
     Package detection logic:
     - Directories with __init__.py are definitely packages (standard Python)
-    - Directories in module_bases are also considered packages (namespace
+    - Directories in source_bases are also considered packages (namespace
       packages, mimics modern Python behavior)
     - .py files at first level are modules
 
@@ -1635,7 +1635,7 @@ def _get_first_level_modules_from_base(
                         base_path,
                     )
                 else:
-                    # Directory in module_bases is considered a package
+                    # Directory in source_bases is considered a package
                     # (namespace package, mimics modern Python)
                     modules.append(item.name)
                     logger.trace(
@@ -1660,26 +1660,26 @@ def _get_first_level_modules_from_base(
 
 
 def _get_first_level_modules_from_bases(
-    module_bases: list[str],
+    source_bases: list[str],
     config_dir: Path,
 ) -> list[str]:
-    """Get first-level module/package names from module_bases directories.
+    """Get first-level module/package names from source_bases directories.
 
-    Scans only the immediate children of each module_base directory (not
-    recursive). Returns a list preserving the order of module_bases, with
+    Scans only the immediate children of each source_base directory (not
+    recursive). Returns a list preserving the order of source_bases, with
     modules from each base sorted but not deduplicated across bases.
 
     Args:
-        module_bases: List of module base directory paths (absolute)
+        source_bases: List of source base directory paths (absolute)
         config_dir: Config directory (unused, kept for compatibility)
 
     Returns:
-        List of first-level module/package names found in module_bases,
-        preserving module_bases order
+        List of first-level module/package names found in source_bases,
+        preserving source_bases order
     """
     modules: list[str] = []
 
-    for base_str in module_bases:
+    for base_str in source_bases:
         base_modules = _get_first_level_modules_from_base(base_str, config_dir)
         modules.extend(base_modules)
 
@@ -1740,22 +1740,22 @@ def _has_main_function(module_path: Path) -> bool:
 
 def _infer_packages_from_includes(  # noqa: C901, PLR0912, PLR0915
     includes: list[IncludeResolved],
-    module_bases: list[str],
+    source_bases: list[str],
     config_dir: Path,
 ) -> list[str]:
     """Infer package names from include paths using multiple strategies.
 
     Uses strategies in priority order:
-    1. Filter by module_bases (if configured)
+    1. Filter by source_bases (if configured)
     2. Check __init__.py (definitive package markers)
     3. Check __main__.py (executable package markers)
     4. Extract from common prefix
-    5. Validate against module_bases (ensure exists)
+    5. Validate against source_bases (ensure exists)
     6. Use most common first-level directory (when multiple candidates)
 
     Args:
         includes: List of resolved include patterns
-        module_bases: List of module base directory paths
+        source_bases: List of source base directory paths
         config_dir: Config directory for resolving relative paths
 
     Returns:
@@ -1781,12 +1781,12 @@ def _infer_packages_from_includes(  # noqa: C901, PLR0912, PLR0915
     if not path_strings:
         return []
 
-    # Strategy 1: Filter by module_bases (if configured)
+    # Strategy 1: Filter by source_bases (if configured)
     filtered_paths: list[str] = []
-    if module_bases:
+    if source_bases:
         for path_str in path_strings:
             # Check if path is within any module_base
-            for base_str in module_bases:
+            for base_str in source_bases:
                 # base_str is already an absolute path
                 base_path = Path(base_str).resolve()
                 # Try to resolve path relative to config_dir
@@ -1804,7 +1804,7 @@ def _infer_packages_from_includes(  # noqa: C901, PLR0912, PLR0915
                     # Path resolution failed, skip
                     continue
     else:
-        # No module_bases, use all paths
+        # No source_bases, use all paths
         filtered_paths = path_strings
 
     if not filtered_paths:
@@ -1856,9 +1856,9 @@ def _infer_packages_from_includes(  # noqa: C901, PLR0912, PLR0915
                 except (OSError, ValueError):
                     continue
 
-    # Strategy 5: Validate against module_bases (ensure exists)
-    if module_bases and candidates:
-        valid_modules = _get_first_level_modules_from_bases(module_bases, config_dir)
+    # Strategy 5: Validate against source_bases (ensure exists)
+    if source_bases and candidates:
+        valid_modules = _get_first_level_modules_from_bases(source_bases, config_dir)
         candidates = {c for c in candidates if c in valid_modules}
 
     # Strategy 6: If multiple candidates, use most common first-level directory
@@ -1868,8 +1868,8 @@ def _infer_packages_from_includes(  # noqa: C901, PLR0912, PLR0915
         for path_str in filtered_paths:
             try:
                 path_obj = (config_dir / path_str).resolve()
-                # Try to find first-level directory relative to module_bases
-                for base_str in module_bases:
+                # Try to find first-level directory relative to source_bases
+                for base_str in source_bases:
                     # base_str is already an absolute path
                     base_path = Path(base_str).resolve()
                     try:
@@ -2189,7 +2189,7 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
         f"[resolve_build_config] Resolved {len(resolved_cfg['include'])} include(s)"
     )
 
-    # --- Extract module_bases from includes (before resolving module_bases) ---
+    # --- Extract source_bases from includes (before resolving source_bases) ---
     # Separate CLI and config includes for priority ordering
     cli_includes: list[IncludeResolved] = [
         inc for inc in resolved_cfg["include"] if inc["origin"] == "cli"
@@ -2199,8 +2199,8 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     ]
 
     # Extract bases from includes (CLI first, then config)
-    cli_bases = _extract_module_bases_from_includes(cli_includes, config_dir)
-    config_bases = _extract_module_bases_from_includes(config_includes, config_dir)
+    cli_bases = _extract_source_bases_from_includes(cli_includes, config_dir)
+    config_bases = _extract_source_bases_from_includes(config_includes, config_dir)
 
     # --- Excludes ---------------------------
     resolved_cfg["exclude"] = _resolve_excludes(
@@ -2304,36 +2304,36 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # Module bases
     # ------------------------------
     # Convert str to list[str] if needed, then merge with bases from includes
-    if "module_bases" in resolved_cfg:
-        module_bases = resolved_cfg["module_bases"]
-        config_module_bases = (
-            [module_bases] if isinstance(module_bases, str) else module_bases
+    if "source_bases" in resolved_cfg:
+        source_bases = resolved_cfg["source_bases"]
+        config_source_bases = (
+            [source_bases] if isinstance(source_bases, str) else source_bases
         )
     else:
-        config_module_bases = DEFAULT_MODULE_BASES
+        config_source_bases = DEFAULT_SOURCE_BASES
 
-    # Merge with priority: CLI includes > config includes > config module_bases >
+    # Merge with priority: CLI includes > config includes > config source_bases >
     # defaults
     # Deduplicate while preserving priority order
     merged_bases: list[str] = []
     seen_bases: set[str] = set()
 
     # Add CLI bases first (highest priority)
-    # (already absolute from _extract_module_bases_from_includes)
+    # (already absolute from _extract_source_bases_from_includes)
     for base in cli_bases:
         if base not in seen_bases:
             seen_bases.add(base)
             merged_bases.append(base)
 
     # Add config bases (second priority)
-    # (already absolute from _extract_module_bases_from_includes)
+    # (already absolute from _extract_source_bases_from_includes)
     for base in config_bases:
         if base not in seen_bases:
             seen_bases.add(base)
             merged_bases.append(base)
 
-    # Add config module_bases (third priority) - resolve relative paths to absolute
-    for base in config_module_bases:
+    # Add config source_bases (third priority) - resolve relative paths to absolute
+    for base in config_source_bases:
         # Resolve relative paths to absolute
         base_path = (config_dir / base).resolve()
         base_abs = str(base_path)
@@ -2341,16 +2341,16 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
             seen_bases.add(base_abs)
             merged_bases.append(base_abs)
 
-    # Add defaults last (lowest priority, but should already be in config_module_bases)
+    # Add defaults last (lowest priority, but should already be in config_source_bases)
     # Resolve relative paths to absolute
-    for base in DEFAULT_MODULE_BASES:
+    for base in DEFAULT_SOURCE_BASES:
         base_path = (config_dir / base).resolve()
         base_abs = str(base_path)
         if base_abs not in seen_bases:
             seen_bases.add(base_abs)
             merged_bases.append(base_abs)
 
-    resolved_cfg["module_bases"] = merged_bases
+    resolved_cfg["source_bases"] = merged_bases
     if cli_bases or config_bases:
         # Use display helpers for logging
         display_bases = shorten_paths_for_display(
@@ -2497,15 +2497,15 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # 4. ✅ Main function detection
     # 5. ✅ Most common package in includes (handled in step 3)
     # 6. ✅ Single module auto-detection
-    # 7. ✅ First package in module_bases order
+    # 7. ✅ First package in source_bases order
     package = resolved_cfg.get("package")
-    module_bases_list = resolved_cfg.get("module_bases", [])
+    source_bases_list = resolved_cfg.get("source_bases", [])
     config_includes = resolved_cfg.get("include", [])
 
     # Step 3: Infer from include paths (if package not set and includes exist)
     if not package and config_includes:
         inferred_packages = _infer_packages_from_includes(
-            config_includes, module_bases_list, config_dir
+            config_includes, source_bases_list, config_dir
         )
         if inferred_packages:
             # Use first package if single, or most common if multiple (already handled)
@@ -2518,15 +2518,15 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
 
     # Step 4: Main function detection (if package not set and multiple modules exist)
     package = resolved_cfg.get("package")
-    if not package and module_bases_list:
+    if not package and source_bases_list:
         # Check if multiple modules exist
-        all_modules = _get_first_level_modules_from_bases(module_bases_list, config_dir)
+        all_modules = _get_first_level_modules_from_bases(source_bases_list, config_dir)
         if len(all_modules) > 1:
             # Try to find main function in modules
             for module_name in all_modules:
                 # Find module path
                 module_path: Path | None = None
-                for base_str in module_bases_list:
+                for base_str in source_bases_list:
                     base_path = (config_dir / base_str).resolve()
                     module_dir = base_path / module_name
                     module_file = base_path / f"{module_name}.py"
@@ -2548,11 +2548,11 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
 
     # Step 6: Single module auto-detection (if package not set)
     package = resolved_cfg.get("package")
-    if not package and module_bases_list:
+    if not package and source_bases_list:
         # Find the first module_base with exactly 1 module
         detected_module: str | None = None
         detected_base: str | None = None
-        for base_str in module_bases_list:
+        for base_str in source_bases_list:
             base_modules = _get_first_level_modules_from_base(base_str, config_dir)
             if len(base_modules) == 1:
                 # Found a base with exactly 1 module
@@ -2570,24 +2570,24 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
                 detected_base,
             )
 
-    # Step 7: First package in module_bases order (if package not set)
+    # Step 7: First package in source_bases order (if package not set)
     package = resolved_cfg.get("package")
-    if not package and module_bases_list:
-        all_modules = _get_first_level_modules_from_bases(module_bases_list, config_dir)
+    if not package and source_bases_list:
+        all_modules = _get_first_level_modules_from_bases(source_bases_list, config_dir)
         if len(all_modules) > 0:
-            # Use first module found (preserves module_bases order)
+            # Use first module found (preserves source_bases order)
             resolved_cfg["package"] = all_modules[0]
             logger.info(
-                "Package name '%s' selected from module_bases (first found). "
+                "Package name '%s' selected from source_bases (first found). "
                 "Set 'package' in config to override.",
                 all_modules[0],
             )
 
     # ------------------------------
-    # Auto-set includes from package and module_bases
+    # Auto-set includes from package and source_bases
     # ------------------------------
     # If no includes were provided (configless or config has no includes),
-    # automatically set includes based on package and module_bases.
+    # automatically set includes based on package and source_bases.
     # This must run AFTER pyproject metadata extraction so package from
     # pyproject.toml is available.
     has_cli_includes = bool(
@@ -2600,7 +2600,7 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # (even if empty, explicit setting means don't auto-set)
     has_explicit_config_includes = "include" in build_cfg
     package = resolved_cfg.get("package")
-    module_bases_list = resolved_cfg.get("module_bases", [])
+    source_bases_list = resolved_cfg.get("source_bases", [])
 
     # Auto-set includes based on package (if package exists and no includes provided)
     if (
@@ -2608,24 +2608,24 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
         and not has_cli_includes
         and not has_config_includes
         and not has_explicit_config_includes
-        and module_bases_list
+        and source_bases_list
     ):
-        # Package exists and is found in module_bases
-        # Get first-level modules from module_bases for this check
+        # Package exists and is found in source_bases
+        # Get first-level modules from source_bases for this check
         first_level_modules = _get_first_level_modules_from_bases(
-            module_bases_list, config_dir
+            source_bases_list, config_dir
         )
         if package in first_level_modules:
             logger.debug(
-                "Auto-setting includes to package '%s' found in module_bases: %s",
+                "Auto-setting includes to package '%s' found in source_bases: %s",
                 package,
-                module_bases_list,
+                source_bases_list,
             )
 
             # Find which module_base contains the package
             # Can be either a directory (package) or a .py file (module)
             package_path: str | None = None
-            for base_str in module_bases_list:
+            for base_str in source_bases_list:
                 # base_str is already an absolute path
                 base_path = Path(base_str).resolve()
                 package_dir = base_path / package
@@ -2645,7 +2645,7 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
                     break
 
             if package_path:
-                # Set includes to the package found in module_bases
+                # Set includes to the package found in source_bases
                 # For directories, add trailing slash to ensure recursive matching
                 # (build.py handles directories with trailing slash as recursive)
                 package_path_str = str(package_path)

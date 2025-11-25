@@ -421,18 +421,18 @@ def test_multi_package_auto_discover_order_with_cross_package_imports(
     assert MAIN == 3  # noqa: PLR2004
 
 
-def test_package_shim_created_when_init_excluded_with_module_bases(  # noqa: PLR0915
+def test_package_shim_created_when_init_excluded_with_source_bases(  # noqa: PLR0915
     tmp_path: Path,
 ) -> None:
     """Test that package shims are created when __init__.py is excluded.
 
     This test verifies the fix for the issue where packages detected via
-    module_bases don't get shims created when __init__.py is excluded, because
+    source_bases don't get shims created when __init__.py is excluded, because
     the package name doesn't appear in module names (only submodules like
     package.module do).
 
     Without the fix, this test fails because:
-    - external_pkg is detected via module_bases
+    - external_pkg is detected via source_bases
     - But external_pkg doesn't appear in module names (only external_pkg.colors
       does)
     - So external_pkg shim isn't created
@@ -490,9 +490,9 @@ def main():
         make_resolved("**/__init__.py", config_dir),
     ]
 
-    # Use module_bases to detect the external package
+    # Use source_bases to detect the external package
     # This simulates including files from outside the config directory
-    module_bases_list = [str(external_dir.resolve())]
+    source_bases_list = [str(external_dir.resolve())]
 
     build_cfg = make_build_cfg(
         config_dir,
@@ -501,7 +501,7 @@ def main():
         out=make_resolved("stitched.py", config_dir),
         package="app",
         exclude=excludes,
-        module_bases=module_bases_list,
+        source_bases=source_bases_list,
         # No explicit order - let it auto-discover
     )
 
@@ -530,7 +530,7 @@ def main():
     normalized_content = content.replace("'", '"')
 
     # Check that shim for the package itself exists
-    # The package "external_pkg" should be detected via module_bases
+    # The package "external_pkg" should be detected via source_bases
     # and added to all_packages, creating a shim
     # The exact format depends on how the package name is derived, but it should
     # contain "external_pkg" as the package name
