@@ -1,0 +1,54 @@
+# .github/workflows/publish.yml
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"  # Triggers on tags like v0.1.0, v1.2.3, etc.
+  workflow_dispatch:
+    inputs:
+      testpypi_only:
+        description: 'Publish to TestPyPI only (for testing)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
+      - name: Install Poetry
+        uses: abatilo/actions-poetry@v4
+        with:
+          poetry-version: "latest"
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-root
+
+      - name: Build package
+        run: poetry build
+
+      - name: Publish to TestPyPI (test only)
+        if: github.event.inputs.testpypi_only == 'true'
+        env:
+          POETRY_REPOSITORIES_TESTPYPI_URL: https://test.pypi.org/legacy/
+          POETRY_PYPI_TOKEN_TESTPYPI: ${{ secrets.TESTPYPI_API_TOKEN }}
+        run: poetry publish --repository testpypi
+
+      - name: Publish to PyPI
+        if: github.event.inputs.testpypi_only != 'true'
+        env:
+          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
+        run: poetry publish
+

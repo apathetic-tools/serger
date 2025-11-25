@@ -71,7 +71,13 @@ fix = ["sync:ai:guidance", "fix:ruff:installed", "fix:format:installed"]
 # 🧩 Build and license
 "sync:ai:guidance" = "python dev/sync_ai_guidance.py --quiet"
 "build:script" = "python -m serger"
+"build:zipapp" = "shiv -c serger -o dist/serger.pyz ."
 "check:license" = "bash dev/check-license.sh"
+
+# 🚀 Release management (semantic-release)
+"release:version" = "semantic-release version --noop"
+"release:publish" = "semantic-release publish"
+"release:changelog" = "semantic-release changelog"
 
 # 🔧 Setup and installation
 "pre-commit:install" = { shell = "if [ ! -f .git/hooks/pre-commit ] || ! grep -q 'pre-commit' .git/hooks/pre-commit 2>/dev/null; then poetry run pre-commit install --install-hooks && poetry run pre-commit install --hook-type pre-push; fi" }
@@ -122,6 +128,8 @@ dev = [
     "pytest-benchmark (>=5.1.0,<6.0.0)",
     "pytest-cov (>=7.0.0,<8.0.0)",
     "pyright (>=1.1.407,<2.0.0)",
+    "shiv (>=1.0.0,<2.0.0)",
+    "python-semantic-release (>=10.0.0,<11.0.0)",
 ]
 
 # --- Ruff: formatter and linter ---
@@ -282,6 +290,53 @@ directory = "htmlcov"
 line-length = 88
 skip-string-normalization = false
 
+# --- python-semantic-release: automated versioning and releases ---
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+version_variable = []
+changelog_file = "RELEASES.md"
+changelog_encoding = "utf-8"
+commit_author = "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+commit_message = "chore: release v{version} [skip ci]"
+allow_zero_version = true  # Required for major_on_zero to work (defaults to false in v10.0.0+)
+major_on_zero = false
+upload_to_pypi = false  # We handle PyPI publishing in GitHub Actions
+hvcs = "github"
+remote = { name = "origin" }
+tag_commit = true
+prerelease_tag = "rc"
+build_commit_message = "chore: build release v{version} [skip ci]"
+
+[tool.semantic_release.publish]
+upload_to_vcs_release = false  # Disabled - workflow handles asset uploads manually to avoid 422 errors
+
+[tool.semantic_release.changelog]
+sections = [
+    ["breaking", "💥 Breaking Changes"],
+    ["feature", "🎉 What's New"],
+    ["fix", "🐛 Bug Fixes"],
+    ["documentation", "📚 Documentation"],
+    ["refactor", "♻️ Refactoring"],
+    ["style", "💄 Style"],
+    ["test", "🧪 Tests"],
+    ["chore", "🔧 Chores"],
+    ["build", "🔨 Build"],
+    ["ci", "👷 CI"],
+    ["perf", "⚡ Performance"],
+    ["security", "🔒 Security"],
+]
+
+[tool.semantic_release.changelog.environment]
+block_start_string = "{%"
+block_end_string = "%}"
+variable_start_string = "{{"
+variable_end_string = "}}"
+comment_start_string = "{#"
+comment_end_string = "#}"
+trim_blocks = false
+lstrip_blocks = false
+newline_sequence = "\n"
+keep_trailing_newline = false
 
 # --- Poetry Build System ---
 [project.scripts]
