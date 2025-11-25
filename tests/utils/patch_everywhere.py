@@ -35,7 +35,7 @@ def patch_everywhere(
     Walks sys.modules once and handles:
       • the defining module
       • any other module that imported the same function object
-      • any freshly reloaded stitched modules (heuristic: path under /bin/)
+      • any freshly reloaded stitched modules (heuristic: path under /bin/ or .pyz)
     """
     # --- Sanity checks ---
     func = getattr(mod_env, func_name, None)
@@ -49,7 +49,7 @@ def patch_everywhere(
     mp.setattr(mod_env, func_name, replacement_func)
     TEST_TRACE(f"Patched {mod_name}.{func_name}")
 
-    stitch_hints = {"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py"}
+    stitch_hints = {"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"}
     package_prefix = mod_meta.PROGRAM_PACKAGE
     patched_ids: set[int] = set()
 
@@ -74,12 +74,23 @@ def patch_everywhere(
                 mp.setattr(m, k, replacement_func)
                 did_patch = True
 
-        # 2) Single-file case: reloaded stitched modules
+        # 2) Single-file/zipapp case: reloaded stitched modules
         #    whose __file__ path matches heuristic
         path = getattr(m, "__file__", "") or ""
         if any(h in path for h in stitch_hints) and hasattr(m, func_name):
             mp.setattr(m, func_name, replacement_func)
             did_patch = True
+
+        # 3) Zipapp/alternative runtime case: if module has the function name
+        #    but didn't match above cases, patch it anyway (handles zipapp
+        #    and other distribution methods where __file__ might point to source)
+        if not did_patch and hasattr(m, func_name):
+            # Check if this is a different instance (not the original mod_env)
+            # by seeing if it has the function but it's not the same object
+            existing_func = getattr(m, func_name, None)
+            if existing_func is not None and existing_func is not replacement_func:
+                mp.setattr(m, func_name, replacement_func)
+                did_patch = True
 
         if did_patch and id(m) not in patched_ids:
             TEST_TRACE(f"  also patched {name} (path={_short_path(path)})")

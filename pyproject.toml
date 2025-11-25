@@ -29,24 +29,31 @@ typecheck = ["typecheck:mypy", "typecheck:pyright"]
 # run pyright to simulate pylance for AI CLI auto-fix
 "typecheck:pyright" = "pyright src tests"
 
-# 🧪 Tests (runs both: installed + singlefile)
-test = ["test:pytest:installed", "test:pytest:script"]
+# 🧪 Tests (runs all three: installed + singlefile + zipapp)
+test = ["test:pytest:installed", "test:pytest:script", "test:pytest:zipapp"]
 "test:pytest:installed" = "pytest"
 "test:pytest:script" = [
   "build:script",
   { cmd = "pytest", env = { RUNTIME_MODE="singlefile" } }
+]
+"test:pytest:zipapp" = [
+  "build:zipapp",
+  { cmd = "pytest", env = { RUNTIME_MODE="zipapp" } }
 ]
 
 # 📊 Coverage reporting
 "coverage:clean" = { shell = "rm -f .coverage .coverage.*" }
 "coverage:run:installed" = { cmd = "pytest --cov=src --cov-report= --cov-context=test", env = { COVERAGE_FILE=".coverage.installed" } }
 "coverage:run:singlefile" = { cmd = "pytest --cov=src --cov-report= --cov-context=test", env = { RUNTIME_MODE="singlefile", COVERAGE_FILE=".coverage.singlefile" } }
-"coverage:combine" = { cmd = "coverage combine .coverage.installed .coverage.singlefile" }
+"coverage:run:zipapp" = { cmd = "pytest --cov=src --cov-report= --cov-context=test", env = { RUNTIME_MODE="zipapp", COVERAGE_FILE=".coverage.zipapp" } }
+"coverage:combine" = { cmd = "coverage combine .coverage.installed .coverage.singlefile .coverage.zipapp" }
 "coverage:base" = [
   "coverage:clean",
   "coverage:run:installed",
   "build:script",
   "coverage:run:singlefile",
+  "build:zipapp",
+  "coverage:run:zipapp",
   "coverage:combine",
 ]
 

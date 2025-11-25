@@ -3,9 +3,10 @@
 
 Each pytest run now targets a single runtime mode:
 - Normal mode (default): uses src/serger
-- Standalone mode: uses dist/script.py when RUNTIME_MODE=singlefile
+- Standalone mode: uses dist/serger.py when RUNTIME_MODE=singlefile
+- Zipapp mode: uses dist/serger.pyz when RUNTIME_MODE=zipapp
 
-Switch mode with: RUNTIME_MODE=singlefile pytest
+Switch mode with: RUNTIME_MODE=singlefile pytest or RUNTIME_MODE=zipapp pytest
 """
 
 import os
