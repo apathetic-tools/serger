@@ -1,23 +1,56 @@
-# Jekyll Configuration for Serger Documentation
-# GitHub Pages compatible configuration
+# Jekyll configuration for GitHub Pages
+# general config reference: https://jekyllrb.com/docs/configuration/
 
 title: Serger
 description: Stitch your module into a single file
 url: https://apathetic-tools.github.io
 baseurl: /serger
 
-# Build settings
-markdown: kramdown
-highlighter: rouge
-theme: minima
-
-# GitHub Pages plugins (automatically enabled on GitHub Pages)
-# These are listed for local development compatibility
+# supported plugins: https://pages.github.com/versions.json
 plugins:
-  - jekyll-feed
+# GHP locked value
+  - jekyll-coffeescript
+  - jekyll-default-layout
+  - jekyll-gist
+  - jekyll-github-metadata
+  - jekyll-optional-front-matter
+  - jekyll-paginate
+  - jekyll-readme-index
+  - jekyll-titles-from-headings
+  - jekyll-relative-links
+# extra
   - jekyll-seo-tag
+  - jekyll-sitemap
+  - jekyll-remote-theme
+  - jemoji
 
-# Exclude from processing
+# Theme (using remote theme to get latest minima with dark mode support)
+remote_theme: jekyll/minima
+
+# Minima theme settings
+minima:
+  skin: solarized
+
+  # Navigation
+  nav_pages:
+    - index.md
+    - getting-started.md
+    - configuration.md
+    - cli-reference.md
+    - api.md
+    - examples.md
+
+  hide_site_feed_link: true
+  social_links:
+    - title: GitHub Repository
+      icon: github
+      url: "https://github.com/apathetic-tools/serger"
+    - title: PyPI
+      icon: pypi
+      url: "https://pypi.org/project/serger/"
+
+
+# Exclude files from processing
 exclude:
   - Gemfile
   - Gemfile.lock
@@ -26,32 +59,26 @@ exclude:
   - vendor/cache/
   - vendor/gems/
   - vendor/ruby/
-  - .sass-cache/
-  - .jekyll-cache/
-  - .jekyll-metadata
 
-# Navigation
-navigation:
-  - title: Home
-    url: /
-  - title: Getting Started
-    url: /getting-started
-  - title: Configuration
-    url: /configuration
-  - title: CLI Reference
-    url: /cli-reference
-  - title: API
-    url: /api
-  - title: Examples
-    url: /examples
+# Site metadata
+author: 
+  name: 😐 Apathetic Tools
+  url: https://apathetic-tools.github.io/
 
-# Author information
-author:
-  name: Apathetic Tools
-  url: https://apathetic-tools.github.io
 
-# Social links
-github:
-  username: apathetic-tools
-  repository: serger
+# Build settings
+lsi: false  # GHP locked value
+safe: true  # GHP locked value
+source: ["docs"]  # GHP locked value  # may need to to comment for local dev
+incremental: false  # GHP locked value
+highlighter: rouge  # GHP locked value
+gist:  # GHP locked value
+  noscript: false  # GHP locked value
+markdown: kramdown
+kramdown:  # GHP locked value
+  input: GFM
+  math_engine: mathjax  # GHP locked value
+  syntax_highlighter: rouge  # GHP locked value
+
+
 
