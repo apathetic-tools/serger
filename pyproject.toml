@@ -76,6 +76,33 @@ fix = ["sync:ai:guidance", "fix:ruff:installed", "fix:format:installed"]
 # 🔧 Setup and installation
 "pre-commit:install" = { shell = "if [ ! -f .git/hooks/pre-commit ] || ! grep -q 'pre-commit' .git/hooks/pre-commit 2>/dev/null; then poetry run pre-commit install --install-hooks && poetry run pre-commit install --hook-type pre-push; fi" }
 
+# 🐍 Python version management
+"env:py310" = "bash dev/env_use_py310.sh"
+"env:py311" = "bash dev/env_use_py311.sh"
+"env:py312" = "bash dev/env_use_py312.sh"
+"env:py3x" = "bash dev/env_use_py3x.sh"
+"test:py310" = [
+  "env:py310",
+  "test",
+  "env:py3x"
+]
+"test:py311" = [
+  "env:py311",
+  "test",
+  "env:py3x"
+]
+"test:py312" = [
+  "env:py312",
+  "test",
+  "env:py3x"
+]
+
+# 🐍 Python setup helpers (for Python 3.10 testing)
+"setup:python:check" = "bash dev/setup_python_check.sh"
+
+# 💎 Ruby setup helpers (for Jekyll documentation)
+"setup:ruby:check" = "bash dev/setup_ruby_check.sh"
+
 # 🧪 Internal verification
 [tool.poe.tasks."verify:pytest"]
 cmd = "pytest tests/test_pytest.py"

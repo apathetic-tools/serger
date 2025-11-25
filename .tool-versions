@@ -1,0 +1,13 @@
+# Optional: For mise users - automatically activates tool versions when entering this directory
+# System tools are preferred; mise is only used as a fallback if system tools aren't available
+#
+# Python: This project supports Python 3.10+ (see pyproject.toml requires-python)
+#   First version (3.12.3) is the default/automatic version for mise users
+#   Other versions are available for testing: python3.10, python3.11, python3.12
+python 3.12.3
+python 3.11.10
+python 3.10.19
+#
+# Ruby: Used for Jekyll documentation site (docs/)
+ruby 3.3.0
+
