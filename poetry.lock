@@ -13,6 +13,18 @@ files = [
 ]
 
 [[package]]
+name = "apathetic-logging"
+version = "0.2.2"
+description = "Because consistent logging shouldn't require large dependencies. "
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "apathetic_logging-0.2.2-py3-none-any.whl", hash = "sha256:0fb72e68d8095127cda2e80faa922ae04a90e053b7604d66f2939dd242068304"},
+    {file = "apathetic_logging-0.2.2.tar.gz", hash = "sha256:3ae65aea03c9964847b7eab12fd3f75b974fec035e89bac785336c204708fe04"},
+]
+
+[[package]]
 name = "certifi"
 version = "2025.11.12"
 description = "Python package for providing Mozilla's CA Bundle."
@@ -1706,4 +1718,4 @@ dev = ["pytest", "setuptools"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10"
-content-hash = "b08227dc5674045d1a6b5ab20f461c6a08d2d9bdfd724891aceb1a0c2b3614b1"
+content-hash = "150e771a8c0dcd7c42473745bcd7ac5f07bb0e29c4dae39db58367ecc4584708"

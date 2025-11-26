@@ -3,7 +3,7 @@
 
 from apathetic_utils import is_excluded_raw
 from serger.config.config_types import PathResolved
-from serger.logs import get_app_logger
+from serger.logs import getAppLogger
 from serger.utils.utils_validation import validate_required_keys
 
 
@@ -14,7 +14,7 @@ def is_excluded(path_entry: PathResolved, exclude_patterns: list[PathResolved]) 
     validate_required_keys(path_entry, {"path", "root"}, "path_entry")
     for exc in exclude_patterns:
         validate_required_keys(exc, {"path", "root"}, "exclude_patterns item")
-    logger = get_app_logger()
+    logger = getAppLogger()
     path = path_entry["path"]
     root = path_entry["root"]
     # Patterns are always normalized to PathResolved["path"] under config_resolve

@@ -81,3 +81,5 @@ echo "✅ Ruby 3.3 is available! You can use:"
 echo "   cd docs && bundle install    # Install Jekyll dependencies"
 echo "   cd docs && bundle exec jekyll serve    # Run Jekyll locally"
 
+
+

@@ -9,7 +9,7 @@ from apathetic_utils import has_glob_chars, is_excluded_raw
 
 from .config import IncludeResolved, PathResolved, RootConfigResolved
 from .constants import BUILD_TIMESTAMP_PLACEHOLDER, DEFAULT_DRY_RUN
-from .logs import get_app_logger
+from .logs import getAppLogger
 from .stitch import (
     compute_module_order,
     detect_packages_from_files,
@@ -36,7 +36,7 @@ def expand_include_pattern(include: IncludeResolved) -> list[Path]:
         List of resolved absolute paths to matching .py files
     """
     validate_required_keys(include, {"path", "root"}, "include")
-    logger = get_app_logger()
+    logger = getAppLogger()
     src_pattern = str(include["path"])
     root = Path(include["root"]).resolve()
     matches: list[Path] = []
@@ -108,7 +108,7 @@ def collect_included_files(
         validate_required_keys(inc, {"path", "root"}, "include")
     for exc in excludes:
         validate_required_keys(exc, {"path", "root"}, "exclude")
-    logger = get_app_logger()
+    logger = getAppLogger()
     all_files: set[Path] = set()
     # Track which include produced each file (for dest parameter and exclude checking)
     file_to_include: dict[Path, IncludeResolved] = {}
@@ -244,7 +244,7 @@ def _handle_literal_file_path(
     Returns:
         True if handled as literal file, False if should continue pattern matching
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     candidate = config_root / pattern_str
     if candidate.exists() and candidate.is_dir():
         # Directory without trailing slash - treat as recursive
@@ -303,7 +303,7 @@ def resolve_order_paths(
     Raises:
         ValueError: If an order entry resolves to a path not in included files
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     included_set = set(included_files)
     resolved: list[Path] = []
     explicitly_ordered: set[Path] = set()
@@ -453,7 +453,7 @@ def _extract_build_metadata(
     version = build_cfg.get("version")
     # Use git_root for commit extraction (project root), fallback to project_root
     commit_path = git_root if git_root is not None else project_root
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.info(
         "_extract_build_metadata: project_root=%s, git_root=%s, commit_path=%s",
         project_root,
@@ -506,7 +506,7 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
         },
         "build_cfg",
     )
-    logger = get_app_logger()
+    logger = getAppLogger()
     dry_run = build_cfg.get("dry_run", DEFAULT_DRY_RUN)
     validate_config = build_cfg.get("validate_config", False)
 
@@ -750,8 +750,41 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
                     "[MODULE_BASES] Added discovered package parent directory: %s",
                     parent_dir,
                 )
+                # Also add to user_provided_source_bases if it's not a package directory
+                # (discovered parent directories are typically not package directories)
+                parent_path = Path(parent_dir)
+                if (
+                    not (parent_path / "__init__.py").exists()
+                    and parent_dir not in user_provided_source_bases
+                ):
+                    user_provided_source_bases.append(parent_dir)
+                    logger.trace(
+                        "[MODULE_BASES] Added discovered parent directory to "
+                        "user_provided_source_bases: %s",
+                        parent_dir,
+                    )
         # Update build_cfg with extended source_bases
         build_cfg["source_bases"] = source_bases
+
+    # Now detect base directories in source_bases as packages if they contain
+    # detected packages (must happen after source_bases is fully populated)
+    # This handles cases where a directory in source_bases contains packages
+    # but doesn't have __init__.py itself (namespace packages)
+    # Re-detect packages now that source_bases is fully populated
+    # This will pick up base directories that are now in source_bases
+    detected_packages_updated, _ = detect_packages_from_files(
+        final_files, package, source_bases=source_bases
+    )
+    # Merge any newly detected packages
+    if detected_packages_updated != detected_packages:
+        newly_detected = detected_packages_updated - detected_packages
+        if newly_detected:
+            detected_packages = detected_packages_updated
+            logger.debug(
+                "[MODULE_BASES] Detected additional packages after adding "
+                "discovered bases: %s",
+                sorted(newly_detected),
+            )
     # Store user-provided source_bases (filtered) for use in derive_module_name
     # This excludes package directories extracted from includes
     # Use dict update to avoid TypedDict type error for internal field

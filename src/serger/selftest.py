@@ -24,7 +24,7 @@ from .constants import (
     DEFAULT_STRICT_CONFIG,
     DEFAULT_WATCH_INTERVAL,
 )
-from .logs import get_app_logger
+from .logs import getAppLogger
 from .meta import PROGRAM_DISPLAY, PROGRAM_SCRIPT
 from .utils import make_includeresolved, make_pathresolved
 from .utils.utils_validation import validate_required_keys
@@ -47,7 +47,7 @@ def _create_test_package(pkg_dir: Path) -> None:
         PermissionError: If unable to write files (environment issue)
         OSError: If directory operations fail (environment issue)
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.trace("[SELFTEST] _create_test_package: pkg_dir=%s", pkg_dir)
 
     # base.py - simple module with a constant
@@ -106,7 +106,7 @@ def _create_build_config(
     Raises:
         RuntimeError: If config construction fails (program bug)
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.trace(
         "[SELFTEST] _create_build_config: test_pkg_dir=%s, out_file=%s, tmp_dir=%s",
         test_pkg_dir,
@@ -183,7 +183,7 @@ def _execute_selftest_build(build_cfg: "RootConfigResolved") -> None:
     """
     # run_build will validate required keys, but we need package for this function
     validate_required_keys(build_cfg, {"package"}, "build_cfg")
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.trace(
         "[SELFTEST] _execute_selftest_build: package=%s", build_cfg.get("package")
     )
@@ -230,7 +230,7 @@ def _verify_compiles(stitched_file: Path) -> None:
     Raises:
         RuntimeError: If compilation fails (program bug - stitched output invalid)
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     file_size = stitched_file.stat().st_size
     logger.trace(
         "[SELFTEST] _verify_compiles: file=%s, size=%d bytes",
@@ -261,7 +261,7 @@ def _verify_executes(stitched_file: Path) -> None:
         RuntimeError: If execution fails or produces unexpected output (program bug)
         AssertionError: If output validation fails (program bug)
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.trace("[SELFTEST] _verify_executes: file=%s", stitched_file)
 
     python_cmd = ["python3", str(stitched_file)]
@@ -348,7 +348,7 @@ def _verify_content(stitched_file: Path) -> None:
     Raises:
         AssertionError: If expected markers are not found (program bug)
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.trace("[SELFTEST] _verify_content: file=%s", stitched_file)
 
     content = stitched_file.read_text(encoding="utf-8")
@@ -393,10 +393,10 @@ def run_selftest() -> bool:  # noqa: PLR0915
     Returns:
         True if selftest passes, False otherwise
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
 
     # Always run selftest with at least DEBUG level, then revert
-    with logger.use_level("DEBUG", minimum=True):
+    with logger.useLevel("DEBUG", minimum=True):
         logger.info("🧪 Running self-test...")
 
         # Log environment info for GitHub issue reporting
@@ -516,7 +516,7 @@ def run_selftest() -> bool:  # noqa: PLR0915
                     "Self-test failed due to environment issue (this is likely "
                     "a problem with your system setup, not with %s): %s"
                 )
-            logger.error_if_not_debug(msg_template, PROGRAM_DISPLAY, e)
+            logger.errorIfNotDebug(msg_template, PROGRAM_DISPLAY, e)
             logger.debug(
                 "[SELFTEST] Environment issue details: error=%s, tmp_dir=%s",
                 e,
@@ -527,7 +527,7 @@ def run_selftest() -> bool:  # noqa: PLR0915
         except RuntimeError as e:
             # Program bugs: build failures, compilation errors, execution errors
             stitched_file_info = str(stitched_file) if stitched_file else "N/A"
-            logger.error_if_not_debug(
+            logger.errorIfNotDebug(
                 "Self-test failed (this appears to be a bug in %s): %s",
                 PROGRAM_DISPLAY,
                 e,
@@ -544,7 +544,7 @@ def run_selftest() -> bool:  # noqa: PLR0915
         except AssertionError as e:
             # Program bugs: validation failures, content mismatches
             stitched_file_info = str(stitched_file) if stitched_file else "N/A"
-            logger.error_if_not_debug(
+            logger.errorIfNotDebug(
                 "Self-test failed validation (this appears to be a bug in %s): %s",
                 PROGRAM_DISPLAY,
                 e,

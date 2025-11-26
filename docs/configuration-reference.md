@@ -96,6 +96,9 @@ All configuration options are specified at the root level of the config file:
 | `comments_mode` | `str` | No | `"keep"` | How to handle comments in stitched output (see [Comment Handling](#comment-handling)) |
 | `docstring_mode` | `str \| dict` | No | `"keep"` | How to handle docstrings in stitched output (see [Docstring Handling](#docstring-handling)) |
 | `source_bases` | `str \| list[str]` | No | `["src"]` | Ordered list of directories where packages can be found (see [Source Bases](#source-bases)) |
+| `installed_bases` | `str \| list[str]` | No | `[]` | Ordered list of directories where installed packages can be found (see [Installed Packages](#installed-packages)) |
+| `auto_discover_installed_packages` | `bool` | No | `true` | Whether to automatically discover installed package directories (see [Installed Packages](#installed-packages)) |
+| `include_installed_dependencies` | `bool` | No | `false` | Whether to include installed dependencies when following imports (see [Installed Packages](#installed-packages)) |
 | `main_mode` | `"none" \| "auto"` | No | `"auto"` | How to handle main function detection and `__main__` block generation (see [Main Configuration](#main-configuration)) |
 | `main_name` | `str \| None` | No | `None` | Specification for which main function to use (see [Main Configuration](#main-configuration)) |
 
@@ -878,6 +881,99 @@ The `source_bases` setting specifies an ordered list of directories where Serger
 - The directories are searched in the order specified
 - Used for package auto-detection when `package` is not explicitly set
 - When a string is provided, it is automatically converted to a list containing that single string during resolution
+
+## Installed Packages
+
+Serger can stitch installed packages (from `site-packages` or `dist-packages`) into your output. This is useful when you want to bundle dependencies or include packages that are installed in your environment.
+
+### Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `installed_bases` | `str \| list[str]` | `[]` | Directories where installed packages can be found (e.g., `site-packages` or `dist-packages` directories) |
+| `auto_discover_installed_packages` | `bool` | `true` | Whether to automatically discover installed package directories from your environment |
+| `include_installed_dependencies` | `bool` | `false` | Whether to automatically include installed dependencies when following imports |
+
+### Include Resolution Priority
+
+When resolving include patterns, Serger checks directories in the following priority order:
+
+1. **`source_bases`** (highest priority) - Your project's source directories
+2. **`installed_bases`** (fallback) - Installed package directories
+
+This means if a file exists in both `source_bases` and `installed_bases`, the version from `source_bases` will be used.
+
+### Auto-Discovery
+
+When `auto_discover_installed_packages` is `true` (the default) and `installed_bases` is not explicitly set, Serger automatically discovers installed package directories from your environment in the following priority order:
+
+1. **Poetry environment** - If Poetry is available, uses `poetry env info --path` to find the virtual environment's `site-packages` or `dist-packages`
+2. **Virtualenv/pip** - Checks `sys.path` for `site-packages` or `dist-packages` in virtualenv paths
+3. **User site-packages** - `~/.local/lib/python*/site-packages` (or platform-specific equivalent)
+4. **System site-packages** - System-wide `site-packages` or `dist-packages` directories
+
+Auto-discovery handles both `site-packages` (standard) and `dist-packages` (Debian/Ubuntu) naming conventions.
+
+### Examples
+
+**Using auto-discovery (default):**
+```jsonc
+{
+  "package": "mypkg",
+  "include": [
+    "src/mypkg/**/*.py",
+    "site-packages/apathetic_logging/**/*.py"  // Include installed package
+  ],
+  "out": "dist/mypkg.py"
+  // auto_discover_installed_packages defaults to true
+  // Serger will automatically find site-packages directories
+}
+```
+
+**Explicit installed_bases:**
+```jsonc
+{
+  "package": "mypkg",
+  "include": [
+    "src/mypkg/**/*.py",
+    "site-packages/apathetic_logging/**/*.py"
+  ],
+  "installed_bases": [
+    "/path/to/venv/lib/python3.10/site-packages",
+    "/usr/lib/python3.10/dist-packages"
+  ],
+  "auto_discover_installed_packages": false,  // Disable auto-discovery
+  "out": "dist/mypkg.py"
+}
+```
+
+**Disabling auto-discovery:**
+```jsonc
+{
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "auto_discover_installed_packages": false,  // Don't auto-discover
+  "out": "dist/mypkg.py"
+}
+```
+
+**Including installed dependencies automatically:**
+```jsonc
+{
+  "package": "mypkg",
+  "include": ["src/mypkg/**/*.py"],
+  "include_installed_dependencies": true,  // Auto-include dependencies
+  "out": "dist/mypkg.py"
+}
+```
+
+### Notes
+
+- `installed_bases` paths are resolved relative to the config directory (or absolute paths are used as-is)
+- When a string is provided for `installed_bases`, it is automatically converted to a list containing that single string during resolution
+- Auto-discovery only runs when `installed_bases` is not explicitly set
+- Exclude patterns work the same way with `installed_bases` as they do with `source_bases`
+- The `include_installed_dependencies` option is for future use with "follow the imports" stitching mode
 
 ## Package Resolution
 

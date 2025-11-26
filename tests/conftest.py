@@ -10,9 +10,11 @@ Switch mode with: RUNTIME_MODE=singlefile pytest or RUNTIME_MODE=zipapp pytest
 """
 
 import os
+from collections.abc import Generator
 
 import pytest
 
+import serger.logs as mod_logs
 from tests.utils import make_test_trace, runtime_swap
 from tests.utils.log_fixtures import (
     direct_logger,
@@ -30,6 +32,28 @@ TEST_TRACE = make_test_trace("⚡️")
 
 # early jank hook
 runtime_swap()
+
+# ----------------------------------------------------------------------
+# Fixtures
+# ----------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def reset_logger_level() -> Generator[None, None, None]:
+    """Reset logger level to default (INFO) before each test for isolation.
+
+    In singlefile mode, the logger is a module-level singleton that persists
+    between tests. This fixture ensures the logger level is reset to INFO
+    (the default) before each test, preventing test interference.
+    """
+    # Get the app logger and reset to default level
+    logger = mod_logs.getAppLogger()
+    # Reset to INFO (default) - this ensures tests start with a known state
+    logger.setLevel("info")
+    yield
+    # After test, reset again to ensure clean state for next test
+    logger.setLevel("info")
+
 
 # ----------------------------------------------------------------------
 # Helpers

@@ -8,10 +8,10 @@ from tests.utils import TEST_TRACE
 
 TEST_TRACE(
     "logger_origin",
-    f"pkg_get_app_logger_id={id(pkg.get_app_logger)}",
-    f"logs_get_app_logger_id={id(mod_logs.get_app_logger)}",
-    f"pkg_get_app_logger is logs_get_app_logger? "
-    f"{pkg.get_app_logger is mod_logs.get_app_logger}",
+    f"pkg_getAppLogger_id={id(pkg.getAppLogger)}",
+    f"logs_getAppLogger_id={id(mod_logs.getAppLogger)}",
+    f"pkg_getAppLogger is logs_getAppLogger? "
+    f"{pkg.getAppLogger is mod_logs.getAppLogger}",
 )
 
 TEST_TRACE(

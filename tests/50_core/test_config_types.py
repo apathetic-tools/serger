@@ -5,6 +5,7 @@
 from pathlib import Path
 
 import serger.config.config_types as mod_types  # noqa: TC001
+from tests.utils.buildconfig import make_build_cfg, make_resolved
 
 
 # ---------------------------------------------------------------------------
@@ -124,47 +125,16 @@ def test_root_config_has_module_actions() -> None:
 
 def test_root_config_resolved_has_module_actions(tmp_path: Path) -> None:
     """Test RootConfigResolved includes module_actions field (normalized to list)."""
-    test_root = tmp_path
-    resolved_cfg: mod_types.RootConfigResolved = {
-        "include": [],
-        "exclude": [],
-        "out": {
-            "path": "dist/script.py",
-            "root": test_root,
-            "origin": "test",
-        },
-        "__meta__": {
-            "cli_root": test_root,
-            "config_root": test_root,
-        },
-        "strict_config": False,
-        "respect_gitignore": True,
-        "log_level": "info",
-        "dry_run": False,
-        "validate_config": False,
-        "watch_interval": 1.0,
-        "stitch_mode": "raw",
-        "module_mode": "multi",
-        "shim": "all",
-        "internal_imports": "force_strip",
-        "external_imports": "top",
-        "comments_mode": "keep",
-        "docstring_mode": "keep",
-        "source_bases": ["src"],
-        "post_processing": {
-            "enabled": True,
-            "category_order": [],
-            "categories": {},
-        },
-        "module_actions": [{"source": "old", "dest": "new"}],
-        "main_mode": "auto",
-        "main_name": None,
-        "disable_build_timestamp": False,
-        "license": "",
-        "display_name": "",
-        "description": "",
-        "authors": "",
-        "repo": "",
-    }
+    resolved_cfg = make_build_cfg(
+        tmp_path=tmp_path,
+        out=make_resolved("dist/script.py", tmp_path),
+        source_bases=["src"],
+        module_actions=[{"source": "old", "dest": "new"}],
+        license_text="",
+        display_name="",
+        description="",
+        authors="",
+        repo="",
+    )
     assert "module_actions" in resolved_cfg
     assert isinstance(resolved_cfg["module_actions"], list)

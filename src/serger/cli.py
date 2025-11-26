@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from difflib import get_close_matches
 from pathlib import Path
 
-from apathetic_logs import LEVEL_ORDER, safe_log
+from apathetic_logging import LEVEL_ORDER, safeLog
+
 from apathetic_utils import cast_hint, get_sys_version_info
 
 from .actions import get_metadata, watch_for_changes
@@ -22,7 +23,7 @@ from .constants import (
     DEFAULT_DRY_RUN,
     DEFAULT_WATCH_INTERVAL,
 )
-from .logs import get_app_logger
+from .logs import getAppLogger
 from .meta import (
     PROGRAM_DISPLAY,
     PROGRAM_SCRIPT,
@@ -226,7 +227,7 @@ def _normalize_positional_args(
     parser: argparse.ArgumentParser,
 ) -> None:
     """Normalize positional arguments into explicit include/out flags."""
-    logger = get_app_logger()
+    logger = getAppLogger()
     includes: list[str] = getattr(args, "positional_include", [])
     out_pos: str | None = getattr(args, "positional_out", None)
 
@@ -279,13 +280,11 @@ class _LoadedConfig:
 
 def _initialize_logger(args: argparse.Namespace) -> None:
     """Initialize logger with CLI args, env vars, and defaults."""
-    logger = get_app_logger()
-    log_level = logger.determine_log_level(args=args)
+    logger = getAppLogger()
+    log_level = logger.determineLogLevel(args=args)
     logger.setLevel(log_level)
-    logger.enable_color = getattr(
-        args, "enable_color", logger.determine_color_enabled()
-    )
-    logger.trace("[BOOT] log-level initialized: %s", logger.level_name)
+    logger.enable_color = getattr(args, "enable_color", logger.determineColorEnabled())
+    logger.trace("[BOOT] log-level initialized: %s", logger.levelName)
 
     logger.debug(
         "Runtime: Python %s (%s)\n    %s",
@@ -306,7 +305,7 @@ def _validate_includes(
     Returns True if validation passes, False if we should abort.
     Logs appropriate warnings/errors.
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
 
     # The presence of "include" key (even if empty) signals intentional choice:
     #   {"include": []}                    → include:[] in config → no check
@@ -378,7 +377,7 @@ def _validate_package(  # noqa: PLR0912
     Returns True if validation passes, False if we should abort.
     Logs appropriate warnings/errors.
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
 
     # Package is only required for stitch builds (which need includes)
     # If there are no includes (config or CLI), skip package validation
@@ -491,7 +490,7 @@ def _handle_early_exits(args: argparse.Namespace) -> int | None:
 
     Returns exit code if we should exit early, None otherwise.
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
 
     # --- Version flag ---
     if getattr(args, "version", None):
@@ -519,7 +518,7 @@ def _load_and_resolve_config(
     parser: argparse.ArgumentParser,
 ) -> _LoadedConfig:
     """Load config, normalize args, and resolve final configuration."""
-    logger = get_app_logger()
+    logger = getAppLogger()
 
     # --- Load configuration ---
     config_path: Path | None = None
@@ -528,7 +527,7 @@ def _load_and_resolve_config(
     if config_result is not None:
         config_path, root_cfg, _validation_summary = config_result
 
-    logger.trace("[CONFIG] log-level re-resolved from config: %s", logger.level_name)
+    logger.trace("[CONFIG] log-level re-resolved from config: %s", logger.levelName)
 
     # --- Normalize shorthand arguments ---
     _normalize_positional_args(args, parser)
@@ -585,7 +584,7 @@ def _execute_build(
 
 
 def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911, PLR0912
-    logger = get_app_logger()  # init (use env + defaults)
+    logger = getAppLogger()  # init (use env + defaults)
 
     try:
         parser = _setup_parser()
@@ -634,17 +633,17 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911, PLR0912
         silent = getattr(e, "silent", False)
         if not silent:
             try:
-                logger.error_if_not_debug(str(e))
+                logger.errorIfNotDebug(str(e))
             except Exception:  # noqa: BLE001
-                safe_log(f"[FATAL] Logging failed while reporting: {e}")
+                safeLog(f"[FATAL] Logging failed while reporting: {e}")
         return getattr(e, "code", 1)
 
     except Exception as e:  # noqa: BLE001
         # unexpected internal error
         try:
-            logger.critical_if_not_debug("Unexpected internal error: %s", e)
+            logger.criticalIfNotDebug("Unexpected internal error: %s", e)
         except Exception:  # noqa: BLE001
-            safe_log(f"[FATAL] Logging failed while reporting: {e}")
+            safeLog(f"[FATAL] Logging failed while reporting: {e}")
 
         return getattr(e, "code", 1)
 

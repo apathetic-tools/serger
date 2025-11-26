@@ -13,7 +13,7 @@ from apathetic_schema import (
 )
 from apathetic_utils import schema_from_typeddict
 from serger.constants import DEFAULT_STRICT_CONFIG
-from serger.logs import get_app_logger
+from serger.logs import getAppLogger
 
 from .config_types import RootConfig
 
@@ -70,7 +70,7 @@ def _validate_root(
     summary: ValidationSummary,  # modified
     agg: SchemaErrorAggregator,  # modified
 ) -> ValidationSummary | None:
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.trace(f"[validate_root] Validating root with {len(parsed_cfg)} keys")
 
     strict_config: bool = summary.strict
@@ -129,7 +129,7 @@ def _validate_builds(
     agg: SchemaErrorAggregator,  # modified
 ) -> ValidationSummary | None:
     """Validate that 'builds' key is not present (multi-build not supported)."""
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.trace("[validate_builds] Checking for unsupported 'builds' key")
 
     if "builds" in parsed_cfg:
@@ -161,7 +161,7 @@ def validate_config(
 
     Returns a ValidationSummary object.
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.trace(f"[validate_config] Starting validation (strict={strict})")
 
     summary = ValidationSummary(

@@ -57,7 +57,7 @@ def test_resolve_build_config_from_config_paths(
     args = _args()
 
     # --- patch and execute ---
-    with module_logger.use_level("info"):
+    with module_logger.useLevel("info"):
         resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
@@ -1550,7 +1550,7 @@ def test_resolve_build_config_shim_invalid_value_raises_error(
 
     # --- execute and validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(ValueError, match="Invalid shim value"),
     ):
         mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
@@ -1567,7 +1567,7 @@ def test_resolve_build_config_shim_invalid_root_value_raises_error(
 
     # --- execute and validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(ValueError, match="Invalid shim value"),
     ):
         mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
@@ -1709,7 +1709,7 @@ def test_resolve_build_config_module_actions_invalid_dict_key_type_raises_error(
 
     # --- execute and validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(TypeError, match="module_actions dict keys must be strings"),
     ):
         mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
@@ -1729,7 +1729,7 @@ def test_resolve_build_config_module_actions_invalid_dict_value_type_raises_erro
 
     # --- execute and validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(
             ValueError, match="module_actions dict values must be strings or None"
         ),
@@ -1751,7 +1751,7 @@ def test_resolve_build_config_module_actions_list_missing_source_raises_error(
 
     # --- execute and validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(ValueError, match=r"missing required 'source' key"),
     ):
         mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
@@ -1774,7 +1774,7 @@ def test_resolve_build_config_module_actions_list_invalid_action_raises_error(
 
     # --- execute and validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(ValueError, match=r"module_actions.*'action'].*invalid"),
     ):
         mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
@@ -1794,7 +1794,7 @@ def test_resolve_build_config_module_actions_invalid_type_raises_error(
 
     # --- execute and validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(ValueError, match="module_actions must be dict or list"),
     ):
         mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
@@ -1837,7 +1837,7 @@ def test_resolve_build_config_module_actions_empty_source_raises_error(
 
     # --- execute and validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(
             ValueError, match="module_actions dict keys \\(source\\) must be non-empty"
         ),
@@ -1858,7 +1858,7 @@ def test_resolve_build_config_module_actions_list_empty_source_raises_error(
 
     # --- execute and validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(
             ValueError, match=r"module_actions.*'source'].*must be a non-empty string"
         ),
@@ -1882,7 +1882,7 @@ def test_resolve_build_config_module_actions_move_missing_dest_raises_error(
 
     # --- execute and validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(ValueError, match="'dest' is required for 'move' action"),
     ):
         mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
@@ -1904,7 +1904,7 @@ def test_resolve_build_config_module_actions_copy_missing_dest_raises_error(
 
     # --- execute and validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(ValueError, match="'dest' is required for 'copy' action"),
     ):
         mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
@@ -1926,7 +1926,7 @@ def test_resolve_build_config_module_actions_rename_missing_dest_raises_error(
 
     # --- execute and validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(ValueError, match="'dest' is required for 'rename' action"),
     ):
         mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
@@ -1948,7 +1948,7 @@ def test_resolve_build_config_module_actions_delete_with_dest_raises_error(
 
     # --- execute and validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(
             ValueError, match="'dest' must not be present for 'delete' action"
         ),
@@ -2029,7 +2029,7 @@ def test_resolve_build_config_module_actions_invalid_mode_raises_error(
 
     # --- execute and validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(ValueError, match=r"module_actions.*'mode'].*invalid"),
     ):
         mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
@@ -2051,7 +2051,7 @@ def test_resolve_build_config_module_actions_invalid_scope_raises_error(
 
     # --- execute and validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(ValueError, match=r"module_actions.*'scope'].*invalid"),
     ):
         mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
@@ -2073,7 +2073,7 @@ def test_resolve_build_config_module_actions_invalid_affects_raises_error(
 
     # --- execute and validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(ValueError, match=r"module_actions.*'affects'].*invalid"),
     ):
         mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
@@ -2095,7 +2095,7 @@ def test_resolve_build_config_module_actions_invalid_cleanup_raises_error(
 
     # --- execute and validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(ValueError, match=r"module_actions.*'cleanup'].*invalid"),
     ):
         mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
@@ -2148,7 +2148,7 @@ def test_resolve_build_config_module_actions_empty_source_path_raises_error(
 
     # --- execute and validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(
             ValueError,
             match=r"module_actions.*'source_path'].*must be a non-empty string",
@@ -2173,7 +2173,7 @@ def test_resolve_build_config_module_actions_invalid_source_path_type_raises_err
 
     # --- execute and validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(
             TypeError, match=r"module_actions.*'source_path'].*must be a string"
         ),
@@ -2962,7 +2962,7 @@ def test_resolve_build_config_main_mode_invalid_value(
 
     # --- execute & validate ---
     with (
-        module_logger.use_level("info"),
+        module_logger.useLevel("info"),
         pytest.raises(ValueError, match="Invalid main_mode value"),
     ):
         mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
@@ -3278,7 +3278,7 @@ def test_resolve_build_config_license_missing_file(
     args = _args()
 
     # --- execute ---
-    with module_logger.use_level("warning"):
+    with module_logger.useLevel("warning"):
         resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
@@ -3586,3 +3586,272 @@ license = "MIT"
     # --- validate ---
     # pyproject_path should enable license extraction
     assert resolved.get("license") == "MIT"
+
+
+# ---------------------------------------------------------------------------
+# Tests for installed packages include resolution
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_build_config_include_priority_source_bases_first(
+    tmp_path: Path,
+) -> None:
+    """Include resolution should prefer source_bases over installed_bases."""
+    # --- setup ---
+    # Create a package in source_bases
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    pkg_dir = src_dir / "mypkg"
+    pkg_dir.mkdir()
+    (pkg_dir / "__init__.py").write_text("")
+    (pkg_dir / "module.py").write_text("def func(): pass")
+
+    # Create same package name in installed_bases (simulated)
+    installed_dir = tmp_path / "site-packages"
+    installed_dir.mkdir()
+    installed_pkg_dir = installed_dir / "mypkg"
+    installed_pkg_dir.mkdir()
+    (installed_pkg_dir / "__init__.py").write_text("")
+    (installed_pkg_dir / "module.py").write_text("def func_installed(): pass")
+
+    # Config with both source_bases and installed_bases
+    raw = make_build_input(
+        include=["mypkg/**"],
+        source_bases=["src"],
+        installed_bases=[str(installed_dir)],
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Should resolve to source_bases (higher priority)
+    includes = resolved["include"]
+    assert len(includes) == 1
+    inc = includes[0]
+    # Root should be src_dir (from source_bases), not installed_dir
+    assert inc["root"] == src_dir.resolve()
+    assert str(inc["path"]) == "mypkg/**"
+
+
+def test_resolve_build_config_include_fallback_to_installed_bases(
+    tmp_path: Path,
+) -> None:
+    """Include resolution should fallback to installed_bases when not in source_bases.
+
+    When a path is not found in source_bases, it should check installed_bases.
+    """
+    # --- setup ---
+    # Create source_bases directory (empty, no mypkg)
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+
+    # Create package in installed_bases
+    installed_dir = tmp_path / "site-packages"
+    installed_dir.mkdir()
+    installed_pkg_dir = installed_dir / "mypkg"
+    installed_pkg_dir.mkdir()
+    (installed_pkg_dir / "__init__.py").write_text("")
+    (installed_pkg_dir / "module.py").write_text("def func(): pass")
+
+    # Config with both source_bases and installed_bases
+    raw = make_build_input(
+        include=["mypkg/**"],
+        source_bases=["src"],
+        installed_bases=[str(installed_dir)],
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Should resolve to installed_bases (fallback)
+    includes = resolved["include"]
+    assert len(includes) == 1
+    inc = includes[0]
+    # Root should be installed_dir (from installed_bases)
+    assert inc["root"] == installed_dir.resolve()
+    assert str(inc["path"]) == "mypkg/**"
+
+
+def test_resolve_build_config_include_installed_packages_via_pattern(
+    tmp_path: Path,
+) -> None:
+    """Include patterns should work with installed packages."""
+    # --- setup ---
+    # Create installed package
+    installed_dir = tmp_path / "site-packages"
+    installed_dir.mkdir()
+    installed_pkg_dir = installed_dir / "external_pkg"
+    installed_pkg_dir.mkdir()
+    (installed_pkg_dir / "__init__.py").write_text("")
+    (installed_pkg_dir / "utils.py").write_text("def helper(): pass")
+    (installed_pkg_dir / "submodule.py").write_text("def sub(): pass")
+
+    # Config with installed_bases
+    raw = make_build_input(
+        include=["external_pkg/**"],
+        installed_bases=[str(installed_dir)],
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    includes = resolved["include"]
+    assert len(includes) == 1
+    inc = includes[0]
+    assert inc["root"] == installed_dir.resolve()
+    assert str(inc["path"]) == "external_pkg/**"
+
+
+def test_resolve_build_config_include_installed_packages_specific_file(
+    tmp_path: Path,
+) -> None:
+    """Include specific file from installed package should work."""
+    # --- setup ---
+    # Create installed package
+    installed_dir = tmp_path / "site-packages"
+    installed_dir.mkdir()
+    installed_pkg_dir = installed_dir / "external_pkg"
+    installed_pkg_dir.mkdir()
+    (installed_pkg_dir / "__init__.py").write_text("")
+    (installed_pkg_dir / "utils.py").write_text("def helper(): pass")
+
+    # Config with installed_bases
+    raw = make_build_input(
+        include=["external_pkg/utils.py"],
+        installed_bases=[str(installed_dir)],
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    includes = resolved["include"]
+    assert len(includes) == 1
+    inc = includes[0]
+    assert inc["root"] == installed_dir.resolve()
+    assert str(inc["path"]) == "external_pkg/utils.py"
+
+
+def test_resolve_build_config_exclude_installed_packages(
+    tmp_path: Path,
+) -> None:
+    """Exclude mechanism should work with installed packages."""
+    # --- setup ---
+    # Create installed package
+    installed_dir = tmp_path / "site-packages"
+    installed_dir.mkdir()
+    installed_pkg_dir = installed_dir / "external_pkg"
+    installed_pkg_dir.mkdir()
+    (installed_pkg_dir / "__init__.py").write_text("")
+    (installed_pkg_dir / "utils.py").write_text("def helper(): pass")
+    (installed_pkg_dir / "tests.py").write_text("def test(): pass")
+
+    # Config with installed_bases and exclude
+    raw = make_build_input(
+        include=["external_pkg/**"],
+        exclude=["**/tests.py"],
+        installed_bases=[str(installed_dir)],
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    includes = resolved["include"]
+    assert len(includes) == 1
+    inc = includes[0]
+    assert inc["root"] == installed_dir.resolve()
+    assert str(inc["path"]) == "external_pkg/**"
+
+    # Exclude should be present
+    excludes = resolved["exclude"]
+    assert len(excludes) == 1
+    exc = excludes[0]
+    assert exc["root"] == tmp_path.resolve()  # Excludes use config_dir as root
+    assert str(exc["path"]) == "**/tests.py"
+
+
+def test_resolve_build_config_include_multiple_installed_bases(
+    tmp_path: Path,
+) -> None:
+    """Include resolution should check multiple installed_bases in order."""
+    # --- setup ---
+    # Create first installed base (no mypkg)
+    installed_dir1 = tmp_path / "site-packages1"
+    installed_dir1.mkdir()
+
+    # Create second installed base (has mypkg)
+    installed_dir2 = tmp_path / "site-packages2"
+    installed_dir2.mkdir()
+    installed_pkg_dir = installed_dir2 / "mypkg"
+    installed_pkg_dir.mkdir()
+    (installed_pkg_dir / "__init__.py").write_text("")
+    (installed_pkg_dir / "module.py").write_text("def func(): pass")
+
+    # Config with multiple installed_bases
+    raw = make_build_input(
+        include=["mypkg/**"],
+        installed_bases=[str(installed_dir1), str(installed_dir2)],
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Should resolve to second installed_base (first one doesn't have mypkg)
+    includes = resolved["include"]
+    assert len(includes) == 1
+    inc = includes[0]
+    assert inc["root"] == installed_dir2.resolve()
+    assert str(inc["path"]) == "mypkg/**"
+
+
+def test_resolve_build_config_include_priority_source_then_installed_multiple(
+    tmp_path: Path,
+) -> None:
+    """Include resolution should check source_bases first, then installed_bases."""
+    # --- setup ---
+    # Create source_bases (no mypkg)
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+
+    # Create first installed base (no mypkg)
+    installed_dir1 = tmp_path / "site-packages1"
+    installed_dir1.mkdir()
+
+    # Create second installed base (has mypkg)
+    installed_dir2 = tmp_path / "site-packages2"
+    installed_dir2.mkdir()
+    installed_pkg_dir = installed_dir2 / "mypkg"
+    installed_pkg_dir.mkdir()
+    (installed_pkg_dir / "__init__.py").write_text("")
+    (installed_pkg_dir / "module.py").write_text("def func(): pass")
+
+    # Config with source_bases and multiple installed_bases
+    raw = make_build_input(
+        include=["mypkg/**"],
+        source_bases=["src"],
+        installed_bases=[str(installed_dir1), str(installed_dir2)],
+    )
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    # Should resolve to second installed_base (source_bases doesn't have it,
+    # first installed_base doesn't have it, second does)
+    includes = resolved["include"]
+    assert len(includes) == 1
+    inc = includes[0]
+    assert inc["root"] == installed_dir2.resolve()
+    assert str(inc["path"]) == "mypkg/**"

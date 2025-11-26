@@ -59,7 +59,7 @@ def test_resolve_config_aggregates_builds_and_defaults(
     args = _args()
 
     # --- patch and execute ---
-    with module_logger.use_level("info"):
+    with module_logger.useLevel("info"):
         resolved = mod_resolve.resolve_config(root, args, tmp_path, tmp_path)
 
     # --- validate ---
@@ -84,7 +84,7 @@ def test_resolve_config_env_overrides(
     # --- patch and execute ---
     monkeypatch.setenv(mod_mutate_const.DEFAULT_ENV_WATCH_INTERVAL, str(interval))
     monkeypatch.setenv(mod_mutate_const.DEFAULT_ENV_LOG_LEVEL, "debug")
-    with module_logger.use_level("info"):
+    with module_logger.useLevel("info"):
         resolved = mod_resolve.resolve_config(root, args, tmp_path, tmp_path)
 
         # --- validate ---
@@ -120,12 +120,12 @@ def test_resolve_config_propagates_cli_log_level(
     root: mod_types.RootConfig = {"include": ["src/**"], "out": "dist"}
 
     # --- patch and execute ---
-    with module_logger.use_level("info"):
+    with module_logger.useLevel("info"):
         resolved = mod_resolve.resolve_config(root, args, tmp_path, tmp_path)
 
         # --- validate ---
         assert resolved["log_level"].lower() == "trace"
-        level = module_logger.level_name.lower()
+        level = module_logger.levelName.lower()
         assert level.lower() == "trace"
 
 

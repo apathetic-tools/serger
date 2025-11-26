@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import PostProcessingConfigResolved, ToolConfigResolved
-from .logs import get_app_logger
+from .logs import getAppLogger
 from .utils.utils_validation import validate_required_keys
 
 
@@ -39,7 +39,7 @@ def verify_compiles(file_path: Path) -> bool:
     Returns:
         True if file compiles successfully, False otherwise
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     try:
         py_compile.compile(str(file_path), doraise=True)
     except py_compile.PyCompileError as e:
@@ -133,7 +133,7 @@ def execute_post_processing(
     validate_required_keys(
         config, {"enabled", "category_order", "categories"}, "config"
     )
-    logger = get_app_logger()
+    logger = getAppLogger()
 
     if not config["enabled"]:
         logger.debug("Post-processing disabled, skipping")
@@ -232,7 +232,7 @@ def verify_executes(file_path: Path) -> bool:
     Returns:
         True if script executes without immediate errors, False otherwise
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
 
     # Check if file exists first
     if not file_path.exists():
@@ -307,7 +307,7 @@ def _cleanup_error_files(out_path: Path) -> None:  # pyright: ignore[reportUnuse
     Args:
         out_path: Path to the output file (e.g., dist/package.py)
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     pattern = _get_error_file_pattern(out_path)
     error_files = list(out_path.parent.glob(pattern))
     if error_files:
@@ -339,7 +339,7 @@ def _write_error_file(  # pyright: ignore[reportUnusedFunction]
     Returns:
         Path to the written error file
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     now = datetime.now(timezone.utc)
     date_suffix = now.strftime("%Y_%m_%d")
     stem = out_path.stem
@@ -437,7 +437,7 @@ def post_stitch_processing(
         if the file doesn't compile before post-processing (which should never happen
         if in-memory compilation check was performed first).
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.debug("Starting post-stitch processing for %s", out_path)
 
     # Compile before post-processing

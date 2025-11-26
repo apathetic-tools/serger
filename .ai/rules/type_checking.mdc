@@ -19,6 +19,10 @@ alwaysApply: true
 #### Ignore Comments
 - **Placement**: Warning/error ignore comments go at the end of lines and don't count towards line length limits
 - **Examples**: `# type: ignore[error-code]`, `# pyright: ignore[error-code]`, `# noqa: CODE`
+- **Ordering**: When multiple ignore comments are needed on the same line, **mypy `type: ignore` comments must come BEFORE `noqa` comments**
+  - ✅ **Correct**: `from module import item  # type: ignore[import-not-found]  # noqa: PLC0415`
+  - ❌ **Incorrect**: `from module import item  # noqa: PLC0415  # type: ignore[import-not-found]`
+  - This ensures mypy processes the type ignore comment correctly
 
 #### Common Patterns
 - **Unused arguments**: Prefix with `_` (e.g., `_unused_param`) unless signature must match exactly (pytest hooks, interfaces) - then use ignore comments

@@ -96,7 +96,7 @@ def test_resolve_post_processing_warns_invalid_category(
     }
     root_cfg: mod_types.RootConfig | None = None
 
-    with module_logger.use_level("warning"):
+    with module_logger.useLevel("warning"):
         resolved = mod_resolve.resolve_post_processing(build_cfg, root_cfg)
 
     # Should still resolve, but with warning

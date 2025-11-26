@@ -7,6 +7,8 @@ import traceback
 from pathlib import Path
 from typing import Any, cast
 
+from apathetic_logging import getLevelNumber
+
 from apathetic_schema import ValidationSummary
 from apathetic_utils import (
     cast_hint,
@@ -14,7 +16,7 @@ from apathetic_utils import (
     plural,
     remove_path_in_error_message,
 )
-from serger.logs import get_app_logger
+from serger.logs import getAppLogger
 from serger.meta import (
     PROGRAM_CONFIG,
 )
@@ -59,11 +61,14 @@ def find_config(
     Returns the first matching path, or None if no config was found.
     """
     # NOTE: We only have early no-config Log-Level
-    logger = get_app_logger()
+    logger = getAppLogger()
 
-    level = logger.resolve_level_name(missing_level)
-    if level is None:
-        logger.error("Invalid log level name in find_config(): %s", missing_level)
+    try:
+        getLevelNumber(missing_level)
+    except ValueError:
+        logger.error(  # noqa: TRY400
+            "Invalid log level name in find_config(): %s", missing_level
+        )
         missing_level = "error"
 
     # --- 1. Explicit config path ---
@@ -103,7 +108,7 @@ def find_config(
 
     if not found:
         # Expected absence — soft failure (continue)
-        logger.log_dynamic(missing_level, f"No config file found in {cwd} or parents")
+        logger.logDynamic(missing_level, f"No config file found in {cwd} or parents")
         return None
 
     # --- 3. Handle multiple matches at same level (prefer .py > .jsonc > .json) ---
@@ -138,7 +143,7 @@ def load_config(config_path: Path) -> dict[str, Any] | list[Any] | None:
 
     """
     # NOTE: We only have early no-config Log-Level
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.trace(f"[load_config] Loading from {config_path} ({config_path.suffix})")
 
     # --- Python config ---
@@ -232,7 +237,7 @@ def parse_config(
     # NOTE: This function only normalizes shape — it does NOT validate or restrict keys.
     #       Unknown keys are preserved for the validation phase.
 
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.trace(f"[parse_config] Parsing {type(raw_config).__name__}")
 
     # --- Case 1: empty config → None ---
@@ -273,7 +278,7 @@ def _validation_summary(
     config_path: Path,
 ) -> None:
     """Pretty-print a validation summary using the standard log() interface."""
-    logger = get_app_logger()
+    logger = getAppLogger()
     mode = "strict mode" if summary.strict else "lenient mode"
 
     # --- Build concise counts line ---
@@ -334,7 +339,7 @@ def load_and_validate_config(
         if a config file was found and valid, or None if no config was found.
 
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     # warn if cwd doesn't exist, edge case. We might still be able to run
     cwd = Path.cwd().resolve()
     if not cwd.exists():
@@ -361,7 +366,7 @@ def load_and_validate_config(
         raw_log_level = raw_config.get("log_level")
         if isinstance(raw_log_level, str) and raw_log_level:
             logger.setLevel(
-                logger.determine_log_level(args=args, root_log_level=raw_log_level)
+                logger.determineLogLevel(args=args, root_log_level=raw_log_level)
             )
 
     # --- Parse structure into final form without types ---

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from apathetic_utils import has_glob_chars
 from serger.config.config_types import IncludeResolved
-from serger.logs import get_app_logger
+from serger.logs import getAppLogger
 from serger.utils.utils_validation import validate_required_keys
 
 
@@ -40,7 +40,7 @@ def _interpret_dest_for_module_name(  # noqa: PLR0911
     Returns:
         Virtual destination path that should be used for module name derivation
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     dest_path = Path(dest)
     include_root_resolved = Path(include_root).resolve()
     file_path_resolved = file_path.resolve()
@@ -144,6 +144,7 @@ def derive_module_name(  # noqa: PLR0912, PLR0915, C901
     include: IncludeResolved | None = None,
     source_bases: list[str] | None = None,
     user_provided_source_bases: list[str] | None = None,
+    detected_packages: set[str] | None = None,
 ) -> str:
     """Derive module name from file path for shim generation.
 
@@ -158,6 +159,8 @@ def derive_module_name(  # noqa: PLR0912, PLR0915, C901
         source_bases: Optional list of module base directories for external files
         user_provided_source_bases: Optional list of user-provided module bases
             (from config, excludes auto-discovered package directories)
+        detected_packages: Optional set of detected package names for preserving
+            package structure when module_base is a detected package
 
     Returns:
         Derived module name (e.g., "core.base" from "src/core/base.py")
@@ -165,7 +168,7 @@ def derive_module_name(  # noqa: PLR0912, PLR0915, C901
     Raises:
         ValueError: If module name would be empty or invalid
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     file_path_resolved = file_path.resolve()
     package_root_resolved = package_root.resolve()
 
@@ -260,20 +263,63 @@ def derive_module_name(  # noqa: PLR0912, PLR0915, C901
                 # Check if module_base is more specific (deeper) than package_root
                 try:
                     module_base.relative_to(package_root_resolved)
-                    # module_base is under package_root - check if it's deeper
-                    package_root_parts = len(package_root_resolved.parts)
-                    module_base_parts = len(module_base.parts)
-                    # Only use module_base if it's strictly deeper (more specific)
-                    if module_base_parts > package_root_parts:
-                        # module_base is deeper, use it
+                    # module_base is under package_root
+                    # For files from installed_bases or external sources, prefer
+                    # module_base even if not deeper (to get correct module names)
+                    # Check if file is actually under this module_base
+                    try:
+                        file_path_resolved.relative_to(module_base)
+                        # File is under module_base - use it for correct module name
                         rel_path = module_base_rel
-                        logger.trace(
-                            f"[DERIVE] file={file_path} under both root={package_root} "
-                            f"and module_base={module_base}, using module_base "
-                            f"(more specific: {module_base_parts} > "
-                            f"{package_root_parts})",
-                        )
+                        # If module_base.name is a detected package AND it's not the
+                        # package_root name, prepend it to preserve package structure
+                        # (e.g., pkg1/sub/mod1.py -> pkg1.sub.mod1)
+                        # But don't prepend if:
+                        # 1. module_base is the package_root itself (double prefix)
+                        # 2. module_base.name is a common directory name
+                        #    (src, lib, site-packages)
+                        # 3. The relative path already starts with module_base.name
+                        should_prepend = False
+                        if (
+                            detected_packages
+                            and module_base.name in detected_packages
+                            and module_base.name != package_root_resolved.name
+                        ):
+                            # Don't prepend common directory names
+                            common_dirs = {
+                                "src",
+                                "lib",
+                                "site-packages",
+                                "dist-packages",
+                            }
+                            if module_base.name not in common_dirs:
+                                # Check if rel_path already starts with module_base.name
+                                # (avoid double prefix like pkg1.pkg1.sub.mod1)
+                                rel_parts = list(rel_path.parts)
+                                if rel_parts:
+                                    first_part = rel_parts[0]
+                                    # Only prepend if first part is not module_base.name
+                                    if first_part != module_base.name:
+                                        should_prepend = True
+                        if should_prepend:
+                            # Prepend module_base.name to preserve package structure
+                            rel_path = Path(module_base.name) / rel_path
+                            logger.trace(
+                                f"[DERIVE] file={file_path} under both "
+                                f"root={package_root} and module_base={module_base}, "
+                                f"using module_base (file is under module_base, "
+                                f"prepending package {module_base.name})",
+                            )
+                        else:
+                            logger.trace(
+                                f"[DERIVE] file={file_path} under both "
+                                f"root={package_root} and module_base={module_base}, "
+                                f"using module_base (file is under module_base)",
+                            )
                         break
+                    except ValueError:
+                        # File is not under this module_base, continue
+                        pass
                     # module_base is at same level or higher, don't use it
                     # (preserve original behavior for files under package_root)
                 except ValueError:

@@ -217,10 +217,10 @@ python3 serger.py --add-exclude "**/*_backup.py"
 """Custom build script."""
 
 from pathlib import Path
-from serger import run_build, resolve_config, get_app_logger
+from serger import run_build, resolve_config, getAppLogger
 
 def main():
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.info("Starting build...")
     
     # Resolve config

@@ -58,6 +58,7 @@ def make_build_cfg(  # noqa: PLR0913
     respect_gitignore: bool = True,
     log_level: str = "info",
     dry_run: bool = False,
+    validate_config: bool = False,
     out: mod_types.PathResolved | None = None,
     stitch_mode: mod_types.StitchMode = "raw",
     module_mode: mod_types.ModuleMode = "multi",
@@ -72,10 +73,18 @@ def make_build_cfg(  # noqa: PLR0913
     watch_interval: float = 1.0,
     module_actions: list[mod_types.ModuleActionFull] | None = None,
     source_bases: list[str] | None = None,
+    installed_bases: list[str] | None = None,
+    auto_discover_installed_packages: bool = True,
+    include_installed_dependencies: bool = False,
     main_mode: mod_types.MainMode = "auto",
     main_name: str | None = None,
     version: str | None = None,
     license_text: str = mod_constants.DEFAULT_LICENSE_FALLBACK,
+    disable_build_timestamp: bool = False,
+    display_name: str | None = None,
+    description: str | None = None,
+    authors: str | None = None,
+    repo: str | None = None,
     custom_header: str | None = None,
     file_docstring: str | None = None,
 ) -> mod_types.RootConfigResolved:
@@ -94,6 +103,7 @@ def make_build_cfg(  # noqa: PLR0913
         "respect_gitignore": respect_gitignore,
         "log_level": log_level,
         "dry_run": dry_run,
+        "validate_config": validate_config,
         "strict_config": False,
         "watch_interval": watch_interval,
         "stitch_mode": stitch_mode,
@@ -110,9 +120,13 @@ def make_build_cfg(  # noqa: PLR0913
         "source_bases": (
             source_bases if source_bases is not None else ["src", "lib", "packages"]
         ),
+        "installed_bases": installed_bases if installed_bases is not None else [],
+        "auto_discover_installed_packages": auto_discover_installed_packages,
+        "include_installed_dependencies": include_installed_dependencies,
         "main_mode": main_mode,
         "main_name": main_name,
         "license": license_text,
+        "disable_build_timestamp": disable_build_timestamp,
     }
     if package is not None:
         cfg["package"] = package
@@ -120,6 +134,14 @@ def make_build_cfg(  # noqa: PLR0913
         cfg["order"] = order
     if version is not None:
         cfg["version"] = version
+    if display_name is not None:
+        cfg["display_name"] = display_name
+    if description is not None:
+        cfg["description"] = description
+    if authors is not None:
+        cfg["authors"] = authors
+    if repo is not None:
+        cfg["repo"] = repo
     if custom_header is not None:
         cfg["custom_header"] = custom_header
     if file_docstring is not None:

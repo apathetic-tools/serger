@@ -45,7 +45,7 @@ from .constants import (
     DEFAULT_SHIM,
     DEFAULT_STITCH_MODE,
 )
-from .logs import get_app_logger
+from .logs import getAppLogger
 from .main_config import (
     MainBlock,
     detect_collisions,
@@ -105,7 +105,7 @@ def extract_commit(root_path: Path) -> str:  # noqa: PLR0915
     Returns:
         Short commit hash, or "unknown (local build)" if not in CI
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     # Comprehensive logging for troubleshooting
     in_ci = is_ci()
     ci_env = os.getenv("CI")
@@ -349,7 +349,7 @@ def split_imports(  # noqa: C901, PLR0912, PLR0915
         list of import statement strings (empty for "keep" mode), and body_text
         is the source with imports removed according to the mode
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     try:
         tree = ast.parse(text)
     except SyntaxError:
@@ -978,7 +978,7 @@ def process_docstrings(text: str, mode: DocstringMode) -> str:  # noqa: C901, PL
     Returns:
         Source code with docstrings processed according to mode
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
 
     # Handle simple string modes
     if isinstance(mode, str):
@@ -1512,7 +1512,7 @@ def compute_module_order(  # noqa: C901, PLR0912
     Raises:
         RuntimeError: If circular imports are detected
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     # Map file paths to derived module names
     file_to_module: dict[Path, str] = {}
     module_to_file: dict[str, Path] = {}
@@ -1524,6 +1524,7 @@ def compute_module_order(  # noqa: C901, PLR0912
             include,
             source_bases=source_bases,
             user_provided_source_bases=user_provided_source_bases,
+            detected_packages=detected_packages,
         )
         file_to_module[file_path] = module_name
         module_to_file[module_name] = file_path
@@ -1624,6 +1625,27 @@ def compute_module_order(  # noqa: C901, PLR0912
                         ) or dep_module.startswith(prefix_tuple)
                         if matches and dep_module != module_name:
                             deps[module_name].add(dep_module)
+                else:
+                    # mod == matched_package
+                    # (e.g., "from apathetic_logging import Logger")
+                    # This is a package-level import, so depend on package.__init__
+                    # (package-level imports need package.__init__ loaded first)
+                    # Sort for deterministic iteration order
+                    for dep_module in sorted(deps.keys()):
+                        # Match if dep_module equals the package or starts with
+                        # package + "." This ensures package-level imports depend
+                        # on package.__init__
+                        if (
+                            dep_module == matched_package
+                            or dep_module.startswith(matched_package + ".")
+                        ) and dep_module != module_name:
+                            logger.trace(
+                                "[DEPS] Package-level import: %s -> %s (from %s)",
+                                module_name,
+                                dep_module,
+                                mod,
+                            )
+                            deps[module_name].add(dep_module)
 
     # detect circular imports first
     try:
@@ -1664,7 +1686,7 @@ def suggest_order_mismatch(
         user_provided_source_bases: Optional list of user-provided module bases
             (from config, excludes auto-discovered package directories)
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     if topo_paths is None:
         topo_paths = compute_module_order(
             order_paths,
@@ -1692,6 +1714,7 @@ def suggest_order_mismatch(
                 include,
                 source_bases=source_bases,
                 user_provided_source_bases=user_provided_source_bases,
+                detected_packages=detected_packages,
             )
             logger.warning("  - %s appears before one of its dependencies", module_name)
         topo_modules = [
@@ -1701,6 +1724,7 @@ def suggest_order_mismatch(
                 file_to_include.get(p),
                 source_bases=source_bases,
                 user_provided_source_bases=user_provided_source_bases,
+                detected_packages=detected_packages,
             )
             for p in topo_paths
         ]
@@ -1961,7 +1985,7 @@ def _find_package_root_for_file(
     Returns:
         Path to the package root directory, or None if not found
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     file_path_resolved = file_path.resolve()
     current_dir = file_path_resolved.parent
     last_package_dir: Path | None = None
@@ -2041,7 +2065,7 @@ def _find_package_root_for_file(
     return last_package_dir
 
 
-def detect_packages_from_files(
+def detect_packages_from_files(  # noqa: PLR0912, C901, PLR0915
     file_paths: list[Path],
     package_name: str,
     *,
@@ -2066,7 +2090,7 @@ def detect_packages_from_files(
         Package names always includes package_name. Parent directories are
         returned as absolute paths, deduplicated.
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     detected: set[str] = set()
     parent_dirs: list[Path] = []
     seen_parents: set[Path] = set()
@@ -2094,6 +2118,80 @@ def detect_packages_from_files(
                 pkg_root,
                 parent_dir,
             )
+
+    # Also detect directories in source_bases as packages if they contain
+    # subdirectories that are packages (namespace packages)
+    # This must happen BEFORE adding package_name to detected, so we can check
+    # if base_name == package_name correctly
+    # Compute common root of all files to avoid detecting it as a package
+    common_root: Path | None = None
+    if file_paths:
+        common_root = file_paths[0].parent
+        for file_path in file_paths[1:]:
+            # Find common prefix of paths
+            common_parts = [
+                p
+                for p, q in zip(common_root.parts, file_path.parent.parts, strict=False)
+                if p == q
+            ]
+            if common_parts:
+                common_root = Path(*common_parts)
+            else:
+                # No common root, use first file's parent
+                common_root = file_paths[0].parent
+                break
+    if source_bases:
+        for base_str in source_bases:
+            base_path = Path(base_str).resolve()
+            if not base_path.exists() or not base_path.is_dir():
+                continue
+            # Check if this base contains any detected packages as direct children
+            base_name = base_path.name
+            # Skip if base is filesystem root, empty name, already detected,
+            # is package_name, or is the common root of all files
+            if (
+                not base_name
+                or base_name in detected
+                or base_name == package_name
+                or base_path == base_path.parent  # filesystem root
+                or (common_root and base_path == common_root.resolve())
+            ):
+                logger.trace(
+                    "[PKG_DETECT] Skipping base %s: name=%s, in_detected=%s, "
+                    "is_package_name=%s, is_common_root=%s",
+                    base_path,
+                    base_name,
+                    base_name in detected,
+                    base_name == package_name,
+                    common_root and base_path == common_root.resolve(),
+                )
+                continue
+            # Check if any detected package has this base as its parent
+            for file_path in file_paths:
+                pkg_root = _find_package_root_for_file(
+                    file_path, source_bases=source_bases
+                )
+                if pkg_root:
+                    pkg_parent = pkg_root.parent.resolve()
+                    logger.trace(
+                        "[PKG_DETECT] Checking base: %s (base_path=%s), "
+                        "pkg_root=%s, pkg_parent=%s, match=%s",
+                        base_name,
+                        base_path,
+                        pkg_root,
+                        pkg_parent,
+                        pkg_parent == base_path,
+                    )
+                    if pkg_parent == base_path:
+                        # This base contains a detected package, so it's also a package
+                        detected.add(base_name)
+                        logger.trace(
+                            "[PKG_DETECT] Detected base directory as package: %s "
+                            "(contains package: %s)",
+                            base_name,
+                            pkg_root.name,
+                        )
+                        break
 
     # Always include configured package (for fallback and multi-package scenarios)
     detected.add(package_name)
@@ -2159,7 +2257,7 @@ def force_mtime_advance(path: Path, seconds: float = 1.0, max_tries: int = 50) -
     raise AssertionError(xmsg)
 
 
-def _collect_modules(  # noqa: PLR0912, PLR0915
+def _collect_modules(  # noqa: PLR0912, PLR0915, C901
     file_paths: list[Path],
     package_root: Path,
     _package_name: str,
@@ -2191,7 +2289,7 @@ def _collect_modules(  # noqa: PLR0912, PLR0915
     Returns:
         Tuple of (module_sources, all_imports, parts, derived_module_names)
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     all_imports: OrderedDict[str, None] = OrderedDict()
     module_sources: dict[str, str] = {}
     parts: list[str] = []
@@ -2251,37 +2349,74 @@ def _collect_modules(  # noqa: PLR0912, PLR0915
 
         # Derive module name from file path
         include = file_to_include.get(file_path)
+        # Debug: log source_bases for external files
+        if "site-packages" in str(file_path) or "dist-packages" in str(file_path):
+            logger.trace(
+                f"[COLLECT] Deriving module name for external file: {file_path}, "
+                f"source_bases={source_bases}, "
+                f"user_provided_source_bases={user_provided_source_bases}",
+            )
         module_name = derive_module_name(
             file_path,
             package_root,
             include,
             source_bases=source_bases,
             user_provided_source_bases=user_provided_source_bases,
+            detected_packages=detected_packages,
         )
 
-        # If package_root is a package directory, preserve package structure
-        if is_package_dir and package_name_from_root:
-            # Handle __init__.py special case: represents the package itself
-            if file_path.name == "__init__.py" and file_path.parent == package_root:
-                # Use package name as the module name (represents the package)
-                module_name = package_name_from_root
-            else:
-                # Prepend package name to preserve structure
-                # e.g., "core" -> "oldpkg.core"
-                module_name = f"{package_name_from_root}.{module_name}"
-        # If package name is provided but package_root.name doesn't match,
-        # still prepend package name to ensure correct module structure
-        # (e.g., files in src/ but package is testpkg -> testpkg.utils)
-        # Only do this if package_root is a common project subdirectory
-        # (like src, lib, app) AND files have imports that reference the package
-        elif (
-            package_root.name != _package_name
-            and not module_name.startswith(f"{_package_name}.")
-            and has_package_imports
-            and module_name != _package_name
-        ):
-            # Prepend package name to module name
-            module_name = f"{_package_name}.{module_name}"
+        # Check if file is from an installed package (site-packages or dist-packages)
+        # AND the module name already starts with a detected package that's not the
+        # main package. In this case, the module name is already correct and should
+        # not have the main package name prepended.
+        # However, if the module name doesn't start with a detected package, we
+        # should still prepend the main package name (e.g., stitching testpkg into
+        # app package should create app.testpkg, not just testpkg).
+        file_path_str = str(file_path)
+        is_installed_package = (
+            "site-packages" in file_path_str or "dist-packages" in file_path_str
+        )
+        is_external_package = False
+        if is_installed_package:
+            # Check if module name already starts with a detected package that's
+            # not the main package (indicates it's already correctly structured)
+            for pkg in sorted(detected_packages):
+                if pkg != _package_name and (
+                    module_name == pkg or module_name.startswith(f"{pkg}.")
+                ):
+                    is_external_package = True
+                    logger.trace(
+                        f"[COLLECT] Skipping package name prepending for installed "
+                        f"package: module={module_name}, detected_pkg={pkg}, "
+                        f"main_pkg={_package_name}",
+                    )
+                    break
+
+        # Only apply package name prepending logic for files from the main package
+        if not is_external_package:
+            # If package_root is a package directory, preserve package structure
+            if is_package_dir and package_name_from_root:
+                # Handle __init__.py special case: represents the package itself
+                if file_path.name == "__init__.py" and file_path.parent == package_root:
+                    # Use package name as the module name (represents the package)
+                    module_name = package_name_from_root
+                else:
+                    # Prepend package name to preserve structure
+                    # e.g., "core" -> "oldpkg.core"
+                    module_name = f"{package_name_from_root}.{module_name}"
+            # If package name is provided but package_root.name doesn't match,
+            # still prepend package name to ensure correct module structure
+            # (e.g., files in src/ but package is testpkg -> testpkg.utils)
+            # Only do this if package_root is a common project subdirectory
+            # (like src, lib, app) AND files have imports that reference the package
+            elif (
+                package_root.name != _package_name
+                and not module_name.startswith(f"{_package_name}.")
+                and has_package_imports
+                and module_name != _package_name
+            ):
+                # Prepend package name to module name
+                module_name = f"{_package_name}.{module_name}"
 
         derived_module_names.append(module_name)
 
@@ -2442,6 +2577,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     selected_main_block: MainBlock | None = None,
     main_function_result: tuple[str, Path, str] | None = None,
     module_sources: dict[str, str] | None = None,
+    source_bases: list[str] | None = None,
 ) -> tuple[str, list[str]]:
     """Build the final stitched script.
 
@@ -2471,11 +2607,13 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         description: Optional description for header
         authors: Optional authors for header
         repo: Optional repository URL for header
+        source_bases: Optional list of source base directories for module name
+            derivation and package detection
 
     Returns:
         Final script text
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.debug("Building final script...")
 
     # Separate __future__ imports
@@ -2634,16 +2772,29 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         # package_name
         all_actions: list[ModuleActionFull] = []
         if module_mode and module_mode not in ("none", "multi"):
+            logger.trace(
+                "[SHIM_GEN] Generating actions: module_mode=%s, "
+                "shim_names_raw=%s, order_names=%s",
+                module_mode,
+                shim_names_raw[:5] if shim_names_raw else None,
+                order_names[:5] if order_names else None,
+            )
             auto_actions = generate_actions_from_mode(
                 module_mode,
                 detected_packages,
                 package_name,
                 module_names=shim_names_raw,
+                source_bases=source_bases,
             )
             # Apply defaults to mode-generated actions (scope: "original" set here)
             normalized_actions = [
                 set_mode_generated_action_defaults(action) for action in auto_actions
             ]
+            logger.trace(
+                "[SHIM_GEN] Generated %d actions: %s",
+                len(normalized_actions),
+                [f"{a.get('source')} -> {a.get('dest')}" for a in normalized_actions],
+            )
             all_actions.extend(normalized_actions)
 
         # Add user-specified module_actions from RootConfigResolved
@@ -2672,6 +2823,11 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         # Apply scope: "original" actions to original module names (before prepending)
         transformed_names = shim_names_raw
         if original_scope_actions:
+            logger.trace(
+                "[SHIM_GEN] Applying %d original-scope actions to: %s",
+                len(original_scope_actions),
+                shim_names_raw[:5] if shim_names_raw else None,
+            )
             # Build available_modules set for validation
             available_modules_for_validation = set(shim_names_raw)
             # Add all action sources to available_modules since mode-generated
@@ -3629,7 +3785,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     # If main_mode == "none", don't add any __main__ block
 
     # Log commit value being written to script (for CI debugging)
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.info(
         "_build_final_script: Writing commit to script: %s (version=%s, build_date=%s)",
         commit,
@@ -3746,7 +3902,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
                 to overwrite a non-serger file (is_serger_build=False)
         AssertionError: If mtime advancing fails
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
 
     # Bail out early if attempting to overwrite a non-serger file
     # (primary check is in run_build, this is defensive for direct calls)
@@ -3950,6 +4106,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
                 include,
                 source_bases=source_bases,
                 user_provided_source_bases=user_provided_source_bases,
+                detected_packages=detected_packages,
             )
 
             # If package_root is a package directory, preserve package structure
@@ -4244,6 +4401,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
         selected_main_block=selected_main_block,
         main_function_result=main_function_result,
         module_sources=module_sources,
+        source_bases=source_bases,
     )
 
     # --- Verification ---

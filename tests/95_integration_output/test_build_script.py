@@ -60,7 +60,14 @@ def test_build_script_respects_ci_env(
         env=env,
         cwd=PROJ_ROOT,
     )
-    assert not proc.stderr.strip(), f"Bundler stderr not empty: {proc.stderr}"
+    # Filter out expected warnings about files outside project directory
+    # (these occur when stitching installed packages like apathetic_logging)
+    stderr_lines = [
+        line
+        for line in proc.stderr.strip().split("\n")
+        if line and "Including file outside project directory" not in line
+    ]
+    assert not stderr_lines, f"Bundler stderr not empty: {proc.stderr}"
 
     # Confirm the bundle was created
     assert tmp_script.exists(), "Expected temporary script to be generated"

@@ -216,15 +216,15 @@ from serger import (
 
 ## Logging
 
-### `get_app_logger() -> AppLogger`
+### `getAppLogger() -> AppLogger`
 
 Get the application logger instance.
 
 **Example:**
 ```python
-from serger import get_app_logger
+from serger import getAppLogger
 
-logger = get_app_logger()
+logger = getAppLogger()
 logger.info("Building...")
 logger.debug("Debug information")
 ```
@@ -253,12 +253,12 @@ from serger import (
     run_build,
     resolve_config,
     get_metadata,
-    get_app_logger,
+    getAppLogger,
 )
 
 def custom_build():
     """Run a custom build with additional logic."""
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.info("Starting custom build...")
     
     # Get metadata

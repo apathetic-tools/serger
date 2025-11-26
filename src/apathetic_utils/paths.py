@@ -4,7 +4,7 @@
 import re
 from pathlib import Path
 
-from apathetic_logs.logs import get_logger
+from apathetic_logging import getLogger
 
 
 def normalize_path_string(raw: str) -> str:
@@ -21,7 +21,7 @@ def normalize_path_string(raw: str) -> str:
     Git, Node.js, and Python build tools.
     This function is purely lexical — it normalizes syntax, not filesystem state.
     """
-    logger = get_logger()
+    logger = getLogger()
     if not raw:
         return ""
 

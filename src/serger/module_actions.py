@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from serger.logs import get_app_logger
+from serger.logs import getAppLogger
 from serger.utils.utils_modules import derive_module_name
 
 
@@ -33,7 +33,7 @@ def extract_module_name_from_source_path(
     Raises:
         ValueError: If module name doesn't match expected_source or file is invalid
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
 
     # Validate file exists
     if not source_path.exists():
@@ -884,12 +884,13 @@ def apply_module_actions(
     return result
 
 
-def _generate_force_actions(  # noqa: PLR0912
+def _generate_force_actions(  # noqa: PLR0912, C901
     detected_packages: set[str],
     package_name: str,
     mode: "ModuleActionMode",
     *,
     module_names: list[str] | None = None,
+    source_bases: list[str] | None = None,
 ) -> list["ModuleActionFull"]:
     """Generate actions for force/force_flat modes.
 
@@ -903,6 +904,8 @@ def _generate_force_actions(  # noqa: PLR0912
         mode: "preserve" or "flatten"
         module_names: Optional list of module names (required for flatten mode
             to identify all first components that need flattening)
+        source_bases: Optional list of source base directories for detecting
+            nested packages
 
     Returns:
         List of actions for packages/modules to transform
@@ -937,6 +940,15 @@ def _generate_force_actions(  # noqa: PLR0912
         root_packages = {pkg for pkg in detected_packages if "." not in pkg}
         # Filter to only top-level root packages (not nested under other packages)
         top_level_packages: set[str] = set()
+        logger = getAppLogger()
+        logger.trace(
+            "[FORCE_ACTIONS] preserve mode: detected_packages=%s, "
+            "root_packages=%s, source_bases=%s, module_names=%s",
+            sorted(detected_packages),
+            sorted(root_packages),
+            source_bases,
+            module_names[:5] if module_names else None,  # First 5 for brevity
+        )
         for pkg in root_packages:
             if pkg == package_name:
                 continue
@@ -946,15 +958,85 @@ def _generate_force_actions(  # noqa: PLR0912
                 # Check if pkg is nested under other_pkg
                 # e.g., if other_pkg="pkg1" and pkg="sub", check if "pkg1.sub"
                 # exists
-                if other_pkg not in (pkg, package_name) and (
-                    f"{other_pkg}.{pkg}" in detected_packages
-                    or any(
+                if other_pkg not in (pkg, package_name):
+                    # Check if "other_pkg.pkg" is in detected_packages
+                    if f"{other_pkg}.{pkg}" in detected_packages:
+                        is_nested = True
+                        break
+                    # Check if any module name starts with "other_pkg.pkg."
+                    if any(
                         mod.startswith(f"{other_pkg}.{pkg}.")
                         for mod in detected_packages
-                    )
-                ):
-                    is_nested = True
-                    break
+                    ):
+                        is_nested = True
+                        break
+                    # Check if other_pkg is in source_bases and pkg appears in
+                    # module_names, suggesting pkg is nested under other_pkg
+                    # This handles cases where pkg1 is in source_bases and contains
+                    # sub, but module names are "sub.mod1" not "pkg1.sub.mod1"
+                    if source_bases and module_names:
+                        # Check if other_pkg appears as a directory name in source_bases
+                        other_pkg_in_bases = any(
+                            Path(base).name == other_pkg
+                            or base.endswith((f"/{other_pkg}", f"\\{other_pkg}"))
+                            for base in source_bases
+                        )
+                        if other_pkg_in_bases:
+                            # Check if pkg appears in module_names as a component
+                            # under other_pkg (e.g., other_pkg.pkg.X or other_pkg.pkg)
+                            # This indicates pkg is nested under other_pkg
+                            pkg_nested_under_other = any(
+                                mod_name.startswith(f"{other_pkg}.{pkg}.")
+                                or mod_name == f"{other_pkg}.{pkg}"
+                                for mod_name in module_names
+                            )
+                            if pkg_nested_under_other:
+                                # other_pkg is in source_bases and pkg appears nested
+                                # under other_pkg in module_names
+                                logger.trace(
+                                    "[FORCE_ACTIONS] Detected %s as nested under %s "
+                                    "(found %s.%s in module_names)",
+                                    pkg,
+                                    other_pkg,
+                                    other_pkg,
+                                    pkg,
+                                )
+                                is_nested = True
+                                break
+                            # Also check if pkg appears as standalone in module_names
+                            # AND other_pkg is a parent directory in source_bases
+                            # (this handles cases where module names are "pkg.X" not
+                            # "other_pkg.pkg.X" because derive_module_name used
+                            # other_pkg as module_base)
+                            # BUT: Only if other_pkg doesn't also appear standalone
+                            # (to avoid false positives when both are top-level)
+                            pkg_standalone_in_names = any(
+                                mod_name == pkg or mod_name.startswith(f"{pkg}.")
+                                for mod_name in module_names
+                            )
+                            other_pkg_standalone_in_names = any(
+                                mod_name == other_pkg
+                                or mod_name.startswith(f"{other_pkg}.")
+                                for mod_name in module_names
+                            )
+                            # Only consider pkg nested if:
+                            # 1. pkg appears standalone in module_names
+                            # 2. other_pkg is in source_bases
+                            # 3. other_pkg does NOT also appear standalone
+                            #    (if both appear standalone, they're siblings)
+                            if (
+                                pkg_standalone_in_names
+                                and not other_pkg_standalone_in_names
+                            ):
+                                logger.trace(
+                                    "[FORCE_ACTIONS] Detected %s as nested under %s "
+                                    "(other_pkg in source_bases, pkg standalone "
+                                    "but other_pkg isn't)",
+                                    pkg,
+                                    other_pkg,
+                                )
+                                is_nested = True
+                                break
             if not is_nested:
                 top_level_packages.add(pkg)
 
@@ -1000,6 +1082,7 @@ def generate_actions_from_mode(
     package_name: str,
     *,
     module_names: list[str] | None = None,
+    source_bases: list[str] | None = None,
 ) -> list["ModuleActionFull"]:
     """Generate module_actions equivalent to a module_mode.
 
@@ -1015,6 +1098,8 @@ def generate_actions_from_mode(
         package_name: Target package name (excluded from actions)
         module_names: Optional list of module names (required for flatten mode
             to identify all first components that need flattening)
+        source_bases: Optional list of source base directories for detecting
+            nested packages
 
     Returns:
         List of actions equivalent to the mode
@@ -1023,11 +1108,21 @@ def generate_actions_from_mode(
         ValueError: For invalid mode values
     """
     if module_mode == "force":
-        return _generate_force_actions(detected_packages, package_name, "preserve")
+        return _generate_force_actions(
+            detected_packages,
+            package_name,
+            "preserve",
+            module_names=module_names,
+            source_bases=source_bases,
+        )
 
     if module_mode == "force_flat":
         return _generate_force_actions(
-            detected_packages, package_name, "flatten", module_names=module_names
+            detected_packages,
+            package_name,
+            "flatten",
+            module_names=module_names,
+            source_bases=source_bases,
         )
 
     if module_mode in ("unify", "unify_preserve"):
@@ -1191,7 +1286,7 @@ def apply_cleanup_behavior(
     Raises:
         ValueError: If cleanup: "error" and mismatches exist
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     warnings: list[str] = []
     shims_to_remove: set[str] = set()
 

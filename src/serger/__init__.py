@@ -44,7 +44,7 @@ from .constants import (
     DEFAULT_STRICT_CONFIG,
     DEFAULT_WATCH_INTERVAL,
 )
-from .logs import get_app_logger
+from .logs import getAppLogger
 from .meta import (
     PROGRAM_CONFIG,
     PROGRAM_DISPLAY,
@@ -94,7 +94,7 @@ __all__ = [  # noqa: RUF022
     "DEFAULT_STRICT_CONFIG",
     "DEFAULT_WATCH_INTERVAL",
     # logs
-    "get_app_logger",
+    "getAppLogger",
     # meta
     "Metadata",
     "PROGRAM_CONFIG",

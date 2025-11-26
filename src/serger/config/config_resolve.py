@@ -32,10 +32,11 @@ from serger.constants import (
     DEFAULT_USE_PYPROJECT_METADATA,
     DEFAULT_WATCH_INTERVAL,
 )
-from serger.logs import get_app_logger
+from serger.logs import getAppLogger
 from serger.meta import PROGRAM_ENV
 from serger.module_actions import extract_module_name_from_source_path
 from serger.utils import (
+    discover_installed_packages_roots,
     make_includeresolved,
     make_pathresolved,
     shorten_paths_for_display,
@@ -133,7 +134,7 @@ def _resolve_single_license_pattern(
     Returns:
         List of resolved file paths (empty if no matches)
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     if Path(pattern_str).is_absolute():
         # Absolute path - use as-is but resolve
         pattern_path = Path(pattern_str).resolve()
@@ -165,7 +166,7 @@ def _check_duplicate_license_files(
     Args:
         pattern_to_files: Mapping of patterns to their matched files
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     # Build reverse mapping: file -> patterns that matched it
     file_to_patterns: dict[Path, list[str]] = {}
     for pattern_str, files in pattern_to_files.items():
@@ -198,7 +199,7 @@ def _read_license_files(matched_files: set[Path]) -> list[str]:
     Returns:
         List of file contents (empty strings for failed reads)
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     text_parts: list[str] = []
     for file_path in sorted(matched_files):
         try:
@@ -230,7 +231,7 @@ def _handle_missing_license_patterns(
     Returns:
         List of warning messages for missing patterns
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     missing_patterns = [
         pattern_str
         for pattern_str in patterns
@@ -1023,7 +1024,7 @@ def _apply_metadata_fields(
             configless builds). Controls whether description, authors, and
             license are applied.
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
 
     # Apply fields from pyproject.toml
     # Version is resolved immediately (user -> pyproject) rather than storing
@@ -1103,7 +1104,7 @@ def _apply_pyproject_metadata(
         root_cfg: Root config (may be None)
         config_dir: Config directory for path resolution
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
 
     # Try to find pyproject.toml
     pyproject_path = _resolve_pyproject_path(build_cfg, root_cfg, config_dir)
@@ -1283,7 +1284,7 @@ def resolve_post_processing(  # noqa: PLR0912
     Returns:
         Resolved post-processing configuration
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
 
     # Extract configs
     build_post = build_cfg.get("post_processing")
@@ -1438,9 +1439,85 @@ def _parse_include_with_dest(
     return inc, has_dest
 
 
+def _try_resolve_path_in_bases(
+    raw: Path | str,
+    source_bases: list[str] | None = None,
+    installed_bases: list[str] | None = None,
+) -> tuple[Path, Path | str] | None:
+    """Try to resolve a relative path in source_bases or installed_bases.
+
+    Checks if a relative path exists in the provided bases (source_bases first,
+    then installed_bases as fallback). Returns the resolved root and relative
+    path if found, None otherwise.
+
+    For glob patterns (e.g., "mypkg/**"), extracts the base path (e.g., "mypkg")
+    and checks if that exists in the bases.
+
+    Args:
+        raw: Relative path to resolve
+        source_bases: Optional list of source base directories (absolute paths)
+        installed_bases: Optional list of installed base directories
+            (absolute paths)
+
+    Returns:
+        Tuple of (root, rel) if path found in bases, None otherwise
+    """
+    logger = getAppLogger()
+    raw_str = str(raw)
+
+    # For glob patterns, extract the base path (part before glob)
+    if has_glob_chars(raw_str):
+        # Extract base path before first glob character
+        glob_chars = ["*", "?", "[", "{"]
+        glob_pos = min(
+            (raw_str.find(c) for c in glob_chars if c in raw_str),
+            default=len(raw_str),
+        )
+        # Find the last / before the glob (or use entire path if no /)
+        path_before_glob = raw_str[:glob_pos]
+        last_slash = path_before_glob.rfind("/")
+        if last_slash >= 0:
+            base_path_str = path_before_glob[:last_slash]
+        else:
+            # No slash found, entire path before glob is the base
+            base_path_str = path_before_glob
+    else:
+        # No glob, use entire path as base
+        base_path_str = raw_str
+
+    # Try source_bases first (higher priority)
+    if source_bases:
+        for base_str in source_bases:
+            base_path = Path(base_str).resolve()
+            candidate_path = base_path / base_path_str
+            if candidate_path.exists():
+                logger.trace(
+                    f"Found path in source_bases: {raw_str!r} "
+                    f"(base: {base_path_str!r}) in {base_str}"
+                )
+                return base_path, raw_str
+
+    # Try installed_bases as fallback
+    if installed_bases:
+        for base_str in installed_bases:
+            base_path = Path(base_str).resolve()
+            candidate_path = base_path / base_path_str
+            if candidate_path.exists():
+                logger.trace(
+                    f"Found path in installed_bases: {raw_str!r} "
+                    f"(base: {base_path_str!r}) in {base_str}"
+                )
+                return base_path, raw_str
+
+    return None
+
+
 def _normalize_path_with_root(
     raw: Path | str,
     context_root: Path | str,
+    *,
+    source_bases: list[str] | None = None,
+    installed_bases: list[str] | None = None,
 ) -> tuple[Path, Path | str]:
     """Normalize a user-provided path (from CLI or config).
 
@@ -1448,9 +1525,19 @@ def _normalize_path_with_root(
       * `/abs/path/**` → root=/abs/path, rel="**"
       * `/abs/path/`   → root=/abs/path, rel="**"  (treat as contents)
       * `/abs/path`    → root=/abs/path, rel="."   (treat as literal)
-    - If relative → root = context_root, path = raw (preserve string form)
+    - If relative → try context_root first, then source_bases, then installed_bases
+      * If found in bases, use that base as root
+      * Otherwise, use context_root as root
+
+    Args:
+        raw: Path to normalize
+        context_root: Default context root (config_dir or cwd)
+        source_bases: Optional list of source base directories
+            (for fallback lookup)
+        installed_bases: Optional list of installed base directories
+            (for fallback lookup)
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     raw_path = Path(raw)
     rel: Path | str
 
@@ -1486,9 +1573,20 @@ def _normalize_path_with_root(
             root = raw_path.resolve()
             rel = "."
     else:
-        root = Path(context_root).resolve()
-        # preserve literal string if user provided one
-        rel = raw if isinstance(raw, str) else Path(raw)
+        # --- relative path case ---
+        # Try to resolve in bases first (source_bases > installed_bases)
+        resolved = _try_resolve_path_in_bases(
+            raw,
+            source_bases=source_bases,
+            installed_bases=installed_bases,
+        )
+        if resolved is not None:
+            root, rel = resolved
+        else:
+            # Not found in bases, use context_root
+            root = Path(context_root).resolve()
+            # preserve literal string if user provided one
+            rel = raw if isinstance(raw, str) else Path(raw)
 
     logger.trace(f"Normalized: raw={raw!r} → root={root}, rel={rel}")
     return root, rel
@@ -1512,7 +1610,7 @@ def _extract_source_bases_from_includes(  # noqa: PLR0912
     Returns:
         List of module base directories as absolute paths
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     config_dir_resolved = config_dir.resolve()
     bases: list[str] = []
     seen_bases: set[str] = set()
@@ -1607,7 +1705,7 @@ def _get_first_level_modules_from_base(
     Returns:
         Sorted list of first-level module/package names found in the base
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     modules: list[str] = []
 
     # base_str is already an absolute path
@@ -1764,7 +1862,7 @@ def _infer_packages_from_includes(  # noqa: C901, PLR0912, PLR0915
     if not includes:
         return []
 
-    logger = get_app_logger()
+    logger = getAppLogger()
     candidates: set[str] = set()
     path_strings: list[str] = []
 
@@ -1964,8 +2062,10 @@ def _resolve_includes(  # noqa: PLR0912
     args: argparse.Namespace,
     config_dir: Path,
     cwd: Path,
+    source_bases: list[str] | None = None,
+    installed_bases: list[str] | None = None,
 ) -> list[IncludeResolved]:
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.trace(
         f"[resolve_includes] Starting with"
         f" {len(resolved_cfg.get('include', []))} config includes"
@@ -1991,7 +2091,12 @@ def _resolve_includes(  # noqa: PLR0912
                 # Object format: {"path": "...", "dest": "..."}
                 path_str = raw.get("path", "")
                 dest_str = raw.get("dest")
-                root, rel = _normalize_path_with_root(path_str, config_dir)
+                root, rel = _normalize_path_with_root(
+                    path_str,
+                    config_dir,
+                    source_bases=source_bases,
+                    installed_bases=installed_bases,
+                )
                 inc = make_includeresolved(rel, root, "config")
                 if dest_str:
                     # dest is relative to output dir, no normalization
@@ -1999,7 +2104,12 @@ def _resolve_includes(  # noqa: PLR0912
                 includes.append(inc)
             else:
                 # String format: "path/to/files"
-                root, rel = _normalize_path_with_root(raw, config_dir)
+                root, rel = _normalize_path_with_root(
+                    raw,
+                    config_dir,
+                    source_bases=source_bases,
+                    installed_bases=installed_bases,
+                )
                 includes.append(make_includeresolved(rel, root, "config"))
 
     # Add-on includes (extend, not override)
@@ -2046,7 +2156,7 @@ def _resolve_excludes(
     cwd: Path,
     root_cfg: RootConfig | None,
 ) -> list[PathResolved]:
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.trace(
         f"[resolve_excludes] Starting with"
         f" {len(resolved_cfg.get('exclude', []))} config excludes"
@@ -2124,7 +2234,7 @@ def _resolve_output(
     config_dir: Path,
     cwd: Path,
 ) -> PathResolved:
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.trace("[resolve_output] Resolving output directory")
 
     if getattr(args, "out", None):
@@ -2153,7 +2263,7 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     Applies CLI overrides, normalizes paths, merges gitignore behavior,
     and attaches provenance metadata.
     """
-    logger = get_app_logger()
+    logger = getAppLogger()
     logger.trace("[resolve_build_config] Starting resolution for config")
 
     # Make a mutable copy
@@ -2169,7 +2279,7 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
     # Set log_level if not present (for tests that call resolve_build_config directly)
     if "log_level" not in resolved_cfg:
         root_log = None
-        log_level = logger.determine_log_level(args=args, root_log_level=root_log)
+        log_level = logger.determineLogLevel(args=args, root_log_level=root_log)
         resolved_cfg["log_level"] = log_level
 
     # root provenance for all resolutions
@@ -2178,12 +2288,65 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
         "config_root": config_dir,
     }
 
+    # ------------------------------
+    # Auto-discover installed packages (resolved early for use in includes)
+    # ------------------------------
+    if "auto_discover_installed_packages" not in resolved_cfg:
+        resolved_cfg["auto_discover_installed_packages"] = True
+
+    # ------------------------------
+    # Installed packages bases (resolved early for use in includes)
+    # ------------------------------
+    # Convert str to list[str] if needed, then resolve relative paths to absolute
+    # Priority: user-specified > auto-discovery > empty list
+    if "installed_bases" in resolved_cfg:
+        installed_bases = resolved_cfg["installed_bases"]
+        config_installed_bases = (
+            [installed_bases] if isinstance(installed_bases, str) else installed_bases
+        )
+        # Resolve relative paths to absolute
+        resolved_installed_bases: list[str] = []
+        for base in config_installed_bases:
+            base_path = (config_dir / base).resolve()
+            resolved_installed_bases.append(str(base_path))
+        resolved_cfg["installed_bases"] = resolved_installed_bases
+    # Not specified - use auto-discovery if enabled
+    elif resolved_cfg["auto_discover_installed_packages"]:
+        discovered_bases = discover_installed_packages_roots()
+        resolved_cfg["installed_bases"] = discovered_bases
+        if discovered_bases:
+            logger.debug(
+                "[INSTALLED_BASES] Auto-discovered %d installed package root(s): %s",
+                len(discovered_bases),
+                shorten_paths_for_display(
+                    discovered_bases, cwd=cwd, config_dir=config_dir
+                ),
+            )
+    else:
+        # Auto-discovery disabled and not specified - use empty list
+        resolved_cfg["installed_bases"] = []
+
     # --- Includes ---------------------------
+    # Resolve source_bases to absolute paths for include resolution
+    # (they may be relative paths from config)
+    resolved_source_bases: list[str] | None = None
+    if "source_bases" in resolved_cfg:
+        source_bases_raw = resolved_cfg["source_bases"]
+        source_bases_list = (
+            [source_bases_raw]
+            if isinstance(source_bases_raw, str)
+            else source_bases_raw
+        )
+        resolved_source_bases = [
+            str((config_dir / base).resolve()) for base in source_bases_list
+        ]
     resolved_cfg["include"] = _resolve_includes(
         resolved_cfg,
         args=args,
         config_dir=config_dir,
         cwd=cwd,
+        source_bases=resolved_source_bases,
+        installed_bases=resolved_cfg.get("installed_bases"),
     )
     logger.trace(
         f"[resolve_build_config] Resolved {len(resolved_cfg['include'])} include(s)"
@@ -2369,6 +2532,12 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
             display_config,
             display_bases,
         )
+
+    # ------------------------------
+    # Include installed dependencies
+    # ------------------------------
+    if "include_installed_dependencies" not in resolved_cfg:
+        resolved_cfg["include_installed_dependencies"] = False
 
     # ------------------------------
     # Main mode
@@ -2701,7 +2870,7 @@ def resolve_config(
 
     If invoked standalone, ensures the global logger reflects the resolved log level.
     If called after load_and_validate_config(), this is a harmless no-op re-sync."""
-    logger = get_app_logger()
+    logger = getAppLogger()
     root_cfg = cast_hint(RootConfig, dict(root_input))
 
     logger.trace("[resolve_config] Resolving flat config")
@@ -2729,7 +2898,7 @@ def resolve_config(
     # Log level
     # ------------------------------
     root_log = root_cfg.get("log_level")
-    log_level = logger.determine_log_level(args=args, root_log_level=root_log)
+    log_level = logger.determineLogLevel(args=args, root_log_level=root_log)
 
     # --- sync runtime ---
     logger.setLevel(log_level)

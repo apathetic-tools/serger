@@ -9,6 +9,7 @@ compiles and executes correctly.
 import pytest
 
 import serger.cli as mod_cli
+import serger.logs as mod_logs
 
 
 def test_selftest_flag_success(
@@ -64,10 +65,13 @@ def test_selftest_shows_success_message(
 
 def test_selftest_verbose_shows_debug_output(
     capsys: pytest.CaptureFixture[str],
+    module_logger: mod_logs.AppLogger,
 ) -> None:
     """--selftest with --verbose should show DEBUG level output."""
     # --- execute ---
-    code = mod_cli.main(["--selftest", "--verbose"])
+    # Set log level to debug so capsys can capture
+    with module_logger.useLevel("debug"):
+        code = mod_cli.main(["--selftest", "--verbose"])
 
     # --- verify ---
     assert code == 0

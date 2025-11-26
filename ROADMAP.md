@@ -41,9 +41,12 @@ Exploring bundling options for generating the single-file release:
 - zip file: zipapp / shiv / pyinstaller --onefile
 
 ## 🧪 Tests
+- tests now take forever, how can we tackle this? should we only run specific tiers of tests at various points, commit vs push vs ci? should we only run specific tiers when a previous tier fails? is there any plugins for this? do we need to reduce the # of tests, are we overtesting?
 - Organize tests in classes? or separate files?
 - split large test files
 - split tests into logical sections further (instead of subfolders)
+- reduce verbosity when in quiet mode, check other projects
+- do a total recap for all 3 runtime modes together
 - review all tests before v1.0
 - review all debug/trace statements before v1.0
 

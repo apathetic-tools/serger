@@ -3,9 +3,9 @@
 
 import logging
 
+import apathetic_logging as mod_alogs
 import pytest
 
-import apathetic_logs.logs as mod_alogs
 import serger.cli as mod_cli
 import serger.logs as mod_logs
 from tests.utils import patch_everywhere
@@ -77,16 +77,16 @@ def test_main_fallbacks_to_safe_log(
 
     # --- patch and execute ---
     patch_everywhere(monkeypatch, mod_cli, "_setup_parser", fake_parser)
-    patch_everywhere(monkeypatch, mod_alogs, "safe_log", fake_safe_log)
+    patch_everywhere(monkeypatch, mod_alogs, "safeLog", fake_safe_log)
 
     # Backup logger state
-    logger = mod_logs.get_app_logger()
+    logger = mod_logs.getAppLogger()
     old_handlers = list(logger.handlers)
     old_level = logger.level
 
     try:
         # initialize hanlders so we have something to replace
-        logger.ensure_handlers()
+        logger.ensureHandlers()
 
         # Replace handlers with the exploding one
         logger.handlers = [BoomHandler()]
@@ -95,7 +95,7 @@ def test_main_fallbacks_to_safe_log(
     finally:
         # Always restore to avoid affecting other tests
         logger.handlers = old_handlers
-        logger.ensure_handlers()
+        logger.ensureHandlers()
         logger.setLevel(old_level)
 
     # --- verify ---

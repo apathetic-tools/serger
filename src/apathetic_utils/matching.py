@@ -6,7 +6,7 @@ from fnmatch import fnmatchcase
 from functools import lru_cache
 from pathlib import Path
 
-from apathetic_logs import get_logger
+from apathetic_logging import getLogger
 
 from .system import get_sys_version_info
 
@@ -125,7 +125,7 @@ def is_excluded_raw(  # noqa: PLR0911, PLR0912, PLR0915, C901
     The function does not require `root` to exist; if it does not,
     a debug message is logged and matching is purely path-based.
     """
-    logger = get_logger()
+    logger = getLogger()
     root = Path(root).resolve()
     path = Path(path)
 
@@ -172,7 +172,7 @@ def is_excluded_raw(  # noqa: PLR0911, PLR0912, PLR0915, C901
         if pat.startswith("**/"):
             # For **/ patterns, match against:
             # 1. The file's name (e.g., **/__init__.py matches any __init__.py)
-            # 2. The absolute path (for more complex patterns)
+            # 2. The absolute path (for more complex patterns with subdirectories)
             file_name = full_path.name
             abs_path_str = str(full_path).replace("\\", "/")
 
@@ -185,9 +185,13 @@ def is_excluded_raw(  # noqa: PLR0911, PLR0912, PLR0915, C901
                 )
                 return True
 
-            # Also try matching against absolute path
-            # (for patterns like **/subdir/file.py)
-            if fnmatchcase_portable(abs_path_str, pat):
+            # Also try matching against absolute path, but only if the pattern
+            # suffix contains directory separators (for patterns like **/subdir/file.py)
+            # If the suffix has no directory separators, we've already checked
+            # the filename above, so skip absolute path matching to avoid false
+            # positives (e.g., **/test_*.py shouldn't match paths containing "test")
+            has_dir_sep = "/" in pattern_suffix or "\\" in pattern_suffix
+            if has_dir_sep and fnmatchcase_portable(abs_path_str, pat):
                 logger.trace(
                     f"[is_excluded_raw] MATCHED **/ pattern {pattern!r} "
                     f"against absolute path"

@@ -196,6 +196,17 @@ class RootConfig(TypedDict, total=False):
     # - str: Single directory (convenience, converted to list[str] on resolve)
     # - list[str]: Ordered list of directories (default: ["src", "lib", "packages"])
     source_bases: str | list[str]
+    # Installed packages bases: ordered list of directories where installed packages
+    # can be found (for "follow the imports" stitching)
+    # - str: Single directory (convenience, converted to list[str] on resolve)
+    # - list[str]: Ordered list of directories (default: auto-discovered if enabled)
+    installed_bases: NotRequired[str | list[str]]
+    # Auto-discover installed packages: whether to automatically discover
+    # installed package roots (default: True)
+    auto_discover_installed_packages: NotRequired[bool]
+    # Include installed dependencies: whether to include installed dependencies
+    # in "follow the imports" stitching (default: False)
+    include_installed_dependencies: NotRequired[bool]
     # Main function configuration
     # - "none": Don't generate __main__ block
     # - "auto": Automatically detect and generate __main__ block (default)
@@ -257,6 +268,13 @@ class RootConfigResolved(TypedDict):
     # Source bases: ordered list of directories where packages can be found
     # (always present, resolved to list[str])
     source_bases: list[str]
+    # Installed packages bases: ordered list of directories where installed packages
+    # can be found (always present, resolved to list[str])
+    installed_bases: list[str]
+    # Auto-discover installed packages (always present, resolved with defaults)
+    auto_discover_installed_packages: bool
+    # Include installed dependencies (always present, resolved with defaults)
+    include_installed_dependencies: bool
     # Main function configuration (always present, resolved with defaults)
     main_mode: MainMode
     # Main function name specification (always present, resolved with defaults)

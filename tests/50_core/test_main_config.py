@@ -4,8 +4,8 @@
 import ast
 from pathlib import Path
 
-import serger.config as mod_config
 import serger.main_config as mod_main_config
+from tests.utils.buildconfig import make_build_cfg, make_resolved
 
 
 def test_parse_main_name_none() -> None:
@@ -144,43 +144,19 @@ def test_parse_main_name_complex_module_path_with_function() -> None:
 def test_find_main_function_main_mode_none(tmp_path: Path) -> None:
     """Test find_main_function returns None when main_mode is 'none'."""
     # --- setup ---
-    config: mod_config.RootConfigResolved = {
-        "include": [],
-        "exclude": [],
-        "strict_config": False,
-        "out": {"path": "out.py", "root": tmp_path, "origin": "default"},
-        "respect_gitignore": True,
-        "log_level": "INFO",
-        "watch_interval": 1.0,
-        "dry_run": False,
-        "validate_config": False,
-        "__meta__": {
-            "cli_root": tmp_path,
-            "config_root": tmp_path,
-        },
-        "post_processing": {
-            "enabled": True,
-            "category_order": [],
-            "categories": {},
-        },
-        "internal_imports": "force_strip",
-        "external_imports": "top",
-        "stitch_mode": "raw",
-        "module_mode": "none",
-        "shim": "all",
-        "module_actions": [],
-        "comments_mode": "keep",
-        "docstring_mode": "keep",
-        "source_bases": ["src"],
-        "main_mode": "none",
-        "main_name": None,
-        "disable_build_timestamp": False,
-        "license": "",
-        "display_name": "",
-        "description": "",
-        "authors": "",
-        "repo": "",
-    }
+    config = make_build_cfg(
+        tmp_path=tmp_path,
+        out=make_resolved("out.py", tmp_path),
+        log_level="INFO",
+        module_mode="none",
+        source_bases=["src"],
+        main_mode="none",
+        license_text="",
+        display_name="",
+        description="",
+        authors="",
+        repo="",
+    )
     file_path = tmp_path / "main.py"
     file_path.write_text("def main():\n    pass\n")
 
@@ -204,43 +180,20 @@ def test_find_main_function_main_mode_none(tmp_path: Path) -> None:
 def test_find_main_function_with_main_name_module_path(tmp_path: Path) -> None:
     """Test find_main_function with main_name specifying module path."""
     # --- setup ---
-    config: mod_config.RootConfigResolved = {
-        "include": [],
-        "exclude": [],
-        "strict_config": False,
-        "out": {"path": "out.py", "root": tmp_path, "origin": "default"},
-        "respect_gitignore": True,
-        "log_level": "INFO",
-        "watch_interval": 1.0,
-        "dry_run": False,
-        "validate_config": False,
-        "__meta__": {
-            "cli_root": tmp_path,
-            "config_root": tmp_path,
-        },
-        "post_processing": {
-            "enabled": True,
-            "category_order": [],
-            "categories": {},
-        },
-        "internal_imports": "force_strip",
-        "external_imports": "top",
-        "stitch_mode": "raw",
-        "module_mode": "none",
-        "shim": "all",
-        "module_actions": [],
-        "comments_mode": "keep",
-        "docstring_mode": "keep",
-        "source_bases": ["src"],
-        "main_mode": "auto",
-        "main_name": "mypkg.main",
-        "disable_build_timestamp": False,
-        "license": "",
-        "display_name": "",
-        "description": "",
-        "authors": "",
-        "repo": "",
-    }
+    config = make_build_cfg(
+        tmp_path=tmp_path,
+        out=make_resolved("out.py", tmp_path),
+        log_level="INFO",
+        module_mode="none",
+        source_bases=["src"],
+        main_mode="auto",
+        main_name="mypkg.main",
+        license_text="",
+        display_name="",
+        description="",
+        authors="",
+        repo="",
+    )
     pkg_dir = tmp_path / "mypkg"
     pkg_dir.mkdir()
     file_path = pkg_dir / "main.py"
@@ -270,43 +223,20 @@ def test_find_main_function_with_main_name_module_path(tmp_path: Path) -> None:
 def test_find_main_function_with_main_name_function_only(tmp_path: Path) -> None:
     """Test find_main_function with main_name specifying function name only."""
     # --- setup ---
-    config: mod_config.RootConfigResolved = {
-        "include": [],
-        "exclude": [],
-        "strict_config": False,
-        "out": {"path": "out.py", "root": tmp_path, "origin": "default"},
-        "respect_gitignore": True,
-        "log_level": "INFO",
-        "watch_interval": 1.0,
-        "dry_run": False,
-        "validate_config": False,
-        "__meta__": {
-            "cli_root": tmp_path,
-            "config_root": tmp_path,
-        },
-        "post_processing": {
-            "enabled": True,
-            "category_order": [],
-            "categories": {},
-        },
-        "internal_imports": "force_strip",
-        "external_imports": "top",
-        "stitch_mode": "raw",
-        "module_mode": "none",
-        "shim": "all",
-        "module_actions": [],
-        "comments_mode": "keep",
-        "docstring_mode": "keep",
-        "source_bases": ["src"],
-        "main_mode": "auto",
-        "main_name": "cli",
-        "disable_build_timestamp": False,
-        "license": "",
-        "display_name": "",
-        "description": "",
-        "authors": "",
-        "repo": "",
-    }
+    config = make_build_cfg(
+        tmp_path=tmp_path,
+        out=make_resolved("out.py", tmp_path),
+        log_level="INFO",
+        module_mode="none",
+        source_bases=["src"],
+        main_mode="auto",
+        main_name="cli",
+        license_text="",
+        display_name="",
+        description="",
+        authors="",
+        repo="",
+    )
     file_path = tmp_path / "main.py"
     file_path.write_text("def cli():\n    pass\n")
 
@@ -334,44 +264,20 @@ def test_find_main_function_with_main_name_function_only(tmp_path: Path) -> None
 def test_find_main_function_with_package_config(tmp_path: Path) -> None:
     """Test find_main_function with package config specified."""
     # --- setup ---
-    config: mod_config.RootConfigResolved = {
-        "include": [],
-        "exclude": [],
-        "strict_config": False,
-        "out": {"path": "out.py", "root": tmp_path, "origin": "default"},
-        "respect_gitignore": True,
-        "log_level": "INFO",
-        "watch_interval": 1.0,
-        "dry_run": False,
-        "validate_config": False,
-        "__meta__": {
-            "cli_root": tmp_path,
-            "config_root": tmp_path,
-        },
-        "post_processing": {
-            "enabled": True,
-            "category_order": [],
-            "categories": {},
-        },
-        "internal_imports": "force_strip",
-        "external_imports": "top",
-        "stitch_mode": "raw",
-        "module_mode": "none",
-        "shim": "all",
-        "module_actions": [],
-        "comments_mode": "keep",
-        "docstring_mode": "keep",
-        "source_bases": ["src"],
-        "main_mode": "auto",
-        "main_name": None,
-        "disable_build_timestamp": False,
-        "package": "mypkg",
-        "license": "",
-        "display_name": "",
-        "description": "",
-        "authors": "",
-        "repo": "",
-    }
+    config = make_build_cfg(
+        tmp_path=tmp_path,
+        out=make_resolved("out.py", tmp_path),
+        log_level="INFO",
+        module_mode="none",
+        source_bases=["src"],
+        main_mode="auto",
+        package="mypkg",
+        license_text="",
+        display_name="",
+        description="",
+        authors="",
+        repo="",
+    )
     pkg_dir = tmp_path / "mypkg"
     pkg_dir.mkdir()
     file_path = pkg_dir / "main.py"
@@ -401,43 +307,19 @@ def test_find_main_function_with_package_config(tmp_path: Path) -> None:
 def test_find_main_function_priority_main_py(tmp_path: Path) -> None:
     """Test find_main_function prioritizes __main__.py over other files."""
     # --- setup ---
-    config: mod_config.RootConfigResolved = {
-        "include": [],
-        "exclude": [],
-        "strict_config": False,
-        "out": {"path": "out.py", "root": tmp_path, "origin": "default"},
-        "respect_gitignore": True,
-        "log_level": "INFO",
-        "watch_interval": 1.0,
-        "dry_run": False,
-        "validate_config": False,
-        "__meta__": {
-            "cli_root": tmp_path,
-            "config_root": tmp_path,
-        },
-        "post_processing": {
-            "enabled": True,
-            "category_order": [],
-            "categories": {},
-        },
-        "internal_imports": "force_strip",
-        "external_imports": "top",
-        "stitch_mode": "raw",
-        "module_mode": "none",
-        "shim": "all",
-        "module_actions": [],
-        "comments_mode": "keep",
-        "docstring_mode": "keep",
-        "source_bases": ["src"],
-        "main_mode": "auto",
-        "main_name": None,
-        "disable_build_timestamp": False,
-        "license": "",
-        "display_name": "",
-        "description": "",
-        "authors": "",
-        "repo": "",
-    }
+    config = make_build_cfg(
+        tmp_path=tmp_path,
+        out=make_resolved("out.py", tmp_path),
+        log_level="INFO",
+        module_mode="none",
+        source_bases=["src"],
+        main_mode="auto",
+        license_text="",
+        display_name="",
+        description="",
+        authors="",
+        repo="",
+    )
     pkg_dir = tmp_path / "mypkg"
     pkg_dir.mkdir()
     main_py = pkg_dir / "__main__.py"
@@ -477,43 +359,19 @@ def test_find_main_function_priority_main_py(tmp_path: Path) -> None:
 def test_find_main_function_not_found(tmp_path: Path) -> None:
     """Test find_main_function returns None when function not found."""
     # --- setup ---
-    config: mod_config.RootConfigResolved = {
-        "include": [],
-        "exclude": [],
-        "strict_config": False,
-        "out": {"path": "out.py", "root": tmp_path, "origin": "default"},
-        "respect_gitignore": True,
-        "log_level": "INFO",
-        "watch_interval": 1.0,
-        "dry_run": False,
-        "validate_config": False,
-        "__meta__": {
-            "cli_root": tmp_path,
-            "config_root": tmp_path,
-        },
-        "post_processing": {
-            "enabled": True,
-            "category_order": [],
-            "categories": {},
-        },
-        "internal_imports": "force_strip",
-        "external_imports": "top",
-        "stitch_mode": "raw",
-        "module_mode": "none",
-        "shim": "all",
-        "module_actions": [],
-        "comments_mode": "keep",
-        "docstring_mode": "keep",
-        "source_bases": ["src"],
-        "main_mode": "auto",
-        "main_name": None,
-        "disable_build_timestamp": False,
-        "license": "",
-        "display_name": "",
-        "description": "",
-        "authors": "",
-        "repo": "",
-    }
+    config = make_build_cfg(
+        tmp_path=tmp_path,
+        out=make_resolved("out.py", tmp_path),
+        log_level="INFO",
+        module_mode="none",
+        source_bases=["src"],
+        main_mode="auto",
+        license_text="",
+        display_name="",
+        description="",
+        authors="",
+        repo="",
+    )
     file_path = tmp_path / "main.py"
     file_path.write_text("def other():\n    pass\n")
 

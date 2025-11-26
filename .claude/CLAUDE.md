@@ -437,6 +437,47 @@ Serger is a Python module stitcher that combines multiple source files into a si
 - Tests run with `test` log-level by default so trace and debug statements bypass capsys and go to __stderr__.
 - Tests are usually run twice, once against the `src/` directory, and again using our `tests/utils/runtime_swap.py` against the `dist/<package>.py` stitched file.
 
+## Log Output Capture
+
+### LOG_LEVEL=test Bypasses capsys
+- By default, tests run with `LOG_LEVEL=test`, which is the most verbose level
+- When `LOG_LEVEL=test` is set, TRACE and DEBUG messages bypass pytest's `capsys` capture and write directly to `sys.__stderr__`
+- This means `capsys.readouterr()` will NOT capture TRACE/DEBUG messages when `LOG_LEVEL=test` is active
+- This behavior is intentional to allow maximum visibility during test debugging
+
+### Capturing Log Output with capsys
+- If a test needs to assert against log output captured by `capsys`, it must set the log level to something other than `test`
+- Use the `module_logger` fixture with `useLevel()` context manager to temporarily set a different log level:
+  ```python
+  def test_something(
+      capsys: pytest.CaptureFixture[str],
+      module_logger: mod_logs.AppLogger,
+  ) -> None:
+      # Set log level to info/debug so capsys can capture
+      with module_logger.useLevel("info"):
+          code = mod_cli.main(["--verbose"])
+      
+      captured = capsys.readouterr()
+      out = (captured.out + captured.err).lower()
+      assert "[debug" in out  # Now this will work
+  ```
+- Common log levels for capsys capture: `"info"`, `"debug"`, `"warning"` (avoid `"test"` if you need capsys)
+- When using `module_logger.useLevel()`, the log level is automatically restored after the context exits
+
+### Asserting Against stderr
+- When `LOG_LEVEL=test` is active, check `sys.__stderr__` directly for TRACE/DEBUG messages
+- Use `monkeypatch.setattr(sys, "__stderr__", StringIO())` to capture bypass messages:
+  ```python
+  from io import StringIO
+  
+  bypass_buf = StringIO()
+  monkeypatch.setattr(sys, "__stderr__", bypass_buf)
+  # ... run code ...
+  bypass_output = bypass_buf.getvalue()
+  assert "[trace" in bypass_output.lower()
+  ```
+- For INFO/WARNING/ERROR messages, use `capsys` with an appropriate log level (not `test`)
+
 # Type Checking
 
 ### Type Checking and Linting Best Practices
@@ -453,6 +494,10 @@ Serger is a Python module stitcher that combines multiple source files into a si
 #### Ignore Comments
 - **Placement**: Warning/error ignore comments go at the end of lines and don't count towards line length limits
 - **Examples**: `# type: ignore[error-code]`, `# pyright: ignore[error-code]`, `# noqa: CODE`
+- **Ordering**: When multiple ignore comments are needed on the same line, **mypy `type: ignore` comments must come BEFORE `noqa` comments**
+  - ✅ **Correct**: `from module import item  # type: ignore[import-not-found]  # noqa: PLC0415`
+  - ❌ **Incorrect**: `from module import item  # noqa: PLC0415  # type: ignore[import-not-found]`
+  - This ensures mypy processes the type ignore comment correctly
 
 #### Common Patterns
 - **Unused arguments**: Prefix with `_` (e.g., `_unused_param`) unless signature must match exactly (pytest hooks, interfaces) - then use ignore comments
