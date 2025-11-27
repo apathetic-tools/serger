@@ -327,7 +327,6 @@ remote = { name = "origin" }
 tag_commit = true
 prerelease_tag = "rc"
 build_commit_message = "chore: build release v{version} [skip ci]"
-build_command = false
 
 [tool.semantic_release.publish]
 dist_glob_patterns = []  # Empty list = don't look for any files to upload
