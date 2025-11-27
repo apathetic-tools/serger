@@ -40,6 +40,5 @@
   // Global configuration defaults
   "log_level": "info",
   "strict_config": true,
-  "respect_gitignore": true,
-  "internal_imports": "keep"  // Keep internal imports for apathetic_logging package
+  "respect_gitignore": true
 }
