@@ -3371,8 +3371,10 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         )
 
         # Sort packages by depth (shallowest first) to create parents before children
-        sorted_packages = sorted(all_packages, key=lambda p: p.count("."))
-        logger.trace("Sorted packages (by depth): %s", sorted_packages)
+        # Use package name as secondary sort key to ensure deterministic ordering
+        # when multiple packages have the same depth
+        sorted_packages = sorted(all_packages, key=lambda p: (p.count("."), p))
+        logger.trace("Sorted packages (by depth, then name): %s", sorted_packages)
 
         # Generate shims for each package
         # Each package gets its own module object to maintain proper isolation
