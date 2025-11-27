@@ -619,11 +619,11 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911, PLR0912
 
         # --- Config summary ---
         if config.config_path:
-            logger.info("🔧 Using config: %s", config.config_path.name)
+            logger.detail("🔧 Using config: %s", config.config_path.name)
         else:
-            logger.info("🔧 Running in CLI-only mode (no config file).")
-        logger.info("📁 Config root: %s", config.config_dir)
-        logger.info("📂 Invoked from: %s", config.cwd)
+            logger.detail("🔧 Running in CLI-only mode (no config file).")
+        logger.detail("📁 Config root: %s", config.config_dir)
+        logger.detail("📂 Invoked from: %s", config.cwd)
 
         # --- Execute build ---
         _execute_build(config.resolved, args, argv)

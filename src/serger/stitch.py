@@ -112,7 +112,7 @@ def extract_commit(root_path: Path) -> str:  # noqa: PLR0915
     github_actions = os.getenv("GITHUB_ACTIONS")
     git_tag = os.getenv("GIT_TAG")
     github_ref = os.getenv("GITHUB_REF")
-    logger.info(
+    logger.trace(
         "extract_commit called: root_path=%s, in_ci=%s, CI=%s, GITHUB_ACTIONS=%s, "
         "GIT_TAG=%s, GITHUB_REF=%s",
         root_path,
@@ -136,8 +136,7 @@ def extract_commit(root_path: Path) -> str:  # noqa: PLR0915
     # Only embed commit hash if in CI or release tag context
     if not in_ci:
         result = "unknown (local build)"
-        logger.info("extract_commit: Not in CI context, returning: %s", result)
-        logger.trace("extract_commit: Not in CI, returning: %s", result)
+        logger.trace("extract_commit: Not in CI context, returning: %s", result)
         return result
 
     # Resolve path and verify it exists
@@ -4019,7 +4018,7 @@ def stitch_modules(  # noqa: PLR0915, PLR0912, PLR0913, C901
         )
         raise NotImplementedError(msg)
 
-    logger.info("Starting stitch process for package: %s", package_name)
+    logger.debug("Starting stitch process for package: %s", package_name)
 
     # Extract source_bases from config
     # (needed for package detection and module derivation)

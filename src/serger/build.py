@@ -454,12 +454,6 @@ def _extract_build_metadata(
     # Use git_root for commit extraction (project root), fallback to project_root
     commit_path = git_root if git_root is not None else project_root
     logger = getAppLogger()
-    logger.info(
-        "_extract_build_metadata: project_root=%s, git_root=%s, commit_path=%s",
-        project_root,
-        git_root,
-        commit_path,
-    )
     logger.trace(
         "_extract_build_metadata: project_root=%s, git_root=%s, commit_path=%s",
         project_root,
@@ -467,7 +461,6 @@ def _extract_build_metadata(
         commit_path,
     )
     commit = extract_commit(commit_path)
-    logger.info("_extract_build_metadata: extracted commit=%s", commit)
     logger.trace("_extract_build_metadata: extracted commit=%s", commit)
 
     if disable_timestamp:
@@ -699,12 +692,34 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
     # Warn about files outside project directory
     cwd = Path.cwd().resolve()
     config_root_resolved = Path(config_root).resolve()
+    # Get source_bases and installed_bases to check if file is in them
+    source_bases = build_cfg.get("source_bases", [])
+    installed_bases = build_cfg.get("installed_bases", [])
+    # Convert to Path objects for comparison
+    source_base_paths = [Path(base).resolve() for base in source_bases]
+    installed_base_paths = [Path(base).resolve() for base in installed_bases]
     for file_path in final_files:
         file_path_resolved = file_path.resolve()
+        # Check if file is inside source_bases or installed_bases
+        is_in_source_bases = any(
+            file_path_resolved.is_relative_to(base_path)
+            for base_path in source_base_paths
+        )
+        is_in_installed_bases = any(
+            file_path_resolved.is_relative_to(base_path)
+            for base_path in installed_base_paths
+        )
         # Check if file is outside both config_root and CWD
         is_outside_config = not file_path_resolved.is_relative_to(config_root_resolved)
         is_outside_cwd = not file_path_resolved.is_relative_to(cwd)
-        if is_outside_config and is_outside_cwd:
+        # Only warn if outside config/CWD AND not in source_bases or installed_bases
+        should_warn = (
+            is_outside_config
+            and is_outside_cwd
+            and not is_in_source_bases
+            and not is_in_installed_bases
+        )
+        if should_warn:
             logger.warning(
                 "Including file outside project directory: %s "
                 "(config root: %s, CWD: %s)",
@@ -919,7 +934,7 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
             post_processing=post_processing,
             is_serger_build=is_serger_build_result,
         )
-        logger.info("✅ Stitch completed → %s\n", out_display)
+        logger.minimal("✅ Stitch completed → %s\n", out_display)
     except RuntimeError as e:
         xmsg = f"Stitch build failed: {e}"
         raise RuntimeError(xmsg) from e
