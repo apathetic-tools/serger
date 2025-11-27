@@ -66,7 +66,12 @@ jobs:
         if: steps.release.outputs.released == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: poetry run semantic-release publish
+        run: |
+          # Run semantic-release publish and capture exit code
+          if ! poetry run semantic-release publish; then
+            echo "::error::semantic-release publish failed"
+            exit 1
+          fi
 
       - name: Upload custom release assets
         if: steps.release.outputs.released == 'true'
@@ -75,7 +80,17 @@ jobs:
         run: |
           # Get the latest tag created by semantic-release
           TAG=$(git describe --tags --abbrev=0)
-          if [ -n "$TAG" ] && [ -f dist/serger.py ] && [ -f dist/serger.pyz ]; then
-            gh release upload "$TAG" dist/serger.py dist/serger.pyz --clobber || true
+          if [ -z "$TAG" ]; then
+            echo "::error::No tag found for release"
+            exit 1
+          fi
+          if [ ! -f dist/serger.py ] || [ ! -f dist/serger.pyz ]; then
+            echo "::error::Required build files not found in dist/"
+            exit 1
+          fi
+          # Upload assets - fail if upload fails
+          if ! gh release upload "$TAG" dist/serger.py dist/serger.pyz --clobber; then
+            echo "::error::Failed to upload release assets"
+            exit 1
           fi
 
