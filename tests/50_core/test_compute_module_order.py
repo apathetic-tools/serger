@@ -66,6 +66,62 @@ def test_simple_order() -> None:
         assert set(order) == set(file_paths)
 
 
+def test_deterministic_ordering_multiple_valid_orderings() -> None:
+    """Should produce identical order when multiple valid topological orderings exist.
+
+    This test verifies that compute_module_order produces deterministic results
+    even when multiple valid topological orderings exist (i.e., when modules
+    have no dependencies between them). This is critical for reproducible builds.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        src_dir = Path(tmpdir)
+        # Create multiple modules with no dependencies between them
+        # This creates a scenario where multiple valid topological orderings exist
+        (src_dir / "a.py").write_text("# module a\n")
+        (src_dir / "b.py").write_text("# module b\n")
+        (src_dir / "c.py").write_text("# module c\n")
+        (src_dir / "d.py").write_text("# module d\n")
+        (src_dir / "e.py").write_text("# module e\n")
+
+        file_paths, package_root, file_to_include = _setup_order_test(
+            src_dir, ["a", "b", "c", "d", "e"]
+        )
+
+        # Detect packages for the test
+        detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
+            file_paths, "pkg"
+        )
+
+        # Call compute_module_order multiple times with the same input
+        # The order should be identical each time
+        orders: list[list[Path]] = []
+        for _ in range(10):
+            order = mod_stitch.compute_module_order(
+                file_paths,
+                package_root,
+                "pkg",
+                file_to_include,
+                detected_packages=detected_packages,
+            )
+            orders.append(order)
+
+        # Verify all orders are identical
+        first_order = orders[0]
+        for i, order in enumerate(orders[1:], start=1):
+            assert order == first_order, (
+                f"Order should be deterministic, but iteration {i} produced "
+                f"different order. First: {first_order}, Got: {order}"
+            )
+
+        # Verify the order is sorted by file path (deterministic tie-breaker)
+        # Since there are no dependencies, modules should be ordered by file path
+        sorted_paths = sorted(file_paths, key=str)
+        assert first_order == sorted_paths, (
+            f"When no dependencies exist, modules should be ordered by file path. "
+            f"Expected: {sorted_paths}, Got: {first_order}"
+        )
+
+
 def test_dependency_order() -> None:
     """Should correct order based on import dependencies."""
     with tempfile.TemporaryDirectory() as tmpdir:

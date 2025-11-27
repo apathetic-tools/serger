@@ -7,7 +7,6 @@ import handling, code analysis, and assembly.
 """
 
 import ast
-import graphlib
 import importlib
 import json
 import os
@@ -1480,6 +1479,72 @@ def _extract_internal_imports_for_deps(  # noqa: PLR0912
     return internal_imports
 
 
+def _deterministic_topological_sort(
+    deps: dict[str, set[str]],
+    module_to_file: dict[str, Path],
+) -> list[str]:
+    """Perform deterministic topological sort using file path as tie-breaker.
+
+    When multiple nodes have zero in-degree, they are sorted by their file path
+    to ensure deterministic ordering. This guarantees reproducible builds even
+    when multiple valid topological orderings exist.
+
+    Args:
+        deps: Dependency graph mapping module names to sets of dependencies
+        module_to_file: Mapping from module names to file paths
+
+    Returns:
+        Topologically sorted list of module names
+
+    Raises:
+        RuntimeError: If circular imports are detected
+    """
+    # Calculate in-degrees for all nodes
+    # In-degree = number of dependencies this node has (how many nodes it depends on)
+    in_degree: dict[str, int] = {
+        node: len(node_deps) for node, node_deps in deps.items()
+    }
+
+    # Build reverse dependency graph for efficient edge removal
+    # reverse_deps[dep] = set of nodes that depend on dep
+    reverse_deps: dict[str, set[str]] = {node: set() for node in deps}
+    for node, node_deps in deps.items():
+        for dep in node_deps:
+            if dep in reverse_deps:
+                reverse_deps[dep].add(node)
+
+    # Start with nodes that have zero in-degree (no dependencies)
+    # Sort by file path to ensure deterministic ordering
+    zero_in_degree = [node for node, degree in in_degree.items() if degree == 0]
+    zero_in_degree.sort(key=lambda node: str(module_to_file.get(node, Path())))
+
+    result: list[str] = []
+
+    while zero_in_degree:
+        # Process nodes in sorted order (by file path) for determinism
+        # Sort again before processing to maintain determinism
+        zero_in_degree.sort(key=lambda node: str(module_to_file.get(node, Path())))
+        node = zero_in_degree.pop(0)
+        result.append(node)
+
+        # Remove edges from this node and update in-degrees of dependents
+        # When we process a node, all nodes that depend on it can have their
+        # in-degree decremented (since this dependency is now satisfied)
+        for dependent in reverse_deps.get(node, set()):
+            in_degree[dependent] -= 1
+            if in_degree[dependent] == 0:
+                zero_in_degree.append(dependent)
+
+    # Check for circular dependencies
+    if len(result) != len(deps):
+        # Find nodes that weren't processed (part of a cycle)
+        remaining = set(deps) - set(result)
+        msg = f"Circular dependency detected involving: {sorted(remaining)}"
+        raise RuntimeError(msg)
+
+    return result
+
+
 def compute_module_order(  # noqa: C901, PLR0912
     file_paths: list[Path],
     package_root: Path,
@@ -1646,13 +1711,9 @@ def compute_module_order(  # noqa: C901, PLR0912
                             )
                             deps[module_name].add(dep_module)
 
-    # detect circular imports first
-    try:
-        sorter = graphlib.TopologicalSorter(deps)
-        topo_modules = list(sorter.static_order())
-    except graphlib.CycleError as e:
-        msg = f"Circular dependency detected: {e.args[1] if e.args else 'unknown'}"
-        raise RuntimeError(msg) from e
+    # Perform deterministic topological sort using file path as tie-breaker
+    # This ensures reproducible builds even when multiple valid orderings exist
+    topo_modules = _deterministic_topological_sort(deps, module_to_file)
 
     # Convert back to file paths
     topo_paths = [module_to_file[mod] for mod in topo_modules if mod in module_to_file]
