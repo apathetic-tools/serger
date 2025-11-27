@@ -39,16 +39,13 @@ jobs:
       - name: Build package
         run: poetry build
 
-      - name: Publish to TestPyPI (test only)
+      - name: Publish to TestPyPI
         if: github.event.inputs.testpypi_only == 'true'
-        env:
-          POETRY_REPOSITORIES_TESTPYPI_URL: https://test.pypi.org/legacy/
-          POETRY_PYPI_TOKEN_TESTPYPI: ${{ secrets.TESTPYPI_API_TOKEN }}
-        run: poetry publish --repository testpypi
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
 
       - name: Publish to PyPI
         if: github.event.inputs.testpypi_only != 'true'
-        env:
-          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
-        run: poetry publish
+        uses: pypa/gh-action-pypi-publish@release/v1
 
