@@ -10,7 +10,7 @@ from typing import Any
 import apathetic_utils as mod_utils
 import pytest
 
-import apathetic_schema.schema as amod_schema
+import apathetic_schema_src.schema as amod_schema
 from tests.utils import make_summary, patch_everywhere
 
 

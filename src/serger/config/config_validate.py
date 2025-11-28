@@ -5,7 +5,7 @@ from typing import Any
 
 from apathetic_utils import schema_from_typeddict
 
-from apathetic_schema import (
+from apathetic_schema_src import (
     SchemaErrorAggregator,
     ValidationSummary,
     check_schema_conformance,

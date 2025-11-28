@@ -9,7 +9,7 @@ from typing import Any, TypedDict
 
 from typing_extensions import NotRequired
 
-import apathetic_schema.schema as amod_schema
+import apathetic_schema_src.schema as amod_schema
 
 
 # ---------------------------------------------------------------------------

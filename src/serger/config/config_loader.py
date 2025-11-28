@@ -15,7 +15,7 @@ from apathetic_utils import (
     remove_path_in_error_message,
 )
 
-from apathetic_schema import ValidationSummary
+from apathetic_schema_src import ValidationSummary
 from serger.logs import getAppLogger
 from serger.meta import (
     PROGRAM_CONFIG,

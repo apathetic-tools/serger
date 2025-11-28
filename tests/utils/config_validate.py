@@ -1,7 +1,7 @@
 # tests/utils/config_validate.py
 
 
-import apathetic_schema.schema as amod_schema
+import apathetic_schema_src.schema as amod_schema
 
 
 def make_summary(

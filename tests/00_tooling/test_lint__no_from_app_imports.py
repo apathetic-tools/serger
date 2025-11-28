@@ -33,7 +33,7 @@ import serger.meta as mod_meta
 DISALLOWED_PACKAGES = [
     mod_meta.PROGRAM_PACKAGE,
     "apathetic_utils",
-    "apathetic_schema",
+    "apathetic_schema_src",
     "apathetic_logs",
 ]
 

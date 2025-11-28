@@ -1,6 +1,6 @@
 """Apathetic schema package."""
 
-from apathetic_schema.schema import (
+from apathetic_schema_src.schema import (
     SchemaErrorAggregator,
     ValidationSummary,
     check_schema_conformance,
