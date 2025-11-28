@@ -28,6 +28,13 @@ classifiers = [
     "Topic :: Software Development :: Build Tools",
 ]
 
+[project.urls]
+Homepage = "https://github.com/apathetic-tools/serger"
+Documentation = "https://apathetic-tools.github.io/serger/"
+Repository = "https://github.com/apathetic-tools/serger"
+Issues = "https://github.com/apathetic-tools/serger/issues"
+Changelog = "https://github.com/apathetic-tools/serger/releases"
+
 # --- Development tasks ---
 [tool.poe.tasks]
 # 🧩 All-in-one
@@ -323,6 +330,7 @@ commit_message = "chore: release v{version} [skip ci]"
 allow_zero_version = true  # Required for major_on_zero to work (defaults to false in v10.0.0+)
 major_on_zero = false
 upload_to_pypi = false  # We handle PyPI publishing in GitHub Actions
+upload_to_release = true
 hvcs = "github"
 remote = { name = "origin" }
 tag_commit = true

@@ -5,6 +5,12 @@ on:
   push:
     tags:
       - "v*"  # Triggers on tags like v0.1.0, v1.2.3, etc.
+  workflow_run:
+    workflows: ["Release on Github"]
+    types:
+      - completed
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       testpypi_only:
@@ -16,6 +22,10 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' ||
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch'
     environment: pypi
     permissions:
       id-token: write
@@ -25,6 +35,44 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if new tag exists
+        id: check_tag
+        run: |
+          # Fetch all tags
+          git fetch --tags
+          # Get the latest tag matching v* pattern
+          LATEST_TAG=$(git tag -l "v*" --sort=-version:refname | head -n 1)
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No tag matching v* pattern found"
+            echo "tag_exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Found latest tag: $LATEST_TAG"
+
+          # For workflow_run events, verify tag is associated with this workflow run
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            WORKFLOW_COMMIT="${{ github.event.workflow_run.head_sha }}"
+            TAG_COMMIT=$(git rev-list -n 1 "$LATEST_TAG")
+
+            # Check if tag commit is reachable from workflow commit (same or newer)
+            # This handles cases where semantic-release creates a new commit or tags existing commit
+            if git merge-base --is-ancestor "$WORKFLOW_COMMIT" "$TAG_COMMIT" 2>/dev/null || [ "$TAG_COMMIT" = "$WORKFLOW_COMMIT" ]; then
+              echo "Tag $LATEST_TAG is associated with this workflow run"
+              echo "tag_exists=true" >> $GITHUB_OUTPUT
+              echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+            else
+              echo "Tag $LATEST_TAG is not associated with this workflow run (no new release created)"
+              echo "tag_exists=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            # For push (on tag) or workflow_dispatch, assume tag exists
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
+            echo "tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -40,15 +88,23 @@ jobs:
         run: poetry install --no-interaction --no-root
 
       - name: Build package
-        run: poetry build
+      if: |
+        github.event_name == 'push' ||
+        github.event_name == 'workflow_dispatch' ||
+        steps.check_tag.outputs.tag_exists == 'true'
+      run: poetry build
 
       - name: Publish to TestPyPI
-        if: github.event.inputs.testpypi_only == 'true'
+      if: |
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || steps.check_tag.outputs.tag_exists == 'true') &&
+      github.event.inputs.testpypi_only == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
 
-      - name: Publish to PyPI
-        if: github.event.inputs.testpypi_only != 'true'
+          - name: Publish to PyPI
+          if: |
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || steps.check_tag.outputs.tag_exists == 'true') &&
+          github.event.inputs.testpypi_only != 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
 
