@@ -130,7 +130,9 @@ def test_pytest_runtime_cache_integrity() -> None:  # noqa: PLR0912
 
     if os.getenv("TRACE"):
         dump_snapshot()
-    runtime_mode = amod_utils_system_actual.detect_runtime_mode()
+    runtime_mode = amod_utils_system_actual.detect_runtime_mode(
+        package_name=mod_meta.PROGRAM_PACKAGE
+    )
 
     if mode == "singlefile":
         # --- verify singlefile ---

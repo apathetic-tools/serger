@@ -5,14 +5,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
 
-from apathetic_utils import has_glob_chars, is_excluded_raw
+from apathetic_utils import (
+    detect_packages_from_files,
+    has_glob_chars,
+    is_excluded_raw,
+)
 
 from .config import IncludeResolved, PathResolved, RootConfigResolved
 from .constants import BUILD_TIMESTAMP_PLACEHOLDER, DEFAULT_DRY_RUN
 from .logs import getAppLogger
 from .stitch import (
     compute_module_order,
-    detect_packages_from_files,
     extract_commit,
     is_serger_build,
     stitch_modules,

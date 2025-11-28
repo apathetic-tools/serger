@@ -14,30 +14,30 @@ files = [
 
 [[package]]
 name = "apathetic-logging"
-version = "0.2.3"
+version = "0.3.2"
 description = "Small quality-of-life features on top of stdlib."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "apathetic_logging-0.2.3-py3-none-any.whl", hash = "sha256:70d98ada004b1ad8730732faeb254b75dd0611b20ba9cfb70574561e79b96290"},
-    {file = "apathetic_logging-0.2.3.tar.gz", hash = "sha256:ab43f29269003afa605fcbbe3c011ec9dcb24a0e24c487208411da65f23b6f84"},
+    {file = "apathetic_logging-0.3.2-py3-none-any.whl", hash = "sha256:40b75fe2b6c44f3bacfcf0b7812daf5eb092ff49e836dcc4b00584061ffade52"},
+    {file = "apathetic_logging-0.3.2.tar.gz", hash = "sha256:c22a853d4f801a3316cacf446cc817e3f1fe1d8d713a92c19c574734df3b4210"},
 ]
 
 [[package]]
 name = "apathetic-utils"
-version = "0.0.1"
+version = "0.2.1"
 description = "When stdlib isn't enough."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "apathetic_utils-0.0.1-py3-none-any.whl", hash = "sha256:22b625b271294754b3c4a906f270079a713913e1e4367f30fa42df2ffc910f61"},
-    {file = "apathetic_utils-0.0.1.tar.gz", hash = "sha256:96559d4abba98ddaedee0cf764f18d873ac20f1dee24663f689f5acb4354b0c4"},
+    {file = "apathetic_utils-0.2.1-py3-none-any.whl", hash = "sha256:efdfd1e15dccca5cbedbf145e4b5ca664d6a0dac86fd9924ab71b7ff6c9a823e"},
+    {file = "apathetic_utils-0.2.1.tar.gz", hash = "sha256:a7b035196ca8578e3e74b9d47747971322552ce450b2a369376db8852eb9c89f"},
 ]
 
 [package.dependencies]
-apathetic-logging = ">=0.2.2,<2.0.0"
+apathetic-logging = ">=0.3.2,<2.0.0"
 
 [[package]]
 name = "certifi"

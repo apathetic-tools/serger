@@ -5,6 +5,7 @@ import ast
 import tempfile
 from pathlib import Path
 
+import apathetic_utils as mod_utils
 import pytest
 
 import serger.build as mod_build
@@ -52,7 +53,7 @@ def test_simple_order() -> None:
         )
 
         # Detect packages for the test
-        detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
+        detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
             file_paths, "pkg"
         )
 
@@ -88,7 +89,7 @@ def test_deterministic_ordering_multiple_valid_orderings() -> None:
         )
 
         # Detect packages for the test
-        detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
+        detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
             file_paths, "pkg"
         )
 
@@ -134,7 +135,7 @@ def test_dependency_order() -> None:
         )
 
         # Detect packages for the test
-        detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
+        detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
             file_paths, "pkg"
         )
 
@@ -163,7 +164,7 @@ def test_circular_import_error() -> None:
         )
 
         # Detect packages for the test
-        detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
+        detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
             file_paths, "pkg"
         )
 
@@ -189,7 +190,7 @@ def test_relative_import_order() -> None:
         )
 
         # Detect packages for the test
-        detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
+        detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
             file_paths, "pkg"
         )
 
@@ -242,7 +243,7 @@ def test_init_py_relative_import_order() -> None:
             file_to_include[file_path] = include
 
         # Detect packages for the test
-        detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
+        detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
             file_paths, "apathetic_logging"
         )
 
@@ -299,7 +300,7 @@ else:
             file_to_include[file_path] = include
 
         # Detect packages for the test
-        detected_packages, _parent_dirs = mod_stitch.detect_packages_from_files(
+        detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
             file_paths, "apathetic_logging"
         )
 
