@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from apathetic_utils import cast_hint, has_glob_chars, literal_to_set, load_toml
+
 from serger.constants import (
     DEFAULT_CATEGORIES,
     DEFAULT_CATEGORY_ORDER,

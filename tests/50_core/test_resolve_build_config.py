@@ -7,9 +7,9 @@ from argparse import Namespace
 from pathlib import Path
 from typing import cast
 
+import apathetic_utils as mod_apathetic_utils
 import pytest
 
-import apathetic_utils as mod_apathetic_utils
 import serger.config.config_resolve as mod_resolve
 import serger.config.config_types as mod_types
 import serger.logs as mod_logs

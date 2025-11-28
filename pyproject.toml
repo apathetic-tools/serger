@@ -11,7 +11,8 @@ readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = [
-    "apathetic-logging",
+    "apathetic-logging (>=0.0.1,<2.0.0)",
+    "apathetic-utils (>=0.0.1,<2.0.0)",
 ]
 keywords = ["module", "packaging", "single-file"]
 classifiers = [

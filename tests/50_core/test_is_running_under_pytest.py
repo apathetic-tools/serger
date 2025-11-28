@@ -5,7 +5,7 @@ import os
 import sys
 from unittest.mock import patch
 
-import apathetic_utils.system as amod_utils_system
+import apathetic_utils as amod_utils_system
 
 
 class TestIsRunningUnderPytest:

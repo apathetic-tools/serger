@@ -3,6 +3,8 @@
 
 from typing import Any
 
+from apathetic_utils import schema_from_typeddict
+
 from apathetic_schema import (
     SchemaErrorAggregator,
     ValidationSummary,
@@ -11,7 +13,6 @@ from apathetic_schema import (
     flush_schema_aggregators,
     warn_keys_once,
 )
-from apathetic_utils import schema_from_typeddict
 from serger.constants import DEFAULT_STRICT_CONFIG
 from serger.logs import getAppLogger
 

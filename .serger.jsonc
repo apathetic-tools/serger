@@ -18,9 +18,9 @@
   // Source modules to include in the stitch
   // These are glob patterns relative to the source directory
   "include": [
-    "src/apathetic_*/**/*.py",        
     "src/serger/**/*.py",
-    "apathetic_logging/**/*.py"  // Include installed apathetic-logging package
+    "apathetic_logging/**/*.py",  // Include installed apathetic-logging package
+    "apathetic_utils/**/*.py"  // Include installed apathetic-utils package
   ],
 
   // Files to exclude from stitching

@@ -7,10 +7,10 @@
 
 from typing import Any
 
+import apathetic_utils as mod_utils
 import pytest
 
 import apathetic_schema.schema as amod_schema
-import apathetic_utils.types as amod_utils_types
 from tests.utils import make_summary, patch_everywhere
 
 
@@ -85,7 +85,7 @@ def test_validate_scalar_value_handles_fallback_path(
     # --- patch and execute ---
     patch_everywhere(
         monkeypatch,
-        amod_utils_types,
+        mod_utils,
         "safe_isinstance",
         _fake_safe_isinstance,
     )

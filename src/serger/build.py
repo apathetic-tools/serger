@@ -513,7 +513,17 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
     includes = build_cfg.get("include", [])
     excludes = build_cfg.get("exclude", [])
     # Validation happens inside collect_included_files
+    logger.trace(
+        "🔍 [DEBUG] Collecting files - includes: %s, excludes: %s",
+        includes,
+        excludes,
+    )
     included_files, file_to_include = collect_included_files(includes, excludes)
+    logger.trace(
+        "🔍 [DEBUG] Collected %d files: %s",
+        len(included_files),
+        included_files[:5] if included_files else [],
+    )
 
     # Safety net: Defensive check for missing package
     # This is a minimal safety check for:
@@ -581,6 +591,9 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
     if not included_files:
         # No files to stitch - this is not a stitch build
         # Return early (package validation already skipped above)
+        logger.trace(
+            "🔍 [DEBUG] No included files - returning early without creating output"
+        )
         return
 
     # At this point, we have included_files, so package must be set and valid
@@ -917,6 +930,11 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
         out_path,
         cwd=meta.get("cli_root"),
         config_dir=meta.get("config_root"),
+    )
+    logger.trace(
+        "🔍 [DEBUG] About to stitch - out_path: %s, out_display: %s",
+        out_path,
+        out_display,
     )
     logger.info("🧵 Stitching %s → %s", package, out_display)
 

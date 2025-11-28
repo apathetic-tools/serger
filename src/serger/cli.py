@@ -8,7 +8,6 @@ from difflib import get_close_matches
 from pathlib import Path
 
 from apathetic_logging import LEVEL_ORDER, safeLog
-
 from apathetic_utils import cast_hint, get_sys_version_info
 
 from .actions import get_metadata, watch_for_changes

@@ -1600,23 +1600,21 @@ Here's a complete example configuration file:
 {
   // Main package build
   "package": "serger",
-      "display_name": "Serger",
-      "description": "Stitch your module into a single file.",
-      "repo": "https://github.com/apathetic-tools/serger",
-      "license": "License: MIT-aNOAI\nFull text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",
+  "display_name": "Serger",
+  "description": "Stitch your module into a single file.",
+  "repo": "https://github.com/apathetic-tools/serger",
+  "license": "License: MIT-aNOAI\nFull text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",
   "include": [
-        "src/apathetic_*/**/*.py",
-        "src/serger/**/*.py"
-      ],
-  "exclude": [
-        "__pycache__/**",
-        "*.pyc",
-        "**/__init__.py",
-        "**/__main__.py"
-      ],
-  "out": "dist/serger.py"
-    }
+    "src/serger/**/*.py",
+    "apathetic_logging/**/*.py",  // Include installed apathetic-logging package
+    "apathetic_utils/**/*.py"  // Include installed apathetic-utils package
   ],
+  "exclude": [
+    "__pycache__/**",
+    "*.pyc",
+    "**/__main__.py"  // Entry point, not stitched
+  ],
+  "out": "dist/serger.py",
   "log_level": "info",
   "strict_config": true,
   "respect_gitignore": true

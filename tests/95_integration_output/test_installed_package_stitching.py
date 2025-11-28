@@ -243,9 +243,11 @@ def test_stitch_installed_package_with_exclude(tmp_path: Path) -> None:
         make_include_resolved("testpkg/**/*.py", installed_dir),
     ]
     # Only exclude test files, keep __init__.py and module.py
+    # Use more specific patterns to avoid bug in external apathetic_utils
+    # where **/test_*.py matches paths containing "test_" anywhere
     excludes = [
-        make_resolved("**/tests.py", tmp_path),
-        make_resolved("**/test_*.py", tmp_path),
+        make_resolved("site-packages/testpkg/tests.py", tmp_path),
+        make_resolved("site-packages/testpkg/test_*.py", tmp_path),
     ]
 
     build_cfg = make_build_cfg(

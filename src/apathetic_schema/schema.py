@@ -5,8 +5,6 @@ from dataclasses import dataclass
 from difflib import get_close_matches
 from typing import Any, TypedDict, cast, get_args, get_origin
 
-from typing_extensions import NotRequired
-
 from apathetic_utils import (
     cast_hint,
     fnmatchcase_portable,
@@ -14,6 +12,7 @@ from apathetic_utils import (
     safe_isinstance,
     schema_from_typeddict,
 )
+from typing_extensions import NotRequired
 
 
 # --- constants ----------------------------------------------------------

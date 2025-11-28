@@ -141,14 +141,14 @@ Serger uses itself to build itself! Here's its configuration:
   "repo": "https://github.com/apathetic-tools/serger",
   "license": "License: MIT-aNOAI\nFull text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",
   "include": [
-    "src/apathetic_*/**/*.py",
-    "src/serger/**/*.py"
+    "src/serger/**/*.py",
+    "apathetic_logging/**/*.py",  // Include installed apathetic-logging package
+    "apathetic_utils/**/*.py"  // Include installed apathetic-utils package
   ],
   "exclude": [
     "__pycache__/**",
     "*.pyc",
-    "**/__init__.py",
-    "**/__main__.py"
+    "**/__main__.py"  // Entry point, not stitched
   ],
   "out": "dist/serger.py",
   "log_level": "info",

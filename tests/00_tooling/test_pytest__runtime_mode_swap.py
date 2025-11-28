@@ -22,9 +22,9 @@ import pkgutil
 import sys
 from pathlib import Path
 
+import apathetic_utils as amod_utils_system
 import pytest
 
-import apathetic_utils.system as amod_utils_system
 import serger as app_package
 import serger.meta as mod_meta
 from tests.utils import PROJ_ROOT, make_test_trace
@@ -91,7 +91,7 @@ def dump_snapshot(*, include_full: bool = False) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_pytest_runtime_cache_integrity() -> None:
+def test_pytest_runtime_cache_integrity() -> None:  # noqa: PLR0912
     """Verify runtime mode swap correctly loads modules from expected locations.
 
     Ensures that modules imported at the top of test files resolve to the
@@ -110,9 +110,9 @@ def test_pytest_runtime_cache_integrity() -> None:
     # the version from the standalone script (which was loaded by runtime_swap)
     # rather than the one imported at the top of this file (which might be from
     # the installed package if it was imported before runtime_swap ran)
-    if mode == "singlefile" and "apathetic_utils.system" in sys.modules:
+    if mode == "singlefile" and "apathetic_utils" in sys.modules:
         # Use the module from sys.modules, which should be from the standalone script
-        amod_utils_system_actual = sys.modules["apathetic_utils.system"]
+        amod_utils_system_actual = sys.modules["apathetic_utils"]
         # Check __file__ directly - for stitched modules, should point to dist/serger.py
         utils_file_path = getattr(amod_utils_system_actual, "__file__", None)
         if utils_file_path:
@@ -177,7 +177,16 @@ def test_pytest_runtime_cache_integrity() -> None:
         assert runtime_mode != "standalone"
 
         # path peeks
-        assert utils_file.startswith(str(SRC_ROOT)), f"{utils_file} not in src/"
+        # External packages (like apathetic_utils) load from site-packages
+        # in "module" mode, not from src/. Only project code loads from src/.
+        if "apathetic_utils" in utils_file:
+            # External package - should be in site-packages in module mode
+            assert "site-packages" in utils_file, (
+                f"External package {utils_file} should be in site-packages"
+            )
+        else:
+            # Project code - should be in src/
+            assert utils_file.startswith(str(SRC_ROOT)), f"{utils_file} not in src/"
 
     # --- verify both ---
     important_modules = list_important_modules()

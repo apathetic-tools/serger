@@ -17,8 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from apathetic_utils import literal_to_set
-from apathetic_utils.ci import is_ci
+from apathetic_utils import is_ci, literal_to_set
 
 from .config import (
     CommentsMode,

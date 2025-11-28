@@ -8,7 +8,7 @@ Uses CI_ENV_VARS constant from apathetic_utils.ci for consistency.
 import os
 from typing import TYPE_CHECKING
 
-import apathetic_utils.ci as mod_ci
+import apathetic_utils as mod_apathetic_utils
 
 
 if TYPE_CHECKING:
@@ -27,7 +27,7 @@ def is_ci() -> bool:
     Returns:
         True if running in CI, False otherwise
     """
-    return bool(any(os.getenv(var) for var in mod_ci.CI_ENV_VARS))
+    return bool(any(os.getenv(var) for var in mod_apathetic_utils.CI_ENV_VARS))
 
 
 def clear_ci_env(monkeypatch: "pytest.MonkeyPatch") -> None:
@@ -39,5 +39,5 @@ def clear_ci_env(monkeypatch: "pytest.MonkeyPatch") -> None:
     Args:
         monkeypatch: pytest monkeypatch fixture
     """
-    for key in mod_ci.CI_ENV_VARS:
+    for key in mod_apathetic_utils.CI_ENV_VARS:
         monkeypatch.delenv(key, raising=False)
