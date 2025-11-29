@@ -68,7 +68,7 @@ def test_resolve_build_config_from_config_paths(
     assert inc["root"] == tmp_path
     assert exc["root"] == tmp_path
     assert out["root"] == tmp_path
-    assert resolved["log_level"].lower() == "info"
+    assert resolved["log_level"].lower() == "detail"
     assert resolved["respect_gitignore"] is True
     assert resolved["__meta__"]["config_root"] == tmp_path
     assert resolved["__meta__"]["cli_root"] == tmp_path

@@ -17,14 +17,12 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import apathetic_utils as mod_utils
 import pytest
+from apathetic_logging import makeSafeTrace
 
 import serger.meta as mod_meta
 from tests.utils import PROJ_ROOT
-from tests.utils.build_tools import find_shiv
-from tests.utils.package_detection import find_all_packages_under_path
-
-from .test_trace import make_test_trace
 
 
 if TYPE_CHECKING:
@@ -33,7 +31,7 @@ if TYPE_CHECKING:
 
 # --- helpers --------------------------------------------------------------------
 
-TEST_TRACE = make_test_trace("🧬")
+TEST_TRACE = makeSafeTrace("🧬")
 
 
 def _mode() -> str:
@@ -121,7 +119,7 @@ def ensure_zipapp_up_to_date(root: Path) -> Path:
                 break
 
     if needs_rebuild:
-        shiv_cmd = find_shiv()
+        shiv_cmd = mod_utils.find_shiv()
         print("⚙️  Rebuilding zipapp (shiv)...")
         subprocess.run(  # noqa: S603
             [
@@ -162,7 +160,7 @@ def runtime_swap() -> bool:
     # Nuke any already-imported modules from src/ to avoid stale refs.
     # Dynamically detect all packages under src/ instead of hardcoding names.
     src_dir = PROJ_ROOT / "src"
-    packages_to_nuke = find_all_packages_under_path(src_dir)
+    packages_to_nuke = mod_utils.find_all_packages_under_path(src_dir)
 
     for name in list(sys.modules):
         # Check if module name matches any detected package or is a submodule

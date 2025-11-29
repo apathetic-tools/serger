@@ -6,10 +6,11 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+import apathetic_utils as mod_utils
 import pytest
 
+import serger.meta as mod_meta
 import serger.verify_script as mod_verify
-from tests.utils import patch_everywhere
 
 
 RUFF_AVAILABLE = shutil.which("ruff") is not None
@@ -56,8 +57,18 @@ def test_build_tool_command_with_unavailable_tool(
 
     try:
         # Mock find_tool_executable to return None
-        patch_everywhere(
-            monkeypatch, mod_verify, "find_tool_executable", lambda *_, **__: None
+        mod_utils.patch_everywhere(
+            monkeypatch,
+            mod_verify,
+            "find_tool_executable",
+            lambda *_, **__: None,
+            package_prefix=mod_meta.PROGRAM_PACKAGE,
+            stitch_hints={
+                "/dist/",
+                "standalone",
+                f"{mod_meta.PROGRAM_SCRIPT}.py",
+                ".pyz",
+            },
         )
         command = mod_verify.build_tool_command("ruff", "formatter", path)
         assert command is None
@@ -129,11 +140,18 @@ def test_build_tool_command_custom_instance_with_explicit_tool(
         def mock_find_tool(tool_name: str, **_: object) -> str | None:
             return fake_executable if tool_name == "ruff" else None
 
-        patch_everywhere(
+        mod_utils.patch_everywhere(
             monkeypatch,
             mod_verify,
             "find_tool_executable",
             mock_find_tool,
+            package_prefix=mod_meta.PROGRAM_PACKAGE,
+            stitch_hints={
+                "/dist/",
+                "standalone",
+                f"{mod_meta.PROGRAM_SCRIPT}.py",
+                ".pyz",
+            },
         )
 
         tools_dict: dict[str, Any] = {
@@ -171,11 +189,18 @@ def test_build_tool_command_custom_instance_inferred_tool(
         def mock_find_tool(tool_name: str, **_: object) -> str | None:
             return fake_executable if tool_name == "ruff" else None
 
-        patch_everywhere(
+        mod_utils.patch_everywhere(
             monkeypatch,
             mod_verify,
             "find_tool_executable",
             mock_find_tool,
+            package_prefix=mod_meta.PROGRAM_PACKAGE,
+            stitch_hints={
+                "/dist/",
+                "standalone",
+                f"{mod_meta.PROGRAM_SCRIPT}.py",
+                ".pyz",
+            },
         )
 
         tools_dict: dict[str, Any] = {
@@ -213,11 +238,18 @@ def test_build_tool_command_custom_instance_with_command(
         def mock_find_tool(tool_name: str, **_: object) -> str | None:
             return fake_executable if tool_name == "ruff" else None
 
-        patch_everywhere(
+        mod_utils.patch_everywhere(
             monkeypatch,
             mod_verify,
             "find_tool_executable",
             mock_find_tool,
+            package_prefix=mod_meta.PROGRAM_PACKAGE,
+            stitch_hints={
+                "/dist/",
+                "standalone",
+                f"{mod_meta.PROGRAM_SCRIPT}.py",
+                ".pyz",
+            },
         )
 
         tools_dict: dict[str, Any] = {
@@ -254,11 +286,18 @@ def test_build_tool_command_custom_instance_options_appending(
         def mock_find_tool(tool_name: str, **_: object) -> str | None:
             return fake_executable if tool_name == "ruff" else None
 
-        patch_everywhere(
+        mod_utils.patch_everywhere(
             monkeypatch,
             mod_verify,
             "find_tool_executable",
             mock_find_tool,
+            package_prefix=mod_meta.PROGRAM_PACKAGE,
+            stitch_hints={
+                "/dist/",
+                "standalone",
+                f"{mod_meta.PROGRAM_SCRIPT}.py",
+                ".pyz",
+            },
         )
 
         tools_dict: dict[str, Any] = {
@@ -299,11 +338,18 @@ def test_build_tool_command_custom_instance_fallback_to_defaults(
         def mock_find_tool(tool_name: str, **_: object) -> str | None:
             return fake_executable if tool_name == "ruff" else None
 
-        patch_everywhere(
+        mod_utils.patch_everywhere(
             monkeypatch,
             mod_verify,
             "find_tool_executable",
             mock_find_tool,
+            package_prefix=mod_meta.PROGRAM_PACKAGE,
+            stitch_hints={
+                "/dist/",
+                "standalone",
+                f"{mod_meta.PROGRAM_SCRIPT}.py",
+                ".pyz",
+            },
         )
 
         tools_dict: dict[str, Any] = {

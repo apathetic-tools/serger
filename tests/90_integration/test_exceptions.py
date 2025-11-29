@@ -4,11 +4,12 @@
 import logging
 
 import apathetic_logging as mod_alogs
+import apathetic_utils as mod_utils
 import pytest
 
 import serger.cli as mod_cli
 import serger.logs as mod_logs
-from tests.utils import patch_everywhere
+import serger.meta as mod_meta
 
 
 def test_main_handles_controlled_exception(
@@ -23,7 +24,14 @@ def test_main_handles_controlled_exception(
         raise ValueError(xmsg)
 
     # --- patch and execute ---
-    patch_everywhere(monkeypatch, mod_cli, "_setup_parser", fake_parser)
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_cli,
+        "_setup_parser",
+        fake_parser,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+    )
     code = mod_cli.main([])
 
     # --- verify ---
@@ -45,7 +53,14 @@ def test_main_handles_unexpected_exception(
         raise OSError(xmsg)  # not one of the controlled types
 
     # --- patch and execute ---
-    patch_everywhere(monkeypatch, mod_cli, "_setup_parser", fake_parser)
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_cli,
+        "_setup_parser",
+        fake_parser,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+    )
     code = mod_cli.main([])
 
     # --- verify ---
@@ -76,8 +91,22 @@ def test_main_fallbacks_to_safe_log(
             raise RuntimeError(xmsg)
 
     # --- patch and execute ---
-    patch_everywhere(monkeypatch, mod_cli, "_setup_parser", fake_parser)
-    patch_everywhere(monkeypatch, mod_alogs, "safeLog", fake_safe_log)
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_cli,
+        "_setup_parser",
+        fake_parser,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+    )
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_alogs,
+        "safeLog",
+        fake_safe_log,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+    )
 
     # Backup logger state
     logger = mod_logs.getAppLogger()

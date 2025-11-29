@@ -5,10 +5,11 @@ import shutil
 import tempfile
 from pathlib import Path
 
+import apathetic_utils as mod_utils
 import pytest
 
+import serger.meta as mod_meta
 import serger.verify_script as mod_verify
-from tests.utils import patch_everywhere
 
 
 def test_find_tool_executable_when_tool_exists() -> None:
@@ -31,7 +32,14 @@ def test_find_tool_executable_when_tool_missing(
     def mock_which(_: str) -> None:
         return None
 
-    patch_everywhere(monkeypatch, shutil, "which", mock_which)
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        shutil,
+        "which",
+        mock_which,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+    )
     result = mod_verify.find_tool_executable("nonexistent_tool")
     assert result is None
 

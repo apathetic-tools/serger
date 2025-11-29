@@ -72,7 +72,7 @@ All configuration options are specified at the root level of the config file:
 | `include` | `list[str]` | Yes* | - | Glob patterns for files to include |
 | `exclude` | `list[str]` | No | `[]` | Glob patterns for files to exclude |
 | `out` | `str` | Yes* | - | Output file path (relative to project root) |
-| `log_level` | `str` | No | `"info"` | Log verbosity level |
+| `log_level` | `str` | No | `"detail"` | Log verbosity level |
 | `strict_config` | `bool` | No | `true` | Whether to error on missing include patterns |
 | `respect_gitignore` | `bool` | No | `true` | Whether to respect `.gitignore` when selecting files |
 

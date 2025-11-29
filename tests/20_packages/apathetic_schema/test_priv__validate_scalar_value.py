@@ -11,7 +11,8 @@ import apathetic_utils as mod_utils
 import pytest
 
 import apathetic_schema_src.schema as amod_schema
-from tests.utils import make_summary, patch_everywhere
+import serger.meta as mod_meta
+from tests.utils import make_summary
 
 
 def test_validate_scalar_value_returns_bool() -> None:
@@ -83,11 +84,13 @@ def test_validate_scalar_value_handles_fallback_path(
         raise TypeError(xmsg)
 
     # --- patch and execute ---
-    patch_everywhere(
+    mod_utils.patch_everywhere(
         monkeypatch,
         mod_utils,
         "safe_isinstance",
         _fake_safe_isinstance,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
     )
     ok = amod_schema._validate_scalar_value(
         "ctx",

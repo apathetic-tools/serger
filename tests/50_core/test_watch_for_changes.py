@@ -5,15 +5,16 @@ import time
 from pathlib import Path
 from typing import Any
 
+import apathetic_utils as mod_utils
 import pytest
 
 import serger.actions as mod_actions
+import serger.meta as mod_meta
 from tests.utils import (
     force_mtime_advance,
     make_build_cfg,
     make_include_resolved,
     make_resolved,
-    patch_everywhere,
 )
 
 
@@ -73,7 +74,14 @@ def test_watch_for_changes_triggers_rebuild(
 
     # --- patch and execute ---
     monkeypatch.setattr(time, "sleep", fake_sleep)
-    patch_everywhere(monkeypatch, mod_actions, "_collect_included_files", fake_collect)
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_actions,
+        "_collect_included_files",
+        fake_collect,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+    )
     mod_actions.watch_for_changes(fake_build, build, interval=0.01)
 
     # --- verify ---
@@ -129,7 +137,14 @@ def test_watch_for_changes_exported_and_callable(
 
     # --- patch and execute ---
     monkeypatch.setattr(time, "sleep", fake_sleep)
-    patch_everywhere(monkeypatch, mod_actions, "_collect_included_files", fake_collect)
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_actions,
+        "_collect_included_files",
+        fake_collect,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+    )
     mod_actions.watch_for_changes(fake_build, build, interval=0.01)
 
     # --- verify ---
@@ -277,7 +292,14 @@ def test_watch_detects_file_disappearance(
 
     # --- patch and execute ---
     monkeypatch.setattr(time, "sleep", fake_sleep)
-    patch_everywhere(monkeypatch, mod_actions, "_collect_included_files", fake_collect)
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_actions,
+        "_collect_included_files",
+        fake_collect,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+    )
     mod_actions.watch_for_changes(fake_build, build, interval=0.01)
 
     # --- verify ---

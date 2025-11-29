@@ -9,6 +9,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+import apathetic_utils as mod_utils
 import pytest
 
 import serger.actions as mod_actions
@@ -16,9 +17,6 @@ import serger.cli as mod_cli
 import serger.config.config_types as mod_types
 import serger.constants as mod_constants
 import serger.meta as mod_meta
-from tests.utils import (
-    patch_everywhere,
-)
 
 
 def test_watch_flag_invokes_watch_mode(
@@ -43,7 +41,14 @@ def test_watch_flag_invokes_watch_mode(
 
     # --- patch and execute ---
     monkeypatch.chdir(tmp_path)
-    patch_everywhere(monkeypatch, mod_actions, "watch_for_changes", fake_watch)
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_actions,
+        "watch_for_changes",
+        fake_watch,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+    )
     code = mod_cli.main(["--watch"])
 
     # --- verify ---
@@ -77,7 +82,14 @@ def test_watch_uses_config_interval_when_flag_passed(
 
     # --- patch and execute ---
     monkeypatch.chdir(tmp_path)
-    patch_everywhere(monkeypatch, mod_actions, "watch_for_changes", fake_watch)
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_actions,
+        "watch_for_changes",
+        fake_watch,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+    )
     # run CLI with --watch (no explicit interval)
     code = mod_cli.main(["--watch"])
 
@@ -112,7 +124,14 @@ def test_watch_falls_back_to_default_interval_when_no_config(
 
     # --- patch and execute ---
     monkeypatch.chdir(tmp_path)
-    patch_everywhere(monkeypatch, mod_actions, "watch_for_changes", fake_watch)
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_actions,
+        "watch_for_changes",
+        fake_watch,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+    )
     code = mod_cli.main(["--watch"])
 
     # --- verify ---

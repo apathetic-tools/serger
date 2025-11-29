@@ -80,7 +80,7 @@ All configuration options are specified at the root level of the config file:
 | `license` | `str \| dict` | No† | - | License text or configuration. String format: plain text (e.g., `"MIT"`). Dict format: `{text: str}`, `{expression: str}`, or `{file: str \| list[str]}` (glob patterns supported). Priority: `text` > `expression` > `file`. Fallback from `pyproject.toml` `[project] license`. |
 | `license_files` | `list[str]` | No | - | Additional license files (glob patterns). Content is appended to `license` field. |
 | `authors` | `str` | No† | - | Authors for generated header. |
-| `log_level` | `str` | No | `"info"` | Log verbosity: `trace`, `debug`, `info`, `warning`, `error` |
+| `log_level` | `str` | No | `"detail"` | Log verbosity: `trace`, `debug`, `detail`, `info`, `warning`, `error` |
 | `respect_gitignore` | `bool` | No | `true` | Whether to respect `.gitignore` when selecting files |
 | `strict_config` | `bool` | No | `true` | Whether to error on missing include patterns |
 | `disable_build_timestamp` | `bool` | No | `false` | Replace build timestamps with placeholder for deterministic builds (see [Build Timestamps](#build-timestamps)) |

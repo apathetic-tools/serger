@@ -3,13 +3,15 @@
 
 import uuid
 
+import apathetic_utils as mod_utils
 import pytest
+from apathetic_logging import makeSafeTrace
 
 import serger.logs as mod_logs
-from tests.utils import make_test_trace, patch_everywhere
+import serger.meta as mod_meta
 
 
-TEST_TRACE = make_test_trace(icon="📏")
+TEST_TRACE = makeSafeTrace(icon="📏")
 
 
 def _suffix() -> str:
@@ -47,7 +49,14 @@ def module_logger(monkeypatch: pytest.MonkeyPatch) -> mod_logs.AppLogger:
     """
     new_logger = mod_logs.AppLogger(f"isolated_logger{_suffix()}", enable_color=False)
     new_logger.setLevel("test")
-    patch_everywhere(monkeypatch, mod_logs, "getAppLogger", lambda: new_logger)
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_logs,
+        "getAppLogger",
+        lambda: new_logger,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+    )
     TEST_TRACE(
         "module_logger fixture",
         f"id={id(new_logger)}",

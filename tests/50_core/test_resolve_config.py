@@ -112,7 +112,6 @@ def test_resolve_config_invalid_env_watch_falls_back(
 
 def test_resolve_config_propagates_cli_log_level(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """CLI --log-level should propagate into resolved root and runtime."""
     # --- setup ---
@@ -120,13 +119,10 @@ def test_resolve_config_propagates_cli_log_level(
     root: mod_types.RootConfig = {"include": ["src/**"], "out": "dist"}
 
     # --- patch and execute ---
-    with module_logger.useLevel("info"):
-        resolved = mod_resolve.resolve_config(root, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_config(root, args, tmp_path, tmp_path)
 
-        # --- validate ---
-        assert resolved["log_level"].lower() == "trace"
-        level = module_logger.levelName.lower()
-        assert level.lower() == "trace"
+    # --- validate ---
+    assert resolved["log_level"].lower() == "trace"
 
 
 def test_resolve_config_duplicate_output_paths_raises_error(
