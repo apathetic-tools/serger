@@ -25,6 +25,22 @@ files = [
 ]
 
 [[package]]
+name = "apathetic-schema"
+version = "0.0.1"
+description = "Type-based validation for dict-based configs."
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "apathetic_schema-0.0.1-py3-none-any.whl", hash = "sha256:c69e671fd43622fe70a6ab24752d55e218c9271142a5d891d9ba5abf677ba799"},
+    {file = "apathetic_schema-0.0.1.tar.gz", hash = "sha256:35dfea8fe282be8c561d79d07a2ab38c54e40c18523e94916dc0a55e419acb46"},
+]
+
+[package.dependencies]
+apathetic-logging = ">=0.3.2,<2.0.0"
+apathetic-utils = ">=0.2.1,<2.0.0"
+
+[[package]]
 name = "apathetic-utils"
 version = "0.2.1"
 description = "When stdlib isn't enough."
@@ -1820,4 +1836,4 @@ dev = ["pytest", "setuptools"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10"
-content-hash = "cab971edeaf7647e42200664c40ca3968f1d8ca65c0077ff0c0a272d382bf0fc"
+content-hash = "5ddfa030452bb3e7397312c85e924e67003f000ff529ba429cfeb549e2819a1c"

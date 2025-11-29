@@ -3,20 +3,27 @@
 
 from typing import Any
 
+import apathetic_schema
+from apathetic_schema.types import (
+    ApatheticSchema_ValidationSummary as ValidationSummary,
+)
+from apathetic_schema.warn_keys_once import (
+    ApatheticSchema_SchemaErrorAggregator as SchemaErrorAggregator,
+)
 from apathetic_utils import schema_from_typeddict
 
-from apathetic_schema_src import (
-    SchemaErrorAggregator,
-    ValidationSummary,
-    check_schema_conformance,
-    collect_msg,
-    flush_schema_aggregators,
-    warn_keys_once,
-)
 from serger.constants import DEFAULT_STRICT_CONFIG
 from serger.logs import getAppLogger
 
 from .config_types import RootConfig
+
+
+# Get the namespace instance for function calls
+_schema = apathetic_schema.apathetic_schema()
+check_schema_conformance = _schema.check_schema_conformance
+collect_msg = _schema.collect_msg
+flush_schema_aggregators = _schema.flush_schema_aggregators
+warn_keys_once = _schema.warn_keys_once
 
 
 # --- constants ------------------------------------------------------

@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import Any, cast
 
 from apathetic_logging import getLevelNumber
+from apathetic_schema.types import (
+    ApatheticSchema_ValidationSummary as ValidationSummary,
+)
 from apathetic_utils import (
     cast_hint,
     load_jsonc,
@@ -15,7 +18,6 @@ from apathetic_utils import (
     remove_path_in_error_message,
 )
 
-from apathetic_schema_src import ValidationSummary
 from serger.logs import getAppLogger
 from serger.meta import (
     PROGRAM_CONFIG,
