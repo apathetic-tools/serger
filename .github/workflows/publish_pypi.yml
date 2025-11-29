@@ -102,8 +102,8 @@ jobs:
         with:
           repository-url: https://test.pypi.org/legacy/
 
-          - name: Publish to PyPI
-          if: |
+      - name: Publish to PyPI
+        if: |
           (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || steps.check_tag.outputs.tag_exists == 'true') &&
           github.event.inputs.testpypi_only != 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
