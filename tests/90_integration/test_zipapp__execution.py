@@ -107,7 +107,7 @@ def test_zipapp_import_semantics() -> None:
         # Verify serger module is available and has expected attributes
         # Note: In zipapp mode, __main__ is not an attribute but can be imported
         try:
-            import serger.__main__  # noqa: PLC0415
+            import serger.__main__  # noqa: PLC0415  # pyright: ignore[reportUnusedImport]
 
             __main___available = True
         except ImportError:
