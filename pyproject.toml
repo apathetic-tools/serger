@@ -39,10 +39,10 @@ Changelog = "https://github.com/apathetic-tools/serger/releases"
 # --- Development tasks ---
 [tool.poe.tasks]
 # 🧩 All-in-one
-"check:fix" = ["pre-commit:install", "fix", "typecheck", "test"]
+"check:fix" = ["pre-commit:install", "fix", "typecheck", "test:parallel"]
 
 # 🔍 Linting and static checks
-check = ["lint", "typecheck",  "test"]
+check = ["lint", "typecheck",  "test:parallel"]
 lint = ["lint:ruff"]
 "lint:ruff" = "ruff check ."
 
@@ -55,13 +55,47 @@ typecheck = ["typecheck:mypy", "typecheck:pyright"]
 # 🧪 Tests (runs all three: installed + singlefile + zipapp)
 test = ["test:pytest:installed", "test:pytest:script", "test:pytest:zipapp"]
 "test:pytest:installed" = "pytest"
+"test:pytest:installed:parallel" = "pytest -n auto"
 "test:pytest:script" = [
   "build:script",
   { cmd = "pytest", env = { RUNTIME_MODE="singlefile" } }
 ]
+"test:pytest:script:parallel" = [
+  "build:script",
+  { cmd = "pytest -n auto", env = { RUNTIME_MODE="singlefile" } }
+]
 "test:pytest:zipapp" = [
   "build:zipapp",
   { cmd = "pytest", env = { RUNTIME_MODE="zipapp" } }
+]
+"test:pytest:zipapp:parallel" = [
+  "build:zipapp",
+  { cmd = "pytest -n auto", env = { RUNTIME_MODE="zipapp" } }
+]
+
+# 🚀 Fast test runs (for development)
+# Fast: installed mode only, parallel, skip slow tests
+"test:fast" = "pytest -n auto -m 'not slow'"
+# Fast: all three modes, parallel, skip slow tests
+"test:fast:installed" = "pytest -n auto -m 'not slow'"
+"test:fast:script" = [
+  "build:script",
+  { cmd = "pytest -n auto -m 'not slow'", env = { RUNTIME_MODE="singlefile" } }
+]
+"test:fast:zipapp" = [
+  "build:zipapp",
+  { cmd = "pytest -n auto -m 'not slow'", env = { RUNTIME_MODE="zipapp" } }
+]
+"test:fast:all" = [
+  "test:fast:installed",
+  "test:fast:script",
+  "test:fast:zipapp"
+]
+# Parallel: all three modes with parallel execution
+"test:parallel" = [
+  "test:pytest:installed:parallel",
+  "test:pytest:script:parallel",
+  "test:pytest:zipapp:parallel"
 ]
 
 # 📊 Coverage reporting
@@ -119,17 +153,23 @@ fix = ["sync:ai:guidance", "fix:ruff:installed", "fix:format:installed"]
 "env:py3x" = "bash dev/env_use_py3x.sh"
 "test:py310" = [
   "env:py310",
-  "test",
+  "test:parallel",
   "env:py3x"
 ]
 "test:py311" = [
   "env:py311",
-  "test",
+  "test:parallel",
   "env:py3x"
 ]
 "test:py312" = [
   "env:py312",
-  "test",
+  "test:parallel",
+  "env:py3x"
+]
+"test:py310:zipapp" = [
+  "env:py310",
+  "build:zipapp",
+  { cmd = "pytest -n auto", env = { RUNTIME_MODE="zipapp" } },
   "env:py3x"
 ]
 
@@ -157,6 +197,7 @@ dev = [
     "pytest-timeout (>=2.4.0,<3.0.0)",
     "pytest-benchmark (>=5.1.0,<6.0.0)",
     "pytest-cov (>=7.0.0,<8.0.0)",
+    "pytest-xdist",
     "pyright (>=1.1.407,<2.0.0)",
     "shiv (>=1.0.0,<2.0.0)",
     "python-semantic-release (>=10.0.0,<11.0.0)",
