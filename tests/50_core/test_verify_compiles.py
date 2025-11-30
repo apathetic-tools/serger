@@ -1,52 +1,36 @@
 # tests/50_core/test_verify_compiles.py
 """Tests for verify_compiles function."""
 
-import tempfile
 from pathlib import Path
 
 import serger.verify_script as mod_verify
 
 
-def test_verify_compiles_valid_python() -> None:
+def test_verify_compiles_valid_python(tmp_path: Path) -> None:
     """Should return True for valid Python code."""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
-        f.write("def hello():\n    return 'world'\n")
-        f.flush()
-        path = Path(f.name)
+    path = tmp_path / "test.py"
+    path.write_text("def hello():\n    return 'world'\n")
 
-    try:
-        result = mod_verify.verify_compiles(path)
-        assert result is True
-    finally:
-        path.unlink()
+    result = mod_verify.verify_compiles(path)
+    assert result is True
 
 
-def test_verify_compiles_invalid_syntax() -> None:
+def test_verify_compiles_invalid_syntax(tmp_path: Path) -> None:
     """Should return False for invalid Python syntax."""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
-        f.write("def hello(\n    return 'world'\n")  # Missing closing paren
-        f.flush()
-        path = Path(f.name)
+    path = tmp_path / "test.py"
+    path.write_text("def hello(\n    return 'world'\n")  # Missing closing paren
 
-    try:
-        result = mod_verify.verify_compiles(path)
-        assert result is False
-    finally:
-        path.unlink()
+    result = mod_verify.verify_compiles(path)
+    assert result is False
 
 
-def test_verify_compiles_empty_file() -> None:
+def test_verify_compiles_empty_file(tmp_path: Path) -> None:
     """Should return True for empty file (valid Python)."""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
-        f.write("")
-        f.flush()
-        path = Path(f.name)
+    path = tmp_path / "test.py"
+    path.write_text("")
 
-    try:
-        result = mod_verify.verify_compiles(path)
-        assert result is True
-    finally:
-        path.unlink()
+    result = mod_verify.verify_compiles(path)
+    assert result is True
 
 
 def test_verify_compiles_nonexistent_file() -> None:

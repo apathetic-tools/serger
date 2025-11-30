@@ -61,541 +61,457 @@ def _setup_stitch_test(
 class TestStitchModulesValidation:
     """Test validation in stitch_modules."""
 
-    def test_missing_package_field(self) -> None:
+    def test_missing_package_field(self, tmp_path: Path) -> None:
         """Should raise RuntimeError when package is not specified."""
         config: dict[str, Any] = {
             "order": [Path("module_a.py"), Path("module_b.py")],
             "stitch_mode": "raw",
         }
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            (src_dir / "module_a.py").write_text("A = 1\n")
-            (src_dir / "module_b.py").write_text("B = 2\n")
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        (src_dir / "module_a.py").write_text("A = 1\n")
+        (src_dir / "module_b.py").write_text("B = 2\n")
 
-            file_paths = [
-                (src_dir / "module_a.py").resolve(),
-                (src_dir / "module_b.py").resolve(),
-            ]
-            package_root = mod_build.find_package_root(file_paths)
-            file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
-            out_path = tmp_path / "output.py"
+        file_paths = [
+            (src_dir / "module_a.py").resolve(),
+            (src_dir / "module_b.py").resolve(),
+        ]
+        package_root = mod_build.find_package_root(file_paths)
+        file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
+        out_path = tmp_path / "output.py"
 
-            with pytest.raises(TypeError, match="package"):
-                mod_stitch.stitch_modules(
-                    config=config,
-                    file_paths=file_paths,
-                    package_root=package_root,
-                    file_to_include=file_to_include,
-                    out_path=out_path,
-                    is_serger_build=is_serger_build_for_test(out_path),
-                )
+        with pytest.raises(TypeError, match="package"):
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
+            )
 
-    def test_missing_order_field(self) -> None:
+    def test_missing_order_field(self, tmp_path: Path) -> None:
         """Should raise RuntimeError when order is not specified."""
         config: dict[str, Any] = {
             "package": "testpkg",
             "stitch_mode": "raw",
         }
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            (src_dir / "module_a.py").write_text("A = 1\n")
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        (src_dir / "module_a.py").write_text("A = 1\n")
 
-            file_paths = [(src_dir / "module_a.py").resolve()]
-            package_root = mod_build.find_package_root(file_paths)
-            file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
-            out_path = tmp_path / "output.py"
+        file_paths = [(src_dir / "module_a.py").resolve()]
+        package_root = mod_build.find_package_root(file_paths)
+        file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
+        out_path = tmp_path / "output.py"
 
-            with pytest.raises(RuntimeError, match="order"):
-                mod_stitch.stitch_modules(
-                    config=config,
-                    file_paths=file_paths,
-                    package_root=package_root,
-                    file_to_include=file_to_include,
-                    out_path=out_path,
-                    is_serger_build=is_serger_build_for_test(out_path),
-                )
+        with pytest.raises(RuntimeError, match="order"):
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
+            )
 
-    def test_invalid_package_type(self) -> None:
+    def test_invalid_package_type(self, tmp_path: Path) -> None:
         """Should raise TypeError when package is not a string."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            (src_dir / "module_a.py").write_text("A = 1\n")
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        (src_dir / "module_a.py").write_text("A = 1\n")
 
-            file_paths = [(src_dir / "module_a.py").resolve()]
-            package_root = mod_build.find_package_root(file_paths)
-            file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
-            out_path = tmp_path / "output.py"
+        file_paths = [(src_dir / "module_a.py").resolve()]
+        package_root = mod_build.find_package_root(file_paths)
+        file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
+        out_path = tmp_path / "output.py"
 
-            config: dict[str, Any] = {
-                "package": 123,  # Not a string
-                "order": file_paths,
-                "stitch_mode": "raw",
-            }
+        config: dict[str, Any] = {
+            "package": 123,  # Not a string
+            "order": file_paths,
+            "stitch_mode": "raw",
+        }
 
-            with pytest.raises(TypeError, match="package"):
-                mod_stitch.stitch_modules(
-                    config=config,
-                    file_paths=file_paths,
-                    package_root=package_root,
-                    file_to_include=file_to_include,
-                    out_path=out_path,
-                    is_serger_build=is_serger_build_for_test(out_path),
-                )
+        with pytest.raises(TypeError, match="package"):
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
+            )
 
-    def test_invalid_order_type(self) -> None:
+    def test_invalid_order_type(self, tmp_path: Path) -> None:
         """Should raise TypeError when order is not a list."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            (src_dir / "module_a.py").write_text("A = 1\n")
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        (src_dir / "module_a.py").write_text("A = 1\n")
 
-            file_paths = [(src_dir / "module_a.py").resolve()]
-            package_root = mod_build.find_package_root(file_paths)
-            file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
-            out_path = tmp_path / "output.py"
+        file_paths = [(src_dir / "module_a.py").resolve()]
+        package_root = mod_build.find_package_root(file_paths)
+        file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
+        out_path = tmp_path / "output.py"
 
-            config: dict[str, Any] = {
-                "package": "testpkg",
-                "order": "module_a",  # Not a list
-                "stitch_mode": "raw",
-            }
+        config: dict[str, Any] = {
+            "package": "testpkg",
+            "order": "module_a",  # Not a list
+            "stitch_mode": "raw",
+        }
 
-            with pytest.raises(TypeError, match="order"):
-                mod_stitch.stitch_modules(
-                    config=config,
-                    file_paths=file_paths,
-                    package_root=package_root,
-                    file_to_include=file_to_include,
-                    out_path=out_path,
-                    is_serger_build=is_serger_build_for_test(out_path),
-                )
+        with pytest.raises(TypeError, match="order"):
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
+            )
 
-    def test_invalid_stitch_mode(self) -> None:
+    def test_invalid_stitch_mode(self, tmp_path: Path) -> None:
         """Should raise ValueError when stitch_mode is invalid."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            (src_dir / "module_a.py").write_text("A = 1\n")
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        (src_dir / "module_a.py").write_text("A = 1\n")
 
-            file_paths = [(src_dir / "module_a.py").resolve()]
-            package_root = mod_build.find_package_root(file_paths)
-            file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
-            out_path = tmp_path / "output.py"
+        file_paths = [(src_dir / "module_a.py").resolve()]
+        package_root = mod_build.find_package_root(file_paths)
+        file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
+        out_path = tmp_path / "output.py"
 
-            config: dict[str, Any] = {
-                "package": "testpkg",
-                "order": file_paths,
-                "stitch_mode": "invalid_mode",
-            }
+        config: dict[str, Any] = {
+            "package": "testpkg",
+            "order": file_paths,
+            "stitch_mode": "invalid_mode",
+        }
 
-            with pytest.raises(ValueError, match="Invalid stitch_mode"):
-                mod_stitch.stitch_modules(
-                    config=config,
-                    file_paths=file_paths,
-                    package_root=package_root,
-                    file_to_include=file_to_include,
-                    out_path=out_path,
-                    is_serger_build=is_serger_build_for_test(out_path),
-                )
+        with pytest.raises(ValueError, match="Invalid stitch_mode"):
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
+            )
 
-    def test_unimplemented_stitch_mode_class(self) -> None:
+    def test_unimplemented_stitch_mode_class(self, tmp_path: Path) -> None:
         """Should raise NotImplementedError when stitch_mode is 'class'."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            (src_dir / "module_a.py").write_text("A = 1\n")
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        (src_dir / "module_a.py").write_text("A = 1\n")
 
-            file_paths = [(src_dir / "module_a.py").resolve()]
-            package_root = mod_build.find_package_root(file_paths)
-            file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
-            out_path = tmp_path / "output.py"
+        file_paths = [(src_dir / "module_a.py").resolve()]
+        package_root = mod_build.find_package_root(file_paths)
+        file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
+        out_path = tmp_path / "output.py"
 
-            config: dict[str, Any] = {
-                "package": "testpkg",
-                "order": file_paths,
-                "stitch_mode": "class",
-            }
+        config: dict[str, Any] = {
+            "package": "testpkg",
+            "order": file_paths,
+            "stitch_mode": "class",
+        }
 
-            with pytest.raises(NotImplementedError, match="not yet implemented"):
-                mod_stitch.stitch_modules(
-                    config=config,
-                    file_paths=file_paths,
-                    package_root=package_root,
-                    file_to_include=file_to_include,
-                    out_path=out_path,
-                    is_serger_build=is_serger_build_for_test(out_path),
-                )
+        with pytest.raises(NotImplementedError, match="not yet implemented"):
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
+            )
 
-    def test_unimplemented_stitch_mode_exec(self) -> None:
+    def test_unimplemented_stitch_mode_exec(self, tmp_path: Path) -> None:
         """Should raise NotImplementedError when stitch_mode is 'exec'."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            (src_dir / "module_a.py").write_text("A = 1\n")
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        (src_dir / "module_a.py").write_text("A = 1\n")
 
-            file_paths = [(src_dir / "module_a.py").resolve()]
-            package_root = mod_build.find_package_root(file_paths)
-            file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
-            out_path = tmp_path / "output.py"
+        file_paths = [(src_dir / "module_a.py").resolve()]
+        package_root = mod_build.find_package_root(file_paths)
+        file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
+        out_path = tmp_path / "output.py"
 
-            config: dict[str, Any] = {
-                "package": "testpkg",
-                "order": file_paths,
-                "stitch_mode": "exec",
-            }
+        config: dict[str, Any] = {
+            "package": "testpkg",
+            "order": file_paths,
+            "stitch_mode": "exec",
+        }
 
-            with pytest.raises(NotImplementedError, match="not yet implemented"):
-                mod_stitch.stitch_modules(
-                    config=config,
-                    file_paths=file_paths,
-                    package_root=package_root,
-                    file_to_include=file_to_include,
-                    out_path=out_path,
-                    is_serger_build=is_serger_build_for_test(out_path),
-                )
+        with pytest.raises(NotImplementedError, match="not yet implemented"):
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
+            )
 
 
 class TestStitchModulesBasic:
     """Test basic stitch_modules functionality."""
 
-    def test_stitch_simple_modules(self) -> None:
+    def test_stitch_simple_modules(self, tmp_path: Path) -> None:
         """Should stitch simple modules without dependencies."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            # Create simple modules
-            (src_dir / "base.py").write_text("BASE = 1\n")
-            (src_dir / "main.py").write_text("MAIN = BASE\n")
+        # Create simple modules
+        (src_dir / "base.py").write_text("BASE = 1\n")
+        (src_dir / "main.py").write_text("MAIN = BASE\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["base", "main"]
-            )
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["base", "main"]
+        )
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                version="1.0.0",
-                commit="abc123",
-                build_date="2025-01-01",
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            version="1.0.0",
+            commit="abc123",
+            build_date="2025-01-01",
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            # Verify output exists and contains both modules
-            assert out_path.exists()
-            content = out_path.read_text()
-            # Module names are now derived from paths (e.g., "base" not "base.py")
-            assert "# === base ===" in content or "# === base.py ===" in content
-            assert "# === main ===" in content or "# === main.py ===" in content
-            assert "BASE = 1" in content
-            assert "MAIN = BASE" in content
-            assert '__version__ = "1.0.0"' in content
-            assert '__commit__ = "abc123"' in content
+        # Verify output exists and contains both modules
+        assert out_path.exists()
+        content = out_path.read_text()
+        # Module names are now derived from paths (e.g., "base" not "base.py")
+        assert "# === base ===" in content or "# === base.py ===" in content
+        assert "# === main ===" in content or "# === main.py ===" in content
+        assert "BASE = 1" in content
+        assert "MAIN = BASE" in content
+        assert '__version__ = "1.0.0"' in content
+        assert '__commit__ = "abc123"' in content
 
-    def test_stitch_with_external_imports(self) -> None:
+    def test_stitch_with_external_imports(self, tmp_path: Path) -> None:
         """Should collect external imports and place at top."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            # Create modules with external imports
-            (src_dir / "base.py").write_text("import json\n\nBASE = 1\n")
-            (src_dir / "main.py").write_text(
-                "import sys\nfrom typing import Any\n\nMAIN = 2\n"
-            )
+        # Create modules with external imports
+        (src_dir / "base.py").write_text("import json\n\nBASE = 1\n")
+        (src_dir / "main.py").write_text(
+            "import sys\nfrom typing import Any\n\nMAIN = 2\n"
+        )
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["base", "main"]
-            )
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["base", "main"]
+        )
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            # External imports should be near the top
-            # Module header might be "base" or "base.py" depending on derivation
-            header_marker = (
-                "# === base" if "# === base" in content else "# === base.py ==="
-            )
-            import_section = content[: content.find(header_marker)]
-            assert "import json" in import_section
-            assert "import sys" in import_section
-            assert "from typing import Any" in import_section
+        content = out_path.read_text()
+        # External imports should be near the top
+        # Module header might be "base" or "base.py" depending on derivation
+        header_marker = "# === base" if "# === base" in content else "# === base.py ==="
+        import_section = content[: content.find(header_marker)]
+        assert "import json" in import_section
+        assert "import sys" in import_section
+        assert "from typing import Any" in import_section
 
-    def test_stitch_with_external_imports_keep_mode(self) -> None:
+    def test_stitch_with_external_imports_keep_mode(self, tmp_path: Path) -> None:
         """Should keep external imports in their original locations."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            # Create modules with external imports
-            (src_dir / "base.py").write_text("import json\n\nBASE = 1\n")
-            (src_dir / "main.py").write_text(
-                "import sys\nfrom typing import Any\n\nMAIN = 2\n"
-            )
+        # Create modules with external imports
+        (src_dir / "base.py").write_text("import json\n\nBASE = 1\n")
+        (src_dir / "main.py").write_text(
+            "import sys\nfrom typing import Any\n\nMAIN = 2\n"
+        )
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["base", "main"]
-            )
-            config["external_imports"] = "keep"
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["base", "main"]
+        )
+        config["external_imports"] = "keep"
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            # External imports should be in their module sections, not at top
-            # Find module sections
-            base_section_start = content.find("# === base")
-            if base_section_start == -1:
-                base_section_start = content.find("# === base.py ===")
-            main_section_start = content.find("# === main")
-            if main_section_start == -1:
-                main_section_start = content.find("# === main.py ===")
+        content = out_path.read_text()
+        # External imports should be in their module sections, not at top
+        # Find module sections
+        base_section_start = content.find("# === base")
+        if base_section_start == -1:
+            base_section_start = content.find("# === base.py ===")
+        main_section_start = content.find("# === main")
+        if main_section_start == -1:
+            main_section_start = content.find("# === main.py ===")
 
-            # Extract module sections
-            base_section = content[base_section_start:main_section_start]
-            main_section = content[main_section_start:]
+        # Extract module sections
+        base_section = content[base_section_start:main_section_start]
+        main_section = content[main_section_start:]
 
-            # Imports should be in their respective module sections
-            assert "import json" in base_section
-            assert "BASE = 1" in base_section
-            assert "import sys" in main_section
-            assert "from typing import Any" in main_section
-            assert "MAIN = 2" in main_section
+        # Imports should be in their respective module sections
+        assert "import json" in base_section
+        assert "BASE = 1" in base_section
+        assert "import sys" in main_section
+        assert "from typing import Any" in main_section
+        assert "MAIN = 2" in main_section
 
-            # Imports should NOT be in the top import section
-            # (only sys and types should be there for shim system)
-            import_section = content[:base_section_start]
-            # Module-specific imports should NOT be hoisted
-            assert "import json" not in import_section
-            assert "from typing import Any" not in import_section
-            # But sys and types should still be there for shim system
-            assert "import sys\n" in import_section or "import sys" in import_section
-            assert (
-                "import types\n" in import_section or "import types" in import_section
-            )
+        # Imports should NOT be in the top import section
+        # (only sys and types should be there for shim system)
+        import_section = content[:base_section_start]
+        # Module-specific imports should NOT be hoisted
+        assert "import json" not in import_section
+        assert "from typing import Any" not in import_section
+        # But sys and types should still be there for shim system
+        assert "import sys\n" in import_section or "import sys" in import_section
+        assert "import types\n" in import_section or "import types" in import_section
 
-    def test_stitch_removes_shebangs(self) -> None:
+    def test_stitch_removes_shebangs(self, tmp_path: Path) -> None:
         """Should remove shebangs from module sources."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            # Create module with shebang
-            (src_dir / "main.py").write_text("#!/usr/bin/env python3\n\nMAIN = 1\n")
+        # Create module with shebang
+        (src_dir / "main.py").write_text("#!/usr/bin/env python3\n\nMAIN = 1\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["main"]
-            )
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["main"]
+        )
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            # Output should have shebang at top, but not in module sections
-            lines = content.split("\n")
-            assert lines[0] == "#!/usr/bin/env python3"
-            # But module body should not have it
-            assert content.count("#!/usr/bin/env python3") == 1
+        content = out_path.read_text()
+        # Output should have shebang at top, but not in module sections
+        lines = content.split("\n")
+        assert lines[0] == "#!/usr/bin/env python3"
+        # But module body should not have it
+        assert content.count("#!/usr/bin/env python3") == 1
 
-    def test_stitch_preserves_module_order(self) -> None:
+    def test_stitch_preserves_module_order(self, tmp_path: Path) -> None:
         """Should maintain specified module order in output."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            # Create modules
-            (src_dir / "a.py").write_text("A = 1\n")
-            (src_dir / "b.py").write_text("B = 2\n")
-            (src_dir / "c.py").write_text("C = 3\n")
+        # Create modules
+        (src_dir / "a.py").write_text("A = 1\n")
+        (src_dir / "b.py").write_text("B = 2\n")
+        (src_dir / "c.py").write_text("C = 3\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir,
-                ["c", "a", "b"],  # Non-alphabetical order
-            )
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir,
+            ["c", "a", "b"],  # Non-alphabetical order
+        )
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            # Check order is preserved (module names derived from paths)
-            c_pos = (
-                content.find("# === c")
-                if "# === c" in content
-                else content.find("# === c.py ===")
-            )
-            a_pos = (
-                content.find("# === a")
-                if "# === a" in content
-                else content.find("# === a.py ===")
-            )
-            b_pos = (
-                content.find("# === b")
-                if "# === b" in content
-                else content.find("# === b.py ===")
-            )
-            assert c_pos < a_pos < b_pos
+        content = out_path.read_text()
+        # Check order is preserved (module names derived from paths)
+        c_pos = (
+            content.find("# === c")
+            if "# === c" in content
+            else content.find("# === c.py ===")
+        )
+        a_pos = (
+            content.find("# === a")
+            if "# === a" in content
+            else content.find("# === a.py ===")
+        )
+        b_pos = (
+            content.find("# === b")
+            if "# === b" in content
+            else content.find("# === b.py ===")
+        )
+        assert c_pos < a_pos < b_pos
 
-    def test_stitch_missing_module_warning(self) -> None:
+    def test_stitch_missing_module_warning(self, tmp_path: Path) -> None:
         """Should skip missing modules with warning."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            # Create only one of two specified modules
-            (src_dir / "exists.py").write_text("EXISTS = 1\n")
+        # Create only one of two specified modules
+        (src_dir / "exists.py").write_text("EXISTS = 1\n")
 
-            # Only include the existing file in file_paths
-            file_paths = [(src_dir / "exists.py").resolve()]
-            package_root = mod_build.find_package_root(file_paths)
-            file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
-            include = make_include_resolved(str(src_dir.name), src_dir.parent)
-            for file_path in file_paths:
-                file_to_include[file_path] = include
+        # Only include the existing file in file_paths
+        file_paths = [(src_dir / "exists.py").resolve()]
+        package_root = mod_build.find_package_root(file_paths)
+        file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
+        include = make_include_resolved(str(src_dir.name), src_dir.parent)
+        for file_path in file_paths:
+            file_to_include[file_path] = include
 
-            config: dict[str, Any] = {
-                "package": "testpkg",
-                "order": file_paths,  # Only existing file
-                "exclude_names": [],
-            }
+        config: dict[str, Any] = {
+            "package": "testpkg",
+            "order": file_paths,  # Only existing file
+            "exclude_names": [],
+        }
 
-            # Should not raise, just skip missing module
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        # Should not raise, just skip missing module
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            assert "# === exists" in content or "# === exists.py ===" in content
-            # Missing module should not appear
-            assert "# === missing" not in content
+        content = out_path.read_text()
+        assert "# === exists" in content or "# === exists.py ===" in content
+        # Missing module should not appear
+        assert "# === missing" not in content
 
 
 class TestStitchModulesCollisionDetection:
     """Test name collision detection."""
 
-    def test_collision_detection_functions(self) -> None:
+    def test_collision_detection_functions(self, tmp_path: Path) -> None:
         """Should raise RuntimeError when functions collide."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            # Create modules with colliding function names
-            (src_dir / "a.py").write_text("def func():\n    return 1\n")
-            (src_dir / "b.py").write_text("def func():\n    return 2\n")
+        # Create modules with colliding function names
+        (src_dir / "a.py").write_text("def func():\n    return 1\n")
+        (src_dir / "b.py").write_text("def func():\n    return 2\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["a", "b"]
-            )
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["a", "b"]
+        )
 
-            with pytest.raises(RuntimeError, match="collision"):
-                mod_stitch.stitch_modules(
-                    config=config,
-                    file_paths=file_paths,
-                    package_root=package_root,
-                    file_to_include=file_to_include,
-                    out_path=out_path,
-                    is_serger_build=is_serger_build_for_test(out_path),
-                )
-
-    def test_collision_detection_classes(self) -> None:
-        """Should raise RuntimeError when classes collide."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
-
-            # Create modules with colliding class names
-            (src_dir / "a.py").write_text("class MyClass:\n    pass\n")
-            (src_dir / "b.py").write_text("class MyClass:\n    pass\n")
-
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["a", "b"]
-            )
-
-            with pytest.raises(RuntimeError, match="collision"):
-                mod_stitch.stitch_modules(
-                    config=config,
-                    file_paths=file_paths,
-                    package_root=package_root,
-                    file_to_include=file_to_include,
-                    out_path=out_path,
-                    is_serger_build=is_serger_build_for_test(out_path),
-                )
-
-    def test_no_collision_with_ignored_names(self) -> None:
-        """Should allow collisions with ignored names like __version__."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
-
-            # Create modules with ignored collision names
-            (src_dir / "a.py").write_text("__version__ = '1.0'\n")
-            (src_dir / "b.py").write_text("__version__ = '2.0'\n")
-
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["a", "b"]
-            )
-
-            # Should not raise - __version__ is ignored
+        with pytest.raises(RuntimeError, match="collision"):
             mod_stitch.stitch_modules(
                 config=config,
                 file_paths=file_paths,
@@ -605,94 +521,138 @@ class TestStitchModulesCollisionDetection:
                 is_serger_build=is_serger_build_for_test(out_path),
             )
 
-    def test_collision_detection_with_assign_mode(self) -> None:
-        """Should detect collisions when assign mode creates assignments."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+    def test_collision_detection_classes(self, tmp_path: Path) -> None:
+        """Should raise RuntimeError when classes collide."""
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            # Create modules in a package:
-            # testpkg/a.py: defines Config class
-            # testpkg/b.py: imports Config from testpkg.a with alias Cfg
-            # testpkg/c.py: also defines Cfg class
-            # (assign mode creates Cfg = Config in b.py, which conflicts with
-            # class Cfg in c.py)
-            # This should trigger a collision
-            (src_dir / "a.py").write_text("class Config:\n    pass\n")
-            (src_dir / "b.py").write_text("from testpkg.a import Config as Cfg\n")
-            (src_dir / "c.py").write_text("class Cfg:\n    pass\n")
+        # Create modules with colliding class names
+        (src_dir / "a.py").write_text("class MyClass:\n    pass\n")
+        (src_dir / "b.py").write_text("class MyClass:\n    pass\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["a", "b", "c"], package_name="testpkg"
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["a", "b"]
+        )
+
+        with pytest.raises(RuntimeError, match="collision"):
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
-            # Use assign mode for internal imports
-            config["internal_imports"] = "assign"
 
-            with pytest.raises(RuntimeError, match="collision"):
-                mod_stitch.stitch_modules(
-                    config=config,
-                    file_paths=file_paths,
-                    package_root=package_root,
-                    file_to_include=file_to_include,
-                    out_path=out_path,
-                    is_serger_build=is_serger_build_for_test(out_path),
-                )
+    def test_no_collision_with_ignored_names(self, tmp_path: Path) -> None:
+        """Should allow collisions with ignored names like __version__."""
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
+
+        # Create modules with ignored collision names
+        (src_dir / "a.py").write_text("__version__ = '1.0'\n")
+        (src_dir / "b.py").write_text("__version__ = '2.0'\n")
+
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["a", "b"]
+        )
+
+        # Should not raise - __version__ is ignored
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
+
+    def test_collision_detection_with_assign_mode(self, tmp_path: Path) -> None:
+        """Should detect collisions when assign mode creates assignments."""
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
+
+        # Create modules in a package:
+        # testpkg/a.py: defines Config class
+        # testpkg/b.py: imports Config from testpkg.a with alias Cfg
+        # testpkg/c.py: also defines Cfg class
+        # (assign mode creates Cfg = Config in b.py, which conflicts with
+        # class Cfg in c.py)
+        # This should trigger a collision
+        (src_dir / "a.py").write_text("class Config:\n    pass\n")
+        (src_dir / "b.py").write_text("from testpkg.a import Config as Cfg\n")
+        (src_dir / "c.py").write_text("class Cfg:\n    pass\n")
+
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["a", "b", "c"], package_name="testpkg"
+        )
+        # Use assign mode for internal imports
+        config["internal_imports"] = "assign"
+
+        with pytest.raises(RuntimeError, match="collision"):
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
+            )
 
 
 class TestStitchModulesAssignMode:
     """Integration tests for assign mode."""
 
-    def test_assign_mode_basic_import(self) -> None:
+    def test_assign_mode_basic_import(self, tmp_path: Path) -> None:
         """Should transform imports to assignments and execute correctly."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            # Module A defines a class
-            (src_dir / "a.py").write_text("class AppConfig:\n    value = 42\n")
-            # Module B imports and uses it with alias to avoid collision
-            (src_dir / "b.py").write_text(
-                "from testpkg.a import AppConfig as Config\n\nresult = Config.value\n"
-            )
+        # Module A defines a class
+        (src_dir / "a.py").write_text("class AppConfig:\n    value = 42\n")
+        # Module B imports and uses it with alias to avoid collision
+        (src_dir / "b.py").write_text(
+            "from testpkg.a import AppConfig as Config\n\nresult = Config.value\n"
+        )
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["a", "b"], package_name="testpkg"
-            )
-            config["internal_imports"] = "assign"
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["a", "b"], package_name="testpkg"
+        )
+        config["internal_imports"] = "assign"
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            # Verify output compiles
-            py_compile.compile(str(out_path), doraise=True)
+        # Verify output compiles
+        py_compile.compile(str(out_path), doraise=True)
 
-            # Verify content has assignment (non-no-op with alias)
-            content = out_path.read_text()
-            assert "Config = AppConfig" in content
+        # Verify content has assignment (non-no-op with alias)
+        content = out_path.read_text()
+        assert "Config = AppConfig" in content
 
-            # Verify it executes correctly
-            # If assignments used sys.modules (not available yet), this would fail
-            result = run_with_output(
-                [sys.executable, str(out_path)],
-                check=False,
-                cwd=tmp_path,
-            )
-            assert result.returncode == 0, (
-                f"Stitched file failed to execute:\n"
-                f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
-            )
+        # Verify it executes correctly
+        # If assignments used sys.modules (not available yet), this would fail
+        result = run_with_output(
+            [sys.executable, str(out_path)],
+            check=False,
+            cwd=tmp_path,
+        )
+        assert result.returncode == 0, (
+            f"Stitched file failed to execute:\n"
+            f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+        )
 
-    def test_assign_mode_direct_reference_works(self) -> None:
+    def test_assign_mode_direct_reference_works(self, tmp_path: Path) -> None:
         """Should work with direct references (would fail with sys.modules).
 
         This test specifically verifies that direct references work correctly.
@@ -704,451 +664,433 @@ class TestStitchModulesAssignMode:
         With direct references, it works because all symbols are in the same
         global namespace.
         """
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            # Module utils defines a function
-            (src_dir / "utils.py").write_text(
-                "def helper(x: int) -> int:\n    return x * 2\n"
-            )
-            # Module main imports and uses it with alias to avoid collision
-            (src_dir / "main.py").write_text(
-                "from testpkg.utils import helper as compute\n\nanswer = compute(21)\n"
-            )
+        # Module utils defines a function
+        (src_dir / "utils.py").write_text(
+            "def helper(x: int) -> int:\n    return x * 2\n"
+        )
+        # Module main imports and uses it with alias to avoid collision
+        (src_dir / "main.py").write_text(
+            "from testpkg.utils import helper as compute\n\nanswer = compute(21)\n"
+        )
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["utils", "main"], package_name="testpkg"
-            )
-            config["internal_imports"] = "assign"
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["utils", "main"], package_name="testpkg"
+        )
+        config["internal_imports"] = "assign"
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            # Verify output compiles
-            py_compile.compile(str(out_path), doraise=True)
+        # Verify output compiles
+        py_compile.compile(str(out_path), doraise=True)
 
-            # Verify content has assignment
-            content = out_path.read_text()
-            assert "compute = helper" in content
+        # Verify content has assignment
+        content = out_path.read_text()
+        assert "compute = helper" in content
 
-            # Verify it executes correctly
-            # If assignments used sys.modules (not available yet), this would fail
-            result = run_with_output(
-                [sys.executable, str(out_path)],
-                check=False,
-                cwd=tmp_path,
-            )
-            assert result.returncode == 0, (
-                f"Stitched file failed to execute (would fail with sys.modules):\n"
-                f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
-            )
+        # Verify it executes correctly
+        # If assignments used sys.modules (not available yet), this would fail
+        result = run_with_output(
+            [sys.executable, str(out_path)],
+            check=False,
+            cwd=tmp_path,
+        )
+        assert result.returncode == 0, (
+            f"Stitched file failed to execute (would fail with sys.modules):\n"
+            f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+        )
 
-            # Verify the code actually ran (answer should be 42)
-            # We can't easily check this without modifying the code, but the
-            # fact that it executed without error is the key test
+        # Verify the code actually ran (answer should be 42)
+        # We can't easily check this without modifying the code, but the
+        # fact that it executed without error is the key test
 
-    def test_assign_mode_with_alias(self) -> None:
+    def test_assign_mode_with_alias(self, tmp_path: Path) -> None:
         """Should handle aliased imports correctly."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "config.py").write_text("class MySettings:\n    pass\n")
-            (src_dir / "app.py").write_text(
-                "from testpkg.config import MySettings as MyConfig\n\n"
-                "my_config = MyConfig()\n"
-            )
+        (src_dir / "config.py").write_text("class MySettings:\n    pass\n")
+        (src_dir / "app.py").write_text(
+            "from testpkg.config import MySettings as MyConfig\n\n"
+            "my_config = MyConfig()\n"
+        )
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["config", "app"], package_name="testpkg"
-            )
-            config["internal_imports"] = "assign"
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["config", "app"], package_name="testpkg"
+        )
+        config["internal_imports"] = "assign"
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            # Verify output compiles
-            py_compile.compile(str(out_path), doraise=True)
+        # Verify output compiles
+        py_compile.compile(str(out_path), doraise=True)
 
-            # Verify alias assignment
-            content = out_path.read_text()
-            assert "MyConfig = MySettings" in content
-            assert "my_config = MyConfig()" in content
+        # Verify alias assignment
+        content = out_path.read_text()
+        assert "MyConfig = MySettings" in content
+        assert "my_config = MyConfig()" in content
 
-            # Verify it executes
-            result = run_with_output(
-                [sys.executable, str(out_path)],
-                check=False,
-                cwd=tmp_path,
-            )
-            assert result.returncode == 0, (
-                f"Stitched file failed to execute:\n"
-                f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
-            )
+        # Verify it executes
+        result = run_with_output(
+            [sys.executable, str(out_path)],
+            check=False,
+            cwd=tmp_path,
+        )
+        assert result.returncode == 0, (
+            f"Stitched file failed to execute:\n"
+            f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+        )
 
-    def test_assign_mode_relative_import(self) -> None:
+    def test_assign_mode_relative_import(self, tmp_path: Path) -> None:
         """Should handle relative imports correctly."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "base.py").write_text("BASE_VALUE = 100\n")
-            (src_dir / "derived.py").write_text(
-                "from .base import BASE_VALUE as base_val\n\nDERIVED = base_val + 1\n"
-            )
+        (src_dir / "base.py").write_text("BASE_VALUE = 100\n")
+        (src_dir / "derived.py").write_text(
+            "from .base import BASE_VALUE as base_val\n\nDERIVED = base_val + 1\n"
+        )
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["base", "derived"], package_name="testpkg"
-            )
-            config["internal_imports"] = "assign"
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["base", "derived"], package_name="testpkg"
+        )
+        config["internal_imports"] = "assign"
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            # Verify output compiles
-            py_compile.compile(str(out_path), doraise=True)
+        # Verify output compiles
+        py_compile.compile(str(out_path), doraise=True)
 
-            # Verify relative import was transformed
-            content = out_path.read_text()
-            assert "base_val = BASE_VALUE" in content
-            assert "from .base import" not in content
+        # Verify relative import was transformed
+        content = out_path.read_text()
+        assert "base_val = BASE_VALUE" in content
+        assert "from .base import" not in content
 
-            # Verify it executes
-            result = run_with_output(
-                [sys.executable, str(out_path)],
-                check=False,
-                cwd=tmp_path,
-            )
-            assert result.returncode == 0, (
-                f"Stitched file failed to execute:\n"
-                f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
-            )
+        # Verify it executes
+        result = run_with_output(
+            [sys.executable, str(out_path)],
+            check=False,
+            cwd=tmp_path,
+        )
+        assert result.returncode == 0, (
+            f"Stitched file failed to execute:\n"
+            f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+        )
 
-    def test_assign_mode_multiple_imports(self) -> None:
+    def test_assign_mode_multiple_imports(self, tmp_path: Path) -> None:
         """Should handle multiple imports from same module."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "types.py").write_text(
-                "class A:\n    pass\n\nclass B:\n    pass\n\nclass C:\n    pass\n"
-            )
-            (src_dir / "main.py").write_text(
-                "from testpkg.types import A as TypeA, B as TypeB, C as TypeC\n\n"
-                "items = [TypeA(), TypeB(), TypeC()]\n"
-            )
+        (src_dir / "types.py").write_text(
+            "class A:\n    pass\n\nclass B:\n    pass\n\nclass C:\n    pass\n"
+        )
+        (src_dir / "main.py").write_text(
+            "from testpkg.types import A as TypeA, B as TypeB, C as TypeC\n\n"
+            "items = [TypeA(), TypeB(), TypeC()]\n"
+        )
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["types", "main"], package_name="testpkg"
-            )
-            config["internal_imports"] = "assign"
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["types", "main"], package_name="testpkg"
+        )
+        config["internal_imports"] = "assign"
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            # Verify output compiles
-            py_compile.compile(str(out_path), doraise=True)
+        # Verify output compiles
+        py_compile.compile(str(out_path), doraise=True)
 
-            # Verify all assignments are present
-            content = out_path.read_text()
-            assert "TypeA = A" in content
-            assert "TypeB = B" in content
-            assert "TypeC = C" in content
+        # Verify all assignments are present
+        content = out_path.read_text()
+        assert "TypeA = A" in content
+        assert "TypeB = B" in content
+        assert "TypeC = C" in content
 
-            # Verify it executes
-            result = run_with_output(
-                [sys.executable, str(out_path)],
-                check=False,
-                cwd=tmp_path,
-            )
-            assert result.returncode == 0, (
-                f"Stitched file failed to execute:\n"
-                f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
-            )
+        # Verify it executes
+        result = run_with_output(
+            [sys.executable, str(out_path)],
+            check=False,
+            cwd=tmp_path,
+        )
+        assert result.returncode == 0, (
+            f"Stitched file failed to execute:\n"
+            f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+        )
 
-    def test_assign_mode_function_local_import(self) -> None:
+    def test_assign_mode_function_local_import(self, tmp_path: Path) -> None:
         """Should handle function-local imports correctly."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "utils.py").write_text(
-                "def compute(x: int) -> int:\n    return x * 3\n"
-            )
-            (src_dir / "main.py").write_text(
-                "def run():\n"
-                "    from testpkg.utils import compute as calc\n"
-                "    return calc(7)\n"
-            )
+        (src_dir / "utils.py").write_text(
+            "def compute(x: int) -> int:\n    return x * 3\n"
+        )
+        (src_dir / "main.py").write_text(
+            "def run():\n"
+            "    from testpkg.utils import compute as calc\n"
+            "    return calc(7)\n"
+        )
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["utils", "main"], package_name="testpkg"
-            )
-            config["internal_imports"] = "assign"
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["utils", "main"], package_name="testpkg"
+        )
+        config["internal_imports"] = "assign"
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            # Verify output compiles
-            py_compile.compile(str(out_path), doraise=True)
+        # Verify output compiles
+        py_compile.compile(str(out_path), doraise=True)
 
-            # Verify function-local assignment
-            content = out_path.read_text()
-            assert "calc = compute" in content
-            assert "def run():" in content
+        # Verify function-local assignment
+        content = out_path.read_text()
+        assert "calc = compute" in content
+        assert "def run():" in content
 
-            # Verify it executes
-            result = run_with_output(
-                [sys.executable, str(out_path)],
-                check=False,
-                cwd=tmp_path,
-            )
-            assert result.returncode == 0, (
-                f"Stitched file failed to execute:\n"
-                f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
-            )
+        # Verify it executes
+        result = run_with_output(
+            [sys.executable, str(out_path)],
+            check=False,
+            cwd=tmp_path,
+        )
+        assert result.returncode == 0, (
+            f"Stitched file failed to execute:\n"
+            f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+        )
 
-    def test_assign_mode_end_to_end_execution(self) -> None:
+    def test_assign_mode_end_to_end_execution(self, tmp_path: Path) -> None:
         """Should produce working stitched code that executes correctly.
 
         Creates a multi-file project with actual functionality, stitches it
         with assign mode, and verifies it executes and produces expected output.
         This ensures assign mode assignments actually work at runtime.
         """
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            # File 1: Defines a utility function
-            (src_dir / "utils.py").write_text(
-                "def multiply(x: int, y: int) -> int:\n"
-                "    print(f'Multiplying {x} * {y}')\n"
-                "    return x * y\n"
-            )
+        # File 1: Defines a utility function
+        (src_dir / "utils.py").write_text(
+            "def multiply(x: int, y: int) -> int:\n"
+            "    print(f'Multiplying {x} * {y}')\n"
+            "    return x * y\n"
+        )
 
-            # File 2: Defines a calculator class (uses alias to avoid collision)
-            (src_dir / "calculator.py").write_text(
-                "from testpkg.utils import multiply as mult\n\n"
-                "class Calculator:\n"
-                "    def __init__(self):\n"
-                "        print('Calculator initialized')\n"
-                "    \n"
-                "    def compute(self, a: int, b: int) -> int:\n"
-                "        result = mult(a, b)\n"
-                "        print(f'Result: {result}')\n"
-                "        return result\n"
-            )
+        # File 2: Defines a calculator class (uses alias to avoid collision)
+        (src_dir / "calculator.py").write_text(
+            "from testpkg.utils import multiply as mult\n\n"
+            "class Calculator:\n"
+            "    def __init__(self):\n"
+            "        print('Calculator initialized')\n"
+            "    \n"
+            "    def compute(self, a: int, b: int) -> int:\n"
+            "        result = mult(a, b)\n"
+            "        print(f'Result: {result}')\n"
+            "        return result\n"
+        )
 
-            # File 3: Main entry point that uses both (uses alias to avoid collision)
-            (src_dir / "main.py").write_text(
-                "from testpkg.calculator import Calculator as Calc\n\n"
-                "def main(_args=None):\n"
-                "    print('Starting application')\n"
-                "    calc = Calc()\n"
-                "    answer = calc.compute(6, 7)\n"
-                "    print(f'Final answer: {answer}')\n"
-                "    return 0\n"
-            )
+        # File 3: Main entry point that uses both (uses alias to avoid collision)
+        (src_dir / "main.py").write_text(
+            "from testpkg.calculator import Calculator as Calc\n\n"
+            "def main(_args=None):\n"
+            "    print('Starting application')\n"
+            "    calc = Calc()\n"
+            "    answer = calc.compute(6, 7)\n"
+            "    print(f'Final answer: {answer}')\n"
+            "    return 0\n"
+        )
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["utils", "calculator", "main"], package_name="testpkg"
-            )
-            config["internal_imports"] = "assign"
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["utils", "calculator", "main"], package_name="testpkg"
+        )
+        config["internal_imports"] = "assign"
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            # Verify output compiles
-            py_compile.compile(str(out_path), doraise=True)
+        # Verify output compiles
+        py_compile.compile(str(out_path), doraise=True)
 
-            # Verify assignments are present (non-no-op with aliases)
-            content = out_path.read_text()
-            assert "mult = multiply" in content
-            assert "Calc = Calculator" in content
+        # Verify assignments are present (non-no-op with aliases)
+        content = out_path.read_text()
+        assert "mult = multiply" in content
+        assert "Calc = Calculator" in content
 
-            # Execute and verify output
-            result = run_with_output(
-                [sys.executable, str(out_path)],
-                check=False,
-                cwd=tmp_path,
-            )
+        # Execute and verify output
+        result = run_with_output(
+            [sys.executable, str(out_path)],
+            check=False,
+            cwd=tmp_path,
+        )
 
-            assert result.returncode == 0, (
-                f"Stitched file failed to execute:\n"
-                f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
-            )
+        assert result.returncode == 0, (
+            f"Stitched file failed to execute:\n"
+            f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+        )
 
-            # Verify expected output appears in correct order
-            output = result.stdout
-            assert "Starting application" in output
-            assert "Calculator initialized" in output
-            assert "Multiplying 6 * 7" in output
-            assert "Result: 42" in output
-            assert "Final answer: 42" in output
+        # Verify expected output appears in correct order
+        output = result.stdout
+        assert "Starting application" in output
+        assert "Calculator initialized" in output
+        assert "Multiplying 6 * 7" in output
+        assert "Result: 42" in output
+        assert "Final answer: 42" in output
 
-            # Verify output order is correct (rough check)
-            assert output.find("Starting application") < output.find(
-                "Calculator initialized"
-            )
-            assert output.find("Calculator initialized") < output.find(
-                "Multiplying 6 * 7"
-            )
-            assert output.find("Multiplying 6 * 7") < output.find("Result: 42")
-            assert output.find("Result: 42") < output.find("Final answer: 42")
+        # Verify output order is correct (rough check)
+        assert output.find("Starting application") < output.find(
+            "Calculator initialized"
+        )
+        assert output.find("Calculator initialized") < output.find("Multiplying 6 * 7")
+        assert output.find("Multiplying 6 * 7") < output.find("Result: 42")
+        assert output.find("Result: 42") < output.find("Final answer: 42")
 
 
 class TestStitchModulesOtherImportModes:
     """Integration tests for other internal import modes (force_strip, strip, keep)."""
 
-    def test_force_strip_mode_end_to_end(self) -> None:
+    def test_force_strip_mode_end_to_end(self, tmp_path: Path) -> None:
         """Should remove internal imports and code still executes correctly."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "utils.py").write_text(
-                "def add(x: int, y: int) -> int:\n    return x + y\n"
-            )
-            (src_dir / "main.py").write_text(
-                "from testpkg.utils import add\n\n"
-                "def main(_args=None):\n"
-                "    result = add(10, 20)\n"
-                "    print(f'Result: {result}')\n"
-                "    return 0\n"
-            )
+        (src_dir / "utils.py").write_text(
+            "def add(x: int, y: int) -> int:\n    return x + y\n"
+        )
+        (src_dir / "main.py").write_text(
+            "from testpkg.utils import add\n\n"
+            "def main(_args=None):\n"
+            "    result = add(10, 20)\n"
+            "    print(f'Result: {result}')\n"
+            "    return 0\n"
+        )
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["utils", "main"], package_name="testpkg"
-            )
-            config["internal_imports"] = "force_strip"
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["utils", "main"], package_name="testpkg"
+        )
+        config["internal_imports"] = "force_strip"
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            # Verify output compiles
-            py_compile.compile(str(out_path), doraise=True)
+        # Verify output compiles
+        py_compile.compile(str(out_path), doraise=True)
 
-            # Verify import was removed
-            content = out_path.read_text()
-            assert "from testpkg.utils import add" not in content
+        # Verify import was removed
+        content = out_path.read_text()
+        assert "from testpkg.utils import add" not in content
 
-            # Execute and verify it works
-            result = run_with_output(
-                [sys.executable, str(out_path)],
-                check=False,
-                cwd=tmp_path,
-            )
+        # Execute and verify it works
+        result = run_with_output(
+            [sys.executable, str(out_path)],
+            check=False,
+            cwd=tmp_path,
+        )
 
-            assert result.returncode == 0, (
-                f"Stitched file failed to execute:\n"
-                f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
-            )
-            assert "Result: 30" in result.stdout
+        assert result.returncode == 0, (
+            f"Stitched file failed to execute:\n"
+            f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+        )
+        assert "Result: 30" in result.stdout
 
-    def test_keep_mode_end_to_end(self) -> None:
+    def test_keep_mode_end_to_end(self, tmp_path: Path) -> None:
         """Should keep internal imports (may fail at runtime, but verifies structure).
 
         Note: Internal imports in 'keep' mode may not work in stitched output
         since the import system isn't set up. This test verifies the structure
         is correct even if execution might fail.
         """
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "utils.py").write_text(
-                "def subtract(x: int, y: int) -> int:\n    return x - y\n"
-            )
-            (src_dir / "main.py").write_text(
-                "from testpkg.utils import subtract\n\n"
-                "def main(_args=None):\n"
-                "    result = subtract(50, 20)\n"
-                "    print(f'Result: {result}')\n"
-                "    return 0\n"
-            )
+        (src_dir / "utils.py").write_text(
+            "def subtract(x: int, y: int) -> int:\n    return x - y\n"
+        )
+        (src_dir / "main.py").write_text(
+            "from testpkg.utils import subtract\n\n"
+            "def main(_args=None):\n"
+            "    result = subtract(50, 20)\n"
+            "    print(f'Result: {result}')\n"
+            "    return 0\n"
+        )
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["utils", "main"], package_name="testpkg"
-            )
-            config["internal_imports"] = "keep"
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["utils", "main"], package_name="testpkg"
+        )
+        config["internal_imports"] = "keep"
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            # Verify output compiles
-            py_compile.compile(str(out_path), doraise=True)
+        # Verify output compiles
+        py_compile.compile(str(out_path), doraise=True)
 
-            # Verify import was kept
-            content = out_path.read_text()
-            assert "from testpkg.utils import subtract" in content
+        # Verify import was kept
+        content = out_path.read_text()
+        assert "from testpkg.utils import subtract" in content
 
-            # Note: Execution may fail because internal imports don't work
-            # in stitched mode, but we verify the structure is correct
+        # Note: Execution may fail because internal imports don't work
+        # in stitched mode, but we verify the structure is correct
 
     def test_internal_imports_keep_with_excluded_init(self) -> None:
         """Test that internal_imports: 'keep' works when __init__.py is excluded.
