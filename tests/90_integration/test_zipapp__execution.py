@@ -7,7 +7,6 @@ and matches the declared version from pyproject.toml.
 import os
 import subprocess
 import sys
-import tempfile
 import zipfile
 from pathlib import Path
 
@@ -19,7 +18,7 @@ from tests.utils import PROJ_ROOT, make_test_package, write_config_file
 __runtime_mode__ = "zipapp"
 
 
-def test_zipapp_metadata_and_execution() -> None:
+def test_zipapp_metadata_and_execution(tmp_path: Path) -> None:
     """Ensure the generated zipapp is complete and functional."""
     # --- setup ---
     zipapp_file = PROJ_ROOT / "dist" / f"{mod_meta.PROGRAM_SCRIPT}.pyz"
@@ -35,31 +34,30 @@ def test_zipapp_metadata_and_execution() -> None:
     assert zipfile.is_zipfile(zipapp_file), "Zipapp should be a valid zip file"
 
     # - Execution check (isolated temp dir) -
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp = Path(tmpdir)
+    tmp = tmp_path
 
-        # Create a simple Python package structure for stitching
-        pkg_dir = tmp / "mypkg"
-        make_test_package(pkg_dir)
+    # Create a simple Python package structure for stitching
+    pkg_dir = tmp / "mypkg"
+    make_test_package(pkg_dir)
 
-        # Create config
-        config = tmp / f".{mod_meta.PROGRAM_CONFIG}.json"
-        write_config_file(
-            config,
-            package="mypkg",
-            include=["mypkg/**/*.py"],
-            out="tmp-dist/mypkg.py",
-        )
+    # Create config
+    config = tmp / f".{mod_meta.PROGRAM_CONFIG}.json"
+    write_config_file(
+        config,
+        package="mypkg",
+        include=["mypkg/**/*.py"],
+        out="tmp-dist/mypkg.py",
+    )
 
-        result = subprocess.run(  # noqa: S603
-            [sys.executable, str(zipapp_file)],
-            check=False,
-            cwd=tmp,  # ✅ run in temp dir
-            capture_output=True,
-            text=True,
-            timeout=15,
-            env=os.environ.copy(),
-        )
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, str(zipapp_file)],
+        check=False,
+        cwd=tmp,  # ✅ run in temp dir
+        capture_output=True,
+        text=True,
+        timeout=15,
+        env=os.environ.copy(),
+    )
 
     # --- verify ---
     assert result.returncode == 0, (
