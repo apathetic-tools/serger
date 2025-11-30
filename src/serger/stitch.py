@@ -35,6 +35,7 @@ from .config import (
     StitchMode,
 )
 from .constants import (
+    BUILD_TOOL_FIND_MAX_LINES,
     DEFAULT_COMMENTS_MODE,
     DEFAULT_DOCSTRING_MODE,
     DEFAULT_EXTERNAL_IMPORTS,
@@ -241,17 +242,17 @@ def extract_commit(root_path: Path) -> str:  # noqa: PLR0915
 
 
 # Maximum number of lines to read when checking if a file is a serger build
-_MAX_LINES_TO_CHECK_FOR_SERGER_BUILD = 100
-
-
-def is_serger_build(file_path: Path) -> bool:
+def is_serger_build(file_path: Path, max_lines: int | None = None) -> bool:
     """Check if a file is a serger-generated build.
 
-    Reads the first ~100 lines of the file and checks for the
-    __STITCH_SOURCE__ variable that serger embeds in all generated files.
+    Checks for the "# Build Tool: serger" comment line that appears early
+    in the metadata section of serger-generated files (typically around
+    line 11, after the docstring and before imports).
 
     Args:
         file_path: Path to the file to check
+        max_lines: Maximum number of lines to read. If None, uses
+            BUILD_TOOL_FIND_MAX_LINES constant.
 
     Returns:
         True if the file appears to be a serger build, False otherwise
@@ -259,23 +260,24 @@ def is_serger_build(file_path: Path) -> bool:
     if not file_path.exists():
         return False
 
+    # Use provided max_lines or fall back to constant
+    line_limit = max_lines if max_lines is not None else BUILD_TOOL_FIND_MAX_LINES
+
     try:
-        # Read first N lines to catch the constants section
-        # where __STITCH_SOURCE__ is defined
+        # Read first N lines to catch the metadata section
+        # where "# Build Tool: serger" appears (typically around line 11)
         with file_path.open(encoding="utf-8") as f:
             lines: list[str] = []
             for i, line in enumerate(f):
-                if i >= _MAX_LINES_TO_CHECK_FOR_SERGER_BUILD:
+                if i >= line_limit:
                     break
                 lines.append(line)
 
         content = "".join(lines)
 
-        # Check for __STITCH_SOURCE__ variable assignment with value "serger"
-        # Pattern matches: __STITCH_SOURCE__ = "serger" or __STITCH_SOURCE__ = 'serger'
-        # Uses capturing group to ensure opening and closing quotes match
-        # Case-insensitive for both variable name and "serger" value
-        pattern = r'__STITCH_SOURCE__\s*=\s*(["\'])serger\1'
+        # Check for "# Build Tool: serger" comment line
+        # Pattern matches the line with optional whitespace and case-insensitive
+        pattern = r"#\s*Build\s+Tool:\s*serger"
         return bool(re.search(pattern, content, re.IGNORECASE))
 
     except (OSError, UnicodeDecodeError):
@@ -2345,7 +2347,7 @@ def _format_license(license_text: str) -> str:
         lines = stripped.split("\n")
         prefixed_lines = [f"# {line}" for line in lines]
         return (
-            "# ============LICENSE============\n"
+            "# ============LICENSE=============\n"
             + "\n".join(prefixed_lines)
             + "\n# ================================\n"
         )
@@ -3519,6 +3521,9 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
     license_section = _format_license(license_text)
     repo_line = f"# Repo: {repo}\n" if repo else ""
     authors_line = f"# Authors: {authors}\n" if authors else ""
+    build_tool_line = (
+        f"# Build Tool: {PROGRAM_PACKAGE} — {version} — {commit} — {build_date}\n"
+    )
 
     # Determine __main__ block to use
     main_block = ""
@@ -3626,10 +3631,11 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         f"{license_section}"
         f"# Version: {version}\n"
         f"# Commit: {commit}\n"
-        f"# Build Date: {build_date}\n"
-        f"{authors_line}"
-        f"{repo_line}"
-        "\n# noqa: E402\n"
+        + f"# Build Date: {build_date}\n"
+        + f"{authors_line}"
+        + f"{repo_line}"
+        + f"{build_tool_line}"
+        + "\n# noqa: E402\n"
         "\n"
         f"{future_block}\n"
         f"{import_block}\n"

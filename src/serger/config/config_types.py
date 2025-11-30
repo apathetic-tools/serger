@@ -219,6 +219,10 @@ class RootConfig(TypedDict, total=False):
     # - False: Use real timestamps (default)
     # - True: Use placeholder for deterministic builds
     disable_build_timestamp: NotRequired[bool]
+    # Max lines to check when detecting serger builds
+    # - int: Override the default line limit for checking "# Build Tool: serger"
+    #   (default: 200)
+    build_tool_find_max_lines: NotRequired[int]
 
 
 class RootConfigResolved(TypedDict):
@@ -281,3 +285,6 @@ class RootConfigResolved(TypedDict):
     main_name: str | None
     # Build timestamp control (always present, resolved with defaults)
     disable_build_timestamp: bool
+    # Max lines to check when detecting serger builds
+    # (always present, resolved with defaults)
+    build_tool_find_max_lines: int

@@ -84,6 +84,7 @@ All configuration options are specified at the root level of the config file:
 | `respect_gitignore` | `bool` | No | `true` | Whether to respect `.gitignore` when selecting files |
 | `strict_config` | `bool` | No | `true` | Whether to error on missing include patterns |
 | `disable_build_timestamp` | `bool` | No | `false` | Replace build timestamps with placeholder for deterministic builds (see [Build Timestamps](#build-timestamps)) |
+| `build_tool_find_max_lines` | `int` | No | `200` | Maximum number of lines to read when checking if an output file is a serger-generated build. Used to detect the `# Build Tool: serger` comment in the metadata section. Increase if you have very long docstrings. |
 | `watch_interval` | `float` | No | `1.0` | File watch interval in seconds (for `--watch` mode) |
 | `use_pyproject_metadata` | `bool` | No | - | Whether to pull metadata (description, authors, license, version) from `pyproject.toml`. Defaults to `true`, explicit `pyproject_path` also enables. `package` is always extracted as fallback. |
 | `pyproject_path` | `str` | No | - | Path to `pyproject.toml` (relative to config directory). Setting this implicitly enables pyproject.toml usage. |

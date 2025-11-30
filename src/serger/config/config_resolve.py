@@ -10,6 +10,7 @@ from typing import Any, cast
 from apathetic_utils import cast_hint, has_glob_chars, literal_to_set, load_toml
 
 from serger.constants import (
+    BUILD_TOOL_FIND_MAX_LINES,
     DEFAULT_CATEGORIES,
     DEFAULT_CATEGORY_ORDER,
     DEFAULT_COMMENTS_MODE,
@@ -2587,6 +2588,13 @@ def resolve_build_config(  # noqa: C901, PLR0912, PLR0915
             )
         elif "disable_build_timestamp" not in resolved_cfg:
             resolved_cfg["disable_build_timestamp"] = DEFAULT_DISABLE_BUILD_TIMESTAMP
+
+    # ------------------------------
+    # Max lines to check for serger build
+    # ------------------------------
+    resolved_cfg["build_tool_find_max_lines"] = build_cfg.get(
+        "build_tool_find_max_lines", BUILD_TOOL_FIND_MAX_LINES
+    )
 
     # ------------------------------
     # Post-processing

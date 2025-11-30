@@ -1321,7 +1321,7 @@ class TestStitchModulesMetadata:
 
             content = out_path.read_text()
             # Check for multi-line license block format
-            assert "# ============LICENSE============" in content
+            assert "# ============LICENSE=============" in content
             assert "# ================================" in content
             # Check that license content is included as comments
             assert "# MIT License" in content
@@ -1621,19 +1621,19 @@ class TestStitchModulesOutput:
     @pytest.mark.parametrize(
         ("content", "description"),
         [
-            ('__STITCH_SOURCE__ = "serger"\n', "double quotes, lowercase"),
-            ("__STITCH_SOURCE__ = 'serger'\n", "single quotes, lowercase"),
-            ('__STITCH_SOURCE__ = "SERGER"\n', "double quotes, uppercase"),
-            ("__STITCH_SOURCE__ = 'Serger'\n", "single quotes, mixed case"),
-            ('  __STITCH_SOURCE__  =  "serger"  \n', "with whitespace"),
-            ('__stitch_source__ = "serger"\n', "lowercase variable name"),
-            ('__Stitch_Source__ = "serger"\n', "mixed case variable name"),
+            ("# Build Tool: serger\n", "standard format"),
+            ("# Build Tool: SERGER\n", "uppercase"),
+            ("# Build Tool: Serger\n", "mixed case"),
+            ("#  Build Tool: serger\n", "with extra whitespace"),
+            ("# Build Tool:  serger\n", "with extra whitespace after colon"),
+            ("# Build Tool:serger\n", "no space after colon"),
+            ("#Build Tool: serger\n", "no space after hash"),
         ],
     )
     def test_is_serger_build_recognizes_serger_builds(
         self, content: str, description: str
     ) -> None:
-        """Should recognize serger builds with different quote styles and case."""
+        """Should recognize serger builds with different comment formats and case."""
         # Access function through module for testing
         is_serger_build = mod_stitch.is_serger_build
 
@@ -1662,6 +1662,32 @@ class TestStitchModulesOutput:
             test_file = tmp_path / "test.py"
             test_file.write_text(content)
             assert not is_serger_build(test_file), f"Failed for: {description}"
+
+    def test_is_serger_build_respects_max_lines_parameter(self) -> None:
+        """Should respect max_lines parameter when provided."""
+        # Access function through module for testing
+        is_serger_build = mod_stitch.is_serger_build
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            test_file = tmp_path / "test.py"
+            # Create a file with the marker beyond line 10
+            lines = ["# Line 1\n"] * 15
+            lines.insert(10, "# Build Tool: serger\n")
+            test_file.write_text("".join(lines))
+
+            # Should find it with default (200 lines)
+            assert is_serger_build(test_file), "Should find marker with default limit"
+
+            # Should find it with custom limit (15 lines)
+            assert is_serger_build(test_file, max_lines=15), (
+                "Should find marker with custom limit"
+            )
+
+            # Should NOT find it with limit too low (5 lines)
+            assert not is_serger_build(test_file, max_lines=5), (
+                "Should not find marker with limit too low"
+            )
 
 
 class TestStitchModulesDisplayConfig:

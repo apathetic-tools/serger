@@ -611,7 +611,10 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
     # Safety check: Don't overwrite files that aren't serger builds
     # (fail fast before doing expensive work)
     # Compute once and pass down to avoid recomputation
-    is_serger_build_result = not out_path.exists() or is_serger_build(out_path)
+    max_lines = build_cfg.get("build_tool_find_max_lines")
+    is_serger_build_result = not out_path.exists() or is_serger_build(
+        out_path, max_lines=max_lines
+    )
     if out_path.exists() and not is_serger_build_result:
         xmsg = (
             f"Refusing to overwrite {out_path} because it does not appear "

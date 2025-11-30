@@ -81,6 +81,7 @@ def make_build_cfg(  # noqa: PLR0913
     version: str | None = None,
     license_text: str = mod_constants.DEFAULT_LICENSE_FALLBACK,
     disable_build_timestamp: bool = False,
+    build_tool_find_max_lines: int | None = None,
     display_name: str | None = None,
     description: str | None = None,
     authors: str | None = None,
@@ -127,6 +128,11 @@ def make_build_cfg(  # noqa: PLR0913
         "main_name": main_name,
         "license": license_text,
         "disable_build_timestamp": disable_build_timestamp,
+        "build_tool_find_max_lines": (
+            build_tool_find_max_lines
+            if build_tool_find_max_lines is not None
+            else mod_constants.BUILD_TOOL_FIND_MAX_LINES
+        ),
     }
     if package is not None:
         cfg["package"] = package

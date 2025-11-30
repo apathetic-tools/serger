@@ -12,6 +12,7 @@ import pytest
 
 import serger.config.config_resolve as mod_resolve
 import serger.config.config_types as mod_types
+import serger.constants as mod_constants
 import serger.logs as mod_logs
 from tests.utils import make_build_input, make_test_package
 
@@ -3061,6 +3062,43 @@ def test_resolve_build_config_disable_build_timestamp_cli_override(
     # --- validate ---
     # CLI argument should take precedence
     assert resolved["disable_build_timestamp"] is True
+
+
+# ---------------------------------------------------------------------------
+# Max lines to check for serger build tests
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_build_config_max_lines_to_check_default_value(
+    tmp_path: Path,
+) -> None:
+    """build_tool_find_max_lines should default to 200 if not specified."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"])
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert (
+        resolved["build_tool_find_max_lines"] == mod_constants.BUILD_TOOL_FIND_MAX_LINES
+    )
+
+
+def test_resolve_build_config_max_lines_to_check_from_config(
+    tmp_path: Path,
+) -> None:
+    """build_tool_find_max_lines from config should be used."""
+    # --- setup ---
+    raw = make_build_input(include=["src/**"], build_tool_find_max_lines=500)
+    args = _args()
+
+    # --- execute ---
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+
+    # --- validate ---
+    assert resolved["build_tool_find_max_lines"] == 500  # noqa: PLR2004
 
 
 # ---------------------------------------------------------------------------

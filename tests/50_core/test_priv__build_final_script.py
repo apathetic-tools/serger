@@ -81,7 +81,7 @@ class TestBuildFinalScriptBasic:
         )
 
         # Multi-line format: ====LICENSE==== block
-        assert "# ============LICENSE============" in result
+        assert "# ============LICENSE=============" in result
         assert "# ================================" in result
         assert "# MIT License" in result
         assert "# Copyright (c) 2024 Test Author" in result

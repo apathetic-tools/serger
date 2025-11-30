@@ -77,6 +77,10 @@ DEFAULT_LICENSE_FALLBACK: str = (
     "alongside this file for additional terms."
 )
 
+# --- build detection defaults ---
+# Lines to read when checking for "# Build Tool: serger" comment
+BUILD_TOOL_FIND_MAX_LINES: int = 200
+
 # --- post-processing defaults ---
 DEFAULT_CATEGORY_ORDER: list[str] = ["static_checker", "formatter", "import_sorter"]
 
