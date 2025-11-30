@@ -4,7 +4,6 @@
 import py_compile
 import stat
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -1092,7 +1091,7 @@ class TestStitchModulesOtherImportModes:
         # Note: Execution may fail because internal imports don't work
         # in stitched mode, but we verify the structure is correct
 
-    def test_internal_imports_keep_with_excluded_init(self) -> None:
+    def test_internal_imports_keep_with_excluded_init(self, tmp_path: Path) -> None:
         """Test that internal_imports: 'keep' works when __init__.py is excluded.
 
         This tests a scenario where:
@@ -1101,464 +1100,442 @@ class TestStitchModulesOtherImportModes:
         - A source file imports the package at top level
         - internal_imports: "keep" is set
         """
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src" / "mypkg"
-            src_dir.mkdir(parents=True)
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src" / "mypkg"
+        src_dir.mkdir(parents=True)
+        out_path = tmp_path / "output.py"
 
-            # Create a module in the package
-            (src_dir / "module.py").write_text("# Module in mypkg\nVALUE = 42\n")
+        # Create a module in the package
+        (src_dir / "module.py").write_text("# Module in mypkg\nVALUE = 42\n")
 
-            # Create __init__.py (will be excluded)
-            (src_dir / "__init__.py").write_text("# Package init\n")
+        # Create __init__.py (will be excluded)
+        (src_dir / "__init__.py").write_text("# Package init\n")
 
-            # Create source file that imports the package
-            # Use "from package import ..." to trigger validation
-            source_dir = tmp_path / "source"
-            source_dir.mkdir()
-            (source_dir / "app.py").write_text(
-                "# Application file\nfrom mypkg import module\n\n"
-                "def main() -> int:\n"
-                "    # Access the package\n"
-                "    value = module.VALUE\n"
-                "    assert value == 42\n"
-                "    return 0\n"
-            )
+        # Create source file that imports the package
+        # Use "from package import ..." to trigger validation
+        source_dir = tmp_path / "source"
+        source_dir.mkdir()
+        (source_dir / "app.py").write_text(
+            "# Application file\nfrom mypkg import module\n\n"
+            "def main() -> int:\n"
+            "    # Access the package\n"
+            "    value = module.VALUE\n"
+            "    assert value == 42\n"
+            "    return 0\n"
+        )
 
-            # Create file paths
-            file_paths = [
-                (source_dir / "app.py").resolve(),
-                (src_dir / "module.py").resolve(),
-            ]
+        # Create file paths
+        file_paths = [
+            (source_dir / "app.py").resolve(),
+            (src_dir / "module.py").resolve(),
+        ]
 
-            # Compute package root
-            package_root = mod_build.find_package_root(file_paths)
+        # Compute package root
+        package_root = mod_build.find_package_root(file_paths)
 
-            # Create file_to_include mapping
-            file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
-            include_src = make_include_resolved("src", tmp_path)
-            include_source = make_include_resolved("source", tmp_path)
-            for file_path in file_paths:
-                if "source" in str(file_path):
-                    file_to_include[file_path] = include_source
-                else:
-                    file_to_include[file_path] = include_src
+        # Create file_to_include mapping
+        file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
+        include_src = make_include_resolved("src", tmp_path)
+        include_source = make_include_resolved("source", tmp_path)
+        for file_path in file_paths:
+            if "source" in str(file_path):
+                file_to_include[file_path] = include_source
+            else:
+                file_to_include[file_path] = include_src
 
-            # Create config
-            config: dict[str, Any] = {
-                "package": "test_app",
-                "order": file_paths,
-                "exclude_names": [src_dir / "__init__.py"],
-                "stitch_mode": "raw",
-                "source_bases": ["src"],
-                "internal_imports": "keep",  # Keep internal imports
-                "module_mode": "multi",  # Generate shims for packages
-            }
+        # Create config
+        config: dict[str, Any] = {
+            "package": "test_app",
+            "order": file_paths,
+            "exclude_names": [src_dir / "__init__.py"],
+            "stitch_mode": "raw",
+            "source_bases": ["src"],
+            "internal_imports": "keep",  # Keep internal imports
+            "module_mode": "multi",  # Generate shims for packages
+        }
 
-            # Should succeed (currently fails with "Unresolved internal imports: mypkg")
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        # Should succeed (currently fails with "Unresolved internal imports: mypkg")
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            # Verify stitched file exists
-            assert out_path.exists(), "Stitched file should be created"
+        # Verify stitched file exists
+        assert out_path.exists(), "Stitched file should be created"
 
-            # Verify the import is kept in the output
-            stitched_content = out_path.read_text()
-            assert "from mypkg import module" in stitched_content, (
-                "Import statement should be kept in stitched output"
-            )
+        # Verify the import is kept in the output
+        stitched_content = out_path.read_text()
+        assert "from mypkg import module" in stitched_content, (
+            "Import statement should be kept in stitched output"
+        )
 
-            # Verify it compiles
-            compile(stitched_content, str(out_path), "exec")
+        # Verify it compiles
+        compile(stitched_content, str(out_path), "exec")
 
 
 class TestStitchModulesMetadata:
     """Test metadata embedding in output."""
 
-    def test_metadata_embedding(self) -> None:
+    def test_metadata_embedding(self, tmp_path: Path) -> None:
         """Should embed version, commit, build date, authors, and repo in output."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "main.py").write_text("MAIN = 1\n")
+        (src_dir / "main.py").write_text("MAIN = 1\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["main"]
-            )
-            config["authors"] = "Alice <alice@example.com>, Bob"
-            config["repo"] = "https://example.com/repo"
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["main"]
+        )
+        config["authors"] = "Alice <alice@example.com>, Bob"
+        config["repo"] = "https://example.com/repo"
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                license_text="MIT",
-                version="2.1.3",
-                commit="def456",
-                build_date="2025-06-15 10:30:00 UTC",
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            license_text="MIT",
+            version="2.1.3",
+            commit="def456",
+            build_date="2025-06-15 10:30:00 UTC",
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            # Header comments - single line format
-            assert "# License: MIT" in content
-            assert "# Version: 2.1.3" in content
-            assert "# Commit: def456" in content
-            assert "# Build Date: 2025-06-15 10:30:00 UTC" in content
-            assert "# Authors: Alice <alice@example.com>, Bob" in content
-            assert "# Repo: https://example.com/repo" in content
-            # Docstring
-            assert "Authors: Alice <alice@example.com>, Bob" in content
-            # Constants
-            assert '__version__ = "2.1.3"' in content
-            assert '__commit__ = "def456"' in content
-            assert '__AUTHORS__ = "Alice <alice@example.com>, Bob"' in content
-            assert "__STANDALONE__ = True" in content
+        content = out_path.read_text()
+        # Header comments - single line format
+        assert "# License: MIT" in content
+        assert "# Version: 2.1.3" in content
+        assert "# Commit: def456" in content
+        assert "# Build Date: 2025-06-15 10:30:00 UTC" in content
+        assert "# Authors: Alice <alice@example.com>, Bob" in content
+        assert "# Repo: https://example.com/repo" in content
+        # Docstring
+        assert "Authors: Alice <alice@example.com>, Bob" in content
+        # Constants
+        assert '__version__ = "2.1.3"' in content
+        assert '__commit__ = "def456"' in content
+        assert '__AUTHORS__ = "Alice <alice@example.com>, Bob"' in content
+        assert "__STANDALONE__ = True" in content
 
-    def test_license_with_file_content(self) -> None:
+    def test_license_with_file_content(self, tmp_path: Path) -> None:
         """Should include license file content as comments with marker."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            # Create a simple module
-            (src_dir / "main.py").write_text("MAIN = 1\n")
+        # Create a simple module
+        (src_dir / "main.py").write_text("MAIN = 1\n")
 
-            # License content with multiple lines
-            license_content = (
-                "MIT License\n\nCopyright (c) 2024 Test Author\nAll rights reserved."
-            )
+        # License content with multiple lines
+        license_content = (
+            "MIT License\n\nCopyright (c) 2024 Test Author\nAll rights reserved."
+        )
 
-            # Use helper to set up proper config
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["main"]
-            )
+        # Use helper to set up proper config
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["main"]
+        )
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                license_text=license_content,
-                version="1.0.0",
-                commit="abc123",
-                build_date="2024-01-01 00:00:00 UTC",
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            license_text=license_content,
+            version="1.0.0",
+            commit="abc123",
+            build_date="2024-01-01 00:00:00 UTC",
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            # Check for multi-line license block format
-            assert "# ============LICENSE=============" in content
-            assert "# ================================" in content
-            # Check that license content is included as comments
-            assert "# MIT License" in content
-            assert "# Copyright (c) 2024 Test Author" in content
-            assert "# All rights reserved." in content
+        content = out_path.read_text()
+        # Check for multi-line license block format
+        assert "# ============LICENSE=============" in content
+        assert "# ================================" in content
+        # Check that license content is included as comments
+        assert "# MIT License" in content
+        assert "# Copyright (c) 2024 Test Author" in content
+        assert "# All rights reserved." in content
 
-    def test_license_optional(self) -> None:
+    def test_license_optional(self, tmp_path: Path) -> None:
         """Should handle empty license gracefully."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "main.py").write_text("MAIN = 1\n")
+        (src_dir / "main.py").write_text("MAIN = 1\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["main"]
-            )
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["main"]
+        )
 
-            # Should not raise with empty license header
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                license_text="",
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        # Should not raise with empty license header
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            license_text="",
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            assert "#!/usr/bin/env python3" in content
+        content = out_path.read_text()
+        assert "#!/usr/bin/env python3" in content
 
 
 class TestStitchModulesShims:
     """Test import shim generation."""
 
-    def test_shim_block_generated(self) -> None:
+    def test_shim_block_generated(self, tmp_path: Path) -> None:
         """Should generate import shims for all non-private modules."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "public_a.py").write_text("A = 1\n")
-            (src_dir / "public_b.py").write_text("B = 2\n")
+        (src_dir / "public_a.py").write_text("A = 1\n")
+        (src_dir / "public_b.py").write_text("B = 2\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["public_a", "public_b"]
-            )
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["public_a", "public_b"]
+        )
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            # Shim block should exist
-            assert "# --- import shims for single-file runtime ---" in content
-            # Check for loop-based shim generation
-            # The shims are now generated as:
-            # for _name in [...]: sys.modules[_name] = _mod
-            assert "for _name in" in content
-            assert "sys.modules[_name] = _mod" in content
-            # Module names are derived from paths, so might be "public_a"
-            # or "public_a.py"
-            normalized_content = content.replace("'", '"')
-            assert (
-                '"testpkg.public_a"' in normalized_content
-                or '"public_a"' in normalized_content
-                or '"testpkg.public_a.py"' in normalized_content
-                or '"public_a.py"' in normalized_content
-            )
-            assert (
-                '"testpkg.public_b"' in normalized_content
-                or '"public_b"' in normalized_content
-                or '"testpkg.public_b.py"' in normalized_content
-                or '"public_b.py"' in normalized_content
-            )
+        content = out_path.read_text()
+        # Shim block should exist
+        assert "# --- import shims for single-file runtime ---" in content
+        # Check for loop-based shim generation
+        # The shims are now generated as:
+        # for _name in [...]: sys.modules[_name] = _mod
+        assert "for _name in" in content
+        assert "sys.modules[_name] = _mod" in content
+        # Module names are derived from paths, so might be "public_a"
+        # or "public_a.py"
+        normalized_content = content.replace("'", '"')
+        assert (
+            '"testpkg.public_a"' in normalized_content
+            or '"public_a"' in normalized_content
+            or '"testpkg.public_a.py"' in normalized_content
+            or '"public_a.py"' in normalized_content
+        )
+        assert (
+            '"testpkg.public_b"' in normalized_content
+            or '"public_b"' in normalized_content
+            or '"testpkg.public_b.py"' in normalized_content
+            or '"public_b.py"' in normalized_content
+        )
 
-    def test_private_modules_included_in_shims(self) -> None:
+    def test_private_modules_included_in_shims(self, tmp_path: Path) -> None:
         """Should create shims for all modules, including private ones.
 
         This matches installed package behavior where private modules
         are accessible. If specific modules should be excluded,
         use the 'exclude' config option.
         """
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "public.py").write_text("PUBLIC = 1\n")
-            (src_dir / "_private.py").write_text("PRIVATE = 2\n")
+        (src_dir / "public.py").write_text("PUBLIC = 1\n")
+        (src_dir / "_private.py").write_text("PRIVATE = 2\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["public", "_private"]
-            )
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["public", "_private"]
+        )
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            # Check for loop-based shim generation
-            assert "for _name in" in content
-            assert "sys.modules[_name] = _mod" in content
-            # Public should have shim
-            normalized_content = content.replace("'", '"')
-            assert (
-                '"testpkg.public"' in normalized_content
-                or '"public"' in normalized_content
-                or '"testpkg.public.py"' in normalized_content
-                or '"public.py"' in normalized_content
-            )
-            # Private should also have shim (matching installed package behavior)
-            assert (
-                '"testpkg._private"' in normalized_content
-                or '"_private"' in normalized_content
-            )
+        content = out_path.read_text()
+        # Check for loop-based shim generation
+        assert "for _name in" in content
+        assert "sys.modules[_name] = _mod" in content
+        # Public should have shim
+        normalized_content = content.replace("'", '"')
+        assert (
+            '"testpkg.public"' in normalized_content
+            or '"public"' in normalized_content
+            or '"testpkg.public.py"' in normalized_content
+            or '"public.py"' in normalized_content
+        )
+        # Private should also have shim (matching installed package behavior)
+        assert (
+            '"testpkg._private"' in normalized_content
+            or '"_private"' in normalized_content
+        )
 
 
 class TestStitchModulesOutput:
     """Test output file generation."""
 
-    def test_output_file_created(self) -> None:
+    def test_output_file_created(self, tmp_path: Path) -> None:
         """Should create output file at specified path."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "subdir" / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "subdir" / "output.py"
 
-            (src_dir / "main.py").write_text("MAIN = 1\n")
+        (src_dir / "main.py").write_text("MAIN = 1\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["main"]
-            )
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["main"]
+        )
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            # Output file should exist
-            assert out_path.exists()
-            # Parent directory should be created
-            assert out_path.parent.exists()
+        # Output file should exist
+        assert out_path.exists()
+        # Parent directory should be created
+        assert out_path.parent.exists()
 
-    def test_output_file_executable(self) -> None:
+    def test_output_file_executable(self, tmp_path: Path) -> None:
         """Should make output file executable."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "main.py").write_text("MAIN = 1\n")
+        (src_dir / "main.py").write_text("MAIN = 1\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["main"]
-            )
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["main"]
+        )
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            # Check executable bit is set
-            mode = out_path.stat().st_mode
-            assert mode & stat.S_IXUSR
+        # Check executable bit is set
+        mode = out_path.stat().st_mode
+        assert mode & stat.S_IXUSR
 
-    def test_output_file_compiles(self) -> None:
+    def test_output_file_compiles(self, tmp_path: Path) -> None:
         """Should generate valid Python that compiles."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "a.py").write_text("A = 1\n")
-            (src_dir / "b.py").write_text("B = A + 1\n")
+        (src_dir / "a.py").write_text("A = 1\n")
+        (src_dir / "b.py").write_text("B = A + 1\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["a", "b"]
-            )
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["a", "b"]
+        )
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            # Verify it compiles
-            py_compile.compile(str(out_path), doraise=True)
+        # Verify it compiles
+        py_compile.compile(str(out_path), doraise=True)
 
-    def test_refuses_to_overwrite_non_serger_file(self) -> None:
+    def test_refuses_to_overwrite_non_serger_file(self, tmp_path: Path) -> None:
         """Should refuse to overwrite files that aren't serger builds."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            # Create a non-serger Python file at the output path
-            out_path.write_text("#!/usr/bin/env python3\nprint('Hello, world!')\n")
+        # Create a non-serger Python file at the output path
+        out_path.write_text("#!/usr/bin/env python3\nprint('Hello, world!')\n")
 
-            (src_dir / "main.py").write_text("MAIN = 1\n")
+        (src_dir / "main.py").write_text("MAIN = 1\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["main"]
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["main"]
+        )
+
+        # Should raise RuntimeError when trying to overwrite
+        with pytest.raises(RuntimeError, match="does not appear to be a serger"):
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
             )
 
-            # Should raise RuntimeError when trying to overwrite
-            with pytest.raises(RuntimeError, match="does not appear to be a serger"):
-                mod_stitch.stitch_modules(
-                    config=config,
-                    file_paths=file_paths,
-                    package_root=package_root,
-                    file_to_include=file_to_include,
-                    out_path=out_path,
-                    is_serger_build=is_serger_build_for_test(out_path),
-                )
+        # Original file should still exist and be unchanged
+        assert out_path.exists()
+        assert "Hello, world!" in out_path.read_text()
 
-            # Original file should still exist and be unchanged
-            assert out_path.exists()
-            assert "Hello, world!" in out_path.read_text()
-
-    def test_allows_overwriting_serger_build(self) -> None:
+    def test_allows_overwriting_serger_build(self, tmp_path: Path) -> None:
         """Should allow overwriting files that are serger builds."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "main.py").write_text("MAIN = 1\n")
+        (src_dir / "main.py").write_text("MAIN = 1\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["main"]
-            )
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["main"]
+        )
 
-            # First build - creates the file
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        # First build - creates the file
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            # Verify it's a serger build
-            content = out_path.read_text()
-            assert "__STITCH_SOURCE__" in content
+        # Verify it's a serger build
+        content = out_path.read_text()
+        assert "__STITCH_SOURCE__" in content
 
-            # Modify source and rebuild - should succeed
-            (src_dir / "main.py").write_text("MAIN = 2\n")
+        # Modify source and rebuild - should succeed
+        (src_dir / "main.py").write_text("MAIN = 2\n")
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            # Verify it was overwritten with new content
-            new_content = out_path.read_text()
-            assert "MAIN = 2" in new_content
-            assert "__STITCH_SOURCE__" in new_content
+        # Verify it was overwritten with new content
+        new_content = out_path.read_text()
+        assert "MAIN = 2" in new_content
+        assert "__STITCH_SOURCE__" in new_content
 
     @pytest.mark.parametrize(
         ("content", "description"),
@@ -1573,17 +1550,15 @@ class TestStitchModulesOutput:
         ],
     )
     def test_is_serger_build_recognizes_serger_builds(
-        self, content: str, description: str
+        self, tmp_path: Path, content: str, description: str
     ) -> None:
         """Should recognize serger builds with different comment formats and case."""
         # Access function through module for testing
         is_serger_build = mod_stitch.is_serger_build
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            test_file = tmp_path / "test.py"
-            test_file.write_text(content)
-            assert is_serger_build(test_file), f"Failed for: {description}"
+        test_file = tmp_path / "test.py"
+        test_file.write_text(content)
+        assert is_serger_build(test_file), f"Failed for: {description}"
 
     @pytest.mark.parametrize(
         ("content", "description"),
@@ -1593,434 +1568,404 @@ class TestStitchModulesOutput:
         ],
     )
     def test_is_serger_build_rejects_non_serger_files(
-        self, content: str, description: str
+        self, tmp_path: Path, content: str, description: str
     ) -> None:
         """Should reject files that are not serger builds."""
         # Access function through module for testing
         is_serger_build = mod_stitch.is_serger_build
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            test_file = tmp_path / "test.py"
-            test_file.write_text(content)
-            assert not is_serger_build(test_file), f"Failed for: {description}"
+        test_file = tmp_path / "test.py"
+        test_file.write_text(content)
+        assert not is_serger_build(test_file), f"Failed for: {description}"
 
-    def test_is_serger_build_respects_max_lines_parameter(self) -> None:
+    def test_is_serger_build_respects_max_lines_parameter(self, tmp_path: Path) -> None:
         """Should respect max_lines parameter when provided."""
         # Access function through module for testing
         is_serger_build = mod_stitch.is_serger_build
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            test_file = tmp_path / "test.py"
-            # Create a file with the marker beyond line 10
-            lines = ["# Line 1\n"] * 15
-            lines.insert(10, "# Build Tool: serger\n")
-            test_file.write_text("".join(lines))
+        test_file = tmp_path / "test.py"
+        # Create a file with the marker beyond line 10
+        lines = ["# Line 1\n"] * 15
+        lines.insert(10, "# Build Tool: serger\n")
+        test_file.write_text("".join(lines))
 
-            # Should find it with default (200 lines)
-            assert is_serger_build(test_file), "Should find marker with default limit"
+        # Should find it with default (200 lines)
+        assert is_serger_build(test_file), "Should find marker with default limit"
 
-            # Should find it with custom limit (15 lines)
-            assert is_serger_build(test_file, max_lines=15), (
-                "Should find marker with custom limit"
-            )
+        # Should find it with custom limit (15 lines)
+        assert is_serger_build(test_file, max_lines=15), (
+            "Should find marker with custom limit"
+        )
 
-            # Should NOT find it with limit too low (5 lines)
-            assert not is_serger_build(test_file, max_lines=5), (
-                "Should not find marker with limit too low"
-            )
+        # Should NOT find it with limit too low (5 lines)
+        assert not is_serger_build(test_file, max_lines=5), (
+            "Should not find marker with limit too low"
+        )
 
 
 class TestStitchModulesDisplayConfig:
     """Test displayName and description configuration in stitch_modules."""
 
-    def test_both_display_name_and_description(self) -> None:
+    def test_both_display_name_and_description(self, tmp_path: Path) -> None:
         """Should format header with both name and description."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "main.py").write_text("MAIN = 1\n")
+        (src_dir / "main.py").write_text("MAIN = 1\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["main"]
-            )
-            config["display_name"] = "TestProject"
-            config["description"] = "A test project"
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["main"]
+        )
+        config["display_name"] = "TestProject"
+        config["description"] = "A test project"
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                license_text="MIT",
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            license_text="MIT",
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            lines = content.split("\n")
-            # Docstring now comes first (after shebang) per PEP 8
-            assert lines[1] == '"""'
-            # Find header after docstring
-            header_idx = next(
-                i
-                for i, line in enumerate(lines)
-                if line == "# TestProject — A test project"
-            )
-            assert header_idx > 1
+        content = out_path.read_text()
+        lines = content.split("\n")
+        # Docstring now comes first (after shebang) per PEP 8
+        assert lines[1] == '"""'
+        # Find header after docstring
+        header_idx = next(
+            i
+            for i, line in enumerate(lines)
+            if line == "# TestProject — A test project"
+        )
+        assert header_idx > 1
 
-    def test_only_display_name(self) -> None:
+    def test_only_display_name(self, tmp_path: Path) -> None:
         """Should format header with only display name."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "main.py").write_text("MAIN = 1\n")
+        (src_dir / "main.py").write_text("MAIN = 1\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["main"]
-            )
-            config["display_name"] = "TestProject"
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["main"]
+        )
+        config["display_name"] = "TestProject"
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            lines = content.split("\n")
-            # Docstring now comes first (after shebang) per PEP 8
-            assert lines[1] == '"""'
-            # Find header after docstring
-            header_idx = next(
-                i for i, line in enumerate(lines) if line == "# TestProject"
-            )
-            assert header_idx > 1
+        content = out_path.read_text()
+        lines = content.split("\n")
+        # Docstring now comes first (after shebang) per PEP 8
+        assert lines[1] == '"""'
+        # Find header after docstring
+        header_idx = next(i for i, line in enumerate(lines) if line == "# TestProject")
+        assert header_idx > 1
 
-    def test_only_description(self) -> None:
+    def test_only_description(self, tmp_path: Path) -> None:
         """Should format header with package name and description."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "main.py").write_text("MAIN = 1\n")
+        (src_dir / "main.py").write_text("MAIN = 1\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["main"]
-            )
-            config["description"] = "A test project"
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["main"]
+        )
+        config["description"] = "A test project"
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            lines = content.split("\n")
-            # Docstring now comes first (after shebang) per PEP 8
-            assert lines[1] == '"""'
-            # Find header after docstring
-            header_idx = next(
-                i
-                for i, line in enumerate(lines)
-                if line == "# testpkg — A test project"
-            )
-            assert header_idx > 1
+        content = out_path.read_text()
+        lines = content.split("\n")
+        # Docstring now comes first (after shebang) per PEP 8
+        assert lines[1] == '"""'
+        # Find header after docstring
+        header_idx = next(
+            i for i, line in enumerate(lines) if line == "# testpkg — A test project"
+        )
+        assert header_idx > 1
 
-    def test_custom_header_overrides_display_name(self) -> None:
+    def test_custom_header_overrides_display_name(self, tmp_path: Path) -> None:
         """Should use custom_header when provided, overriding display_name."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "main.py").write_text("MAIN = 1\n")
+        (src_dir / "main.py").write_text("MAIN = 1\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["main"]
-            )
-            config["display_name"] = "TestProject"
-            config["description"] = "A test project"
-            config["custom_header"] = "Custom Header Text"
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["main"]
+        )
+        config["display_name"] = "TestProject"
+        config["description"] = "A test project"
+        config["custom_header"] = "Custom Header Text"
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                license_text="MIT",
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            license_text="MIT",
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            lines = content.split("\n")
-            # Docstring now comes first (after shebang) per PEP 8
-            assert lines[1] == '"""'
-            # Find header after docstring
-            header_idx = next(
-                i for i, line in enumerate(lines) if line == "# Custom Header Text"
-            )
-            assert header_idx > 1
+        content = out_path.read_text()
+        lines = content.split("\n")
+        # Docstring now comes first (after shebang) per PEP 8
+        assert lines[1] == '"""'
+        # Find header after docstring
+        header_idx = next(
+            i for i, line in enumerate(lines) if line == "# Custom Header Text"
+        )
+        assert header_idx > 1
 
-    def test_file_docstring_overrides_auto_generated(self) -> None:
+    def test_file_docstring_overrides_auto_generated(self, tmp_path: Path) -> None:
         """Should use file_docstring when provided, overriding auto-generated."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "main.py").write_text("MAIN = 1\n")
+        (src_dir / "main.py").write_text("MAIN = 1\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["main"]
-            )
-            config["file_docstring"] = "Custom docstring content\nwith multiple lines"
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["main"]
+        )
+        config["file_docstring"] = "Custom docstring content\nwith multiple lines"
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                license_text="MIT",
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            license_text="MIT",
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            # Find the docstring section
-            docstring_start = content.find('"""')
-            docstring_end = content.find('"""', docstring_start + 3)
-            docstring_content = content[docstring_start + 3 : docstring_end]
-            assert "Custom docstring content" in docstring_content
-            assert "with multiple lines" in docstring_content
-            # Should not contain auto-generated content
-            assert "This single-file version is auto-generated" not in docstring_content
+        content = out_path.read_text()
+        # Find the docstring section
+        docstring_start = content.find('"""')
+        docstring_end = content.find('"""', docstring_start + 3)
+        docstring_content = content[docstring_start + 3 : docstring_end]
+        assert "Custom docstring content" in docstring_content
+        assert "with multiple lines" in docstring_content
+        # Should not contain auto-generated content
+        assert "This single-file version is auto-generated" not in docstring_content
 
-    def test_neither_provided_defaults_to_package_name(self) -> None:
+    def test_neither_provided_defaults_to_package_name(self, tmp_path: Path) -> None:
         """Should use package name when neither field provided."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "main.py").write_text("MAIN = 1\n")
+        (src_dir / "main.py").write_text("MAIN = 1\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["main"]
-            )
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["main"]
+        )
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            lines = content.split("\n")
-            # Docstring now comes first (after shebang) per PEP 8
-            assert lines[1] == '"""'
-            # Find header after docstring
-            header_idx = next(i for i, line in enumerate(lines) if line == "# testpkg")
-            assert header_idx > 1
+        content = out_path.read_text()
+        lines = content.split("\n")
+        # Docstring now comes first (after shebang) per PEP 8
+        assert lines[1] == '"""'
+        # Find header after docstring
+        header_idx = next(i for i, line in enumerate(lines) if line == "# testpkg")
+        assert header_idx > 1
 
-    def test_empty_strings_treated_as_not_provided(self) -> None:
+    def test_empty_strings_treated_as_not_provided(self, tmp_path: Path) -> None:
         """Should treat empty strings as not provided."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "main.py").write_text("MAIN = 1\n")
+        (src_dir / "main.py").write_text("MAIN = 1\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["main"]
-            )
-            config["display_name"] = ""
-            config["description"] = ""
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["main"]
+        )
+        config["display_name"] = ""
+        config["description"] = ""
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            lines = content.split("\n")
-            # Docstring now comes first (after shebang) per PEP 8
-            assert lines[1] == '"""'
-            # Find header after docstring
-            header_idx = next(i for i, line in enumerate(lines) if line == "# testpkg")
-            assert header_idx > 1
+        content = out_path.read_text()
+        lines = content.split("\n")
+        # Docstring now comes first (after shebang) per PEP 8
+        assert lines[1] == '"""'
+        # Find header after docstring
+        header_idx = next(i for i, line in enumerate(lines) if line == "# testpkg")
+        assert header_idx > 1
 
 
 class TestRepoField:
     """Test repo field in stitch_modules header."""
 
-    def test_repo_field_included_when_provided(self) -> None:
+    def test_repo_field_included_when_provided(self, tmp_path: Path) -> None:
         """Should include repo line in header when repo is provided."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "main.py").write_text("MAIN = 1\n")
+        (src_dir / "main.py").write_text("MAIN = 1\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["main"]
-            )
-            config["repo"] = "https://github.com/user/project"
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["main"]
+        )
+        config["repo"] = "https://github.com/user/project"
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            assert "# Repo: https://github.com/user/project" in content
+        content = out_path.read_text()
+        assert "# Repo: https://github.com/user/project" in content
 
-    def test_repo_field_omitted_when_not_provided(self) -> None:
+    def test_repo_field_omitted_when_not_provided(self, tmp_path: Path) -> None:
         """Should NOT include repo line when repo is not in config."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "main.py").write_text("MAIN = 1\n")
+        (src_dir / "main.py").write_text("MAIN = 1\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["main"]
-            )
-            # repo field deliberately omitted
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["main"]
+        )
+        # repo field deliberately omitted
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            assert "# Repo:" not in content
+        content = out_path.read_text()
+        assert "# Repo:" not in content
 
-    def test_repo_field_omitted_when_empty_string(self) -> None:
+    def test_repo_field_omitted_when_empty_string(self, tmp_path: Path) -> None:
         """Should NOT include repo line when repo is empty string."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "main.py").write_text("MAIN = 1\n")
+        (src_dir / "main.py").write_text("MAIN = 1\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["main"]
-            )
-            config["repo"] = ""  # explicitly empty
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["main"]
+        )
+        config["repo"] = ""  # explicitly empty
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            assert "# Repo:" not in content
+        content = out_path.read_text()
+        assert "# Repo:" not in content
 
-    def test_repo_line_position_in_header(self) -> None:
+    def test_repo_line_position_in_header(self, tmp_path: Path) -> None:
         """Should place repo line after Build Date and before ruff noqa."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            src_dir = tmp_path / "src"
-            src_dir.mkdir()
-            out_path = tmp_path / "output.py"
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
 
-            (src_dir / "main.py").write_text("MAIN = 1\n")
+        (src_dir / "main.py").write_text("MAIN = 1\n")
 
-            file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                src_dir, ["main"]
-            )
-            config["repo"] = "https://github.com/test/test"
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["main"]
+        )
+        config["repo"] = "https://github.com/test/test"
 
-            mod_stitch.stitch_modules(
-                config=config,
-                file_paths=file_paths,
-                package_root=package_root,
-                file_to_include=file_to_include,
-                out_path=out_path,
-                version="1.0.0",
-                build_date="2025-01-01 12:00:00 UTC",
-                is_serger_build=is_serger_build_for_test(out_path),
-            )
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            version="1.0.0",
+            build_date="2025-01-01 12:00:00 UTC",
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
 
-            content = out_path.read_text()
-            lines = content.split("\n")
+        content = out_path.read_text()
+        lines = content.split("\n")
 
-            # Find key header lines
-            build_date_idx = None
-            repo_idx = None
-            ruff_noqa_idx = None
+        # Find key header lines
+        build_date_idx = None
+        repo_idx = None
+        ruff_noqa_idx = None
 
-            for i, line in enumerate(lines):
-                if "# Build Date:" in line:
-                    build_date_idx = i
-                if "# Repo:" in line:
-                    repo_idx = i
-                if "# noqa:" in line:
-                    ruff_noqa_idx = i
+        for i, line in enumerate(lines):
+            if "# Build Date:" in line:
+                build_date_idx = i
+            if "# Repo:" in line:
+                repo_idx = i
+            if "# noqa:" in line:
+                ruff_noqa_idx = i
 
-            assert build_date_idx is not None, "Build Date line not found"
-            assert repo_idx is not None, "Repo line not found"
-            assert ruff_noqa_idx is not None, "Ruff noqa line not found"
+        assert build_date_idx is not None, "Build Date line not found"
+        assert repo_idx is not None, "Repo line not found"
+        assert ruff_noqa_idx is not None, "Ruff noqa line not found"
 
-            # Verify order: Build Date → Repo → ruff noqa
-            assert build_date_idx < repo_idx, (
-                f"Repo line should come after Build Date "
-                f"(Build Date at {build_date_idx}, Repo at {repo_idx})"
-            )
-            assert repo_idx < ruff_noqa_idx, (
-                f"Ruff noqa line should come after Repo "
-                f"(Repo at {repo_idx}, Ruff noqa at {ruff_noqa_idx})"
-            )
+        # Verify order: Build Date → Repo → ruff noqa
+        assert build_date_idx < repo_idx, (
+            f"Repo line should come after Build Date "
+            f"(Build Date at {build_date_idx}, Repo at {repo_idx})"
+        )
+        assert repo_idx < ruff_noqa_idx, (
+            f"Ruff noqa line should come after Repo "
+            f"(Repo at {repo_idx}, Ruff noqa at {ruff_noqa_idx})"
+        )
 
-    def test_repo_string_passed_through(self) -> None:
+    def test_repo_string_passed_through(self, tmp_path: Path) -> None:
         """Should pass repo string through as-is to header."""
         test_strings = [
             "https://github.com/user/repo",
@@ -2029,27 +1974,26 @@ class TestRepoField:
         ]
 
         for repo_str in test_strings:
-            with tempfile.TemporaryDirectory() as tmpdir:
-                tmp_path = Path(tmpdir)
-                src_dir = tmp_path / "src"
-                src_dir.mkdir()
-                out_path = tmp_path / "output.py"
+            # Use unique subdirectories for each iteration to avoid conflicts
+            src_dir = tmp_path / f"src_{hash(repo_str) % 10000}"
+            src_dir.mkdir()
+            out_path = tmp_path / f"output_{hash(repo_str) % 10000}.py"
 
-                (src_dir / "main.py").write_text("MAIN = 1\n")
+            (src_dir / "main.py").write_text("MAIN = 1\n")
 
-                file_paths, package_root, file_to_include, config = _setup_stitch_test(
-                    src_dir, ["main"]
-                )
-                config["repo"] = repo_str
+            file_paths, package_root, file_to_include, config = _setup_stitch_test(
+                src_dir, ["main"]
+            )
+            config["repo"] = repo_str
 
-                mod_stitch.stitch_modules(
-                    config=config,
-                    file_paths=file_paths,
-                    package_root=package_root,
-                    file_to_include=file_to_include,
-                    out_path=out_path,
-                    is_serger_build=is_serger_build_for_test(out_path),
-                )
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
+            )
 
-                content = out_path.read_text()
-                assert f"# Repo: {repo_str}" in content
+            content = out_path.read_text()
+            assert f"# Repo: {repo_str}" in content
