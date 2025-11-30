@@ -2,7 +2,6 @@
 """Tests for compute_module_order function."""
 
 import ast
-import tempfile
 from pathlib import Path
 
 import apathetic_utils as mod_utils
@@ -41,173 +40,166 @@ def _setup_order_test(
     return file_paths, package_root, file_to_include
 
 
-def test_simple_order() -> None:
+def test_simple_order(tmp_path: Path) -> None:
     """Should return order for modules with no dependencies."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        src_dir = Path(tmpdir)
-        (src_dir / "a.py").write_text("# module a\n")
-        (src_dir / "b.py").write_text("# module b\n")
+    src_dir = tmp_path
+    (src_dir / "a.py").write_text("# module a\n")
+    (src_dir / "b.py").write_text("# module b\n")
 
-        file_paths, package_root, file_to_include = _setup_order_test(
-            src_dir, ["a", "b"]
-        )
+    file_paths, package_root, file_to_include = _setup_order_test(src_dir, ["a", "b"])
 
-        # Detect packages for the test
-        detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
-            file_paths, "pkg"
-        )
+    # Detect packages for the test
+    detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
+        file_paths, "pkg"
+    )
 
-        order = mod_stitch.compute_module_order(
-            file_paths,
-            package_root,
-            "pkg",
-            file_to_include,
-            detected_packages=detected_packages,
-        )
-        assert set(order) == set(file_paths)
+    order = mod_stitch.compute_module_order(
+        file_paths,
+        package_root,
+        "pkg",
+        file_to_include,
+        detected_packages=detected_packages,
+    )
+    assert set(order) == set(file_paths)
 
 
-def test_deterministic_ordering_multiple_valid_orderings() -> None:
+def test_deterministic_ordering_multiple_valid_orderings(
+    tmp_path: Path,
+) -> None:
     """Should produce identical order when multiple valid topological orderings exist.
 
     This test verifies that compute_module_order produces deterministic results
     even when multiple valid topological orderings exist (i.e., when modules
     have no dependencies between them). This is critical for reproducible builds.
     """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        src_dir = Path(tmpdir)
-        # Create multiple modules with no dependencies between them
-        # This creates a scenario where multiple valid topological orderings exist
-        (src_dir / "a.py").write_text("# module a\n")
-        (src_dir / "b.py").write_text("# module b\n")
-        (src_dir / "c.py").write_text("# module c\n")
-        (src_dir / "d.py").write_text("# module d\n")
-        (src_dir / "e.py").write_text("# module e\n")
+    src_dir = tmp_path
+    # Create multiple modules with no dependencies between them
+    # This creates a scenario where multiple valid topological orderings exist
+    (src_dir / "a.py").write_text("# module a\n")
+    (src_dir / "b.py").write_text("# module b\n")
+    (src_dir / "c.py").write_text("# module c\n")
+    (src_dir / "d.py").write_text("# module d\n")
+    (src_dir / "e.py").write_text("# module e\n")
 
-        file_paths, package_root, file_to_include = _setup_order_test(
-            src_dir, ["a", "b", "c", "d", "e"]
+    file_paths, package_root, file_to_include = _setup_order_test(
+        src_dir, ["a", "b", "c", "d", "e"]
+    )
+
+    # Detect packages for the test
+    detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
+        file_paths, "pkg"
+    )
+
+    # Call compute_module_order multiple times with the same input
+    # The order should be identical each time
+    orders: list[list[Path]] = []
+    for _ in range(10):
+        order = mod_stitch.compute_module_order(
+            file_paths,
+            package_root,
+            "pkg",
+            file_to_include,
+            detected_packages=detected_packages,
+        )
+        orders.append(order)
+
+    # Verify all orders are identical
+    first_order = orders[0]
+    for i, order in enumerate(orders[1:], start=1):
+        assert order == first_order, (
+            f"Order should be deterministic, but iteration {i} produced "
+            f"different order. First: {first_order}, Got: {order}"
         )
 
-        # Detect packages for the test
-        detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
-            file_paths, "pkg"
-        )
-
-        # Call compute_module_order multiple times with the same input
-        # The order should be identical each time
-        orders: list[list[Path]] = []
-        for _ in range(10):
-            order = mod_stitch.compute_module_order(
-                file_paths,
-                package_root,
-                "pkg",
-                file_to_include,
-                detected_packages=detected_packages,
-            )
-            orders.append(order)
-
-        # Verify all orders are identical
-        first_order = orders[0]
-        for i, order in enumerate(orders[1:], start=1):
-            assert order == first_order, (
-                f"Order should be deterministic, but iteration {i} produced "
-                f"different order. First: {first_order}, Got: {order}"
-            )
-
-        # Verify the order is sorted by file path (deterministic tie-breaker)
-        # Since there are no dependencies, modules should be ordered by file path
-        sorted_paths = sorted(file_paths, key=str)
-        assert first_order == sorted_paths, (
-            f"When no dependencies exist, modules should be ordered by file path. "
-            f"Expected: {sorted_paths}, Got: {first_order}"
-        )
+    # Verify the order is sorted by file path (deterministic tie-breaker)
+    # Since there are no dependencies, modules should be ordered by file path
+    sorted_paths = sorted(file_paths, key=str)
+    assert first_order == sorted_paths, (
+        f"When no dependencies exist, modules should be ordered by file path. "
+        f"Expected: {sorted_paths}, Got: {first_order}"
+    )
 
 
-def test_dependency_order() -> None:
+def test_dependency_order(tmp_path: Path) -> None:
     """Should correct order based on import dependencies."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        src_dir = Path(tmpdir)
-        (src_dir / "base.py").write_text("# base\n")
-        (src_dir / "derived.py").write_text("from pkg.base import something\n")
+    src_dir = tmp_path
+    (src_dir / "base.py").write_text("# base\n")
+    (src_dir / "derived.py").write_text("from pkg.base import something\n")
 
-        file_paths, package_root, file_to_include = _setup_order_test(
-            src_dir, ["derived", "base"]
-        )
+    file_paths, package_root, file_to_include = _setup_order_test(
+        src_dir, ["derived", "base"]
+    )
 
-        # Detect packages for the test
-        detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
-            file_paths, "pkg"
-        )
+    # Detect packages for the test
+    detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
+        file_paths, "pkg"
+    )
 
-        order = mod_stitch.compute_module_order(
-            file_paths,
-            package_root,
-            "pkg",
-            file_to_include,
-            detected_packages=detected_packages,
-        )
-        # base must come before derived
-        base_path = next(p for p in file_paths if p.name == "base.py")
-        derived_path = next(p for p in file_paths if p.name == "derived.py")
-        assert order.index(base_path) < order.index(derived_path)
+    order = mod_stitch.compute_module_order(
+        file_paths,
+        package_root,
+        "pkg",
+        file_to_include,
+        detected_packages=detected_packages,
+    )
+    # base must come before derived
+    base_path = next(p for p in file_paths if p.name == "base.py")
+    derived_path = next(p for p in file_paths if p.name == "derived.py")
+    assert order.index(base_path) < order.index(derived_path)
 
 
-def test_circular_import_error() -> None:
+def test_circular_import_error(tmp_path: Path) -> None:
     """Should raise RuntimeError on circular imports."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        src_dir = Path(tmpdir)
-        (src_dir / "a.py").write_text("from pkg.b import x\n")
-        (src_dir / "b.py").write_text("from pkg.a import y\n")
+    src_dir = tmp_path
+    (src_dir / "a.py").write_text("from pkg.b import x\n")
+    (src_dir / "b.py").write_text("from pkg.a import y\n")
 
-        file_paths, package_root, file_to_include = _setup_order_test(
-            src_dir, ["a", "b"]
-        )
+    file_paths, package_root, file_to_include = _setup_order_test(src_dir, ["a", "b"])
 
-        # Detect packages for the test
-        detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
-            file_paths, "pkg"
-        )
+    # Detect packages for the test
+    detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
+        file_paths, "pkg"
+    )
 
-        with pytest.raises(RuntimeError):
-            mod_stitch.compute_module_order(
-                file_paths,
-                package_root,
-                "pkg",
-                file_to_include,
-                detected_packages=detected_packages,
-            )
-
-
-def test_relative_import_order() -> None:
-    """Should handle relative imports correctly."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        src_dir = Path(tmpdir)
-        (src_dir / "base.py").write_text("# base\n")
-        (src_dir / "derived.py").write_text("from .base import something\n")
-
-        file_paths, package_root, file_to_include = _setup_order_test(
-            src_dir, ["derived", "base"]
-        )
-
-        # Detect packages for the test
-        detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
-            file_paths, "pkg"
-        )
-
-        order = mod_stitch.compute_module_order(
+    with pytest.raises(RuntimeError):
+        mod_stitch.compute_module_order(
             file_paths,
             package_root,
             "pkg",
             file_to_include,
             detected_packages=detected_packages,
         )
-        # base must come before derived
-        base_path = next(p for p in file_paths if p.name == "base.py")
-        derived_path = next(p for p in file_paths if p.name == "derived.py")
-        assert order.index(base_path) < order.index(derived_path)
 
 
-def test_init_py_relative_import_order() -> None:
+def test_relative_import_order(tmp_path: Path) -> None:
+    """Should handle relative imports correctly."""
+    src_dir = tmp_path
+    (src_dir / "base.py").write_text("# base\n")
+    (src_dir / "derived.py").write_text("from .base import something\n")
+
+    file_paths, package_root, file_to_include = _setup_order_test(
+        src_dir, ["derived", "base"]
+    )
+
+    # Detect packages for the test
+    detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
+        file_paths, "pkg"
+    )
+
+    order = mod_stitch.compute_module_order(
+        file_paths,
+        package_root,
+        "pkg",
+        file_to_include,
+        detected_packages=detected_packages,
+    )
+    # base must come before derived
+    base_path = next(p for p in file_paths if p.name == "base.py")
+    derived_path = next(p for p in file_paths if p.name == "derived.py")
+    assert order.index(base_path) < order.index(derived_path)
+
+
+def test_init_py_relative_import_order(tmp_path: Path) -> None:
     """Should order modules before __init__.py when __init__.py imports from them.
 
     This tests the bug where __init__.py that imports from other modules in the
@@ -219,107 +211,103 @@ def test_init_py_relative_import_order() -> None:
     - src/apathetic_logging/namespace.py defines the class
     - __init__.py should come AFTER namespace.py in the stitched output
     """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        src_dir = Path(tmpdir) / "src"
-        pkg_dir = src_dir / "apathetic_logging"
-        pkg_dir.mkdir(parents=True)
-        (pkg_dir / "__init__.py").write_text(
-            "from .namespace import apathetic_logging\n"
-        )
-        (pkg_dir / "namespace.py").write_text("class apathetic_logging:\n    pass\n")
+    src_dir = tmp_path / "src"
+    pkg_dir = src_dir / "apathetic_logging"
+    pkg_dir.mkdir(parents=True)
+    (pkg_dir / "__init__.py").write_text("from .namespace import apathetic_logging\n")
+    (pkg_dir / "namespace.py").write_text("class apathetic_logging:\n    pass\n")
 
-        file_paths = [
-            (pkg_dir / "__init__.py").resolve(),
-            (pkg_dir / "namespace.py").resolve(),
-        ]
+    file_paths = [
+        (pkg_dir / "__init__.py").resolve(),
+        (pkg_dir / "namespace.py").resolve(),
+    ]
 
-        # Use find_package_root (as in real builds) - this might find wrong root
-        package_root = mod_build.find_package_root(file_paths)
+    # Use find_package_root (as in real builds) - this might find wrong root
+    package_root = mod_build.find_package_root(file_paths)
 
-        # Create file_to_include mapping
-        file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
-        include = make_include_resolved("src", tmpdir)
-        for file_path in file_paths:
-            file_to_include[file_path] = include
+    # Create file_to_include mapping
+    file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
+    include = make_include_resolved("src", tmp_path)
+    for file_path in file_paths:
+        file_to_include[file_path] = include
 
-        # Detect packages for the test
-        detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
-            file_paths, "apathetic_logging"
-        )
+    # Detect packages for the test
+    detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
+        file_paths, "apathetic_logging"
+    )
 
-        order = mod_stitch.compute_module_order(
-            file_paths,
-            package_root,
-            "apathetic_logging",
-            file_to_include,
-            detected_packages=detected_packages,
-        )
+    order = mod_stitch.compute_module_order(
+        file_paths,
+        package_root,
+        "apathetic_logging",
+        file_to_include,
+        detected_packages=detected_packages,
+    )
 
-        # namespace.py must come before __init__.py
-        namespace_path = next(p for p in file_paths if p.name == "namespace.py")
-        init_path = next(p for p in file_paths if p.name == "__init__.py")
-        namespace_idx = order.index(namespace_path)
-        init_idx = order.index(init_path)
-        assert namespace_idx < init_idx, (
-            f"namespace.py (index {namespace_idx}) should come before "
-            f"__init__.py (index {init_idx}) when __init__.py imports from namespace"
-        )
+    # namespace.py must come before __init__.py
+    namespace_path = next(p for p in file_paths if p.name == "namespace.py")
+    init_path = next(p for p in file_paths if p.name == "__init__.py")
+    namespace_idx = order.index(namespace_path)
+    init_idx = order.index(init_path)
+    assert namespace_idx < init_idx, (
+        f"namespace.py (index {namespace_idx}) should come before "
+        f"__init__.py (index {init_idx}) when __init__.py imports from namespace"
+    )
 
 
-def test_init_py_relative_import_in_else_block() -> None:
+def test_init_py_relative_import_in_else_block(tmp_path: Path) -> None:
     """Should detect imports inside else blocks for dependency ordering.
 
     This tests the bug where imports inside conditional blocks (like
     "if not __STANDALONE__: from .namespace import ...") were not being
     detected for dependency ordering.
     """
-    with tempfile.TemporaryDirectory() as tmpdir:
-        src_dir = Path(tmpdir) / "src"
-        pkg_dir = src_dir / "apathetic_logging"
-        pkg_dir.mkdir(parents=True)
-        (pkg_dir / "__init__.py").write_text(
-            """if globals().get("__STANDALONE__"):
+    src_dir = tmp_path / "src"
+    pkg_dir = src_dir / "apathetic_logging"
+    pkg_dir.mkdir(parents=True)
+    (pkg_dir / "__init__.py").write_text(
+        """if globals().get("__STANDALONE__"):
     _apathetic_logging_ns = None
 else:
     from .namespace import apathetic_logging as _apathetic_logging_ns
 """
-        )
-        (pkg_dir / "namespace.py").write_text("class apathetic_logging:\n    pass\n")
+    )
+    (pkg_dir / "namespace.py").write_text("class apathetic_logging:\n    pass\n")
 
-        file_paths = [
-            (pkg_dir / "__init__.py").resolve(),
-            (pkg_dir / "namespace.py").resolve(),
-        ]
+    file_paths = [
+        (pkg_dir / "__init__.py").resolve(),
+        (pkg_dir / "namespace.py").resolve(),
+    ]
 
-        # Use src as package root
-        package_root = src_dir.resolve()
+    # Use src as package root
+    package_root = src_dir.resolve()
 
-        file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
-        include = make_include_resolved("src", tmpdir)
-        for file_path in file_paths:
-            file_to_include[file_path] = include
+    file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
+    include = make_include_resolved("src", tmp_path)
+    for file_path in file_paths:
+        file_to_include[file_path] = include
 
-        # Detect packages for the test
-        detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
-            file_paths, "apathetic_logging"
-        )
+    # Detect packages for the test
+    detected_packages, _parent_dirs = mod_utils.detect_packages_from_files(
+        file_paths, "apathetic_logging"
+    )
 
-        order = mod_stitch.compute_module_order(
-            file_paths,
-            package_root,
-            "apathetic_logging",
-            file_to_include,
-            detected_packages=detected_packages,
-        )
+    order = mod_stitch.compute_module_order(
+        file_paths,
+        package_root,
+        "apathetic_logging",
+        file_to_include,
+        detected_packages=detected_packages,
+    )
 
-        namespace_path = next(p for p in file_paths if p.name == "namespace.py")
-        init_path = next(p for p in file_paths if p.name == "__init__.py")
-        namespace_idx = order.index(namespace_path)
-        init_idx = order.index(init_path)
-        assert namespace_idx < init_idx, (
-            f"namespace.py (index {namespace_idx}) should come before "
-            f"__init__.py (index {init_idx}) even when import is inside else block"
-        )
+    namespace_path = next(p for p in file_paths if p.name == "namespace.py")
+    init_path = next(p for p in file_paths if p.name == "__init__.py")
+    namespace_idx = order.index(namespace_path)
+    init_idx = order.index(init_path)
+    assert namespace_idx < init_idx, (
+        f"namespace.py (index {namespace_idx}) should come before "
+        f"__init__.py (index {init_idx}) even when import is inside else block"
+    )
 
 
 # Tests for helper functions
