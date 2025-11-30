@@ -2,7 +2,6 @@
 """Tests for find_tool_executable function."""
 
 import shutil
-import tempfile
 from pathlib import Path
 
 import apathetic_utils as mod_utils
@@ -44,17 +43,14 @@ def test_find_tool_executable_when_tool_missing(
     assert result is None
 
 
-def test_find_tool_executable_with_custom_path() -> None:
+def test_find_tool_executable_with_custom_path(tmp_path: Path) -> None:
     """Should return custom path when it exists."""
-    with tempfile.NamedTemporaryFile(delete=False) as f:
-        custom_path = f.name
+    custom_path = tmp_path / "tool"
+    custom_path.touch()
 
-    try:
-        result = mod_verify.find_tool_executable("ruff", custom_path=custom_path)
-        assert result is not None
-        assert Path(result).exists()
-    finally:
-        Path(custom_path).unlink(missing_ok=True)
+    result = mod_verify.find_tool_executable("ruff", custom_path=str(custom_path))
+    assert result is not None
+    assert Path(result).exists()
 
 
 def test_find_tool_executable_with_invalid_custom_path() -> None:
