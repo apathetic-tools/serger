@@ -127,7 +127,7 @@ def _filter_runtime_mode_tests(
 # ----------------------------------------------------------------------
 
 
-def pytest_report_header(config: pytest.Config) -> str:  # noqa: ARG001 # pyright: ignore[reportUnknownParameterType]
+def pytest_report_header(config: pytest.Config) -> str:  # noqa: ARG001
     mode = _mode()
     return f"Runtime mode: {mode}"
 

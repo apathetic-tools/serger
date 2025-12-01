@@ -129,6 +129,7 @@ def ensure_zipapp_up_to_date(root: Path) -> Path:
                 "-o",
                 str(zipapp_path),
                 ".",
+                "--quiet",
             ],
             cwd=root,
             check=True,

@@ -28,17 +28,9 @@
   "exclude": [
     "__pycache__/**",
     "*.pyc",
-    // Temporarily including __init__.py files to fix apathetic_logging stitching
-    // "src/**/__init__.py",    // Exclude __init__.py for our own packages (handled by import shims)
     "**/__main__.py"     // Entry point, not stitched
   ],
 
-  // Output file path (relative to project root)
-  // This will be the final single-file executable
-  "out": "dist/serger.py",
-
   // Global configuration defaults
-  "log_level": "info",
-  "strict_config": true,
-  "respect_gitignore": true
+  "log_level": "warning"
 }

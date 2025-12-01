@@ -48,9 +48,9 @@ lint = ["lint:ruff"]
 
 # 🧠 Type checking
 typecheck = ["typecheck:mypy", "typecheck:pyright"]
-"typecheck:mypy" = "mypy src tests"
+"typecheck:mypy" = "mypy src tests --no-error-summary"
 # run pyright to simulate pylance for AI CLI auto-fix
-"typecheck:pyright" = "pyright src tests"
+"typecheck:pyright" = "bash dev/pyright-quiet.sh src tests"
 
 # 🧪 Tests (runs all three: installed + singlefile + zipapp)
 test = ["test:pytest:installed", "test:pytest:script", "test:pytest:zipapp"]
@@ -127,15 +127,15 @@ test = ["test:pytest:installed", "test:pytest:script", "test:pytest:zipapp"]
 # 🧹 Automated fixing / formatting
 fix = ["sync:ai:guidance", "fix:ruff:installed", "fix:format:installed"]
 "fix:dist" = ["fix:ruff:dist", "fix:format:dist"]
-"fix:ruff:installed" = "ruff check . --fix"
-"fix:ruff:dist" = { shell = "if [ -d dist ]; then ruff check dist --fix; fi" }
-"fix:format:installed" = "ruff format ."
-"fix:format:dist" = { shell = "if [ -d dist ]; then ruff format dist; fi" }
+"fix:ruff:installed" = "ruff check . --fix -q"
+"fix:ruff:dist" = { shell = "if [ -d dist ]; then ruff check dist --fix -q; fi" }
+"fix:format:installed" = "ruff format . -q"
+"fix:format:dist" = { shell = "if [ -d dist ]; then ruff format dist -q; fi" }
 
 # 🧩 Build and license
 "sync:ai:guidance" = "python dev/sync_ai_guidance.py --quiet"
 "build:script" = "python -m serger"
-"build:zipapp" = "shiv -c serger -o dist/serger.pyz ."
+"build:zipapp" = "shiv -c serger -o dist/serger.pyz . --quiet"
 "check:license" = "bash dev/check-license.sh"
 
 # 🚀 Release management (semantic-release)
@@ -144,7 +144,7 @@ fix = ["sync:ai:guidance", "fix:ruff:installed", "fix:format:installed"]
 "release:changelog" = "semantic-release changelog"
 
 # 🔧 Setup and installation
-"pre-commit:install" = { shell = "if [ ! -f .git/hooks/pre-commit ] || ! grep -q 'pre-commit' .git/hooks/pre-commit 2>/dev/null; then poetry run pre-commit install --install-hooks && poetry run pre-commit install --hook-type pre-push; fi" }
+"pre-commit:install" = "bash dev/install_pre_commit_hooks.sh"
 
 # 🐍 Python version management
 "env:py310" = "bash dev/env_use_py310.sh"
