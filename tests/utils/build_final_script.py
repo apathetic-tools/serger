@@ -34,6 +34,7 @@ def make_build_final_script_args(  # noqa: PLR0913
     main_function_result: tuple[str, Path, str] | None = None,
     selected_main_block: mod_main_config.MainBlock | None = None,
     module_sources: dict[str, str] | None = None,
+    tmp_path: Path,
 ) -> dict[str, Any]:
     """Create arguments for _build_final_script with sensible defaults.
 
@@ -59,6 +60,7 @@ def make_build_final_script_args(  # noqa: PLR0913
         main_function_result: Result from find_main_function() if found
         selected_main_block: Selected __main__ block to use (if any)
         module_sources: Mapping of module name to source code
+        tmp_path: Temporary path for config creation
 
     Returns:
         Dictionary of keyword arguments for _build_final_script
@@ -85,7 +87,6 @@ def make_build_final_script_args(  # noqa: PLR0913
 
     # Create default config if not provided
     if config is None:
-        tmp_path = Path("/tmp")  # noqa: S108
         config = make_build_cfg(
             tmp_path,
             include=[make_include_resolved("src", tmp_path)],

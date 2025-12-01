@@ -1,15 +1,17 @@
 # tests/50_core/test_module_modes.py
 """Unit tests for all module_mode options."""
 
+from pathlib import Path
+
 from tests.utils.build_final_script import call_build_final_script
 
 
 class TestModuleModeNone:
     """Test module_mode='none' - no shims generated."""
 
-    def test_no_shims_generated(self) -> None:
+    def test_no_shims_generated(self, tmp_path: Path) -> None:
         """Should not generate any shim code."""
-        result, _ = call_build_final_script(module_mode="none")
+        result, _ = call_build_final_script(tmp_path=tmp_path, module_mode="none")
 
         assert "# --- import shims for single-file runtime ---" not in result
         assert "_create_pkg_module" not in result
@@ -20,9 +22,10 @@ class TestModuleModeNone:
 class TestModuleModeMulti:
     """Test module_mode='multi' - generate shims for all detected packages."""
 
-    def test_multi_package_shims(self) -> None:
+    def test_multi_package_shims(self, tmp_path: Path) -> None:
         """Should generate shims for all detected packages."""
         result, _ = call_build_final_script(
+            tmp_path=tmp_path,
             package_name="mypkg",
             order_names=["pkg1.module1", "pkg2.module2"],
             detected_packages={"pkg1", "pkg2", "mypkg"},
@@ -35,9 +38,10 @@ class TestModuleModeMulti:
         assert '"pkg1.module1"' in normalized
         assert '"pkg2.module2"' in normalized
 
-    def test_single_package_shims(self) -> None:
+    def test_single_package_shims(self, tmp_path: Path) -> None:
         """Should generate shims for single package."""
         result, _ = call_build_final_script(
+            tmp_path=tmp_path,
             package_name="mypkg",
             order_names=["utils", "core"],
             detected_packages={"mypkg"},
@@ -53,9 +57,10 @@ class TestModuleModeMulti:
 class TestModuleModeForce:
     """Test module_mode='force' - replace root package but keep subpackages."""
 
-    def test_force_replaces_root_keeps_subpackages(self) -> None:
+    def test_force_replaces_root_keeps_subpackages(self, tmp_path: Path) -> None:
         """Should replace root package but keep subpackages."""
         result, _ = call_build_final_script(
+            tmp_path=tmp_path,
             package_name="mypkg",
             order_names=["pkg1.sub.module1", "pkg2.sub.module2"],
             detected_packages={"pkg1", "pkg2"},
@@ -68,9 +73,10 @@ class TestModuleModeForce:
         assert '"mypkg.sub.module1"' in normalized
         assert '"mypkg.sub.module2"' in normalized
 
-    def test_force_with_matching_package(self) -> None:
+    def test_force_with_matching_package(self, tmp_path: Path) -> None:
         """Should handle when package matches detected package."""
         result, _ = call_build_final_script(
+            tmp_path=tmp_path,
             package_name="mypkg",
             order_names=["mypkg.utils", "other.sub"],
             detected_packages={"mypkg", "other"},
@@ -85,9 +91,10 @@ class TestModuleModeForce:
 class TestModuleModeForceFlat:
     """Test module_mode='force_flat' - flatten everything to package."""
 
-    def test_force_flat_flattens_all(self) -> None:
+    def test_force_flat_flattens_all(self, tmp_path: Path) -> None:
         """Should flatten all modules to direct children of package."""
         result, _ = call_build_final_script(
+            tmp_path=tmp_path,
             package_name="mypkg",
             order_names=["pkg1.sub.module1", "pkg2.sub.module2", "loose"],
             detected_packages={"pkg1", "pkg2"},
@@ -101,9 +108,10 @@ class TestModuleModeForceFlat:
         assert '"mypkg.module2"' in normalized
         assert '"mypkg.loose"' in normalized
 
-    def test_force_flat_with_nested(self) -> None:
+    def test_force_flat_with_nested(self, tmp_path: Path) -> None:
         """Should flatten nested packages."""
         result, _ = call_build_final_script(
+            tmp_path=tmp_path,
             package_name="mypkg",
             order_names=["deep.nested.module"],
             detected_packages={"deep"},
@@ -117,9 +125,10 @@ class TestModuleModeForceFlat:
 class TestModuleModeUnify:
     """Test module_mode='unify' - place all packages under package, combine if matches."""  # noqa: E501
 
-    def test_unify_combines_matching_package(self) -> None:
+    def test_unify_combines_matching_package(self, tmp_path: Path) -> None:
         """Should combine when package matches detected package."""
         result, _ = call_build_final_script(
+            tmp_path=tmp_path,
             package_name="serger",
             order_names=["serger.utils", "apathetic_logs.logs"],
             detected_packages={"serger", "apathetic_logs"},
@@ -132,9 +141,10 @@ class TestModuleModeUnify:
         # apathetic_logs.logs becomes serger.apathetic_logs.logs
         assert '"serger.apathetic_logs.logs"' in normalized
 
-    def test_unify_places_other_packages_under(self) -> None:
+    def test_unify_places_other_packages_under(self, tmp_path: Path) -> None:
         """Should place other detected packages under configured package."""
         result, _ = call_build_final_script(
+            tmp_path=tmp_path,
             package_name="mypkg",
             order_names=["pkg1.module1", "pkg2.module2", "loose"],
             detected_packages={"pkg1", "pkg2"},
@@ -150,9 +160,10 @@ class TestModuleModeUnify:
 class TestModuleModeUnifyPreserve:
     """Test module_mode='unify_preserve' - like unify but preserves structure."""
 
-    def test_unify_preserve_preserves_structure(self) -> None:
+    def test_unify_preserve_preserves_structure(self, tmp_path: Path) -> None:
         """Should preserve structure when package matches."""
         result, _ = call_build_final_script(
+            tmp_path=tmp_path,
             package_name="serger",
             order_names=["serger.utils.text", "apathetic_logs.logs"],
             detected_packages={"serger", "apathetic_logs"},
@@ -165,9 +176,10 @@ class TestModuleModeUnifyPreserve:
         # apathetic_logs.logs becomes serger.apathetic_logs.logs
         assert '"serger.apathetic_logs.logs"' in normalized
 
-    def test_unify_preserve_loose_files(self) -> None:
+    def test_unify_preserve_loose_files(self, tmp_path: Path) -> None:
         """Should attach loose files to package."""
         result, _ = call_build_final_script(
+            tmp_path=tmp_path,
             package_name="mypkg",
             order_names=["loose"],
             detected_packages={"mypkg"},
@@ -181,9 +193,10 @@ class TestModuleModeUnifyPreserve:
 class TestModuleModeFlat:
     """Test module_mode='flat' - loose files as top-level modules."""
 
-    def test_flat_keeps_loose_files_top_level(self) -> None:
+    def test_flat_keeps_loose_files_top_level(self, tmp_path: Path) -> None:
         """Should keep loose files as top-level modules."""
         result, _ = call_build_final_script(
+            tmp_path=tmp_path,
             package_name="mypkg",
             order_names=["main", "utils", "pkg1.module1"],
             detected_packages={"pkg1"},
@@ -197,9 +210,10 @@ class TestModuleModeFlat:
         # Packages still get package prefix
         assert '"mypkg.pkg1.module1"' in normalized or '"pkg1.module1"' in normalized
 
-    def test_flat_with_only_loose_files(self) -> None:
+    def test_flat_with_only_loose_files(self, tmp_path: Path) -> None:
         """Should handle only loose files."""
         result, _ = call_build_final_script(
+            tmp_path=tmp_path,
             package_name="mypkg",
             order_names=["main", "utils"],
             detected_packages={"mypkg"},

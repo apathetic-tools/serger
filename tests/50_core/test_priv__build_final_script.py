@@ -18,16 +18,16 @@ from tests.utils.buildconfig import make_build_cfg, make_include_resolved
 class TestBuildFinalScriptBasic:
     """Test basic script building."""
 
-    def test_returns_string(self) -> None:
+    def test_returns_string(self, tmp_path: Path) -> None:
         """Should return a string."""
-        result, _ = call_build_final_script()
+        result, _ = call_build_final_script(tmp_path=tmp_path)
 
         assert isinstance(result, str)
         assert len(result) > 0
 
-    def test_includes_shebang(self) -> None:
+    def test_includes_shebang(self, tmp_path: Path) -> None:
         """Should start with shebang."""
-        result, _ = call_build_final_script()
+        result, _ = call_build_final_script(tmp_path=tmp_path)
 
         assert result.startswith("#!/usr/bin/env python3\n")
 
@@ -112,17 +112,18 @@ class TestBuildFinalScriptBasic:
         assert "# Commit: def456" in result
         assert "# Build Date: 2025-06-15" in result
 
-    def test_includes_authors_comment(self) -> None:
+    def test_includes_authors_comment(self, tmp_path: Path) -> None:
         """Should include authors comment when provided."""
         result, _ = call_build_final_script(
+            tmp_path=tmp_path,
             authors="Alice <alice@example.com>, Bob",
         )
 
         assert "# Authors: Alice <alice@example.com>, Bob" in result
 
-    def test_omits_authors_comment_when_empty(self) -> None:
+    def test_omits_authors_comment_when_empty(self, tmp_path: Path) -> None:
         """Should omit authors comment when not provided."""
-        result, _ = call_build_final_script(authors="")
+        result, _ = call_build_final_script(tmp_path=tmp_path, authors="")
 
         assert "# Authors:" not in result
 
@@ -199,17 +200,18 @@ class TestBuildFinalScriptMetadata:
 
         assert '__build_date__ = "2025-12-25 15:30:00 UTC"' in result
 
-    def test_embeds_authors_constant(self) -> None:
+    def test_embeds_authors_constant(self, tmp_path: Path) -> None:
         """Should embed __AUTHORS__ constant when provided."""
         result, _ = call_build_final_script(
+            tmp_path=tmp_path,
             authors="Alice <alice@example.com>, Bob",
         )
 
         assert '__AUTHORS__ = "Alice <alice@example.com>, Bob"' in result
 
-    def test_omits_authors_constant_when_empty(self) -> None:
+    def test_omits_authors_constant_when_empty(self, tmp_path: Path) -> None:
         """Should omit __AUTHORS__ constant when not provided."""
-        result, _ = call_build_final_script(authors="")
+        result, _ = call_build_final_script(tmp_path=tmp_path, authors="")
 
         assert "__AUTHORS__" not in result
 
@@ -533,12 +535,11 @@ class TestBuildFinalScriptDocstring:
         assert "ghijkl" in docstring
         assert "2025-09-30" in docstring
 
-    def test_custom_header_overrides_formatting(self) -> None:
+    def test_custom_header_overrides_formatting(self, tmp_path: Path) -> None:
         """Should use custom_header when provided in config."""
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        tmp_path = Path("/tmp")  # noqa: S108
         config = make_build_cfg(
             tmp_path,
             include=[make_include_resolved("src", tmp_path)],
@@ -577,12 +578,11 @@ class TestBuildFinalScriptDocstring:
                 break
         assert header_found, "Custom header not found in output"
 
-    def test_file_docstring_overrides_auto_generated(self) -> None:
+    def test_file_docstring_overrides_auto_generated(self, tmp_path: Path) -> None:
         """Should use file_docstring when provided in config."""
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        tmp_path = Path("/tmp")  # noqa: S108
         config = make_build_cfg(
             tmp_path,
             include=[make_include_resolved("src", tmp_path)],
@@ -620,12 +620,11 @@ class TestBuildFinalScriptDocstring:
 class TestBuildFinalScriptMainShim:
     """Test main() shim generation."""
 
-    def test_main_shim_added_when_main_function_exists(self) -> None:
+    def test_main_shim_added_when_main_function_exists(self, tmp_path: Path) -> None:
         """Should add main() shim when main() function is present."""
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        tmp_path = Path("/tmp")  # noqa: S108
         config = make_build_cfg(
             tmp_path,
             include=[make_include_resolved("src", tmp_path)],
@@ -636,7 +635,7 @@ class TestBuildFinalScriptMainShim:
 
         source = "def main():\n    return 0\n"
         module_sources = {"main.py": source}
-        main_file = Path("/tmp/src/main.py")  # noqa: S108
+        main_file = tmp_path / "src" / "main.py"
         main_function_result = ("main", main_file, "main")
 
         result, _ = mod_stitch._build_final_script(
@@ -662,12 +661,11 @@ class TestBuildFinalScriptMainShim:
         assert "if __name__ == '__main__':" in result
         assert "sys.exit(main())" in result  # No params, so no sys.argv[1:]
 
-    def test_main_shim_with_params_uses_sys_argv(self) -> None:
+    def test_main_shim_with_params_uses_sys_argv(self, tmp_path: Path) -> None:
         """Should use sys.argv[1:] when main function has parameters."""
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        tmp_path = Path("/tmp")  # noqa: S108
         config = make_build_cfg(
             tmp_path,
             include=[make_include_resolved("src", tmp_path)],
@@ -678,7 +676,7 @@ class TestBuildFinalScriptMainShim:
 
         source = "def main(args):\n    return 0\n"
         module_sources = {"main.py": source}
-        main_file = Path("/tmp/src/main.py")  # noqa: S108
+        main_file = tmp_path / "src" / "main.py"
         main_function_result = ("main", main_file, "main")
 
         result, _ = mod_stitch._build_final_script(
@@ -704,12 +702,11 @@ class TestBuildFinalScriptMainShim:
         assert "if __name__ == '__main__':" in result
         assert "sys.exit(main(sys.argv[1:]))" in result
 
-    def test_main_shim_with_star_args_uses_sys_argv(self) -> None:
+    def test_main_shim_with_star_args_uses_sys_argv(self, tmp_path: Path) -> None:
         """Should use sys.argv[1:] when main function has *args."""
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        tmp_path = Path("/tmp")  # noqa: S108
         config = make_build_cfg(
             tmp_path,
             include=[make_include_resolved("src", tmp_path)],
@@ -720,7 +717,7 @@ class TestBuildFinalScriptMainShim:
 
         source = "def main(*args):\n    return 0\n"
         module_sources = {"main.py": source}
-        main_file = Path("/tmp/src/main.py")  # noqa: S108
+        main_file = tmp_path / "src" / "main.py"
         main_function_result = ("main", main_file, "main")
 
         result, _ = mod_stitch._build_final_script(
@@ -746,12 +743,11 @@ class TestBuildFinalScriptMainShim:
         assert "if __name__ == '__main__':" in result
         assert "sys.exit(main(sys.argv[1:]))" in result
 
-    def test_main_mode_none_no_shim(self) -> None:
+    def test_main_mode_none_no_shim(self, tmp_path: Path) -> None:
         """Should not add main() shim when main_mode is 'none'."""
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        tmp_path = Path("/tmp")  # noqa: S108
         config = make_build_cfg(
             tmp_path,
             include=[make_include_resolved("src", tmp_path)],
@@ -762,7 +758,7 @@ class TestBuildFinalScriptMainShim:
 
         source = "def main():\n    return 0\n"
         module_sources = {"main.py": source}
-        main_file = Path("/tmp/src/main.py")  # noqa: S108
+        main_file = tmp_path / "src" / "main.py"
         main_function_result = ("main", main_file, "main")
 
         result, _ = mod_stitch._build_final_script(
@@ -788,12 +784,11 @@ class TestBuildFinalScriptMainShim:
         assert "if __name__ == '__main__':" not in result
         assert "sys.exit(main(" not in result
 
-    def test_main_shim_not_added_when_no_main_function(self) -> None:
+    def test_main_shim_not_added_when_no_main_function(self, tmp_path: Path) -> None:
         """Should not add main() shim when main() function is absent."""
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        tmp_path = Path("/tmp")  # noqa: S108
         config = make_build_cfg(
             tmp_path,
             include=[make_include_resolved("src", tmp_path)],
@@ -825,12 +820,13 @@ class TestBuildFinalScriptMainShim:
         assert "if __name__ == '__main__':" not in result
         assert "sys.exit(main(" not in result
 
-    def test_main_shim_not_added_when_main_is_not_function(self) -> None:
+    def test_main_shim_not_added_when_main_is_not_function(
+        self, tmp_path: Path
+    ) -> None:
         """Should not add main() shim when 'main' exists but is not a function."""
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        tmp_path = Path("/tmp")  # noqa: S108
         config = make_build_cfg(
             tmp_path,
             include=[make_include_resolved("src", tmp_path)],
@@ -862,12 +858,13 @@ class TestBuildFinalScriptMainShim:
         assert "if __name__ == '__main__':" not in result
         assert "sys.exit(main(" not in result
 
-    def test_main_shim_added_when_main_function_in_multiple_modules(self) -> None:
+    def test_main_shim_added_when_main_function_in_multiple_modules(
+        self, tmp_path: Path
+    ) -> None:
         """Should add main() shim when main() exists in any module."""
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
-        tmp_path = Path("/tmp")  # noqa: S108
         config = make_build_cfg(
             tmp_path,
             include=[make_include_resolved("src", tmp_path)],
@@ -878,7 +875,7 @@ class TestBuildFinalScriptMainShim:
 
         source = "def main():\n    return 0\n"
         module_sources = {"main.py": source}
-        main_file = Path("/tmp/src/main.py")  # noqa: S108
+        main_file = tmp_path / "src" / "main.py"
         main_function_result = ("main", main_file, "main")
 
         result, _ = mod_stitch._build_final_script(
