@@ -4,11 +4,11 @@
 import os
 import re
 
+import apathetic_utils
 import pytest
 
 import serger.cli as mod_cli
 import serger.meta as mod_meta
-from tests.utils import is_ci
 
 
 def test_version_flag(
@@ -24,15 +24,15 @@ def test_version_flag(
     assert mod_meta.PROGRAM_DISPLAY.lower() in out
     assert re.search(r"\d+\.\d+\.\d+", out)
 
-    if os.getenv("RUNTIME_MODE") in {"singlefile"}:
-        # Standalone version — commit is determined at build time
+    if os.getenv("RUNTIME_MODE") in {"stitched"}:
+        # Stitched version — commit is determined at build time
         # If we're running in CI, the script was built in CI and should have
         # a commit hash. If we're running locally, the script was built locally
         # and should show "unknown (local build)"
-        if is_ci():
+        if apathetic_utils.is_ci():
             assert re.search(r"\([0-9a-f]{4,}\)", out)
         else:
             assert "(unknown (local build))".lower() in out
     else:
-        # installed (source) version — should always have a live git commit hash
+        # package (source) version — should always have a live git commit hash
         assert re.search(r"\([0-9a-f]{4,}\)", out)

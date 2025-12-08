@@ -1,5 +1,5 @@
-# tests/95_integration_output/test_standalone__contents.py
-"""Verify that the standalone standalone version (`bin/script.py`)
+# tests/95_integration_output/test_stitched__contents.py
+"""Verify that the stitched version (`dist/serger.py`)
 was generated correctly — includes metadata, license header,
 and matches the declared version from pyproject.toml.
 """
@@ -8,7 +8,9 @@ import re
 import sys
 from typing import Any, cast
 
-from tests.utils import PROJ_ROOT, is_ci
+import apathetic_utils
+
+from tests.utils import PROJ_ROOT
 
 
 if sys.version_info >= (3, 11):
@@ -16,17 +18,21 @@ if sys.version_info >= (3, 11):
     import tomllib  # type: ignore[import-not-found]
 else:
     # tomli (fallback for Python <3.11); also has no type stubs
-    import tomli as tomllib  # type: ignore[import-not-found,unused-ignore]
+    try:
+        import tomli as tomllib  # type: ignore[import-not-found]
+    except ImportError:
+        msg = "tomli is required for Python < 3.11"
+        raise ImportError(msg) from None
 
 import serger.meta as mod_meta
 
 
-# --- only for singlefile runs ---
-__runtime_mode__ = "singlefile"
+# --- only for stitched runs ---
+__runtime_mode__ = "stitched"
 
 
-def test_standalone_script_metadata_and_execution() -> None:
-    """Ensure the generated script.py script is complete and functional."""
+def test_stitched_script_metadata_and_execution() -> None:
+    """Ensure the generated stitched script is complete and functional."""
     # --- setup ---
     script = PROJ_ROOT / "dist" / f"{mod_meta.PROGRAM_SCRIPT}.py"
     pyproject = PROJ_ROOT / "pyproject.toml"
@@ -35,7 +41,7 @@ def test_standalone_script_metadata_and_execution() -> None:
 
     # - Basic existence checks -
     assert script.exists(), (
-        "Standalone script not found — run `poetry run poe build:single` first."
+        "Stitched script not found — run `poetry run poe build:script` first."
     )
     assert pyproject.exists(), "pyproject.toml missing — project layout inconsistent."
 
@@ -51,12 +57,12 @@ def test_standalone_script_metadata_and_execution() -> None:
     declared_version = cast("str", project_section.get("version"))
     assert declared_version, "Version not found in pyproject.toml"
 
-    # - Read standalone script text -
+    # - Read stitched script text -
     text = script.read_text(encoding="utf-8").lower()
 
     # - Metadata presence checks -
     assert ("# " + mod_meta.PROGRAM_DISPLAY).lower() in text
-    assert "License: MIT-aNOAI".lower() in text
+    assert "License: MIT-a-NOAI".lower() in text
     assert "Version:".lower() in text
     assert "Repo:".lower() in text
     assert "auto-generated".lower() in text
@@ -66,7 +72,7 @@ def test_standalone_script_metadata_and_execution() -> None:
         r"^# Version:\s*([\w.\-]+)", text, re.MULTILINE | re.IGNORECASE
     )
 
-    if is_ci():
+    if apathetic_utils.is_ci():
         commit_match = re.search(
             r"^# Commit:\s*([0-9a-f]{4,})", text, re.MULTILINE | re.IGNORECASE
         )
@@ -88,14 +94,14 @@ def test_standalone_script_metadata_and_execution() -> None:
     assert version_match, "Missing version stamp"
     assert commit_match, "Missing commit stamp"
 
-    standalone_version = version_match.group(1)
-    assert standalone_version.lower() == declared_version.lower(), (
-        f"Standalone version '{standalone_version}'"
+    stitched_version = version_match.group(1)
+    assert stitched_version.lower() == declared_version.lower(), (
+        f"Stitched version '{stitched_version}'"
         f" != pyproject version '{declared_version}'"
     )
 
 
-def test_standalone_script_has_python_constants_and_parses_them() -> None:
+def test_stitched_script_has_python_constants_and_parses_them() -> None:
     """Ensure __version__ and __commit__ constants exist and match header."""
     # --- setup ---
     script = PROJ_ROOT / "dist" / f"{mod_meta.PROGRAM_SCRIPT}.py"

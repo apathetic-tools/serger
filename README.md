@@ -2,7 +2,7 @@
 
 
 [![CI](https://github.com/apathetic-tools/serger/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/goldilocks/serger/actions/workflows/ci.yml)
-[![License: MIT-aNOAI](https://img.shields.io/badge/License-MIT--aNOAI-blueviolet.svg)](LICENSE)
+[![License: MIT-a-NOAI](https://img.shields.io/badge/License-MIT--aNOAI-blueviolet.svg)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?logo=discord&logoColor=white)](https://discord.gg/PW6GahZ7)
 
 📘 **[Roadmap](./ROADMAP.md)** · 📝 **[Release Notes](https://github.com/apathetic-tools/serger/releases)**
@@ -10,8 +10,9 @@
 **Stitch your module into a single file.**
 *Because packaging is overrated.*
 
-> [!CAUTION]
-> Heads up: the AI cooked dinner. It’s edible, but watch your step. Detailed bug reports welcome.
+> [!NOTE]
+> Heads up: the AI cooked dinner. It's edible, but watch your step.  
+> Detailed bug reports welcome.
 
 ## 🚀 Quick Start
 
@@ -45,7 +46,7 @@ If you see a ✅ “Self-test passed” message, your installation is working pe
 ---
 
 ### ⚖️ License
-- [MIT-aNOAI License](LICENSE)
+- [MIT-a-NOAI License](LICENSE)
 
 You’re free to use, copy, and modify the script under the standard MIT terms.  
 The additional rider simply requests that this project not be used to train or fine-tune AI/ML systems until the author deems fair compensation frameworks exist.  
@@ -79,5 +80,5 @@ It’s MIT-licensed, minimal, and meant to stay out of your way — just with on
 > ✨ *AI was used to help draft language, formatting, and code — plus we just love em dashes.*
 
 <p align="center">
-  <sub>😐 <a href="https://apathetic-tools.github.io/">Apathetic Tools</a> © <a href="./LICENSE">MIT-aNOAI</a></sub>
+  <sub>😐 <a href="https://apathetic-tools.github.io/">Apathetic Tools</a> © <a href="./LICENSE">MIT-a-NOAI</a></sub>
 </p>

@@ -75,7 +75,7 @@ def test_multi_package_stitching_with_shims(tmp_path: Path) -> None:
     assert "# === pkg2.module2 ===" in content
 
     # --- Verify shims are created for both packages ---
-    assert "# --- import shims for single-file runtime ---" in content
+    assert "# --- import shims for stitched runtime ---" in content
 
     # Check for loop-based shim generation
     assert "for _name in" in content

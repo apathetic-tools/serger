@@ -28,8 +28,16 @@ from .config_types import (
     IncludeConfig,
     IncludeResolved,
     InternalImportMode,
+    MainMode,
     MetaBuildConfigResolved,
+    ModuleActionAffects,
+    ModuleActionCleanup,
     ModuleActionFull,
+    ModuleActionMode,
+    ModuleActions,
+    ModuleActionScope,
+    ModuleActionSimple,
+    ModuleActionType,
     ModuleMode,
     OriginType,
     PathResolved,
@@ -44,7 +52,16 @@ from .config_types import (
     ToolConfig,
     ToolConfigResolved,
 )
-from .config_validate import validate_config
+from .config_validate import (
+    DRYRUN_KEYS,
+    DRYRUN_MSG,
+    FIELD_EXAMPLES,
+    ROOT_ONLY_KEYS,
+    ROOT_ONLY_MSG,
+    SchemaErrorAggregator,
+    ValidationSummary,
+    validate_config,
+)
 
 
 __all__ = [  # noqa: RUF022
@@ -69,8 +86,16 @@ __all__ = [  # noqa: RUF022
     "IncludeConfig",
     "IncludeResolved",
     "InternalImportMode",
+    "MainMode",
     "MetaBuildConfigResolved",
+    "ModuleActionAffects",
+    "ModuleActionCleanup",
     "ModuleActionFull",
+    "ModuleActionMode",
+    "ModuleActionScope",
+    "ModuleActionSimple",
+    "ModuleActionType",
+    "ModuleActions",
     "ModuleMode",
     "OriginType",
     "PathResolved",
@@ -85,5 +110,12 @@ __all__ = [  # noqa: RUF022
     "ToolConfig",
     "ToolConfigResolved",
     # config_validate
+    "DRYRUN_KEYS",
+    "DRYRUN_MSG",
+    "FIELD_EXAMPLES",
+    "ROOT_ONLY_KEYS",
+    "ROOT_ONLY_MSG",
+    "SchemaErrorAggregator",
+    "ValidationSummary",
     "validate_config",
 ]

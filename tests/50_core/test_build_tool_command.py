@@ -57,7 +57,7 @@ def test_build_tool_command_with_unavailable_tool(
         package_prefix=mod_meta.PROGRAM_PACKAGE,
         stitch_hints={
             "/dist/",
-            "standalone",
+            "stitched",
             f"{mod_meta.PROGRAM_SCRIPT}.py",
             ".pyz",
         },
@@ -125,7 +125,7 @@ def test_build_tool_command_custom_instance_with_explicit_tool(
         package_prefix=mod_meta.PROGRAM_PACKAGE,
         stitch_hints={
             "/dist/",
-            "standalone",
+            "stitched",
             f"{mod_meta.PROGRAM_SCRIPT}.py",
             ".pyz",
         },
@@ -170,7 +170,7 @@ def test_build_tool_command_custom_instance_inferred_tool(
         package_prefix=mod_meta.PROGRAM_PACKAGE,
         stitch_hints={
             "/dist/",
-            "standalone",
+            "stitched",
             f"{mod_meta.PROGRAM_SCRIPT}.py",
             ".pyz",
         },
@@ -215,7 +215,7 @@ def test_build_tool_command_custom_instance_with_command(
         package_prefix=mod_meta.PROGRAM_PACKAGE,
         stitch_hints={
             "/dist/",
-            "standalone",
+            "stitched",
             f"{mod_meta.PROGRAM_SCRIPT}.py",
             ".pyz",
         },
@@ -259,7 +259,7 @@ def test_build_tool_command_custom_instance_options_appending(
         package_prefix=mod_meta.PROGRAM_PACKAGE,
         stitch_hints={
             "/dist/",
-            "standalone",
+            "stitched",
             f"{mod_meta.PROGRAM_SCRIPT}.py",
             ".pyz",
         },
@@ -307,7 +307,7 @@ def test_build_tool_command_custom_instance_fallback_to_defaults(
         package_prefix=mod_meta.PROGRAM_PACKAGE,
         stitch_hints={
             "/dist/",
-            "standalone",
+            "stitched",
             f"{mod_meta.PROGRAM_SCRIPT}.py",
             ".pyz",
         },

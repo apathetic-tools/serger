@@ -1,24 +1,13 @@
 # src/serger/utils/utils_modules.py
 
 
-import re
 from pathlib import Path
 
-from apathetic_utils import has_glob_chars
+from apathetic_utils import get_glob_root, has_glob_chars
 
 from serger.config.config_types import IncludeResolved
 from serger.logs import getAppLogger
 from serger.utils.utils_validation import validate_required_keys
-
-
-def _non_glob_prefix(pattern: str) -> Path:
-    """Return the non-glob leading portion of a pattern, as a Path."""
-    parts: list[str] = []
-    for part in Path(pattern).parts:
-        if re.search(r"[*?\[\]]", part):
-            break
-        parts.append(part)
-    return Path(*parts)
 
 
 def _interpret_dest_for_module_name(  # noqa: PLR0911
@@ -101,7 +90,7 @@ def _interpret_dest_for_module_name(  # noqa: PLR0911
             return dest_path
 
         # For glob patterns, strip non-glob prefix
-        prefix = _non_glob_prefix(include_pattern)
+        prefix = get_glob_root(include_pattern)
         try:
             rel = file_path_resolved.relative_to(include_root_resolved / prefix)
             result = dest_path / rel

@@ -1,5 +1,5 @@
 # tests/50_core/test_get_metadata.py
-"""Verify get_metadata() works in both installed and standalone modes."""
+"""Verify get_metadata() works in both package and stitched modes."""
 
 import serger.actions as mod_actions
 

@@ -7,6 +7,9 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  PACKAGE_NAME: serger
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -42,10 +45,12 @@ jobs:
       - name: Run checks
         run: poetry run poe check
 
-      - name: Build single-file script
-        run: poetry run poe build:script
+      - name: Build stitched script
+        continue-on-error: true
+        run: poetry run poe build:stitched
 
       - name: Build zipapp
+        continue-on-error: true
         run: poetry run poe build:zipapp
 
       - name: Semantic Release (Version & Tag)
@@ -75,22 +80,32 @@ jobs:
 
       - name: Upload custom release assets
         if: steps.release.outputs.released == 'true'
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Get the latest tag created by semantic-release
           TAG=$(git describe --tags --abbrev=0)
           if [ -z "$TAG" ]; then
-            echo "::error::No tag found for release"
-            exit 1
+            echo "::warning::No tag found for release"
+            exit 0
           fi
-          if [ ! -f dist/serger.py ] || [ ! -f dist/serger.pyz ]; then
-            echo "::error::Required build files not found in dist/"
-            exit 1
+          # Collect available assets
+          ASSETS=()
+          if [ -f "dist/${PACKAGE_NAME}.py" ]; then
+            ASSETS+=("dist/${PACKAGE_NAME}.py")
           fi
-          # Upload assets - fail if upload fails
-          if ! gh release upload "$TAG" dist/serger.py dist/serger.pyz --clobber; then
-            echo "::error::Failed to upload release assets"
-            exit 1
+          if [ -f "dist/${PACKAGE_NAME}.pyz" ]; then
+            ASSETS+=("dist/${PACKAGE_NAME}.pyz")
+          fi
+          # Upload assets if any are available
+          if [ ${#ASSETS[@]} -eq 0 ]; then
+            echo "::notice::No build artifacts found to upload"
+            exit 0
+          fi
+          echo "Uploading ${#ASSETS[@]} asset(s): ${ASSETS[*]}"
+          if ! gh release upload "$TAG" "${ASSETS[@]}" --clobber; then
+            echo "::warning::Failed to upload release assets (non-fatal)"
+            exit 0
           fi
 

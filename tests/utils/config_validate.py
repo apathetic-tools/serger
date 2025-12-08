@@ -1,7 +1,6 @@
 # tests/utils/config_validate.py
 
-
-import apathetic_schema.types as amod_schema
+from apathetic_schema.types import ApatheticSchema_ValidationSummary
 
 
 def make_summary(
@@ -11,9 +10,9 @@ def make_summary(
     strict_warnings: list[str] | None = None,
     warnings: list[str] | None = None,
     strict: bool = True,
-) -> amod_schema.ApatheticSchema_ValidationSummary:
+) -> ApatheticSchema_ValidationSummary:
     """Helper to create a clean ValidationSummary."""
-    return amod_schema.ApatheticSchema_ValidationSummary(
+    return ApatheticSchema_ValidationSummary(
         valid=valid,
         errors=errors or [],
         strict_warnings=strict_warnings or [],

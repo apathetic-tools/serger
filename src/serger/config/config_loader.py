@@ -8,9 +8,6 @@ from pathlib import Path
 from typing import Any, cast
 
 from apathetic_logging import getLevelNumber
-from apathetic_schema.types import (
-    ApatheticSchema_ValidationSummary as ValidationSummary,
-)
 from apathetic_utils import (
     cast_hint,
     load_jsonc,
@@ -26,23 +23,14 @@ from serger.meta import (
 from .config_types import (
     RootConfig,
 )
-from .config_validate import validate_config
+from .config_validate import ValidationSummary, validate_config
 
 
 def can_run_configless(args: argparse.Namespace) -> bool:
     """To run without config we need at least --include
-    or --add-include or a positional include.
-
-    Since this is pre-args normalization we need to still check
-    positionals and not assume the positional out doesn't improperly
-    greed grab the include.
+    or --add-include (positional includes are merged into include).
     """
-    return bool(
-        getattr(args, "include", None)
-        or getattr(args, "add_include", None)
-        or getattr(args, "positional_include", None)
-        or getattr(args, "positional_out", None),
-    )
+    return bool(getattr(args, "include", None) or getattr(args, "add_include", None))
 
 
 def find_config(

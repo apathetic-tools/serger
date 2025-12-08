@@ -10,7 +10,7 @@ This guide will help you get up and running with Serger in just a few minutes.
 
 ## Installation
 
-Serger is a single-file Python script that requires **Python 3.10 or higher**. No pip, no dependencies, no package managers.
+Serger is a stitched Python script that requires **Python 3.10 or higher**. No pip, no dependencies, no package managers.
 
 ### Option 1: Download the Script
 
@@ -90,7 +90,7 @@ Run Serger:
 python3 serger.py
 ```
 
-This will create `dist/mypkg.py` — a single-file executable containing all your module code.
+This will create `dist/mypkg.py` — a stitched executable containing all your module code.
 
 ### Command-Line Usage
 

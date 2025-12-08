@@ -1,5 +1,5 @@
-# tests/90_integration/test_standalone__execution.py
-"""Verify that the standalone standalone version (`dist/serger.py`)
+# tests/90_integration/test_stitched__execution.py
+"""Verify that the stitched version (`dist/serger.py`)
 was generated correctly — includes metadata, license header,
 and matches the declared version from pyproject.toml.
 """
@@ -13,12 +13,12 @@ import serger.meta as mod_meta
 from tests.utils import PROJ_ROOT, make_test_package, write_config_file
 
 
-# --- only for singlefile runs ---
-__runtime_mode__ = "singlefile"
+# --- only for stitched runs ---
+__runtime_mode__ = "stitched"
 
 
-def test_standalone_script_metadata_and_execution(tmp_path: Path) -> None:
-    """Ensure the generated standalone script is complete and functional."""
+def test_stitched_script_metadata_and_execution(tmp_path: Path) -> None:
+    """Ensure the generated stitched script is complete and functional."""
     # --- setup ---
     script = PROJ_ROOT / "dist" / f"{mod_meta.PROGRAM_SCRIPT}.py"
 
@@ -26,7 +26,7 @@ def test_standalone_script_metadata_and_execution(tmp_path: Path) -> None:
 
     # - Basic existence checks -
     assert script.exists(), (
-        "Standalone script not found — run `poetry run poe build:single` first."
+        "Stitched script not found — run `poetry run poe build:stitched` first."
     )
 
     # - Execution check (isolated temp dir) -

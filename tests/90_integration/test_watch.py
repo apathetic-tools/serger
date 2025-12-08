@@ -47,7 +47,7 @@ def test_watch_flag_invokes_watch_mode(
         "watch_for_changes",
         fake_watch,
         package_prefix=mod_meta.PROGRAM_PACKAGE,
-        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
     )
     code = mod_cli.main(["--watch"])
 
@@ -88,7 +88,7 @@ def test_watch_uses_config_interval_when_flag_passed(
         "watch_for_changes",
         fake_watch,
         package_prefix=mod_meta.PROGRAM_PACKAGE,
-        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
     )
     # run CLI with --watch (no explicit interval)
     code = mod_cli.main(["--watch"])
@@ -130,7 +130,7 @@ def test_watch_falls_back_to_default_interval_when_no_config(
         "watch_for_changes",
         fake_watch,
         package_prefix=mod_meta.PROGRAM_PACKAGE,
-        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
     )
     code = mod_cli.main(["--watch"])
 

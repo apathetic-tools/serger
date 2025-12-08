@@ -11,7 +11,7 @@ Complete reference for Serger's command-line interface.
 ## Basic Usage
 
 ```bash
-python3 serger.py [OPTIONS] [INCLUDE...] [OUT]
+python3 serger.py [OPTIONS] [INCLUDE...]
 ```
 
 ## Positional Arguments
@@ -22,16 +22,6 @@ Positional include paths or patterns (shorthand for `--include`).
 
 ```bash
 python3 serger.py src/mypkg/**/*.py
-```
-
-### `OUT` (optional)
-
-Positional output file or directory (shorthand for `--out`).  
-Use trailing slash for directories (e.g., `dist/`), otherwise treated as file.
-
-```bash
-python3 serger.py src/**/*.py dist/app.py
-python3 serger.py src/**/*.py dist/  # Directory output
 ```
 
 ## Options
@@ -241,8 +231,8 @@ python3 serger.py --config myconfig.jsonc
 ### Configless Usage
 
 ```bash
-# Simple include and output
-python3 serger.py src/**/*.py dist/app.py
+# Simple include with output
+python3 serger.py src/**/*.py --out dist/app.py
 
 # Multiple includes
 python3 serger.py --include "src/**/*.py" "utils/**/*.py" --out dist/app.py

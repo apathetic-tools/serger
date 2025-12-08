@@ -83,7 +83,7 @@ def main(args):
     return 0
 ''', _mod_main.__dict__)
 
-# --- Import shims for single-file runtime ---
+# --- Import shims for stitched runtime ---
 # These allow external code to import as if modules were separate
 _pkg = 'mypkg'
 # Note: In isolated mode, shims point to the individual module objects
@@ -153,7 +153,7 @@ def main(args):
     return 0
 ''', package='mypkg')
 
-# --- Import shims for single-file runtime ---
+# --- Import shims for stitched runtime ---
 _pkg = 'mypkg'
 sys.modules[f'{_pkg}.utils'] = _mod_utils
 sys.modules[f'{_pkg}.core'] = _mod_core

@@ -17,7 +17,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from apathetic_utils import detect_packages_from_files, is_ci, literal_to_set
+from apathetic_utils import (
+    detect_packages_from_files,
+    is_ci,
+    literal_to_set,
+    load_toml,
+)
 
 from .config import (
     CommentsMode,
@@ -80,6 +85,8 @@ from .verify_script import (
 def extract_version(pyproject_path: Path) -> str:
     """Extract version string from pyproject.toml.
 
+    Checks both top-level and [project] section for version field.
+
     Args:
         pyproject_path: Path to pyproject.toml file
 
@@ -88,9 +95,18 @@ def extract_version(pyproject_path: Path) -> str:
     """
     if not pyproject_path.exists():
         return "unknown"
-    text = pyproject_path.read_text(encoding="utf-8")
-    match = re.search(r'(?m)^\s*version\s*=\s*["\']([^"\']+)["\']', text)
-    return match.group(1) if match else "unknown"
+    data = load_toml(pyproject_path, required=False)
+    if data:
+        # Check [project] section first (standard location)
+        project = data.get("project", {})
+        version = project.get("version", "")
+        if isinstance(version, str) and version:
+            return version
+        # Fallback to top-level version (for simplified test cases)
+        version = data.get("version", "")
+        if isinstance(version, str) and version:
+            return version
+    return "unknown"
 
 
 def extract_commit(root_path: Path) -> str:  # noqa: PLR0915
@@ -1426,7 +1442,7 @@ def _extract_internal_imports_for_deps(  # noqa: PLR0912
 
     # Use ast.walk() to find ALL imports, including those inside
     # if/else blocks, functions, etc. This is necessary because
-    # imports inside conditionals (like "if not __STANDALONE__: from .x import y")
+    # imports inside conditionals (like "if not __STITCHED__: from .x import y")
     # still represent dependencies that affect module ordering.
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
@@ -2146,6 +2162,10 @@ def _collect_modules(  # noqa: PLR0912, PLR0915, C901
                 # If we can't read the file, skip the check
                 pass
 
+    # ===== FIRST PASS: Derive all module names from file paths =====
+    # This ensures all module names are available when processing imports,
+    # providing consistent module name derivation regardless of file order.
+    first_pass_module_names: dict[Path, str] = {}
     for file_path in file_paths:
         if not file_path.exists():
             file_display = shorten_path_for_display(file_path)
@@ -2154,13 +2174,6 @@ def _collect_modules(  # noqa: PLR0912, PLR0915, C901
 
         # Derive module name from file path
         include = file_to_include.get(file_path)
-        # Debug: log source_bases for external files
-        if "site-packages" in str(file_path) or "dist-packages" in str(file_path):
-            logger.trace(
-                f"[COLLECT] Deriving module name for external file: {file_path}, "
-                f"source_bases={source_bases}, "
-                f"user_provided_source_bases={user_provided_source_bases}",
-            )
         module_name = derive_module_name(
             file_path,
             package_root,
@@ -2170,18 +2183,14 @@ def _collect_modules(  # noqa: PLR0912, PLR0915, C901
             detected_packages=detected_packages,
         )
 
-        # Check if file is from an installed package (site-packages or dist-packages)
-        # AND the module name already starts with a detected package that's not the
-        # main package. In this case, the module name is already correct and should
-        # not have the main package name prepended.
-        # However, if the module name doesn't start with a detected package, we
-        # should still prepend the main package name (e.g., stitching testpkg into
-        # app package should create app.testpkg, not just testpkg).
+        # Apply same package name prepending logic as main loop
+        # For files from installed package locations, check if module name already
+        # matches a detected package (not the main package). If so, don't prepend.
         file_path_str = str(file_path)
         is_installed_package = (
             "site-packages" in file_path_str or "dist-packages" in file_path_str
         )
-        is_external_package = False
+        should_prepend = True
         if is_installed_package:
             # Check if module name already starts with a detected package that's
             # not the main package (indicates it's already correctly structured)
@@ -2189,16 +2198,15 @@ def _collect_modules(  # noqa: PLR0912, PLR0915, C901
                 if pkg != _package_name and (
                     module_name == pkg or module_name.startswith(f"{pkg}.")
                 ):
-                    is_external_package = True
+                    should_prepend = False
                     logger.trace(
-                        f"[COLLECT] Skipping package name prepending for installed "
-                        f"package: module={module_name}, detected_pkg={pkg}, "
-                        f"main_pkg={_package_name}",
+                        f"[COLLECT] First pass: skipping package name prepending "
+                        f"for installed package: module={module_name}, "
+                        f"detected_pkg={pkg}, main_pkg={_package_name}",
                     )
                     break
 
-        # Only apply package name prepending logic for files from the main package
-        if not is_external_package:
+        if should_prepend:
             # If package_root is a package directory, preserve package structure
             if is_package_dir and package_name_from_root:
                 # Handle __init__.py special case: represents the package itself
@@ -2223,6 +2231,16 @@ def _collect_modules(  # noqa: PLR0912, PLR0915, C901
                 # Prepend package name to module name
                 module_name = f"{_package_name}.{module_name}"
 
+        first_pass_module_names[file_path] = module_name
+
+    # ===== SECOND PASS: Process files and imports using pre-derived names =====
+    for file_path in file_paths:
+        if not file_path.exists():
+            # Missing files were already warned in first pass, skip here
+            continue
+
+        # Use pre-derived module name from first pass
+        module_name = first_pass_module_names[file_path]
         derived_module_names.append(module_name)
 
         module_text = file_path.read_text(encoding="utf-8")
@@ -2283,6 +2301,118 @@ def _collect_modules(  # noqa: PLR0912, PLR0915, C901
         logger.trace("Processed module: %s (from %s)", module_name, file_display)
 
     return module_sources, all_imports, parts, derived_module_names
+
+
+def _extract_module_names_from_imports(
+    all_imports: OrderedDict[str, None],
+) -> set[str]:
+    """Extract module names from external import statements.
+
+    Args:
+        all_imports: OrderedDict of import statement strings
+
+    Returns:
+        Set of module names extracted from imports
+    """
+    module_names: set[str] = set()
+    for import_stmt_raw in all_imports:
+        import_stmt = import_stmt_raw.strip()
+        if not import_stmt:
+            continue
+
+        # Parse import statement using AST
+        try:
+            tree = ast.parse(import_stmt)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    # import module
+                    # import module as alias
+                    for alias in node.names:
+                        module_names.add(alias.name)
+                elif isinstance(node, ast.ImportFrom) and node.module:
+                    # from module import ...
+                    module_names.add(node.module)
+        except SyntaxError:
+            # If we can't parse it, try regex fallback
+            # Match: import module
+            import_match = re.match(r"^import\s+(\S+)", import_stmt)
+            if import_match:
+                module_name = import_match.group(1).split(" as ")[0].strip()
+                module_names.add(module_name)
+            # Match: from module import ...
+            elif from_match := re.match(r"^from\s+(\S+)\s+import", import_stmt):
+                module_name = from_match.group(1).strip()
+                module_names.add(module_name)
+
+    return module_names
+
+
+def _check_external_import_shim_conflicts(
+    all_imports: OrderedDict[str, None],
+    shim_module_names: set[str],
+) -> None:
+    """Check for conflicts between external imports and shim module names.
+
+    Args:
+        all_imports: OrderedDict of external import statement strings
+        shim_module_names: Set of shim module names that will be created
+
+    Raises:
+        ValueError: If any external import conflicts with a shim module name
+    """
+    external_modules = _extract_module_names_from_imports(all_imports)
+    if not external_modules:
+        return
+
+    # Exclude serger-generated imports (types, sys) from conflict checking
+    # These are required for shim generation and shouldn't conflict with user modules
+    serger_required_imports = {"types", "sys"}
+    external_modules = external_modules - serger_required_imports
+    if not external_modules:
+        return
+
+    # Check for conflicts
+    conflicts: list[tuple[str, str]] = []
+    for ext_mod in sorted(external_modules):
+        # Check if external module name matches any shim module name exactly
+        if ext_mod in shim_module_names:
+            conflicts.append((ext_mod, ext_mod))
+        else:
+            # Check if external module is a parent/child of any shim module
+            # e.g., external "os" conflicts with shim "os.path"
+            # e.g., external "os.path" conflicts with shim "os"
+            # Also check if external name matches the last component of shim
+            # (e.g., ext="subprocess" vs shim="testpkg.subprocess" is a conflict)
+            for shim_mod in shim_module_names:
+                if ext_mod == shim_mod:
+                    conflicts.append((ext_mod, shim_mod))
+                elif ext_mod.startswith(f"{shim_mod}."):
+                    # External is a submodule of shim (e.g., ext="os.path", shim="os")
+                    conflicts.append((ext_mod, shim_mod))
+                elif shim_mod.startswith(f"{ext_mod}."):
+                    # Shim is a submodule of external (e.g., ext="os", shim="os.path")
+                    conflicts.append((ext_mod, shim_mod))
+                elif shim_mod.split(".")[-1] == ext_mod:
+                    # External module name matches the last component of shim
+                    # (e.g., ext="subprocess", shim="testpkg.subprocess")
+                    conflicts.append((ext_mod, shim_mod))
+
+    if conflicts:
+        # Sort conflicts for deterministic error messages
+        sorted_conflicts = sorted(set(conflicts))
+        conflict_list = [
+            f"external import '{ext}' conflicts with shim module '{shim}'"
+            for ext, shim in sorted_conflicts
+        ]
+        msg = (
+            "External import conflicts with module shim:\n  "
+            + "\n  ".join(conflict_list)
+            + "\n\n"
+            "Module shims cannot have the same name as external imports "
+            "(from stdlib or third-party packages). "
+            "Consider renaming the conflicting module using module_actions."
+        )
+        raise ValueError(msg)
 
 
 def _format_header_line(
@@ -2898,6 +3028,16 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
             # Update shim_names to reflect cleanup
             shim_names = sorted(updated_shims)
 
+        # Check for conflicts between external imports and shim module names
+        # We're already in the shim generation block, so shims are enabled
+        # Only check shims that are in the package being stitched (not dependencies)
+        package_shim_names = {
+            name
+            for name in shim_names
+            if name == package_name or name.startswith(f"{package_name}.")
+        }
+        _check_external_import_shim_conflicts(all_imports, package_shim_names)
+
         # Group modules by their parent package
         # parent_package -> list of (module_name, is_direct_child)
         # is_direct_child means the module is directly under this package
@@ -3124,19 +3264,20 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         # Generate shims for each package
         # Each package gets its own module object to maintain proper isolation
         shim_blocks: list[str] = []
-        shim_blocks.append("# --- import shims for single-file runtime ---")
+        shim_blocks.append("# --- import shims for stitched runtime ---")
         # Note: types and sys are imported at the top level (see all_imports)
 
         # Helper function to create/register package modules
         shim_blocks.append("def _create_pkg_module(pkg_name: str) -> types.ModuleType:")
         shim_blocks.append(
-            '    """Create or get a package module and set up parent relationships."""'
+            '    """Create a package module and set up parent relationships."""'
         )
-        shim_blocks.append("    _mod = sys.modules.get(pkg_name)")
-        shim_blocks.append("    if not _mod:")
-        shim_blocks.append("        _mod = types.ModuleType(pkg_name)")
-        shim_blocks.append("        _mod.__package__ = pkg_name")
-        shim_blocks.append("        sys.modules[pkg_name] = _mod")
+        shim_blocks.append("    # Always create a new module object for packages")
+        shim_blocks.append("    # Don't reuse existing modules - they might be the")
+        shim_blocks.append("    # stitched module itself or have wrong attributes")
+        shim_blocks.append("    _mod = types.ModuleType(pkg_name)")
+        shim_blocks.append("    _mod.__package__ = pkg_name")
+        shim_blocks.append("    sys.modules[pkg_name] = _mod")
         shim_blocks.append(
             "    # Set up parent-child relationships for nested packages"
         )
@@ -3216,16 +3357,6 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         shim_blocks.append(
             "                _module_obj = sys.modules.get(_original_name)"
         )
-        shim_blocks.append("                if not _module_obj:")
-        shim_blocks.append(
-            "                    # Also check globals() for module object"
-        )
-        shim_blocks.append("                    # Module objects might be in globals()")
-        shim_blocks.append("                    # with their original names")
-        shim_blocks.append(
-            "                    _last_part = _original_name.split('.')[-1]"
-        )
-        shim_blocks.append("                    _module_obj = _globals.get(_last_part)")
         shim_blocks.append("                if _module_obj:")
         shim_blocks.append("                    # Register with transformed name")
         shim_blocks.append("                    sys.modules[_name] = _module_obj")
@@ -3245,14 +3376,6 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         shim_blocks.append("                if _original_name:")
         shim_blocks.append(
             "                    _module_obj = sys.modules.get(_original_name)"
-        )
-        shim_blocks.append("                    if not _module_obj:")
-        shim_blocks.append("                        # Also check globals()")
-        shim_blocks.append(
-            "                        _last_part = _original_name.split('.')[-1]"
-        )
-        shim_blocks.append(
-            "                        _module_obj = _globals.get(_last_part)"
         )
         shim_blocks.append(
             "            # Use actual module object if found, otherwise package"
@@ -3620,7 +3743,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
             if config and config.get("file_docstring")
             else (
                 f"{header_line}\n"
-                "This single-file version is auto-generated from modular sources.\n"
+                "This stitched version is auto-generated from modular sources.\n"
                 f"Version: {version}\n"
                 f"Commit: {commit}\n"
                 f"Built: {build_date}\n" + (f"Authors: {authors}\n" if authors else "")
@@ -3645,7 +3768,7 @@ def _build_final_script(  # noqa: C901, PLR0912, PLR0913, PLR0915
         f"__commit__ = {json.dumps(commit)}\n"
         f"__build_date__ = {json.dumps(build_date)}\n"
         + (f"__AUTHORS__ = {json.dumps(authors)}\n" if authors else "")
-        + f"__STANDALONE__ = True\n"
+        + f"__STITCHED__ = True\n"
         f"__STITCH_SOURCE__ = {json.dumps(PROGRAM_PACKAGE)}\n"
         f"__package__ = {json.dumps(package_name)}\n"
         "\n"

@@ -6,11 +6,13 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import apathetic_utils as mod_utils
 import pytest
 
 import serger.config.config_resolve as mod_config_resolve
 import serger.config.config_types as mod_config_types
 import serger.constants as mod_constants
+import serger.meta as mod_meta
 import serger.verify_script as mod_verify
 from tests.utils import (
     make_post_category_config_resolved,
@@ -310,7 +312,19 @@ def test_execute_post_processing_priority_fallback_on_failure(
         result.stderr = "Error" if call_count == 1 else ""
         return result
 
-    monkeypatch.setattr(mod_verify, "find_tool_executable", mock_find_tool_executable)
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_verify,
+        "find_tool_executable",
+        mock_find_tool_executable,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={
+            "/dist/",
+            "stitched",
+            f"{mod_meta.PROGRAM_SCRIPT}.py",
+            ".pyz",
+        },
+    )
     monkeypatch.setattr(subprocess, "run", mock_run)
 
     config = make_post_processing_config_resolved(
@@ -369,7 +383,13 @@ def test_execute_post_processing_priority_fallback_on_unavailable(
         return None if tool_name == "tool1" else "/fake/path/tool2"
 
     monkeypatch.setattr(subprocess, "run", mock_run)
-    monkeypatch.setattr(mod_verify, "find_tool_executable", mock_find_tool_executable)
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_verify,
+        "find_tool_executable",
+        mock_find_tool_executable,
+        package_prefix="serger",
+    )
 
     config = make_post_processing_config_resolved(
         enabled=True,
@@ -424,7 +444,19 @@ def test_execute_post_processing_all_tools_fail(
         result.stderr = "Error"
         return result
 
-    monkeypatch.setattr(mod_verify, "find_tool_executable", mock_find_tool_executable)
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_verify,
+        "find_tool_executable",
+        mock_find_tool_executable,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={
+            "/dist/",
+            "stitched",
+            f"{mod_meta.PROGRAM_SCRIPT}.py",
+            ".pyz",
+        },
+    )
     monkeypatch.setattr(subprocess, "run", mock_run)
 
     config = make_post_processing_config_resolved(
@@ -466,7 +498,19 @@ def test_execute_post_processing_all_tools_unavailable(
         # All tools unavailable
         return None
 
-    monkeypatch.setattr(mod_verify, "find_tool_executable", mock_find_tool_executable)
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_verify,
+        "find_tool_executable",
+        mock_find_tool_executable,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={
+            "/dist/",
+            "stitched",
+            f"{mod_meta.PROGRAM_SCRIPT}.py",
+            ".pyz",
+        },
+    )
 
     config = make_post_processing_config_resolved(
         enabled=True,
@@ -803,7 +847,19 @@ def test_execute_post_processing_custom_label_missing_from_tools_skipped(
         return f"/fake/path/{tool_name}"
 
     monkeypatch.setattr(subprocess, "run", mock_run)
-    monkeypatch.setattr(mod_verify, "find_tool_executable", mock_find_tool_executable)
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_verify,
+        "find_tool_executable",
+        mock_find_tool_executable,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={
+            "/dist/",
+            "stitched",
+            f"{mod_meta.PROGRAM_SCRIPT}.py",
+            ".pyz",
+        },
+    )
 
     # User config has custom label in priority but not defined anywhere
     build_cfg: mod_config_types.RootConfig = {

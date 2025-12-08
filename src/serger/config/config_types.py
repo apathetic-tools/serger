@@ -157,7 +157,7 @@ class RootConfig(TypedDict, total=False):
     # - "class": Namespace files within classes (not yet implemented)
     # - "exec": Namespace files within module shims using exec() (not yet implemented)
     stitch_mode: StitchMode
-    # Module mode: how to generate import shims for single-file runtime
+    # Module mode: how to generate import shims for stitched runtime
     # - "none": No shims generated
     # - "multi": Generate shims for all detected packages (default)
     # - "force": Replace root package but keep subpackages (e.g., pkg1.sub -> mypkg.sub)
@@ -240,7 +240,7 @@ class RootConfigResolved(TypedDict):
 
     # Runtime flags (CLI only, not persisted in normal configs)
     dry_run: bool
-    validate_config: bool
+    validate: bool
 
     # Global provenance (optional, for audit/debug)
     __meta__: MetaBuildConfigResolved
@@ -263,7 +263,7 @@ class RootConfigResolved(TypedDict):
     internal_imports: InternalImportMode  # How to handle internal imports
     external_imports: ExternalImportMode  # How to handle external imports
     stitch_mode: StitchMode  # How to combine modules into a single file
-    module_mode: ModuleMode  # How to generate import shims for single-file runtime
+    module_mode: ModuleMode  # How to generate import shims for stitched runtime
     shim: ShimSetting  # Controls shim generation and which modules get shims
     # Module transformations (normalized to list format, always present)
     module_actions: list[ModuleActionFull]

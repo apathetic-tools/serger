@@ -6,6 +6,8 @@ from collections.abc import Callable
 from contextlib import suppress
 from pathlib import Path
 
+from apathetic_utils import load_toml
+
 from .build import collect_included_files
 from .config import RootConfigResolved
 from .constants import DEFAULT_WATCH_INTERVAL
@@ -100,7 +102,7 @@ def watch_for_changes(
 
 
 def _get_metadata_from_header(script_path: Path) -> tuple[str, str]:
-    """Extract version and commit from standalone script.
+    """Extract version and commit from stitched script.
 
     Prefers in-file constants (__version__, __commit__) if present;
     falls back to commented header tags.
@@ -136,20 +138,20 @@ def _get_metadata_from_header(script_path: Path) -> tuple[str, str]:
 def get_metadata() -> Metadata:
     """Return (version, commit) tuple for this tool.
 
-    - Standalone script → parse from header
-    - Source installed → read pyproject.toml + git
+    - Stitched script → parse from header
+    - Source package → read pyproject.toml + git
     """
     script_path = Path(__file__)
     logger = getAppLogger()
     logger.trace("get_metadata ran from:", Path(__file__).resolve())
 
-    # --- Heuristic: standalone script lives outside `src/` ---
-    if globals().get("__STANDALONE__", False):
+    # --- Heuristic: stitched script lives outside `src/` ---
+    if globals().get("__STITCHED__", False):
         version, commit = _get_metadata_from_header(script_path)
-        logger.trace(f"got standalone version {version} with commit {commit}")
+        logger.trace(f"got stitched version {version} with commit {commit}")
         return Metadata(version, commit)
 
-    # --- Modular / source installed case ---
+    # --- Modular / source package case ---
 
     # Source package case
     version = "unknown"
@@ -160,10 +162,12 @@ def get_metadata() -> Metadata:
     pyproject = root / "pyproject.toml"
     if pyproject.exists():
         logger.trace(f"trying to read metadata from {pyproject}")
-        text = pyproject.read_text()
-        match = re.search(r'(?m)^\s*version\s*=\s*["\']([^"\']+)["\']', text)
-        if match:
-            version = match.group(1)
+        data = load_toml(pyproject, required=False)
+        if data:
+            project = data.get("project", {})
+            version = project.get("version", "unknown")
+            if version != "unknown":
+                logger.trace(f"extracted version from pyproject.toml: {version}")
 
     # Try git for commit
     with suppress(Exception):

@@ -80,7 +80,7 @@ def test_watch_for_changes_triggers_rebuild(
         "_collect_included_files",
         fake_collect,
         package_prefix=mod_meta.PROGRAM_PACKAGE,
-        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
     )
     mod_actions.watch_for_changes(fake_build, build, interval=0.01)
 
@@ -143,7 +143,7 @@ def test_watch_for_changes_exported_and_callable(
         "_collect_included_files",
         fake_collect,
         package_prefix=mod_meta.PROGRAM_PACKAGE,
-        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
     )
     mod_actions.watch_for_changes(fake_build, build, interval=0.01)
 
@@ -298,7 +298,7 @@ def test_watch_detects_file_disappearance(
         "_collect_included_files",
         fake_collect,
         package_prefix=mod_meta.PROGRAM_PACKAGE,
-        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
     )
     mod_actions.watch_for_changes(fake_build, build, interval=0.01)
 

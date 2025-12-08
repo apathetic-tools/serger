@@ -3,19 +3,22 @@
 
 import datetime
 from pathlib import Path
-from unittest.mock import patch
 
+import apathetic_utils as mod_utils
 import pytest
 
 import serger.build as mod_build
 import serger.config.config_types as mod_config_types
+import serger.meta as mod_meta
 import serger.stitch as mod_stitch
 import serger.verify_script as mod_verify
 from tests.utils import is_serger_build_for_test
 from tests.utils.buildconfig import make_include_resolved
 
 
-def test_stitch_modules_compiles_in_memory_before_writing(tmp_path: Path) -> None:
+def test_stitch_modules_compiles_in_memory_before_writing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Should compile code in-memory before writing to disk."""
     src_dir = tmp_path / "src"
     src_dir.mkdir()
@@ -50,26 +53,32 @@ def test_stitch_modules_compiles_in_memory_before_writing(tmp_path: Path) -> Non
         # Call original function (not through mod_verify to avoid recursion)
         original_verify(source, filename)
 
-    with patch.object(
-        mod_stitch,
+    # Patch everywhere verify_compiles_string is used
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_verify,
         "verify_compiles_string",
-        side_effect=mock_verify_compiles_string,
-    ):
-        mod_stitch.stitch_modules(
-            config=config,
-            file_paths=file_paths,
-            package_root=package_root,
-            file_to_include=file_to_include,
-            out_path=out_path,
-            is_serger_build=is_serger_build_for_test(out_path),
-        )
+        mock_verify_compiles_string,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+        caller_func_name="stitch_modules",
+    )
+
+    mod_stitch.stitch_modules(
+        config=config,
+        file_paths=file_paths,
+        package_root=package_root,
+        file_to_include=file_to_include,
+        out_path=out_path,
+        is_serger_build=is_serger_build_for_test(out_path),
+    )
 
     assert verify_called, "verify_compiles_string should have been called"
     assert out_path.exists(), "Output file should exist after successful compilation"
 
 
 def test_stitch_modules_writes_error_file_on_compilation_failure(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Should write error file when compilation fails, then raise RuntimeError."""
     src_dir = tmp_path / "src"
@@ -104,14 +113,18 @@ def test_stitch_modules_writes_error_file_on_compilation_failure(
         _ = source, filename  # Unused but needed for signature
         raise SyntaxError(error_msg, error_tuple)
 
-    with (
-        patch.object(
-            mod_stitch,
-            "verify_compiles_string",
-            side_effect=mock_verify_compiles_string,
-        ),
-        pytest.raises(RuntimeError) as exc_info,
-    ):
+    # Patch everywhere verify_compiles_string is used
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_verify,
+        "verify_compiles_string",
+        mock_verify_compiles_string,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+        caller_func_name="stitch_modules",
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
         mod_stitch.stitch_modules(
             config=config,
             file_paths=file_paths,
@@ -188,7 +201,9 @@ def test_stitch_modules_cleans_up_error_files_on_success(tmp_path: Path) -> None
     assert out_path.exists()
 
 
-def test_stitch_modules_handles_actual_compilation_failure(tmp_path: Path) -> None:
+def test_stitch_modules_handles_actual_compilation_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Should handle real compilation failure from invalid stitched code."""
     src_dir = tmp_path / "src"
     src_dir.mkdir()
@@ -222,14 +237,18 @@ def test_stitch_modules_handles_actual_compilation_failure(tmp_path: Path) -> No
         invalid_code = "def hello(\n    return 'world'\n"  # Missing paren
         return (invalid_code, set())
 
-    with (
-        patch.object(
-            mod_stitch,
-            "_build_final_script",
-            side_effect=mock_build_final_script,
-        ),
-        pytest.raises(RuntimeError) as exc_info,
-    ):
+    # Patch _build_final_script everywhere it's used
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_stitch,
+        "_build_final_script",
+        mock_build_final_script,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+        caller_func_name="stitch_modules",
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
         mod_stitch.stitch_modules(
             config=config,
             file_paths=file_paths,
@@ -257,7 +276,9 @@ def test_stitch_modules_handles_actual_compilation_failure(tmp_path: Path) -> No
     assert not out_path.exists()
 
 
-def test_stitch_modules_error_file_has_correct_date_format(tmp_path: Path) -> None:
+def test_stitch_modules_error_file_has_correct_date_format(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Should use correct date format in error file name."""
     src_dir = tmp_path / "src"
     src_dir.mkdir()
@@ -289,14 +310,18 @@ def test_stitch_modules_error_file_has_correct_date_format(tmp_path: Path) -> No
         _ = source, filename  # Unused but needed for signature
         raise SyntaxError(error_msg, error_tuple)
 
-    with (
-        patch.object(
-            mod_stitch,
-            "verify_compiles_string",
-            side_effect=mock_verify_compiles_string,
-        ),
-        pytest.raises(RuntimeError),
-    ):
+    # Patch everywhere verify_compiles_string is used
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_verify,
+        "verify_compiles_string",
+        mock_verify_compiles_string,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+        caller_func_name="stitch_modules",
+    )
+
+    with pytest.raises(RuntimeError):
         mod_stitch.stitch_modules(
             config=config,
             file_paths=file_paths,

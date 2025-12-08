@@ -3,7 +3,7 @@
 """Tests for positional argument and flag interaction in serger.cli.
 
 Tests verify that positional arguments work correctly for stitching builds,
-including interaction with --out, --include, and other flags.
+including interaction with --include and other flags.
 """
 
 from pathlib import Path
@@ -36,15 +36,15 @@ def _run_cli(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, argv: list[str]) -
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-# Basic shorthand: src dist
+# Basic positional includes
 # ---------------------------------------------------------------------------
 
 
-def test_positional_include_and_out_dir(
+def test_positional_include(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """`mypkg dist` should treat mypkg as include and dist (directory) as out."""
+    """Positional arguments should be treated as includes."""
     # --- setup ---
     pkg_dir = tmp_path / "mypkg"
     make_test_package(pkg_dir)
@@ -58,7 +58,7 @@ def test_positional_include_and_out_dir(
     write_config_file(config, package="mypkg", include=[], out="dist")
 
     # --- patch and execute ---
-    code = _run_cli(monkeypatch, tmp_path, ["mypkg/**/*.py", "dist"])
+    code = _run_cli(monkeypatch, tmp_path, ["mypkg/**/*.py", "--out", "dist"])
 
     # --- verify ---
     assert code == 0
@@ -68,11 +68,11 @@ def test_positional_include_and_out_dir(
     assert stitched_file.is_file()
 
 
-def test_multiple_includes_and_out_dir(
+def test_multiple_positional_includes(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """`pkg1/** pkg2/** dist` should treat pkg1/pkg2 as includes and dist as out."""
+    """Multiple positional arguments should all be treated as includes."""
     # --- setup ---
     pkg1_dir = tmp_path / "pkg1"
     pkg2_dir = tmp_path / "pkg2"
@@ -97,7 +97,9 @@ def test_multiple_includes_and_out_dir(
     write_config_file(config, package="pkg1", include=[], out="dist")
 
     # --- patch and execute ---
-    code = _run_cli(monkeypatch, tmp_path, ["pkg1/**/*.py", "pkg2/**/*.py", "dist"])
+    code = _run_cli(
+        monkeypatch, tmp_path, ["pkg1/**/*.py", "pkg2/**/*.py", "--out", "dist"]
+    )
 
     # --- verify ---
     assert code == 0
@@ -105,30 +107,6 @@ def test_multiple_includes_and_out_dir(
     stitched_file = dist / "pkg1.py"
     assert stitched_file.exists()
     assert stitched_file.is_file()
-
-
-def test_positional_include_and_out_file(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    """`mypkg/** dist/output.py` should treat mypkg as include and output file."""
-    # --- setup ---
-    pkg_dir = tmp_path / "mypkg"
-    make_test_package(pkg_dir)
-
-    # Create minimal config with package field (required for stitching)
-    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    write_config_file(config, package="mypkg", include=[], out="dist/output.py")
-
-    # --- patch and execute ---
-    code = _run_cli(monkeypatch, tmp_path, ["mypkg/**/*.py", "dist/stitch_output.py"])
-
-    # --- verify ---
-    assert code == 0
-
-    output_file = tmp_path / "dist" / "stitch_output.py"
-    assert output_file.exists()
-    assert output_file.is_file()
 
 
 # ---------------------------------------------------------------------------
@@ -182,31 +160,35 @@ def test_explicit_out_allows_many_includes(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "argv",
-    [
-        ["mypkg", "--include", "mypkg/**/*.py"],
-        ["mypkg", "dist", "--include", "mypkg/**/*.py"],
-    ],
-)
-def test_error_on_positional_with_include(
+def test_positional_and_include_merge(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-    argv: list[str],
 ) -> None:
-    """Any positional args combined with --include should error."""
+    """Positional args and --include should merge together."""
     # --- setup ---
     pkg_dir = tmp_path / "mypkg"
     make_test_package(pkg_dir)
+
+    # Create output directory so is_dir() check works
+    dist = tmp_path / "dist"
+    dist.mkdir()
 
     # Create minimal config
     config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
     write_config_file(config, package="mypkg", include=[], out="dist")
 
-    # --- patch, execute and verify ---
-    with pytest.raises(SystemExit) as e:
-        _run_cli(monkeypatch, tmp_path, argv)
-    assert e.value.code == ARGPARSE_ERROR_EXIT_CODE
+    # --- patch and execute ---
+    code = _run_cli(
+        monkeypatch,
+        tmp_path,
+        ["mypkg/**/*.py", "--include", "mypkg/**/*.py", "--out", "dist"],
+    )
+
+    # --- verify ---
+    assert code == 0
+    stitched_file = dist / "mypkg.py"
+    assert stitched_file.exists()
+    assert stitched_file.is_file()
 
 
 def test_positional_with_dry_run(
@@ -223,35 +205,10 @@ def test_positional_with_dry_run(
     write_config_file(config, package="mypkg", include=[], out="dist")
 
     # --- patch and execute ---
-    code = _run_cli(monkeypatch, tmp_path, ["mypkg/**/*.py", "dist", "--dry-run"])
+    code = _run_cli(
+        monkeypatch, tmp_path, ["mypkg/**/*.py", "--out", "dist", "--dry-run"]
+    )
 
     # --- verify ---
     assert code == 0
     assert not (tmp_path / "dist").exists()
-
-
-def test_trailing_slash_handled(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    """Trailing slashes in paths should be handled correctly."""
-    # --- setup ---
-    pkg_dir = tmp_path / "mypkg"
-    make_test_package(pkg_dir)
-
-    # Create output directory so is_dir() check works
-    dist = tmp_path / "dist"
-    dist.mkdir()
-
-    # Create minimal config with package field (required for stitching)
-    config = tmp_path / f".{mod_meta.PROGRAM_CONFIG}.json"
-    write_config_file(config, package="mypkg", include=[], out="dist/")
-
-    # --- patch and execute ---
-    code = _run_cli(monkeypatch, tmp_path, ["mypkg/**/*.py", "dist/"])
-
-    # --- verify ---
-    assert code == 0
-    stitched_file = dist / "mypkg.py"
-    assert stitched_file.exists()
-    assert stitched_file.is_file()

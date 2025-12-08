@@ -51,7 +51,7 @@ All key workflows are defined in **`[tool.poe.tasks]`** inside `pyproject.toml`.
 | `poetry run poe check:fix` | Auto-fix issues, re-format, type-check, and re-test. |
 | `poetry run poe check` | Run linting (`ruff`), type checks (`mypy`), and tests (`pytest`). |
 | `poetry run poe fix` | Run all auto-fixers (`ruff`). |
-| `poetry run poe build:script` | Bundle the project into a single portable script in `bin/`. |
+| `poetry run poe build:stitched` | Bundle the project into a single portable script in `dist/`. |
 
 Example workflow:
 
@@ -116,7 +116,7 @@ Serger ships two forms:
 
 | Target | Command | Output |
 |---------|----------|--------|
-| **Single-file script** | `poetry run poe build:script` | Creates `dist/serger.py` |
+| **Single-file script** | `poetry run poe build:stitched` | Creates `dist/serger.py` |
 | **PyPI package** | `poetry build && poetry publish` | Builds and uploads wheel & sdist |
 
 To publish:

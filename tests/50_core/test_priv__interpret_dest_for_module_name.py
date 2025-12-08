@@ -12,8 +12,8 @@ for module name derivation rather than file copying.
 from pathlib import Path
 from typing import Any
 
-# Import submodule - works in both installed and singlefile modes
-# (singlefile mode excludes __init__.py but includes submodules)
+# Import submodule - works in both package and stitched modes
+# (stitched mode excludes __init__.py but includes submodules)
 import serger.utils.utils_modules as mod_utils_modules
 
 

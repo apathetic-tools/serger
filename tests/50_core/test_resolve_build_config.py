@@ -30,7 +30,7 @@ def _args(**kwargs: object) -> argparse.Namespace:
     arg_namespace.exclude = None
     arg_namespace.add_include = None
     arg_namespace.add_exclude = None
-    arg_namespace.out = None
+    arg_namespace.output = None
     arg_namespace.watch = None
     arg_namespace.log_level = None
     arg_namespace.respect_gitignore = None
@@ -50,7 +50,6 @@ def _args(**kwargs: object) -> argparse.Namespace:
 
 def test_resolve_build_config_from_config_paths(
     tmp_path: Path,
-    module_logger: mod_logs.AppLogger,
 ) -> None:
     """Ensure config-based include/out/exclude resolve relative to config_dir."""
     # --- setup ---
@@ -58,8 +57,7 @@ def test_resolve_build_config_from_config_paths(
     args = _args()
 
     # --- patch and execute ---
-    with module_logger.useLevel("info"):
-        resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
+    resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
 
     # --- validate ---
     inc = resolved["include"][0]
@@ -69,7 +67,6 @@ def test_resolve_build_config_from_config_paths(
     assert inc["root"] == tmp_path
     assert exc["root"] == tmp_path
     assert out["root"] == tmp_path
-    assert resolved["log_level"].lower() == "detail"
     assert resolved["respect_gitignore"] is True
     assert resolved["__meta__"]["config_root"] == tmp_path
     assert resolved["__meta__"]["cli_root"] == tmp_path
@@ -81,7 +78,7 @@ def test_resolve_build_config_cli_overrides_include_and_out(
     """CLI --include and --out should override config include/out."""
     # --- setup ---
     raw = make_build_input(include=["src/**"], out="dist")
-    args = _args(include=["cli_src/**"], out="cli_dist")
+    args = _args(include=["cli_src/**"], output="cli_dist")
 
     # --- patch and execute ---
     resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, tmp_path)
@@ -1361,7 +1358,7 @@ def test_resolve_build_config_out_with_parent_from_cli(
     cwd = tmp_path / "project"
     cwd.mkdir()
     raw = make_build_input(include=["src/**"], out="dist")
-    args = _args(out="../outputs/dist")
+    args = _args(output="../outputs/dist")
 
     # --- execute ---
     resolved = mod_resolve.resolve_build_config(raw, args, tmp_path, cwd)

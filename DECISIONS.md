@@ -156,7 +156,7 @@ This aligns with modern Python packaging standards and keeps the implementation 
 
 ### Context  
 
-Early in development, the project required a **consistent and colorized logging system** that worked seamlessly in both modular and single-file builds.  
+Early in development, the project required a **consistent and colorized logging system** that worked seamlessly in both modular and stitched builds.  
 At the time, the built-in Python `logging` module seemed overkill for such a small utility — especially since the tool needed lightweight log-level control and minimal setup.  
 We initially built a **custom logger** to provide:  
 
@@ -170,7 +170,7 @@ This approach fit the project's early ethos of *“small, inspectable, and stand
 
 | Option | Pros | Cons |
 |--------|------|------|
-| **Custom lightweight logger** | ✅ Fully under our control<br>✅ Compact and easily embedded<br>✅ Works identically in single-file builds | ⚠️ Duplicates standard functionality<br>⚠️ Harder to test and mock<br>⚠️ Configuration drift between modules |
+| **Custom lightweight logger** | ✅ Fully under our control<br>✅ Compact and easily embedded<br>✅ Works identically in stitched builds | ⚠️ Duplicates standard functionality<br>⚠️ Harder to test and mock<br>⚠️ Configuration drift between modules |
 | **Standard Library `logging`** | ✅ Mature and battle-tested<br>✅ Configurable handlers, filters, and levels<br>✅ Works natively with external libraries<br>✅ Simple integration with pytest and CLI flags | ⚠️ Significantly more verbose setup for color and formatting |
 | **Third-party libraries (e.g. `loguru`, `rich.logging`)** | ✅ Rich formatting and features out-of-the-box | ❌ Adds runtime dependencies<br>❌ Conflicts with minimalism goal |
 
@@ -211,7 +211,7 @@ As the early ad-hoc merger script evolved into a tested module, we want to ensur
 |--------|------|------|------|
 | **PyPI module (default)** | ✅ Easy to maintain and install<br>✅ Supports imports and APIs | ❌ Requires installation and internet | [`poetry`](https://python-poetry.org/), [`pip`](https://pypi.org/project/pip/) |
 | **Single-file script** | ✅ No install step<br>✅ Human-readable source<br>✅ Ideal for quick CLI use | ❌ Not importable<br>❌ Harder to maintain merger logic | [`serger`](https://github.com/apathetic-tools/serger) |
-| **Zipped module (`.pyz`)** | ✅ Bundled, portable archive<br>✅ Maintains import semantics | ⚠️ Requires unzip for source<br>⚠️ Slight startup overhead | [`zipapp`](https://docs.python.org/3/library/zipapp.html), [`shiv`](https://pypi.org/project/shiv/), [`pex`](https://pypi.org/project/pex/) |
+| **Zipped module (`.pyz`)** | ✅ Bundled, portable archive<br>✅ Maintains import semantics | ⚠️ Requires unzip for source<br>⚠️ Slight startup overhead | [`zipapp`](https://docs.python.org/3/library/zipapp.html), [`shiv`](https://pypi.org/project/shiv/), [`zipbundler`](https://github.com/apathetic-tools/zipbundler), [`pex`](https://pypi.org/project/pex/) |
 | **Executable bundlers** | ✅ Fully portable binaries<br>✅ No Python install required | ❌ Platform-specific<br>❌ Not source-transparent  | [`PyInstaller`](https://pyinstaller.org/en/stable/), [`shiv`](https://pypi.org/project/shiv/), [`pex`](https://pypi.org/project/pex/) |
 
 
@@ -487,7 +487,7 @@ Python 3, by contrast, is preinstalled or easily available on all major platform
 
 | Language | Pros | Cons |
 |-----------|------|------|
-| **Python** | ✅ Widely available<br>✅ No compile step<br>✅ Readable and introspectable  | ⚠️ Slower execution<br>⚠️ Limited single-file packaging |
+| **Python** | ✅ Widely available<br>✅ No compile step<br>✅ Readable and introspectable  | ⚠️ Slower execution<br>⚠️ Limited stitched packaging |
 | **JavaScript / Node.js** | ✅ Familiar to web developers | ❌ Not standard on all OSes<br>❌ Frequent version churn |
 | **Bash** | ✅ Ubiquitous | ❌ Fragile for complex logic
 
@@ -509,7 +509,7 @@ Future distributions may include `.pyz` or bundled binary releases as the projec
 <br/><br/>
 
 
-## ⚖️ Choose `MIT-aNOAI` License
+## ⚖️ Choose `MIT-a-NOAI` License
 <a id="dec02"></a>*DEC 02 — 2025-10-09*  
 
 ### Context
@@ -522,11 +522,11 @@ The project uses AI tools but distinguishes between **using AI** and **being use
 ### Options Considered
 
 - **MIT License (standard)** — simple and permissive, but allows unrestricted AI scraping.
-- **MIT + “No-AI Use” rider (MIT-aNOAI)** — preserves openness while prohibiting dataset inclusion or model training; untested legally and not OSI-certified.
+- **MIT + “No-AI Use” rider (MIT-a-NOAI)** — preserves openness while prohibiting dataset inclusion or model training; untested legally and not OSI-certified.
 
 ### Decision
 
-Adopt the **MIT-aNOAI license** — the standard MIT license plus an explicit clause banning AI/ML training or dataset inclusion.
+Adopt the **MIT-a-NOAI license** — the standard MIT license plus an explicit clause banning AI/ML training or dataset inclusion.
 This keeps the project open for human collaboration while defining clear ethical boundaries.
 
 While this may deter adopters requiring OSI-certified licenses, it can later be dual-licensed if consent-based frameworks emerge.
@@ -588,5 +588,5 @@ _This document records **why** we build things the way we do — not just **what
 > ✨ *AI was used to help draft language, formatting, and code — plus we just love em dashes.*
 
 <p align="center">
-  <sub>😐 <a href="https://apathetic-tools.github.io/">Apathetic Tools</a> © <a href="./LICENSE">MIT-aNOAI</a></sub>
+  <sub>😐 <a href="https://apathetic-tools.github.io/">Apathetic Tools</a> © <a href="./LICENSE">MIT-a-NOAI</a></sub>
 </p>

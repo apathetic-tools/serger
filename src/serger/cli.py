@@ -23,10 +23,7 @@ from .constants import (
     DEFAULT_WATCH_INTERVAL,
 )
 from .logs import getAppLogger
-from .meta import (
-    PROGRAM_DISPLAY,
-    PROGRAM_SCRIPT,
-)
+from .meta import DESCRIPTION, PROGRAM_DISPLAY, PROGRAM_PACKAGE, PROGRAM_SCRIPT
 from .selftest import run_selftest
 
 
@@ -36,7 +33,10 @@ from .selftest import run_selftest
 
 
 class HintingArgumentParser(argparse.ArgumentParser):
+    """Argument parser that provides helpful hints for mistyped arguments."""
+
     def error(self, message: str) -> None:  # type: ignore[override]
+        """Override error to provide hints for unrecognized arguments."""
         # Build known option strings: ["-v", "--verbose", "--log-level", ...]
         known_opts: list[str] = []
         for action in self._actions:
@@ -62,62 +62,33 @@ class HintingArgumentParser(argparse.ArgumentParser):
         self.exit(2, full + "\n")
 
 
-def _setup_parser() -> argparse.ArgumentParser:
+def _setup_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
     """Define and return the CLI argument parser."""
-    parser = HintingArgumentParser(prog=PROGRAM_SCRIPT)
-
-    # --- Positional shorthand arguments ---
-    parser.add_argument(
-        "positional_include",
-        nargs="*",
-        metavar="INCLUDE",
-        help="Positional include paths or patterns (shorthand for --include).",
-    )
-    parser.add_argument(
-        "positional_out",
-        nargs="?",
-        metavar="OUT",
-        help=(
-            "Positional output file or directory (shorthand for --out). "
-            "Use trailing slash for directories (e.g., 'dist/'), "
-            "otherwise treated as file."
-        ),
+    parser = HintingArgumentParser(
+        prog=PROGRAM_SCRIPT,
+        description=DESCRIPTION,
     )
 
-    # --- Standard flags ---
-    parser.add_argument(
-        "--include",
-        nargs="+",
-        help="Override include patterns. Format: path or path:dest",
-    )
-    parser.add_argument("--exclude", nargs="+", help="Override exclude patterns.")
-    parser.add_argument(
-        "-o",
-        "--out",
-        help=(
-            "Override output file or directory. "
-            "Use trailing slash for directories (e.g., 'dist/'), "
-            "otherwise treated as file. "
-            "Examples: 'dist/serger.py' (file) or 'bin/' (directory)."
-        ),
-    )
-    parser.add_argument("-c", "--config", help="Path to build config file.")
+    # --- Commands ---
+    commands = parser.add_argument_group("Commands")
 
-    parser.add_argument(
-        "--add-include",
-        nargs="+",
-        help=(
-            "Additional include paths (relative to cwd). "
-            "Format: path or path:dest. Extends config includes."
-        ),
-    )
-    parser.add_argument(
-        "--add-exclude",
-        nargs="+",
-        help="Additional exclude patterns (relative to cwd). Extends config excludes.",
+    # build (default)
+    #   invalidated by: info, list, validate
+    #   can be used with: watch, init
+    #   not valid with: version, selftest, help
+    commands.add_argument(
+        "--build",
+        action="store_true",
+        help="Build stitched file from current directory or config file. (default)",
     )
 
-    parser.add_argument(
+    # watch (rebuild automatically)
+    #   implies build
+    #   can be used with: build, info, list, validate
+    #   not affected by: init
+    #   not valid with: version, selftest, help
+    commands.add_argument(
+        "-w",
         "--watch",
         nargs="?",
         type=float,
@@ -130,8 +101,181 @@ def _setup_parser() -> argparse.ArgumentParser:
         ),
     )
 
-    # --- Gitignore behavior ---
-    gitignore = parser.add_mutually_exclusive_group()
+    # info (display interpreter + metadata)
+    #   invalidates: build
+    #   can be used with: watch, init, list, validate
+    #   not valid with: version, selftest, help
+    commands.add_argument(
+        "--info",
+        default=False,
+        action="store_true",
+        help="Display the interpreter + metadata.",
+    )
+
+    # init (create default config file)
+    #   does not imply build
+    #   can be used with: build, watch, info, list, validate
+    #   not valid with: version, selftest, help
+    commands.add_argument(
+        "--init",
+        action="store_true",
+        help=f"Create a .{PROGRAM_PACKAGE}.jsonc config file from defaults and args.",
+    )
+
+    # list (display packages and files)
+    #   invalidates: build
+    #   can be used with: watch, info, init, validate
+    #   not valid with: version, selftest, help
+    commands.add_argument(
+        "-l",
+        "--list",
+        action="store_true",
+        help="List packages and files.",
+    )
+
+    # validate (configuration file)
+    #   invalidates: build
+    #   can be used with: watch, info, init, list, dry-run
+    #   not valid with: version, selftest, help
+    commands.add_argument(
+        "--validate",
+        action="store_true",
+        dest="validate",
+        help=(
+            "Validate configuration file and resolved settings without "
+            "executing a build. Validates config syntax, file collection, "
+            "and path resolution (includes CLI arguments and environment variables)."
+        ),
+    )
+
+    # selftest
+    #   invalidates: all
+    #   not valid with: version, help
+    commands.add_argument(
+        "--selftest",
+        action="store_true",
+        help="Run a built-in sanity test to verify tool correctness.",
+    )
+
+    # version
+    #   invalidates: all
+    #   not valid with: selftest, help
+    commands.add_argument("--version", action="store_true", help="Show version info.")
+
+    # --- Build flags ---
+    build_flags = parser.add_argument_group("Build flags")
+
+    # includes
+    build_flags.add_argument(  # positional
+        "include",
+        action="extend",
+        nargs="*",
+        metavar="INCLUDE",
+        help="Source directory, file, or glob pattern (shorthand for --include).",
+    )
+    build_flags.add_argument(
+        "-i",
+        "--include",
+        action="extend",
+        nargs="+",
+        metavar="PATH",
+        dest="include",
+        help="Override include paths. Format: path or path:dest",
+    )
+    build_flags.add_argument(  # convenience alias
+        "-s",
+        "--source",
+        action="extend",
+        nargs="+",
+        dest="include",
+        help=argparse.SUPPRESS,
+    )
+
+    # additional includes
+    build_flags.add_argument(
+        "--add-include",
+        action="extend",
+        nargs="+",
+        metavar="PATH",
+        dest="add_include",
+        help=(
+            "Additional include paths (relative to cwd). "
+            "Format: path or path:dest. Extends config includes."
+        ),
+    )
+
+    # excludes
+    build_flags.add_argument(
+        "-e",
+        "--exclude",
+        action="extend",
+        nargs="+",
+        metavar="PATH",
+        dest="exclude",
+        help=(
+            "Override exclude patterns. Format: path directory, file, or glob pattern."
+        ),
+    )
+
+    # additional excludes
+    build_flags.add_argument(
+        "--add-exclude",
+        action="extend",
+        nargs="+",
+        metavar="PATH",
+        dest="add_exclude",
+        help="Additional exclude patterns (relative to cwd). Extends config excludes.",
+    )
+
+    # output
+    build_flags.add_argument(
+        "-o",
+        "--output",
+        dest="output",
+        default=None,
+        help=(
+            "Override the name of the output file or directory. "
+            "Use trailing slash for directories (e.g., 'dist/'), "
+            "otherwise treated as file. "
+            "Examples: 'dist/project.py' (file) or 'bin/' (directory)."
+        ),
+    )
+    build_flags.add_argument(  # convenience alias
+        "--out", dest="output", help=argparse.SUPPRESS
+    )
+
+    # input
+    build_flags.add_argument(
+        "--input",
+        dest="input",
+        default=None,
+        help=(
+            "Override the name of the input file or directory. "
+            "Start from an existing build (usually optional)"
+            "Examples: 'dist/project.py' (file) or 'bin/' (directory)."
+        ),
+    )
+    build_flags.add_argument(  # convenience alias
+        "--in",
+        dest="input",  # note: args.in is reserved
+        help=argparse.SUPPRESS,
+    )
+
+    # config
+    build_flags.add_argument("--config", help="Path to build config file.")
+
+    # --- Build options ---
+    build_opts = parser.add_argument_group("Build & Watch options")
+
+    # dry-run
+    build_opts.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Simulate build actions without copying or deleting files.",
+    )
+
+    # gitignore behavior
+    gitignore = build_opts.add_mutually_exclusive_group()
     gitignore.add_argument(
         "--gitignore",
         dest="respect_gitignore",
@@ -146,8 +290,83 @@ def _setup_parser() -> argparse.ArgumentParser:
     )
     gitignore.set_defaults(respect_gitignore=None)
 
-    # --- Color ---
-    color = parser.add_mutually_exclusive_group()
+    # shebang
+    shebang = build_opts.add_mutually_exclusive_group()
+    shebang.add_argument(
+        "-p",
+        "--shebang",
+        "--python",
+        dest="shebang",
+        default=None,
+        help="The name of the Python interpreter to use (default: auto decide).",
+    )
+    shebang.add_argument(
+        "--no-shebang",
+        action="store_false",
+        dest="shebang",
+        help="Disable shebang insertion",
+    )
+
+    # main
+    main = build_opts.add_mutually_exclusive_group()
+    main.add_argument(
+        "-m",
+        "--main",
+        dest="entry_point",
+        default=None,
+        help=("The main function of the application (default: auto decide)."),
+    )
+    main.add_argument(
+        "--no-main",
+        action="store_false",
+        dest="entry_point",
+        help="Disable main insertion.",
+    )
+
+    # timestamps
+    build_opts.add_argument(
+        "--disable-build-timestamp",
+        action="store_true",
+        help="Disable build timestamps for deterministic builds (uses placeholder).",
+    )
+
+    # --- Universal flags ---
+    uni = parser.add_argument_group("Universal flags")
+
+    # force (overwrite)
+    uni.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Overwrite existing file.",
+    )
+
+    # strict (configuration)
+    uni.add_argument(
+        "--strict",
+        action="store_true",
+        help="Fail on config validation warnings",
+    )
+
+    # compat (compatibility)
+    uni.add_argument(
+        "--compat",
+        action="store_true",
+        dest="compat",
+        help="Compatibility mode with Stdlib zipapp behaviour",
+    )
+    uni.add_argument(  # convenience alias
+        "--compatability",
+        action="store_true",
+        dest="compat",
+        help=argparse.SUPPRESS,
+    )
+
+    # --- Terminal flags ---
+    term = parser.add_argument_group("Terminal flags")
+
+    # color
+    color = term.add_mutually_exclusive_group()
     color.add_argument(
         "--no-color",
         dest="use_color",
@@ -164,10 +383,10 @@ def _setup_parser() -> argparse.ArgumentParser:
     )
     color.set_defaults(use_color=None)
 
-    # --- Version and verbosity ---
-    parser.add_argument("--version", action="store_true", help="Show version info.")
+    # verbosity
+    log_level = term.add_mutually_exclusive_group()
 
-    log_level = parser.add_mutually_exclusive_group()
+    #   quiet
     log_level.add_argument(
         "-q",
         "--quiet",
@@ -176,6 +395,28 @@ def _setup_parser() -> argparse.ArgumentParser:
         dest="log_level",
         help="Suppress non-critical output (same as --log-level warning).",
     )
+
+    #   brief
+    log_level.add_argument(
+        "-b",
+        "--brief",
+        action="store_const",
+        const="brief",
+        dest="log_level",
+        help="Show brief output (same as --log-level brief).",
+    )
+
+    #   detail
+    log_level.add_argument(
+        "-d",
+        "--detail",
+        action="store_const",
+        const="detail",
+        dest="log_level",
+        help="Show detailed output (same as --log-level detail).",
+    )
+
+    #   verbose
     log_level.add_argument(
         "-v",
         "--verbose",
@@ -184,6 +425,8 @@ def _setup_parser() -> argparse.ArgumentParser:
         dest="log_level",
         help="Verbose output (same as --log-level debug).",
     )
+
+    #   log-level
     log_level.add_argument(
         "--log-level",
         choices=LEVEL_ORDER,
@@ -191,74 +434,8 @@ def _setup_parser() -> argparse.ArgumentParser:
         dest="log_level",
         help="Set log verbosity level.",
     )
-    parser.add_argument(
-        "--selftest",
-        action="store_true",
-        help="Run a built-in sanity test to verify tool correctness.",
-    )
 
-    # --- Build execution mode ---
-    build_mode = parser.add_mutually_exclusive_group()
-    build_mode.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Simulate build actions without copying or deleting files.",
-    )
-    build_mode.add_argument(
-        "--validate-config",
-        action="store_true",
-        help=(
-            "Validate configuration file and resolved settings without "
-            "executing a build. Validates config syntax, file collection, "
-            "and path resolution (includes CLI arguments and environment variables)."
-        ),
-    )
-    parser.add_argument(
-        "--disable-build-timestamp",
-        action="store_true",
-        help="Disable build timestamps for deterministic builds (uses placeholder).",
-    )
     return parser
-
-
-def _normalize_positional_args(
-    args: argparse.Namespace,
-    parser: argparse.ArgumentParser,
-) -> None:
-    """Normalize positional arguments into explicit include/out flags."""
-    logger = getAppLogger()
-    includes: list[str] = getattr(args, "positional_include", [])
-    out_pos: str | None = getattr(args, "positional_out", None)
-
-    # If no --out, assume last positional is output if we have ≥2 positionals
-    if not getattr(args, "out", None) and len(includes) >= 2 and not out_pos:  # noqa: PLR2004
-        out_pos = includes.pop()
-
-    # If --out provided, treat all positionals as includes
-    elif getattr(args, "out", None) and out_pos:
-        logger.trace(
-            "Interpreting all positionals as includes since --out was provided.",
-        )
-        includes.append(out_pos)
-        out_pos = None
-
-    # Conflict: can't mix --include and positional includes
-    if getattr(args, "include", None) and (includes or out_pos):
-        parser.error(
-            "Cannot mix positional include arguments with --include; "
-            "use --out for destination or --add-include to extend."
-        )
-
-    # Internal sanity check
-    assert not (getattr(args, "out", None) and out_pos), (  # only for dev # noqa: S101
-        "out_pos not cleared after normalization"
-    )
-
-    # Assign normalized values
-    if includes:
-        args.include = includes
-    if out_pos:
-        args.out = out_pos
 
 
 # --------------------------------------------------------------------------- #
@@ -494,9 +671,9 @@ def _handle_early_exits(args: argparse.Namespace) -> int | None:
     # --- Version flag ---
     if getattr(args, "version", None):
         meta = get_metadata()
-        standalone = " [standalone]" if globals().get("__STANDALONE__", False) else ""
+        stitched = " [stitched]" if globals().get("__STITCHED__", False) else ""
         logger.info(
-            "%s %s (%s)%s", PROGRAM_DISPLAY, meta.version, meta.commit, standalone
+            "%s %s (%s)%s", PROGRAM_DISPLAY, meta.version, meta.commit, stitched
         )
         return 0
 
@@ -514,9 +691,8 @@ def _handle_early_exits(args: argparse.Namespace) -> int | None:
 
 def _load_and_resolve_config(
     args: argparse.Namespace,
-    parser: argparse.ArgumentParser,
 ) -> _LoadedConfig:
-    """Load config, normalize args, and resolve final configuration."""
+    """Load config and resolve final configuration."""
     logger = getAppLogger()
 
     # --- Load configuration ---
@@ -528,8 +704,6 @@ def _load_and_resolve_config(
 
     logger.trace("[CONFIG] log-level re-resolved from config: %s", logger.levelName)
 
-    # --- Normalize shorthand arguments ---
-    _normalize_positional_args(args, parser)
     cwd = Path.cwd().resolve()
     config_dir = config_path.parent if config_path else cwd
 
@@ -564,7 +738,7 @@ def _execute_build(
     )
 
     resolved["dry_run"] = getattr(args, "dry_run", DEFAULT_DRY_RUN)
-    resolved["validate_config"] = getattr(args, "validate_config", False)
+    resolved["validate"] = getattr(args, "validate", False)
 
     if watch_enabled:
         watch_interval = resolved["watch_interval"]
@@ -593,12 +767,13 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911, PLR0912
         _initialize_logger(args)
 
         # --- Handle early exits (version, selftest, etc.) ---
+        # These exit immediately, so we don't need to check incompatibilities with them
         early_exit_code = _handle_early_exits(args)
         if early_exit_code is not None:
             return early_exit_code
 
         # --- Load and resolve configuration ---
-        config = _load_and_resolve_config(args, parser)
+        config = _load_and_resolve_config(args)
 
         # --- Validate includes ---
         if not _validate_includes(config.root_cfg, config.resolved, args):
@@ -609,7 +784,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: PLR0911, PLR0912
             return 1
 
         # --- Validate-config notice ---
-        if getattr(args, "validate_config", None):
+        if getattr(args, "validate", None):
             logger.info("🔍 Validating configuration...")
 
         # --- Dry-run notice ---

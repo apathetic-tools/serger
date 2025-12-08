@@ -3,6 +3,8 @@
 
 from pathlib import Path
 
+from apathetic_utils import shorten_path
+
 from serger.config.config_types import IncludeResolved, PathResolved
 
 
@@ -49,34 +51,19 @@ def shorten_path_for_display(
             return "."
 
     # Handle regular Path or str
-    path_obj = Path(path).resolve()
-
-    candidates: list[str] = []
-
-    # Try relative to cwd
+    # Collect non-None bases
+    bases: list[str | Path] = []
     if cwd:
-        cwd_resolved = Path(cwd).resolve()
-        try:
-            rel_to_cwd = str(path_obj.relative_to(cwd_resolved))
-            candidates.append(rel_to_cwd)
-        except ValueError:
-            pass
-
-    # Try relative to config_dir
+        bases.append(cwd)
     if config_dir:
-        config_dir_resolved = Path(config_dir).resolve()
-        try:
-            rel_to_config = str(path_obj.relative_to(config_dir_resolved))
-            candidates.append(rel_to_config)
-        except ValueError:
-            pass
+        bases.append(config_dir)
 
-    # If we have candidates, pick the shortest one
-    if candidates:
-        return min(candidates, key=len)
-
-    # Fall back to absolute path
-    return str(path_obj)
+    # Use apathetic_utils.shorten_path - it already returns absolute path
+    # when path is not under any base (common_len <= 1)
+    if bases:
+        return shorten_path(path, bases)
+    # No bases provided, return absolute path
+    return str(Path(path).resolve())
 
 
 def shorten_paths_for_display(

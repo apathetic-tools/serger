@@ -16,8 +16,8 @@ import pytest
 from tests.utils import PROJ_ROOT
 
 
-# --- only for singlefile runs ---
-__runtime_mode__ = "singlefile"
+# --- only for stitched runs ---
+__runtime_mode__ = "stitched"
 
 
 @pytest.mark.parametrize(

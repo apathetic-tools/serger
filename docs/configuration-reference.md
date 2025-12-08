@@ -91,7 +91,7 @@ All configuration options are specified at the root level of the config file:
 | `internal_imports` | `str` | No | `"force_strip"` | How to handle internal package imports (see [Import Handling](#import-handling)) |
 | `external_imports` | `str` | No | `"top"` | How to handle external imports (see [Import Handling](#import-handling)) |
 | `stitch_mode` | `str` | No | `"raw"` | How to combine modules into a single file (see [Stitch Modes](#stitch-modes)) |
-| `module_mode` | `str` | No | `"multi"` | How to generate import shims for single-file runtime (see [Module Modes](#module-modes)) |
+| `module_mode` | `str` | No | `"multi"` | How to generate import shims for stitched runtime (see [Module Modes](#module-modes)) |
 | `shim` | `str` | No | `"all"` | Controls shim generation (see [Shim Setting](#shim-setting)) |
 | `module_actions` | `dict \| list` | No | - | Custom module transformations (see [Module Actions](#module-actions)) |
 | `comments_mode` | `str` | No | `"keep"` | How to handle comments in stitched output (see [Comment Handling](#comment-handling)) |
@@ -199,13 +199,13 @@ Serger supports different modes for combining multiple Python modules into a sin
 
 ## Module Modes
 
-Serger provides control over how import shims are generated for the single-file runtime. Import shims allow external code to import modules from the stitched file as if they were separate files. Different shim modes control how module names are organized and whether packages are preserved or flattened.
+Serger provides control over how import shims are generated for the stitched runtime. Import shims allow external code to import modules from the stitched file as if they were separate files. Different shim modes control how module names are organized and whether packages are preserved or flattened.
 
 **Available modes:**
 
 | Mode | Description |
 |------|-------------|
-| `none` | No shims generated. The stitched file cannot be imported as a module. Use this when you only need a standalone script. |
+| `none` | No shims generated. The stitched file cannot be imported as a module. Use this when you only need a stitched script. |
 | `multi` | Generate shims for all detected packages (default). Each detected package gets its own shim, preserving the original package structure. For example, if you stitch `pkg1` and `pkg2`, both will be available as separate packages. |
 | `force` | Replace root package but keep subpackages. All detected package roots are replaced with the configured `package` name, but subpackages are preserved. For example, `pkg1.sub` and `pkg2.sub` both become `mypkg.sub`. |
 | `force_flat` | Flatten everything to configured package. All modules become direct children of the configured `package` name, removing all package hierarchy. For example, `pkg1.sub.module` becomes `mypkg.module`. |
@@ -217,7 +217,7 @@ Serger provides control over how import shims are generated for the single-file 
 
 - **`multi`** (default): Use this for most cases. It preserves the original package structure and allows multiple packages to coexist in the stitched file.
 
-- **`none`**: Use when you only need a standalone executable script and don't need import shims.
+- **`none`**: Use when you only need a stitched executable script and don't need import shims.
 
 - **`force`**: Use when you want to unify multiple packages under a single package name while preserving subpackage structure.
 
@@ -250,7 +250,7 @@ The `shim` setting controls whether import shims are generated and which modules
 |-------|-------------|
 | `all` | Generate shims for all modules (default). All modules that would normally get shims based on `module_mode` and `module_actions` will have shims generated. |
 | `public` | Only generate shims for public modules. Currently treated the same as `all` (future: will filter based on `_` prefix or `__all__`). |
-| `none` | Don't generate shims at all. The stitched file cannot be imported as a module. Use this when you only need a standalone script. |
+| `none` | Don't generate shims at all. The stitched file cannot be imported as a module. Use this when you only need a stitched script. |
 
 ### Relationship with Module Mode and Module Actions
 
@@ -277,7 +277,7 @@ The `shim` setting acts as a filter on top of `module_mode` and `module_actions`
   "package": "mypkg",
   "include": ["src/**/*.py"],
   "out": "dist/mypkg.py",
-  "shim": "none"  // No shims - standalone script only
+  "shim": "none"  // No shims - stitched script only
 }
 ```
 
@@ -1005,7 +1005,7 @@ The `package` field is required for stitch builds, but can be automatically infe
 **Single module auto-detection:**
 - Scans `source_bases` directories for first-level modules/packages
 - Only triggers when exactly one module exists across all `source_bases`
-- Supports both package directories and single-file modules
+- Supports both package directories and single-file modules (modules that are .py files, not directories)
 
 **First package fallback:**
 - Uses the first module found in `source_bases` order when all other methods fail
@@ -1053,7 +1053,7 @@ Simple string format for plain text licenses:
 
 ```jsonc
 {
-  "license": "License: MIT-aNOAI\nFull text: https://github.com/user/repo/blob/main/LICENSE"
+  "license": "License: MIT-a-NOAI\nFull text: https://github.com/user/repo/blob/main/LICENSE"
 }
 ```
 
@@ -1604,7 +1604,7 @@ Here's a complete example configuration file:
   "display_name": "Serger",
   "description": "Stitch your module into a single file.",
   "repo": "https://github.com/apathetic-tools/serger",
-  "license": "License: MIT-aNOAI\nFull text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",
+  "license": "License: MIT-a-NOAI\nFull text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",
   "include": [
     "src/serger/**/*.py",
     "apathetic_logging/**/*.py",  // Include installed apathetic-logging package

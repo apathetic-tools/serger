@@ -178,7 +178,10 @@ def test_process_comments_ignores_case_insensitive() -> None:
 
 
 def test_process_comments_ignores_standalone() -> None:
-    """Test that 'ignores' mode keeps standalone ignore comments."""
+    """Test that 'ignores' mode keeps standalone ignore comments.
+
+    (unchanged - refers to comment type, not runtime mode).
+    """
     code = """# noqa: F401
 def func():
     return 42

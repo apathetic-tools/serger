@@ -2,11 +2,12 @@
 """Tests for post_stitch_processing function."""
 
 from pathlib import Path
-from unittest.mock import patch
 
+import apathetic_utils as mod_utils
 import pytest
 
 import serger.config.config_types as mod_types
+import serger.meta as mod_meta
 import serger.verify_script as mod_verify
 from tests.utils import (
     make_post_category_config_resolved,
@@ -58,7 +59,18 @@ def test_post_stitch_processing_skips_when_not_compiling_before(
         verify_executes_called = True
         return False
 
-    monkeypatch.setattr(mod_verify, "verify_executes", mock_verify_executes)
+    # Patch for direct function calls: patch in caller's __globals__
+    # post_stitch_processing calls verify_executes() directly, so we need to
+    # patch it in post_stitch_processing's __globals__ dict
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_verify,
+        "verify_executes",
+        mock_verify_executes,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+        caller_func_name="post_stitch_processing",
+    )
 
     config = make_post_processing_config_resolved(
         enabled=True,
@@ -97,8 +109,13 @@ def test_post_stitch_processing_reverts_on_compilation_failure(
         # Corrupt the file
         file_path.write_text("def main(\n    return 0\n")  # Invalid syntax
 
-    monkeypatch.setattr(
-        mod_verify, "execute_post_processing", mock_execute_post_processing
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_verify,
+        "execute_post_processing",
+        mock_execute_post_processing,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
     )
 
     config = make_post_processing_config_resolved(
@@ -150,10 +167,22 @@ def test_post_stitch_processing_logs_error_on_revert_failure(
         # Third call: after revert (should return False to trigger error)
         return call_count == 1
 
-    monkeypatch.setattr(
-        mod_verify, "execute_post_processing", mock_execute_post_processing
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_verify,
+        "execute_post_processing",
+        mock_execute_post_processing,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
     )
-    monkeypatch.setattr(mod_verify, "verify_compiles", mock_verify_compiles)
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_verify,
+        "verify_compiles",
+        mock_verify_compiles,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+    )
 
     config = make_post_processing_config_resolved(
         enabled=True,
@@ -205,9 +234,21 @@ def test_post_stitch_processing_logs_warning_when_not_compiling_after(
         # Corrupt the file
         file_path.write_text("def main(\n    return 0\n")  # Invalid syntax
 
-    monkeypatch.setattr(mod_verify, "verify_compiles", mock_verify_compiles)
-    monkeypatch.setattr(
-        mod_verify, "execute_post_processing", mock_execute_post_processing
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_verify,
+        "verify_compiles",
+        mock_verify_compiles,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+    )
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_verify,
+        "execute_post_processing",
+        mock_execute_post_processing,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
     )
 
     config = make_post_processing_config_resolved(
@@ -230,7 +271,10 @@ def test_post_stitch_processing_logs_warning_when_not_compiling_after(
     assert call_count == expected_calls
 
 
-def test_post_stitch_processing_runs_execution_check(tmp_path: Path) -> None:
+def test_post_stitch_processing_runs_execution_check(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Should run execution check after successful processing."""
     path = tmp_path / "test.py"
     path.write_text("def main():\n    return 0\n")
@@ -243,17 +287,24 @@ def test_post_stitch_processing_runs_execution_check(tmp_path: Path) -> None:
         verify_executes_called = True
         return True
 
-    with patch.object(mod_verify, "verify_executes", mock_verify_executes):
-        config = make_post_processing_config_resolved(
-            enabled=False,  # Disabled to avoid needing tools
-            categories={
-                "formatter": make_post_category_config_resolved(
-                    enabled=False, priority=[], tools={}
-                ),
-            },
-        )
-        mod_verify.post_stitch_processing(path, post_processing=config)
-        assert verify_executes_called
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_verify,
+        "verify_executes",
+        mock_verify_executes,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+    )
+    config = make_post_processing_config_resolved(
+        enabled=False,  # Disabled to avoid needing tools
+        categories={
+            "formatter": make_post_category_config_resolved(
+                enabled=False, priority=[], tools={}
+            ),
+        },
+    )
+    mod_verify.post_stitch_processing(path, post_processing=config)
+    assert verify_executes_called
 
 
 def test_post_stitch_processing_preserves_file_permissions(tmp_path: Path) -> None:
@@ -289,8 +340,13 @@ def test_post_stitch_processing_with_actual_post_processing(
         nonlocal execute_called
         execute_called = True
 
-    monkeypatch.setattr(
-        mod_verify, "execute_post_processing", mock_execute_post_processing
+    mod_utils.patch_everywhere(
+        monkeypatch,
+        mod_verify,
+        "execute_post_processing",
+        mock_execute_post_processing,
+        package_prefix=mod_meta.PROGRAM_PACKAGE,
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
     )
 
     config = make_post_processing_config_resolved(

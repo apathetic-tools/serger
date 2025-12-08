@@ -2239,9 +2239,9 @@ def _resolve_output(
     logger = getAppLogger()
     logger.trace("[resolve_output] Resolving output directory")
 
-    if getattr(args, "out", None):
+    if getattr(args, "output", None):
         # Full override → relative to cwd
-        root, rel = _normalize_path_with_root(args.out, cwd)
+        root, rel = _normalize_path_with_root(args.output, cwd)
         out_wrapped = make_pathresolved(rel, root, "cli")
     elif "out" in resolved_cfg:
         # From config → relative to config_dir
@@ -2925,6 +2925,6 @@ def resolve_config(
 
     # Set runtime flags with defaults (will be overridden in _execute_build if set)
     resolved["dry_run"] = False
-    resolved["validate_config"] = False
+    resolved["validate"] = False
 
     return resolved

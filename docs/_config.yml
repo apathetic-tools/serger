@@ -61,7 +61,7 @@ exclude:
   - vendor/ruby/
 
 # Site metadata
-author: 
+author:
   name: 😐 Apathetic Tools
   url: https://apathetic-tools.github.io/
 

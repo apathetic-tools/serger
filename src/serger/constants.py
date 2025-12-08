@@ -5,8 +5,8 @@ from typing import Any
 
 
 RUNTIME_MODES = {
-    "standalone",  # single stitched file
-    "installed",  # poetry-installed / pip-installed / importable
+    "stitched",  # single concatenated file wiht module-shims
+    "package",  # poetry-installed / pip-installed / importable
     "zipapp",  # .pyz bundle
 }
 
@@ -17,7 +17,7 @@ DEFAULT_ENV_WATCH_INTERVAL: str = "WATCH_INTERVAL"
 DEFAULT_ENV_DISABLE_BUILD_TIMESTAMP: str = "DISABLE_BUILD_TIMESTAMP"
 
 # --- program defaults ---
-DEFAULT_LOG_LEVEL: str = "detail"
+DEFAULT_LOG_LEVEL: str = "info"
 DEFAULT_WATCH_INTERVAL: float = 1.0  # seconds
 DEFAULT_RESPECT_GITIGNORE: bool = True
 

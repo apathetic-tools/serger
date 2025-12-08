@@ -1,19 +1,21 @@
-# tests/90_integration/test_installed__execution.py
-"""Verify the installed package version works via `python -m serger`."""
+# tests/90_integration/test_package__execution.py
+"""Verify the package version works via `python -m serger`."""
 
 import sys
 from pathlib import Path
 
+import apathetic_utils
+
 import serger.meta as mod_meta
-from tests.utils import make_test_package, run_with_output, write_config_file
+from tests.utils import make_test_package, write_config_file
 
 
-# --- only for installed runs ---
-__runtime_mode__ = "installed"
+# --- only for package runs ---
+__runtime_mode__ = "package"
 
 
-def test_installed_module_execution(tmp_path: Path) -> None:
-    """Ensure the installed package can be invoked as `python -m <package>`."""
+def test_package_module_execution(tmp_path: Path) -> None:
+    """Ensure the package can be invoked as `python -m <package>`."""
     # --- setup ---
 
     # - Execution check (isolated temp dir) -
@@ -32,7 +34,7 @@ def test_installed_module_execution(tmp_path: Path) -> None:
         out="tmp-dist/mypkg.py",
     )
 
-    result = run_with_output(
+    result = apathetic_utils.run_with_output(
         [sys.executable, "-m", mod_meta.PROGRAM_PACKAGE],
         check=False,
         cwd=tmp,  # ✅ run in temp dir

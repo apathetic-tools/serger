@@ -37,7 +37,7 @@ def test_find_tool_executable_when_tool_missing(
         "which",
         mock_which,
         package_prefix=mod_meta.PROGRAM_PACKAGE,
-        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
     )
     result = mod_verify.find_tool_executable("nonexistent_tool")
     assert result is None

@@ -259,14 +259,14 @@ def test_init_py_relative_import_in_else_block(tmp_path: Path) -> None:
     """Should detect imports inside else blocks for dependency ordering.
 
     This tests the bug where imports inside conditional blocks (like
-    "if not __STANDALONE__: from .namespace import ...") were not being
+    "if not __STITCHED__: from .namespace import ...") were not being
     detected for dependency ordering.
     """
     src_dir = tmp_path / "src"
     pkg_dir = src_dir / "apathetic_logging"
     pkg_dir.mkdir(parents=True)
     (pkg_dir / "__init__.py").write_text(
-        """if globals().get("__STANDALONE__"):
+        """if globals().get("__STITCHED__"):
     _apathetic_logging_ns = None
 else:
     from .namespace import apathetic_logging as _apathetic_logging_ns
@@ -558,7 +558,7 @@ import serger.actions
 
 def test_extract_internal_imports_for_deps_conditional_import() -> None:
     """Should extract imports inside conditional blocks."""
-    source = """if not __STANDALONE__:
+    source = """if not __STITCHED__:
     from .namespace import apathetic_logging
 """
     detected_packages = {"serger"}

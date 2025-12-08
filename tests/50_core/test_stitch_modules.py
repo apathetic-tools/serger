@@ -1,18 +1,22 @@
 # tests/50_core/test_stitch_modules.py
 """Tests for stitch_modules orchestration function and helpers."""
 
+import importlib.util
 import py_compile
+import re
 import stat
 import sys
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
+import apathetic_utils
 import pytest
 
 import serger.build as mod_build
 import serger.config.config_types as mod_config_types
 import serger.stitch as mod_stitch
-from tests.utils import is_serger_build_for_test, run_with_output
+from tests.utils import is_serger_build_for_test
 from tests.utils.buildconfig import make_include_resolved
 
 
@@ -641,7 +645,7 @@ class TestStitchModulesAssignMode:
 
         # Verify it executes correctly
         # If assignments used sys.modules (not available yet), this would fail
-        result = run_with_output(
+        result = apathetic_utils.run_with_output(
             [sys.executable, str(out_path)],
             check=False,
             cwd=tmp_path,
@@ -699,7 +703,7 @@ class TestStitchModulesAssignMode:
 
         # Verify it executes correctly
         # If assignments used sys.modules (not available yet), this would fail
-        result = run_with_output(
+        result = apathetic_utils.run_with_output(
             [sys.executable, str(out_path)],
             check=False,
             cwd=tmp_path,
@@ -748,7 +752,7 @@ class TestStitchModulesAssignMode:
         assert "my_config = MyConfig()" in content
 
         # Verify it executes
-        result = run_with_output(
+        result = apathetic_utils.run_with_output(
             [sys.executable, str(out_path)],
             check=False,
             cwd=tmp_path,
@@ -792,7 +796,7 @@ class TestStitchModulesAssignMode:
         assert "from .base import" not in content
 
         # Verify it executes
-        result = run_with_output(
+        result = apathetic_utils.run_with_output(
             [sys.executable, str(out_path)],
             check=False,
             cwd=tmp_path,
@@ -840,7 +844,7 @@ class TestStitchModulesAssignMode:
         assert "TypeC = C" in content
 
         # Verify it executes
-        result = run_with_output(
+        result = apathetic_utils.run_with_output(
             [sys.executable, str(out_path)],
             check=False,
             cwd=tmp_path,
@@ -888,7 +892,7 @@ class TestStitchModulesAssignMode:
         assert "def run():" in content
 
         # Verify it executes
-        result = run_with_output(
+        result = apathetic_utils.run_with_output(
             [sys.executable, str(out_path)],
             check=False,
             cwd=tmp_path,
@@ -963,7 +967,7 @@ class TestStitchModulesAssignMode:
         assert "Calc = Calculator" in content
 
         # Execute and verify output
-        result = run_with_output(
+        result = apathetic_utils.run_with_output(
             [sys.executable, str(out_path)],
             check=False,
             cwd=tmp_path,
@@ -1033,7 +1037,7 @@ class TestStitchModulesOtherImportModes:
         assert "from testpkg.utils import add" not in content
 
         # Execute and verify it works
-        result = run_with_output(
+        result = apathetic_utils.run_with_output(
             [sys.executable, str(out_path)],
             check=False,
             cwd=tmp_path,
@@ -1220,7 +1224,7 @@ class TestStitchModulesMetadata:
         assert '__version__ = "2.1.3"' in content
         assert '__commit__ = "def456"' in content
         assert '__AUTHORS__ = "Alice <alice@example.com>, Bob"' in content
-        assert "__STANDALONE__ = True" in content
+        assert "__STITCHED__ = True" in content
 
     def test_license_with_file_content(self, tmp_path: Path) -> None:
         """Should include license file content as comments with marker."""
@@ -1317,7 +1321,7 @@ class TestStitchModulesShims:
 
         content = out_path.read_text()
         # Shim block should exist
-        assert "# --- import shims for single-file runtime ---" in content
+        assert "# --- import shims for stitched runtime ---" in content
         # Check for loop-based shim generation
         # The shims are now generated as:
         # for _name in [...]: sys.modules[_name] = _mod
@@ -1382,6 +1386,105 @@ class TestStitchModulesShims:
         assert (
             '"testpkg._private"' in normalized_content
             or '"_private"' in normalized_content
+        )
+
+    def test_shim_does_not_use_external_modules_from_globals(
+        self, tmp_path: Path
+    ) -> None:
+        """Test that shims don't incorrectly reuse external modules from globals().
+
+        This test verifies that when a local module has a name that conflicts
+        with an external module in globals() (like stdlib 'types'), the shim
+        generation correctly uses the local module, not the external one.
+
+        The bug: When looking for module objects by original name, the code
+        checks globals() as a fallback. If an external module (like stdlib
+        'types') is in globals() with the same last part name, it could be
+        incorrectly reused for the local module shim.
+        """
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+        out_path = tmp_path / "output.py"
+
+        # Create a package with a module named "types" that conflicts with
+        # stdlib types module (which is imported in shim code)
+        expected_value = 42
+        (src_dir / "types.py").write_text(
+            f"# Local types module\n"
+            f"LOCAL_TYPES_VALUE = {expected_value}\n"
+            "def get_value():\n"
+            "    return LOCAL_TYPES_VALUE\n"
+        )
+
+        file_paths, package_root, file_to_include, config = _setup_stitch_test(
+            src_dir, ["types"], package_name="mypkg"
+        )
+        # Use force mode to transform package name, which creates name_mapping
+        # and triggers the globals() lookup path
+        config["module_mode"] = "force"
+
+        mod_stitch.stitch_modules(
+            config=config,
+            file_paths=file_paths,
+            package_root=package_root,
+            file_to_include=file_to_include,
+            out_path=out_path,
+            is_serger_build=is_serger_build_for_test(out_path),
+        )
+
+        content = out_path.read_text()
+        # Verify shim block exists
+        assert "# --- import shims for stitched runtime ---" in content
+
+        # Load and execute the stitched module
+        spec = importlib.util.spec_from_file_location(
+            f"stitched_test_{tmp_path.name}", out_path
+        )
+        assert spec is not None
+        assert spec.loader is not None
+
+        # Clean up any existing modules
+        for name in list(sys.modules.keys()):
+            if name.startswith(("mypkg", "testpkg", f"stitched_test_{tmp_path.name}")):
+                del sys.modules[name]
+
+        stitched_mod: ModuleType = importlib.util.module_from_spec(spec)
+        sys.modules[f"stitched_test_{tmp_path.name}"] = stitched_mod
+        spec.loader.exec_module(stitched_mod)
+
+        # Verify that the local module is correctly registered in sys.modules,
+        # not stdlib types
+        # The shim code should register mypkg.types in sys.modules
+        mypkg_types_module = sys.modules.get("mypkg.types")
+        assert mypkg_types_module is not None, (
+            "mypkg.types should be registered in sys.modules"
+        )
+
+        # Verify it's the local module, not stdlib types
+        # Local module has LOCAL_TYPES_VALUE, stdlib types doesn't
+        assert hasattr(mypkg_types_module, "LOCAL_TYPES_VALUE"), (
+            "mypkg.types should be the local module, not stdlib types"
+        )
+        assert expected_value == mypkg_types_module.LOCAL_TYPES_VALUE, (
+            "mypkg.types should have LOCAL_TYPES_VALUE = 42"
+        )
+
+        # Verify we can call the function
+        assert hasattr(mypkg_types_module, "get_value"), (
+            "mypkg.types should have get_value()"
+        )
+        assert mypkg_types_module.get_value() == expected_value
+
+        # Verify stdlib types is NOT used (stdlib types doesn't have these)
+        stdlib_types = sys.modules.get("types")
+        assert stdlib_types is not None, "stdlib types should exist"
+        assert not hasattr(stdlib_types, "LOCAL_TYPES_VALUE"), (
+            "stdlib types should not have LOCAL_TYPES_VALUE"
+        )
+
+        # Verify the module in sys.modules is NOT the same as stdlib types
+        assert mypkg_types_module is not stdlib_types, (
+            "mypkg.types should not be the same object as stdlib types"
         )
 
 
@@ -1770,7 +1873,7 @@ class TestStitchModulesDisplayConfig:
         assert "Custom docstring content" in docstring_content
         assert "with multiple lines" in docstring_content
         # Should not contain auto-generated content
-        assert "This single-file version is auto-generated" not in docstring_content
+        assert "This stitched version is auto-generated" not in docstring_content
 
     def test_neither_provided_defaults_to_package_name(self, tmp_path: Path) -> None:
         """Should use package name when neither field provided."""
@@ -1997,3 +2100,225 @@ class TestRepoField:
 
             content = out_path.read_text()
             assert f"# Repo: {repo_str}" in content
+
+
+class TestTwoPassModuleCollection:
+    """Test two-pass module collection for consistent module name derivation."""
+
+    def test_module_names_derived_consistently_with_package_imports(
+        self, tmp_path: Path
+    ) -> None:
+        """Module names should be derived consistently when package imports exist.
+
+        This test verifies that module names are derived in a two-pass approach:
+        1. First pass: derive all module names from file paths
+        2. Second pass: process files using pre-derived names
+
+        The issue: When files have imports like "from mypkg.core import X",
+        the has_package_imports check happens early, but module names are
+        derived one at a time. Without two-pass collection, the package name
+        prepending logic (which depends on has_package_imports) might be
+        applied inconsistently if it depends on information that's only
+        available after all files are processed.
+
+        This test creates a scenario where:
+        - Files are in a src/ directory (package_root.name != package_name)
+        - Files have imports that reference the package name
+        - Package name prepending should be applied consistently to all files
+        """
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+
+        # Create files with package imports - this triggers has_package_imports
+        # Note: We avoid circular dependencies by having one-way imports
+        (src_dir / "utils.py").write_text(
+            "from mypkg.core import helper\n\nVALUE = 42\n"
+        )
+        (src_dir / "core.py").write_text("def helper():\n    return 'help'\n")
+
+        # Test with different file orders to ensure consistency
+        orders = [
+            ["utils", "core"],  # utils first
+            ["core", "utils"],  # core first
+        ]
+
+        derived_names_per_order: list[list[str]] = []
+
+        for order in orders:
+            file_paths, package_root, file_to_include, config = _setup_stitch_test(
+                src_dir, order, package_name="mypkg"
+            )
+            out_path = tmp_path / f"output_{'_'.join(order)}.py"
+
+            mod_stitch.stitch_modules(
+                config=config,
+                file_paths=file_paths,
+                package_root=package_root,
+                file_to_include=file_to_include,
+                out_path=out_path,
+                is_serger_build=is_serger_build_for_test(out_path),
+            )
+
+            # Extract derived module names from output headers
+            content = out_path.read_text()
+
+            # Module names appear in headers like "# === module.name ==="
+            module_names = re.findall(r"# === ([^=]+) ===", content)
+            # Filter to actual module names (exclude metadata headers)
+            # Module names should be like "mypkg.utils" or "mypkg.core"
+            module_names = [
+                name.strip()
+                for name in module_names
+                if (
+                    name.strip().startswith("mypkg.")
+                    or name.strip() in ["utils", "core"]
+                )
+            ]
+            # Sort for comparison
+            module_names_sorted = sorted(module_names)
+            derived_names_per_order.append(module_names_sorted)
+
+        # All orders should produce the same module names
+        # Without two-pass collection, module names might differ based on order
+        # because package name prepending logic might be applied inconsistently
+        expected_order_count = 2
+        assert len(derived_names_per_order) == expected_order_count, (
+            "Should have two orders"
+        )
+        assert derived_names_per_order[0] == derived_names_per_order[1], (
+            f"Module names should be consistent regardless of order. "
+            f"Order 1 ({orders[0]}): {derived_names_per_order[0]}, "
+            f"Order 2 ({orders[1]}): {derived_names_per_order[1]}. "
+            f"This indicates module names are being derived inconsistently "
+            f"based on processing order, which two-pass collection should fix."
+        )
+
+        # Additionally verify that package name prepending was applied
+        # (module names should start with "mypkg.")
+        min_modules_expected = 2
+        for module_names in derived_names_per_order:
+            assert len(module_names) >= min_modules_expected, (
+                "Should have at least 2 modules"
+            )
+            # All module names should have package prefix when package imports exist
+            prefixed = [name for name in module_names if name.startswith("mypkg.")]
+            assert len(prefixed) == len(module_names), (
+                f"All module names should have package prefix when package "
+                f"imports exist. Found: {module_names}"
+            )
+
+    def test_package_name_prepending_consistent_for_installed_packages(
+        self, tmp_path: Path
+    ) -> None:
+        """Test that package name prepending is applied consistently.
+
+        This test verifies that files get the same package name prepending
+        treatment when they meet the same conditions, regardless of whether
+        they come from installed package locations. The simplified logic
+        should apply consistently based on package structure and imports,
+        not based on whether files come from installed packages.
+
+        The old is_external_package check would skip prepending for files
+        from site-packages/dist-packages even when they should get it based
+        on the same conditions as other files.
+        """
+        # Create a src/ directory structure (package_root.name != package_name)
+        src_dir = tmp_path / "src"
+        src_dir.mkdir()
+
+        # Create files with package imports - this triggers has_package_imports
+        (src_dir / "utils.py").write_text(
+            "from mypkg.core import helper\n\nVALUE = 42\n"
+        )
+        (src_dir / "core.py").write_text("def helper():\n    return 'help'\n")
+
+        # Simulate an installed package file by creating it in a site-packages-like
+        # subdirectory under src/, so package_root is still src/
+        # This tests that files with "site-packages" in their path get the
+        # same treatment as other files when they meet the same conditions
+        site_packages_dir = src_dir / "site-packages" / "externalpkg"
+        site_packages_dir.mkdir(parents=True)
+        (site_packages_dir / "module.py").write_text(
+            "from mypkg.utils import VALUE\n\nOTHER = 100\n"
+        )
+
+        # Build config with all files
+        file_paths = [
+            src_dir / "utils.py",
+            src_dir / "core.py",
+            site_packages_dir / "module.py",
+        ]
+        package_root = mod_build.find_package_root(file_paths)
+
+        # Verify package_root is src/ (not tmp_path)
+        assert package_root.name == "src", (
+            f"package_root should be src/, got: {package_root}"
+        )
+
+        file_to_include: dict[Path, mod_config_types.IncludeResolved] = {}
+        include = make_include_resolved("src/**/*.py", tmp_path)
+        for file_path in file_paths:
+            file_to_include[file_path] = include
+
+        # Collect modules
+        detected_packages, _parent_dirs = apathetic_utils.detect_packages_from_files(
+            file_paths, "mypkg"
+        )
+
+        (
+            module_sources,
+            _all_imports,
+            _parts,
+            derived_names,
+        ) = mod_stitch._collect_modules(  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
+            file_paths,
+            package_root,
+            "mypkg",
+            file_to_include,
+            detected_packages,
+        )
+
+        # Verify all modules were collected
+        expected_module_count = 3
+        assert len(module_sources) == expected_module_count, (
+            f"Should have {expected_module_count} modules"
+        )
+
+        # The key assertion: all modules should get package name prepending
+        # when they have package imports, regardless of whether their path
+        # contains "site-packages". The simplified logic applies the same
+        # conditions to all files.
+        #
+        # With simplified logic: all modules should get "mypkg." prefix because:
+        # - package_root.name ("src") != package_name ("mypkg")
+        # - module_name doesn't start with "mypkg."
+        # - has_package_imports is True (files import from mypkg.*)
+        # - module_name != package_name
+        #
+        # With old is_external_package check: module.py might skip prepending
+        # because the file path contains "site-packages" and the check logic
+        # is complex and error-prone.
+
+        # All module names should have package prefix when package imports exist
+        prefixed = [name for name in derived_names if name.startswith("mypkg.")]
+        assert len(prefixed) == len(derived_names), (
+            f"All module names should have package prefix when package "
+            f"imports exist, regardless of path containing 'site-packages'. "
+            f"Found: {derived_names}, expected all to start with 'mypkg.'"
+        )
+
+        # Specifically verify the file with "site-packages" in path got prepending
+        module_module_name = next(
+            (
+                name
+                for name in derived_names
+                if "module" in name or "site-packages" in name
+            ),
+            None,
+        )
+        assert module_module_name is not None, "Should find module with site-packages"
+        assert module_module_name.startswith("mypkg."), (
+            f"Module with 'site-packages' in path should get package "
+            f"name prepending when it has package imports. "
+            f"Got: {module_module_name}, expected to start with 'mypkg.'"
+        )

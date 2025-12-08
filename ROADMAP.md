@@ -12,17 +12,20 @@
 Some of these we just want to consider, and may not want to implement.
 
 ## 🎯 Core Features
-Major stitching capabilities and enhancements:
 
-## 🧰 CLI Parameters
-Planned command-line flags for future releases:
 
+## 🧰 CLI Commands
+- audit for missing CLI arguments
+- auto merged positionals (removed positional_include)
+- remove positional output
+- parity with zipbundler CLI (when appropriate)
+- soft parity with zipapp CLI (when appropriate, also --compat flag if needed)
 - should we have parity of the CLI with the config file features?
 - `--self-update` — update serger itself
 - `--no-update-check` — skip automatic update check
 
 
-## ⚙️ Config File Enhancements
+## ⚙️ Configuration Features
 
 - Add key to disable update checks directly in config
 - Provide a JSON Schema for validation and autocomplete
@@ -36,11 +39,10 @@ Planned command-line flags for future releases:
 
 
 ## 🧩 Joiner Scripts (Build System)
-Exploring bundling options for generating the single-file release:
 
-- zip file: zipapp / shiv / pyinstaller --onefile
+- zip file: zipapp / zipbundler / pyinstaller --onefile
 
-## 🧪 Tests
+## 🧪 Testing
 - tests now take forever, how can we tackle this? should we only run specific tiers of tests at various points, commit vs push vs ci? should we only run specific tiers when a previous tier fails? is there any plugins for this? do we need to reduce the # of tests, are we overtesting?
 - Organize tests in classes? or separate files?
 - split large test files
@@ -58,12 +60,10 @@ Exploring bundling options for generating the single-file release:
 - add module_downloaded or somesuch
 - should we store source_bases as absolute paths? only shorten for display based on cwd/config_dir?
 - review all details/minimal statements before v1.0
+- **Optional debug tracing system** — Add `safe_trace()` utility in the stitched file shim footer code for detailed module loading, registration, and execution tracing when `SERGER_DEBUG=1` is set. Helps diagnose module conflicts, import issues, and parallel test failures by logging module names, file paths, IDs, and execution flow without impacting performance when disabled.
 
 
-## 🚀 Deployment
-- Deploy action when I tag a release should create a release and attach it to the tagged release.
-
-## 🔌 API
+## 🔌 API Implementation
 
 ## 📚 Documentation
 - Do we want a way to dump the schema for documentation purposes?
@@ -73,10 +73,10 @@ Exploring bundling options for generating the single-file release:
 - API docs
 - review all docs before v1.0
 
+## 🚀 Deployment
+- Deploy action when I tag a release should create a release and attach it to the tagged release.
 
-## 💡 Ideas & Experiments
-Potential quality-of-life features:
-
+## 💡 Future Ideas
 - publish to PyPI, NPM, PACKAGIST, others?
 
 ## Other Tool Ideas
@@ -90,7 +90,7 @@ Potential quality-of-life features:
 - Evaluate ignores and determine if we can fix them instead of ignore them
 
 ### Logging Library
-- we need a way to specify --details, opposite of --quiet, for more INFO messages or less. (maybe a DETAILS and MINIMAL levels above and bellow INFO)
+- we need a way to specify --details, opposite of --quiet, for more INFO messages or less. (maybe a DETAILS and BRIEF levels above and bellow INFO)
 - improve output so we are "quieter" when the user told us something, but make sure to mention when we made an assumption on behalf of the user
 
 ### list-project
@@ -114,5 +114,5 @@ Potential quality-of-life features:
 > ✨ *AI was used to help draft language, formatting, and code — plus we just love em dashes.*
 
 <p align="center">
-  <sub>😐 <a href="https://apathetic-tools.github.io/">Apathetic Tools</a> © <a href="./LICENSE">MIT-aNOAI</a></sub>
+  <sub>😐 <a href="https://apathetic-tools.github.io/">Apathetic Tools</a> © <a href="./LICENSE">MIT-a-NOAI</a></sub>
 </p>

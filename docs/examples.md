@@ -6,7 +6,7 @@ permalink: /examples
 
 # Examples
 
-Real-world examples of using Serger to stitch Python modules into single-file executables.
+Real-world examples of using Serger to stitch Python modules into stitched executables.
 
 ## Basic Example
 
@@ -62,7 +62,7 @@ if __name__ == "__main__":
 python3 serger.py
 ```
 
-This creates `dist/mypkg.py` — a single-file executable.
+This creates `dist/mypkg.py` — a stitched executable.
 
 ## Excluding Test Files
 
@@ -139,7 +139,7 @@ Serger uses itself to build itself! Here's its configuration:
   "display_name": "Serger",
   "description": "Stitch your module into a single file.",
   "repo": "https://github.com/apathetic-tools/serger",
-  "license": "License: MIT-aNOAI\nFull text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",
+  "license": "License: MIT-a-NOAI\nFull text: https://github.com/apathetic-tools/serger/blob/main/LICENSE",
   "include": [
     "src/serger/**/*.py",
     "apathetic_logging/**/*.py",  // Include installed apathetic-logging package
@@ -254,7 +254,7 @@ if __name__ == "__main__":
 }
 ```
 
-This generates a single-file script with a header containing metadata.
+This generates a stitched script with a header containing metadata.
 
 ## License Configuration Examples
 

@@ -10,10 +10,10 @@ errors.
 import sys
 from pathlib import Path
 
+import apathetic_utils
 import pytest
 
 import serger.meta as mod_meta
-from tests.utils import run_with_output
 
 
 @pytest.fixture
@@ -63,7 +63,7 @@ CONSTANT_A = "module_a_value"
 from .module_b import ClassB
 
 # Try to use ClassB immediately (will fail if module_b hasn't been defined yet)
-if globals().get("__STANDALONE__"):
+if globals().get("__STITCHED__"):
     # In stitched mode, ClassB should already be in globals
     # If __init__.py runs before module_b, this will raise KeyError
     _class_b = globals()["ClassB"]
@@ -110,7 +110,7 @@ def test_init_ordering_stitched_file_compiles(
 ) -> None:
     """Test that stitched file compiles without syntax errors."""
     # Run serger
-    result = run_with_output(
+    result = apathetic_utils.run_with_output(
         [sys.executable, "-m", mod_meta.PROGRAM_PACKAGE],
         cwd=tmp_path,
         check=False,
@@ -128,7 +128,7 @@ def test_init_ordering_stitched_file_compiles(
     assert output_file.exists(), f"Output file not created: {output_file}"
 
     # Try to compile the stitched file
-    result = run_with_output(
+    result = apathetic_utils.run_with_output(
         [sys.executable, "-m", "py_compile", str(output_file)],
         check=False,
     )
@@ -144,7 +144,7 @@ def test_init_ordering_module_order_correct(
 ) -> None:
     """Test that module_b appears before __init__.py in stitched output."""
     # Run serger
-    result = run_with_output(
+    result = apathetic_utils.run_with_output(
         [sys.executable, "-m", mod_meta.PROGRAM_PACKAGE],
         cwd=tmp_path,
         check=False,
@@ -185,7 +185,7 @@ def test_init_ordering_runtime_works(
 ) -> None:
     """Test that the stitched file can be imported and used without errors."""
     # Run serger
-    result = run_with_output(
+    result = apathetic_utils.run_with_output(
         [sys.executable, "-m", mod_meta.PROGRAM_PACKAGE],
         cwd=tmp_path,
         check=False,
@@ -218,7 +218,7 @@ print("✓ Import and usage successful")
     )
 
     # Run the test script
-    result = run_with_output(
+    result = apathetic_utils.run_with_output(
         [sys.executable, str(test_script)],
         cwd=tmp_path,
         check=False,
@@ -237,11 +237,11 @@ def test_init_ordering_with_standalone_marker(
 ) -> None:
     """Test that __init__.py can detect stitched mode and handle it correctly.
 
-    This test verifies that when __init__.py checks for __STANDALONE__,
+    This test verifies that when __init__.py checks for __STITCHED__,
     it can access globals()["ClassB"] without KeyError.
     """
     # Run serger
-    result = run_with_output(
+    result = apathetic_utils.run_with_output(
         [sys.executable, "-m", mod_meta.PROGRAM_PACKAGE],
         cwd=tmp_path,
         check=False,
@@ -249,20 +249,20 @@ def test_init_ordering_with_standalone_marker(
 
     assert result.returncode == 0, f"Serger failed: {result.stderr}"
 
-    # Read the stitched file to verify __STANDALONE__ is set
+    # Read the stitched file to verify __STITCHED__ is set
     pkg_name = test_package_structure.name
     output_file = tmp_path / "dist" / f"{pkg_name}.py"
     content = output_file.read_text()
 
-    assert "__STANDALONE__" in content, (
-        "__STANDALONE__ marker should be set in stitched file"
+    assert "__STITCHED__" in content, (
+        "__STITCHED__ marker should be set in stitched file"
     )
 
     # Verify the conditional logic in __init__.py is preserved
     assert (
-        'if globals().get("__STANDALONE__")' in content
-        or "if globals().get('__STANDALONE__')" in content
-    ), "Conditional check for __STANDALONE__ should be in stitched file"
+        'if globals().get("__STITCHED__")' in content
+        or "if globals().get('__STITCHED__')" in content
+    ), "Conditional check for __STITCHED__ should be in stitched file"
 
     # Try to import - this will fail if ClassB isn't in globals when __init__ runs
     test_script = tmp_path / "test_standalone.py"
@@ -287,7 +287,7 @@ except Exception as e:
 """
     )
 
-    result = run_with_output(
+    result = apathetic_utils.run_with_output(
         [sys.executable, str(test_script)],
         cwd=tmp_path,
         check=False,
@@ -295,7 +295,7 @@ except Exception as e:
 
     if result.returncode != 0:
         pytest.fail(
-            f"Standalone mode test failed:\n"
+            f"Stitched mode test failed:\n"
             f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
         )
 
@@ -338,7 +338,7 @@ class apathetic_logging:  # noqa: N801
 from .namespace import apathetic_logging as _apathetic_logging_ns
 
 # In stitched mode, try to access from globals (will fail if namespace.py hasn't run)
-if globals().get("__STANDALONE__"):
+if globals().get("__STITCHED__"):
     _apathetic_logging_ns = globals()["apathetic_logging"]
 else:
     pass  # Import already happened above
@@ -368,7 +368,7 @@ EXPORTED_VALUE = _apathetic_logging_ns.get_value()
     config_file.write_text(config_content)
 
     # Run serger
-    result = run_with_output(
+    result = apathetic_utils.run_with_output(
         [sys.executable, "-m", mod_meta.PROGRAM_PACKAGE],
         cwd=tmp_path,
         check=False,
@@ -419,7 +419,7 @@ except KeyError as e:
 """
     )
 
-    result = run_with_output(
+    result = apathetic_utils.run_with_output(
         [sys.executable, str(test_script)],
         cwd=tmp_path,
         check=False,

@@ -216,7 +216,7 @@ class TestBuildFinalScriptMetadata:
         assert "__AUTHORS__" not in result
 
     def test_embeds_standalone_flag(self) -> None:
-        """Should embed __STANDALONE__ = True flag."""
+        """Should embed __STITCHED__ = True flag."""
         all_imports: OrderedDict[str, None] = OrderedDict()
         all_imports["import sys\n"] = None
 
@@ -236,7 +236,7 @@ class TestBuildFinalScriptMetadata:
             build_date="2025-01-01",
         )
 
-        assert "__STANDALONE__ = True" in result
+        assert "__STITCHED__ = True" in result
 
 
 class TestBuildFinalScriptImports:
@@ -322,7 +322,7 @@ class TestBuildFinalScriptShims:
             build_date="2025-01-01",
         )
 
-        assert "# --- import shims for single-file runtime ---" in result
+        assert "# --- import shims for stitched runtime ---" in result
 
     def test_shim_includes_public_modules(self) -> None:
         """Should create shims for public modules."""
@@ -614,7 +614,7 @@ class TestBuildFinalScriptDocstring:
         assert "Custom docstring" in docstring_content
         assert "with multiple lines" in docstring_content
         # Should not contain auto-generated content
-        assert "This single-file version is auto-generated" not in docstring_content
+        assert "This stitched version is auto-generated" not in docstring_content
 
 
 class TestBuildFinalScriptMainShim:

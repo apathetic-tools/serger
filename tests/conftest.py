@@ -3,19 +3,22 @@
 
 Each pytest run now targets a single runtime mode:
 - Normal mode (default): uses src/serger
-- Standalone mode: uses dist/serger.py when RUNTIME_MODE=singlefile
+- Stitched mode: uses dist/serger.py when RUNTIME_MODE=stitched
 - Zipapp mode: uses dist/serger.pyz when RUNTIME_MODE=zipapp
 
-Switch mode with: RUNTIME_MODE=singlefile pytest or RUNTIME_MODE=zipapp pytest
+Switch mode with: RUNTIME_MODE=stitched pytest or RUNTIME_MODE=zipapp pytest
 """
 
 import os
 from collections.abc import Generator
 
 import pytest
+from apathetic_logging import makeSafeTrace
+from apathetic_utils import runtime_swap
 
 import serger.logs as mod_logs
-from tests.utils import make_test_trace, runtime_swap
+import serger.meta as mod_meta
+from tests.utils import DEFAULT_TEST_LOG_LEVEL, PROJ_ROOT
 from tests.utils.log_fixtures import (
     direct_logger,
     module_logger,
@@ -28,10 +31,16 @@ __all__ = [
     "module_logger",
 ]
 
-TEST_TRACE = make_test_trace("⚡️")
+SAFE_TRACE = makeSafeTrace("⚡️")
 
-# early jank hook
-runtime_swap()
+# early jank hook - must run before importing apathetic_logging
+# so we get the stitched version if in stitched/zipapp mode
+runtime_swap(  # pyright: ignore[reportCallIssue]
+    root=PROJ_ROOT,
+    package_name=mod_meta.PROGRAM_PACKAGE,
+    script_name=mod_meta.PROGRAM_SCRIPT,
+    log_level="warning",
+)
 
 # ----------------------------------------------------------------------
 # Fixtures
@@ -40,19 +49,24 @@ runtime_swap()
 
 @pytest.fixture(autouse=True)
 def reset_logger_level() -> Generator[None, None, None]:
-    """Reset logger level to default (INFO) before each test for isolation.
+    """Reset logger level to DEFAULT_TEST_LOG_LEVEL (test)
+        before each test for isolation.
 
-    In singlefile mode, the logger is a module-level singleton that persists
-    between tests. This fixture ensures the logger level is reset to INFO
-    (the default) before each test, preventing test interference.
+    In stitched mode, the logger is a module-level singleton that persists
+    between tests. This fixture ensures the logger level is reset to TEST
+    (the default for tests) before and after each test, preventing test
+    interference from previous tests.
+
+    Note: When module_logger fixture is used, it temporarily replaces the
+    logger with an isolated instance and fully restores the original afterward,
+    so this fixture always resets the original logger (never the test logger).
     """
-    # Get the app logger and reset to default level
+    # Get the app logger and reset to TEST level for maximum test verbosity
     logger = mod_logs.getAppLogger()
-    # Reset to INFO (default) - this ensures tests start with a known state
-    logger.setLevel("info")
+    logger.setLevel(DEFAULT_TEST_LOG_LEVEL)  # test
     yield
     # After test, reset again to ensure clean state for next test
-    logger.setLevel("info")
+    logger.setLevel(DEFAULT_TEST_LOG_LEVEL)  # test
 
 
 # ----------------------------------------------------------------------
@@ -61,7 +75,7 @@ def reset_logger_level() -> Generator[None, None, None]:
 
 
 def _mode() -> str:
-    return os.getenv("RUNTIME_MODE", "installed")
+    return os.getenv("RUNTIME_MODE", "package")
 
 
 def _filter_debug_tests(
@@ -147,7 +161,7 @@ def pytest_collection_modifyitems(
 def pytest_unconfigure(config: pytest.Config) -> None:
     """Print summary of included runtime-specific tests at the end."""
     included_map: dict[str, int] = getattr(config, "_included_map", {})
-    mode = getattr(config, "_runtime_mode", "installed")
+    mode = getattr(config, "_runtime_mode", "package")
 
     if not included_map:
         return

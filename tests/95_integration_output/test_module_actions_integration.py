@@ -1438,7 +1438,7 @@ def test_shim_all_generates_shims_for_all_modules(tmp_path: Path) -> None:
 
     content = out_file.read_text()
     # Should have shim code
-    assert "# --- import shims for single-file runtime ---" in content
+    assert "# --- import shims for stitched runtime ---" in content
     normalized = content.replace("'", '"')
     # Should have shims for all modules
     assert '"mypkg.pkg1.module"' in normalized or '"pkg1.module"' in normalized
@@ -1467,7 +1467,7 @@ def test_shim_none_generates_no_shims(tmp_path: Path) -> None:
 
     content = out_file.read_text()
     # Should not have shim code
-    assert "# --- import shims for single-file runtime ---" not in content
+    assert "# --- import shims for stitched runtime ---" not in content
     assert "_create_pkg_module" not in content
 
 
@@ -1497,7 +1497,7 @@ def test_shim_all_with_module_actions(tmp_path: Path) -> None:
 
     content = out_file.read_text()
     # Should have shim code
-    assert "# --- import shims for single-file runtime ---" in content
+    assert "# --- import shims for stitched runtime ---" in content
     normalized = content.replace("'", '"')
     # Should have shims for transformed modules
     assert '"mypkg.newpkg.module"' in normalized or '"newpkg.module"' in normalized
@@ -1531,7 +1531,7 @@ def test_shim_none_with_module_actions(tmp_path: Path) -> None:
 
     content = out_file.read_text()
     # Should not have shim code
-    assert "# --- import shims for single-file runtime ---" not in content
+    assert "# --- import shims for stitched runtime ---" not in content
     # But module code should still be present
     assert "def func()" in content
 

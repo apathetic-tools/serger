@@ -13,7 +13,7 @@ class TestModuleModeNone:
         """Should not generate any shim code."""
         result, _ = call_build_final_script(tmp_path=tmp_path, module_mode="none")
 
-        assert "# --- import shims for single-file runtime ---" not in result
+        assert "# --- import shims for stitched runtime ---" not in result
         assert "_create_pkg_module" not in result
         assert "_setup_pkg_modules" not in result
         assert "sys.modules" not in result or "import sys" in result
@@ -32,7 +32,7 @@ class TestModuleModeMulti:
             module_mode="multi",
         )
 
-        assert "# --- import shims for single-file runtime ---" in result
+        assert "# --- import shims for stitched runtime ---" in result
         normalized = result.replace("'", '"')
         # Both packages should have shims
         assert '"pkg1.module1"' in normalized
@@ -48,7 +48,7 @@ class TestModuleModeMulti:
             module_mode="multi",
         )
 
-        assert "# --- import shims for single-file runtime ---" in result
+        assert "# --- import shims for stitched runtime ---" in result
         normalized = result.replace("'", '"')
         assert '"mypkg.utils"' in normalized
         assert '"mypkg.core"' in normalized
@@ -67,7 +67,7 @@ class TestModuleModeForce:
             module_mode="force",
         )
 
-        assert "# --- import shims for single-file runtime ---" in result
+        assert "# --- import shims for stitched runtime ---" in result
         normalized = result.replace("'", '"')
         # Both should become mypkg.sub.module1 and mypkg.sub.module2
         assert '"mypkg.sub.module1"' in normalized
@@ -101,7 +101,7 @@ class TestModuleModeForceFlat:
             module_mode="force_flat",
         )
 
-        assert "# --- import shims for single-file runtime ---" in result
+        assert "# --- import shims for stitched runtime ---" in result
         normalized = result.replace("'", '"')
         # All should become direct children: mypkg.module1, mypkg.module2, mypkg.loose
         assert '"mypkg.module1"' in normalized

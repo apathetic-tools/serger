@@ -1,20 +1,41 @@
-# tests/95_integration_output/test_installed_package_stitching.py
-"""Integration tests for stitching installed packages.
+# tests/95_integration_output/test_stitching_installed.py
+"""Integration tests for stitching packages from installed locations.
 
-Tests that serger can stitch installed packages into the output and that
-the stitched code works correctly.
+Tests that serger can stitch packages from installed locations (site-packages)
+into the output and that the stitched code works correctly.
 """
 
 import importlib.util
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
+import pytest
+
 import serger.build as mod_build
-from tests.utils.buildconfig import make_build_cfg, make_include_resolved, make_resolved
+from tests.utils import (
+    cleanup_sys_modules,
+    make_build_cfg,
+    make_include_resolved,
+    make_resolved,
+)
 
 
-def test_stitch_installed_package_basic(tmp_path: Path) -> None:
-    """Test basic stitching of an installed package."""
+@pytest.fixture(autouse=True)
+def _cleanup_testpkg_modules() -> Iterator[None]:  # pyright: ignore[reportUnusedFunction]
+    """Auto-cleanup testpkg modules between tests to avoid pollution.
+
+    This fixture automatically runs before and after each test to clean up
+    any testpkg or app modules from sys.modules, preventing module caching
+    issues when tests load stitched modules with the same package names.
+    """
+    cleanup_sys_modules("testpkg", "app")
+    yield
+    cleanup_sys_modules("testpkg", "app")
+
+
+def test_stitch_package_basic(tmp_path: Path) -> None:
+    """Test basic stitching of a package from installed location."""
     # --- Setup: Create installed package ---
     installed_dir = tmp_path / "site-packages"
     installed_dir.mkdir()
@@ -83,10 +104,8 @@ def test_stitch_installed_package_basic(tmp_path: Path) -> None:
     assert spec is not None
     assert spec.loader is not None
 
-    # Clear any existing modules
-    for name in list(sys.modules.keys()):
-        if name.startswith("testpkg"):
-            del sys.modules[name]
+    # Clear cached modules before loading this test's stitched module
+    cleanup_sys_modules("testpkg")
 
     # Load the stitched module
     stitched_mod = importlib.util.module_from_spec(spec)
@@ -117,8 +136,8 @@ def test_stitch_installed_package_basic(tmp_path: Path) -> None:
     assert hello() == "Hello from testpkg"  # pyright: ignore[reportUnknownVariableType]
 
 
-def test_stitch_installed_package_with_source_package(tmp_path: Path) -> None:
-    """Test stitching installed package alongside source package."""
+def test_stitch_package_with_source_package(tmp_path: Path) -> None:
+    """Test stitching package from installed location alongside source package."""
     # --- Setup: Create source package ---
     src_dir = tmp_path / "src"
     src_dir.mkdir()
@@ -198,10 +217,8 @@ def main():
     assert spec is not None
     assert spec.loader is not None
 
-    # Clear any existing modules
-    for name in list(sys.modules.keys()):
-        if name.startswith(("testpkg", "app")):
-            del sys.modules[name]
+    # Clear cached modules before loading this test's stitched module
+    cleanup_sys_modules("testpkg", "app")
 
     # Load the stitched module
     stitched_mod = importlib.util.module_from_spec(spec)
@@ -222,8 +239,8 @@ def main():
         assert result == "Hello from testpkg"
 
 
-def test_stitch_installed_package_with_exclude(tmp_path: Path) -> None:
-    """Test stitching installed package with exclude patterns."""
+def test_stitch_package_with_exclude(tmp_path: Path) -> None:
+    """Test stitching package from installed location with exclude patterns."""
     # --- Setup: Create installed package ---
     installed_dir = tmp_path / "site-packages"
     installed_dir.mkdir()
@@ -280,8 +297,8 @@ def test_stitch_installed_package_with_exclude(tmp_path: Path) -> None:
     assert '"""Test utils - should be excluded."""' not in content
 
 
-def test_stitch_installed_package_subpackage(tmp_path: Path) -> None:
-    """Test stitching installed package with subpackages."""
+def test_stitch_package_subpackage(tmp_path: Path) -> None:
+    """Test stitching package from installed location with subpackages."""
     # --- Setup: Create installed package with subpackage ---
     installed_dir = tmp_path / "site-packages"
     installed_dir.mkdir()
@@ -356,10 +373,8 @@ def test_stitch_installed_package_subpackage(tmp_path: Path) -> None:
     assert spec is not None
     assert spec.loader is not None
 
-    # Clear any existing modules
-    for name in list(sys.modules.keys()):
-        if name.startswith("testpkg"):
-            del sys.modules[name]
+    # Clear cached modules before loading this test's stitched module
+    cleanup_sys_modules("testpkg")
 
     # Load the stitched module
     stitched_mod = importlib.util.module_from_spec(spec)
@@ -387,11 +402,10 @@ def test_stitch_installed_package_subpackage(tmp_path: Path) -> None:
     assert helper() == "Helper"  # pyright: ignore[reportUnknownVariableType]
 
 
-def test_stitch_installed_package_priority_source_over_installed(
+def _setup_source_and_installed_packages(
     tmp_path: Path,
-) -> None:
-    """Test that source packages take priority over installed packages."""
-    # --- Setup: Create source package ---
+) -> tuple[Path, Path]:
+    """Set up source and installed packages with same name."""
     src_dir = tmp_path / "src"
     src_dir.mkdir()
     pkg_dir = src_dir / "testpkg"
@@ -400,8 +414,6 @@ def test_stitch_installed_package_priority_source_over_installed(
     (pkg_dir / "module.py").write_text(
         '"""Source module."""\n\ndef hello():\n    return "Hello from source"\n'
     )
-
-    # --- Setup: Create installed package with same name ---
     installed_dir = tmp_path / "site-packages"
     installed_dir.mkdir()
     installed_pkg_dir = installed_dir / "testpkg"
@@ -410,62 +422,38 @@ def test_stitch_installed_package_priority_source_over_installed(
     (installed_pkg_dir / "module.py").write_text(
         '"""Installed module."""\n\ndef hello():\n    return "Hello from installed"\n'
     )
+    return src_dir, installed_dir
 
-    # --- Create build config ---
-    out_file = tmp_path / "stitched.py"
-    includes = [
-        make_include_resolved("testpkg/**/*.py", src_dir),
-    ]
 
-    build_cfg = make_build_cfg(
-        tmp_path,
-        includes,
-        respect_gitignore=False,
-        out=make_resolved("stitched.py", tmp_path),
-        package="app",
-        source_bases=[str(src_dir)],
-        installed_bases=[str(installed_dir)],
-        # No explicit order - let it auto-discover
+def _verify_source_priority_content(content: str) -> None:
+    """Verify that source package is included and installed is not."""
+    assert '"""Source package."""' in content, "Source package __init__ not found"
+    assert '"""Source module."""' in content, "Source module not found"
+    assert 'return "Hello from source"' in content, "Source module code not found"
+    assert '"""Installed package."""' not in content, (
+        "Installed package should not be included"
+    )
+    assert '"""Installed module."""' not in content, (
+        "Installed module should not be included"
+    )
+    assert 'return "Hello from installed"' not in content, (
+        "Installed code should not be included"
     )
 
-    # --- Execute stitch ---
-    mod_build.run_build(build_cfg)
 
-    # --- Verify output file exists ---
-    assert out_file.exists(), "Stitched file should be created"
-
-    content = out_file.read_text()
-
-    # --- Verify source package is included (not installed) ---
-    has_source_init = '"""Source package."""' in content
-    has_source_module = '"""Source module."""' in content
-    has_source_code = 'return "Hello from source"' in content
-    assert has_source_init, "Source package __init__ not found"
-    assert has_source_module, "Source module not found"
-    assert has_source_code, "Source module code not found"
-
-    # --- Verify installed package is NOT included ---
-    assert '"""Installed package."""' not in content
-    assert '"""Installed module."""' not in content
-    assert 'return "Hello from installed"' not in content
-
-    # --- Verify imports work correctly ---
-    spec = importlib.util.spec_from_file_location("stitched_test4", out_file)
+def _load_and_verify_stitched_module(out_file: Path, tmp_path: Path) -> None:
+    """Load stitched module and verify it returns source version."""
+    unique_module_name = f"stitched_test_priority_{tmp_path.name}"
+    spec = importlib.util.spec_from_file_location(unique_module_name, out_file)
     assert spec is not None
     assert spec.loader is not None
 
-    # Clear any existing modules
-    for name in list(sys.modules.keys()):
-        if name.startswith("testpkg"):
-            del sys.modules[name]
-
-    # Load the stitched module
+    # Clean up old testpkg modules but keep ones from current stitched file
+    cleanup_sys_modules("testpkg", "app.testpkg", exclude_file=out_file)
     stitched_mod = importlib.util.module_from_spec(spec)
-    sys.modules["stitched_test4"] = stitched_mod
+    sys.modules[unique_module_name] = stitched_mod
     spec.loader.exec_module(stitched_mod)
 
-    # --- Verify we get source version ---
-    # Try both module name formats
     try:
         from testpkg.module import (  # noqa: PLC0415  # pyright: ignore[reportMissingImports]
             hello,  # pyright: ignore[reportUnknownVariableType]
@@ -474,5 +462,29 @@ def test_stitch_installed_package_priority_source_over_installed(
         from app.testpkg.module import (  # noqa: PLC0415  # pyright: ignore[reportMissingImports]
             hello,  # pyright: ignore[reportUnknownVariableType]
         )
-
     assert hello() == "Hello from source"  # pyright: ignore[reportUnknownVariableType]
+
+
+def test_stitch_package_priority_source_over_installed(
+    tmp_path: Path,
+) -> None:
+    """Test that source packages take priority over packages from installed locations.
+
+    When both source and installed packages exist, source should be used.
+    """
+    src_dir, installed_dir = _setup_source_and_installed_packages(tmp_path)
+    out_file = tmp_path / "stitched.py"
+    includes = [make_include_resolved("testpkg/**/*.py", src_dir)]
+    build_cfg = make_build_cfg(
+        tmp_path,
+        includes,
+        respect_gitignore=False,
+        out=make_resolved("stitched.py", tmp_path),
+        package="app",
+        source_bases=[str(src_dir)],
+        installed_bases=[str(installed_dir)],
+    )
+    mod_build.run_build(build_cfg)
+    assert out_file.exists(), "Stitched file should be created"
+    _verify_source_priority_content(out_file.read_text())
+    _load_and_verify_stitched_module(out_file, tmp_path)

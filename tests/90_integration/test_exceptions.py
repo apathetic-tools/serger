@@ -30,7 +30,7 @@ def test_main_handles_controlled_exception(
         "_setup_parser",
         fake_parser,
         package_prefix=mod_meta.PROGRAM_PACKAGE,
-        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
     )
     code = mod_cli.main([])
 
@@ -59,7 +59,7 @@ def test_main_handles_unexpected_exception(
         "_setup_parser",
         fake_parser,
         package_prefix=mod_meta.PROGRAM_PACKAGE,
-        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
     )
     code = mod_cli.main([])
 
@@ -97,7 +97,7 @@ def test_main_fallbacks_to_safe_log(
         "_setup_parser",
         fake_parser,
         package_prefix=mod_meta.PROGRAM_PACKAGE,
-        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
     )
     mod_utils.patch_everywhere(
         monkeypatch,
@@ -105,7 +105,7 @@ def test_main_fallbacks_to_safe_log(
         "safeLog",
         fake_safe_log,
         package_prefix=mod_meta.PROGRAM_PACKAGE,
-        stitch_hints={"/dist/", "standalone", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
+        stitch_hints={"/dist/", "stitched", f"{mod_meta.PROGRAM_SCRIPT}.py", ".pyz"},
     )
 
     # Backup logger state

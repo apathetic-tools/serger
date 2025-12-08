@@ -63,7 +63,7 @@ def test_shorten_path_for_display_picks_shortest(tmp_path: Path) -> None:
 
 
 def test_shorten_path_for_display_falls_back_to_absolute(tmp_path: Path) -> None:
-    """Test that absolute path is used when path is not under cwd or config_dir."""
+    """Test that relative path from common prefix is used when paths share prefix."""
     test_path = tmp_path / "outside" / "path.py"
     test_path.parent.mkdir(parents=True)
     test_path.write_text("")
@@ -74,7 +74,8 @@ def test_shorten_path_for_display_falls_back_to_absolute(tmp_path: Path) -> None
     result = mod_utils.shorten_path_for_display(
         str(test_path.resolve()), config_dir=config_dir
     )
-    assert result == str(test_path.resolve())
+    # shorten_path finds common prefix (tmp_path) and returns relative from there
+    assert result == "outside/path.py"
 
 
 def test_shorten_path_for_display_with_path_object(tmp_path: Path) -> None:
@@ -331,7 +332,7 @@ def test_shorten_path_for_display_pathresolved_absolute_in_path_field(
 def test_shorten_path_for_display_regular_path_not_relative_to_cwd(
     tmp_path: Path,
 ) -> None:
-    """Test that regular path not relative to cwd falls back to absolute."""
+    """Test that regular path not relative to cwd uses common prefix."""
     cwd = tmp_path / "cwd"
     cwd.mkdir()
     config_dir = tmp_path / "config"
@@ -340,12 +341,12 @@ def test_shorten_path_for_display_regular_path_not_relative_to_cwd(
     outside_path.parent.mkdir(parents=True)
     outside_path.write_text("")
 
-    # Path not under cwd or config_dir
+    # Path not under cwd or config_dir, but shares common prefix (tmp_path)
     result = mod_utils.shorten_path_for_display(
         outside_path, cwd=cwd, config_dir=config_dir
     )
-    # Should return absolute path
-    assert result == str(outside_path.resolve())
+    # shorten_path finds common prefix (tmp_path) and returns relative from there
+    assert result == "outside/file.py"
 
 
 def test_shorten_paths_for_display_empty_list(tmp_path: Path) -> None:

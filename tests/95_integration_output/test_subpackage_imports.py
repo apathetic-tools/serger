@@ -1,7 +1,7 @@
 # tests/95_integration_output/test_subpackage_imports.py
-"""Integration tests for subpackage imports in stitched singlefile.
+"""Integration tests for subpackage imports in stitched output.
 
-Tests that verify subpackages work correctly in the stitched singlefile output,
+Tests that verify subpackages work correctly in the stitched output,
 including:
 - Package imports (import serger.utils, apathetic_utils)
 - Submodule imports (import serger.utils.utils_modules, apathetic_utils.text)
@@ -22,12 +22,12 @@ import serger.config.config_loader as mod_config_loader
 import serger.config.config_resolve as mod_config_resolve
 
 
-# --- only for singlefile runs ---
-__runtime_mode__ = "singlefile"
+# --- only for stitched runs ---
+__runtime_mode__ = "stitched"
 
 
 def test_serger_utils_subpackage_imports() -> None:
-    """Verify subpackages work correctly in singlefile mode.
+    """Verify subpackages work correctly in stitched mode.
 
     This test verifies the fix for the original issue where subpackages
     were not being recognized, causing ModuleNotFoundError.

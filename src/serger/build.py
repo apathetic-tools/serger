@@ -504,7 +504,7 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
     )
     logger = getAppLogger()
     dry_run = build_cfg.get("dry_run", DEFAULT_DRY_RUN)
-    validate_config = build_cfg.get("validate_config", False)
+    validate = build_cfg.get("validate", False)
 
     # Extract stitching fields from config
     package = build_cfg.get("package")
@@ -571,7 +571,7 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
 
     # --- Validate-config exit point ---
     # Exit after file collection but before expensive stitching work
-    if validate_config:
+    if validate:
         # Build summary (accounting for output already shown)
         summary_parts: list[str] = []
         if included_files:
@@ -958,7 +958,7 @@ def run_build(  # noqa: C901, PLR0915, PLR0912
             post_processing=post_processing,
             is_serger_build=is_serger_build_result,
         )
-        logger.minimal("✅ Stitch completed → %s\n", out_display)
+        logger.brief("✅ Stitch completed → %s\n", out_display)
     except RuntimeError as e:
         xmsg = f"Stitch build failed: {e}"
         raise RuntimeError(xmsg) from e

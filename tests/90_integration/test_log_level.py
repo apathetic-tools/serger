@@ -26,7 +26,10 @@ def test_quiet_flag(
     capsys: pytest.CaptureFixture[str],
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Should suppress most output but still succeed."""
+    """Should suppress most output but still succeed.
+
+    --quiet sets log level to warning.
+    """
     # --- setup ---
     pkg_dir = tmp_path / "mypkg"
     make_test_package(pkg_dir)
@@ -41,8 +44,7 @@ def test_quiet_flag(
 
     # --- patch and execute ---
     monkeypatch.chdir(tmp_path)
-    # Set log level to info so capsys can capture (quiet sets to warning)
-    with module_logger.useLevel("info"):
+    with module_logger.useLevel("trace"):
         code = mod_cli.main(["--quiet"])
 
     # --- verify ---
@@ -61,7 +63,10 @@ def test_verbose_flag(
     capsys: pytest.CaptureFixture[str],
     module_logger: mod_logs.AppLogger,
 ) -> None:
-    """Should print detailed file-level logs when --verbose is used."""
+    """Should print detailed file-level logs when --verbose is used.
+
+    --verbose sets log level to debug.
+    """
     # --- setup ---
     pkg_dir = tmp_path / "mypkg"
     make_test_package(pkg_dir)
@@ -76,8 +81,8 @@ def test_verbose_flag(
 
     # --- patch and execute ---
     monkeypatch.chdir(tmp_path)
-    # Set log level to debug so capsys can capture
-    with module_logger.useLevel("debug"):
+    # Set log level to trace so main can set to debub through --verbose
+    with module_logger.useLevel("trace"):
         code = mod_cli.main(["--verbose"])
 
     # --- verify ---
@@ -89,14 +94,11 @@ def test_verbose_flag(
     assert (tmp_path / "dist" / "mypkg.py").exists()
     # Verbose mode should show debug-level details
     assert "[debug" in out
+    # but not trace-level details
+    assert "[trace" not in out
     # It should still include summary
     assert "stitch completed" in out
     assert "✅ stitch completed" in out
-
-    # Check logger level inside the context (before it's restored)
-    # Note: After context exits, logger level is restored, so we check
-    # that the CLI flag was processed correctly by verifying debug output
-    # was captured, rather than checking the logger level after context exit
 
 
 def test_verbose_and_quiet_mutually_exclusive(
@@ -290,7 +292,7 @@ def test_log_level_test_bypasses_capture(
     # Check bypass buffer - TRACE/DEBUG messages SHOULD be written here
     bypass_output = bypass_buf.getvalue().lower()
 
-    # In singlefile mode, TRACE/DEBUG messages may still be captured by capsys
+    # In stitched mode, TRACE/DEBUG messages may still be captured by capsys
     # due to how the stitched module handles logging. The important thing is that
     # they appear somewhere (either in bypass buffer or capsys) when LOG_LEVEL=test.
     # Verify that TRACE/DEBUG messages appear in either location
@@ -300,15 +302,15 @@ def test_log_level_test_bypasses_capture(
     debug_in_capsys = "[debug" in err or "[debug" in out
 
     # TRACE/DEBUG messages should appear in at least one location
-    # In singlefile mode, the bypass mechanism may work differently, so we
+    # In stitched mode, the bypass mechanism may work differently, so we
     # check that messages appear in either location
     bypass_len = len(bypass_output)
     capsys_err_len = len(err)
     capsys_out_len = len(out)
 
     # If messages appear in capsys, that's acceptable (bypass may not work
-    # in singlefile). The important thing is that LOG_LEVEL=test produces
-    # verbose output. In singlefile mode, the bypass mechanism may not work
+    # in stitched). The important thing is that LOG_LEVEL=test produces
+    # verbose output. In stitched mode, the bypass mechanism may not work
     # as expected, so we check if we have any output indicating the build ran
     has_trace = trace_in_bypass or trace_in_capsys
     has_debug = debug_in_bypass or debug_in_capsys

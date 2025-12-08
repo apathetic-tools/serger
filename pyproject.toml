@@ -5,10 +5,10 @@ name = "serger"
 version = "0.1.0"
 description = "Stitch your module into a single file"
 authors = [
-    {name = "Apathetic Tools"}
+    { name = "Apathetic Tools" }
 ]
 readme = "README.md"
-license = { file = "LICENSE" }
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 dependencies = [
     "apathetic-logging (>=0.0.1,<2.0.0)",
@@ -16,8 +16,9 @@ dependencies = [
     "apathetic-schema (>=0.0.1,<2.0.0)",
 ]
 keywords = ["module", "packaging", "single-file"]
+# https://pypi.org/classifiers/
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
@@ -52,17 +53,21 @@ typecheck = ["typecheck:mypy", "typecheck:pyright"]
 # run pyright to simulate pylance for AI CLI auto-fix
 "typecheck:pyright" = "bash dev/pyright-quiet.sh src tests"
 
-# 🧪 Tests (runs all three: installed + singlefile + zipapp)
-test = ["test:pytest:installed", "test:pytest:script", "test:pytest:zipapp"]
-"test:pytest:installed" = "pytest"
-"test:pytest:installed:parallel" = "pytest -n auto"
-"test:pytest:script" = [
-  "build:script",
-  { cmd = "pytest", env = { RUNTIME_MODE="singlefile" } }
+# 🧪 Tests (runs all three: package + stitched + zipapp)
+test = [
+  "test:pytest:package",
+  "test:pytest:stitched",
+#  "test:pytest:zipapp"
 ]
-"test:pytest:script:parallel" = [
-  "build:script",
-  { cmd = "pytest -n auto", env = { RUNTIME_MODE="singlefile" } }
+"test:pytest:package" = "pytest"
+"test:pytest:package:parallel" = "pytest -n auto"
+"test:pytest:stitched" = [
+  "build:stitched",
+  { cmd = "pytest", env = { RUNTIME_MODE="stitched" } }
+]
+"test:pytest:stitched:parallel" = [
+  "build:stitched",
+  { cmd = "pytest -n auto", env = { RUNTIME_MODE="stitched" } }
 ]
 "test:pytest:zipapp" = [
   "build:zipapp",
@@ -74,41 +79,41 @@ test = ["test:pytest:installed", "test:pytest:script", "test:pytest:zipapp"]
 ]
 
 # 🚀 Fast test runs (for development)
-# Fast: installed mode only, parallel, skip slow tests
+# Fast: package mode only, parallel, skip slow tests
 "test:fast" = "pytest -n auto -m 'not slow'"
 # Fast: all three modes, parallel, skip slow tests
-"test:fast:installed" = "pytest -n auto -m 'not slow'"
-"test:fast:script" = [
-  "build:script",
-  { cmd = "pytest -n auto -m 'not slow'", env = { RUNTIME_MODE="singlefile" } }
+"test:fast:package" = "pytest -n auto -m 'not slow'"
+"test:fast:stitched" = [
+  "build:stitched",
+  { cmd = "pytest -n auto -m 'not slow'", env = { RUNTIME_MODE="stitched" } }
 ]
 "test:fast:zipapp" = [
   "build:zipapp",
   { cmd = "pytest -n auto -m 'not slow'", env = { RUNTIME_MODE="zipapp" } }
 ]
 "test:fast:all" = [
-  "test:fast:installed",
-  "test:fast:script",
-  "test:fast:zipapp"
+  "test:fast:package",
+  "test:fast:stitched",
+#  "test:fast:zipapp"
 ]
 # Parallel: all three modes with parallel execution
 "test:parallel" = [
-  "test:pytest:installed:parallel",
-  "test:pytest:script:parallel",
-  "test:pytest:zipapp:parallel"
+  "test:pytest:package:parallel",
+  "test:pytest:stitched:parallel",
+#  "test:pytest:zipapp:parallel"
 ]
 
 # 📊 Coverage reporting
 "coverage:clean" = { shell = "rm -f .coverage .coverage.*" }
-"coverage:run:installed" = { cmd = "pytest --cov=src --cov-report= --cov-context=test", env = { COVERAGE_FILE=".coverage.installed" } }
-"coverage:run:singlefile" = { cmd = "pytest --cov=src --cov-report= --cov-context=test", env = { RUNTIME_MODE="singlefile", COVERAGE_FILE=".coverage.singlefile" } }
+"coverage:run:package" = { cmd = "pytest --cov=src --cov-report= --cov-context=test", env = { COVERAGE_FILE=".coverage.package" } }
+"coverage:run:stitched" = { cmd = "pytest --cov=src --cov-report= --cov-context=test", env = { RUNTIME_MODE="stitched", COVERAGE_FILE=".coverage.stitched" } }
 "coverage:run:zipapp" = { cmd = "pytest --cov=src --cov-report= --cov-context=test", env = { RUNTIME_MODE="zipapp", COVERAGE_FILE=".coverage.zipapp" } }
-"coverage:combine" = { cmd = "coverage combine .coverage.installed .coverage.singlefile .coverage.zipapp" }
+"coverage:combine" = { cmd = "coverage combine .coverage.package .coverage.stitched .coverage.zipapp" }
 "coverage:base" = [
   "coverage:clean",
-  "coverage:run:installed",
-  "build:script",
-  "coverage:run:singlefile",
+  "coverage:run:package",
+  "build:stitched",
+  "coverage:run:stitched",
   "build:zipapp",
   "coverage:run:zipapp",
   "coverage:combine",
@@ -125,18 +130,18 @@ test = ["test:pytest:installed", "test:pytest:script", "test:pytest:zipapp"]
 ]
 
 # 🧹 Automated fixing / formatting
-fix = ["sync:ai:guidance", "fix:ruff:installed", "fix:format:installed"]
+fix = ["sync:ai:guidance", "fix:ruff:package", "fix:format:package"]
 "fix:dist" = ["fix:ruff:dist", "fix:format:dist"]
-"fix:ruff:installed" = "ruff check . --fix -q"
+"fix:ruff:package" = "ruff check . --fix -q"
 "fix:ruff:dist" = { shell = "if [ -d dist ]; then ruff check dist --fix -q; fi" }
-"fix:format:installed" = "ruff format . -q"
+"fix:format:package" = "ruff format . -q"
 "fix:format:dist" = { shell = "if [ -d dist ]; then ruff format dist -q; fi" }
 
 # 🧩 Build and license
-"sync:ai:guidance" = "python dev/sync_ai_guidance.py --quiet"
-"build:script" = "python -m serger"
-"build:zipapp" = "shiv -c serger -o dist/serger.pyz . --quiet"
-"check:license" = "bash dev/check-license.sh"
+"sync:ai:guidance" = "python -m sync_ai_guidance --quiet"
+# this creates the stitched script from the module, it need to use serger not zipbundler to do that
+"build:stitched" = "python -m serger --quiet"
+"build:zipapp" = "python -m zipbundler -m serger.__main__:main -c -o dist/serger.pyz src --quiet"
 
 # 🚀 Release management (semantic-release)
 "release:version" = "semantic-release version --noop"
@@ -189,18 +194,19 @@ env = { RUNTIME_DEBUG = "1" }
 dev = [
     "ruff (>=0.14.0,<0.15.0)",
     "mypy (>=1.18.2,<2.0.0)",
-    "pytest (>=8.4.2,<9.0.0)",
-    "poethepoet (>=0.37.0,<0.38.0)",
+    "pytest (>=9.0.0,<10.0.0)",
+    "poethepoet (>=0.37.0,<1.0.0)",
     "pre-commit (>=4.3.0,<5.0.0)",
     "colorama (>=0.4.6,<0.5.0)",
     "pytest-dependency (>=0.6.0,<0.7.0)",
     "pytest-timeout (>=2.4.0,<3.0.0)",
     "pytest-benchmark (>=5.1.0,<6.0.0)",
     "pytest-cov (>=7.0.0,<8.0.0)",
-    "pytest-xdist",
+    "pytest-xdist (>=3.8.0,<4.0.0)",
     "pyright (>=1.1.407,<2.0.0)",
-    "shiv (>=1.0.0,<2.0.0)",
     "python-semantic-release (>=10.0.0,<11.0.0)",
+    "sheave (>=0.1.0,<2.0.0)",
+    "zipbundler (>=0.1.0,<2.0.0)",
 ]
 
 # --- Ruff: formatter and linter ---

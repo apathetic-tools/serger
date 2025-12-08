@@ -33,7 +33,7 @@ def test_module_mode_none(tmp_path: Path) -> None:
 
     content = out_file.read_text()
     # Should not have shim code
-    assert "# --- import shims for single-file runtime ---" not in content
+    assert "# --- import shims for stitched runtime ---" not in content
     assert "_create_pkg_module" not in content
 
 
@@ -72,7 +72,7 @@ def test_module_mode_multi(tmp_path: Path) -> None:
     mod_build.run_build(build_cfg)
 
     content = out_file.read_text()
-    assert "# --- import shims for single-file runtime ---" in content
+    assert "# --- import shims for stitched runtime ---" in content
     normalized = content.replace("'", '"')
     assert '"pkg1.mod1"' in normalized
     assert '"pkg2.mod2"' in normalized

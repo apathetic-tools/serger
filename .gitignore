@@ -260,3 +260,9 @@ Desktop.ini
 .plan/
 .plans/
 .claude/settings.local.json
+
+# Jenkyl documentation
+docs/_site/
+
+# winmerge
+*.bak
