@@ -5,25 +5,6 @@
 
   "permissions": {
     "allow": [
-      "Read(bin/serger.py)",
-      "Bash(poetry*)",
-      "Bash(pytest*)",
-      "Bash(mypy*)",
-      "Bash(ruff*)",
-      "Bash(git status*)",
-      "Bash(git diff*)",
-      "Bash(git log*)",
-      "Bash(git show*)",
-      "Bash(git add*)",
-      "Bash(git commit*)",
-      "Bash(git push)",
-      "Bash(git fetch*)",
-      "Bash(git branch*)",
-      "Bash(gh pr view*)",
-      "Bash(gh pr checks*)",
-      "Bash(gh pr comment*)",
-      "Bash(gh run view*)",
-      "Bash(chmod*)"
     ]
   },
 

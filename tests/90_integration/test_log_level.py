@@ -91,18 +91,25 @@ def test_verbose_flag(
     out = (captured.out + captured.err).lower()
 
     assert code == 0
+
     # Verify build succeeded
     assert (tmp_path / "dist" / "mypkg.py").exists()
+
     # Verbose mode should show debug-level details
     assert "[debug" in out
-    # Trace messages from external libraries (like load_jsonc) may appear
-    # even when log level is debug, so we only check that our own trace
-    # messages don't appear. External trace messages are acceptable.
+
     # Verify that serger's own trace messages don't appear at debug level
     # (trace=5 < debug=10, so trace messages should be suppressed)
     assert "[trace] [boot] log-level initialized" not in out
+
+    # Trace messages from external libraries (like load_jsonc) should not appear
+    # even when log level is debug, since they should use our log level.
+    # External trace messages are not acceptable.
+    assert "[trace" not in out
+
     # Note: "stitch completed" uses logger.brief() which should appear
     # at debug level (brief=25 > debug=10, so brief messages are shown)
+
     assert "stitch completed" in out
 
 
@@ -169,8 +176,8 @@ def test_log_level_flag_sets_runtime(
 
     assert code == 0
     assert "stitch completed" in out
-    # Verify that runtime log level is set correctly
-    level = mod_logs.getAppLogger().levelName.lower()
+    # Verify that runtime log level is set correctly (check effective level)
+    level = mod_logs.getAppLogger().getEffectiveLevelName().lower()
     assert level == "debug"
 
 
@@ -199,7 +206,7 @@ def test_log_level_from_env_var(
     code = mod_cli.main([])
 
     assert code == 0
-    level = mod_logs.getAppLogger().levelName.lower()
+    level = mod_logs.getAppLogger().getEffectiveLevelName().lower()
     assert level == "warning"
 
     # 2️⃣ Generic LOG_LEVEL fallback works
@@ -208,7 +215,7 @@ def test_log_level_from_env_var(
     code = mod_cli.main([])
 
     assert code == 0
-    level = mod_logs.getAppLogger().levelName.lower()
+    level = mod_logs.getAppLogger().getEffectiveLevelName().lower()
     assert level == "error"
 
     monkeypatch.delenv("LOG_LEVEL", raising=False)

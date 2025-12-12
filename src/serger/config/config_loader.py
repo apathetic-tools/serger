@@ -7,7 +7,7 @@ import traceback
 from pathlib import Path
 from typing import Any, cast
 
-from apathetic_logging import getLevelNumber
+from apathetic_logging import getLevelNumber, setRootLevel
 from apathetic_utils import (
     cast_hint,
     load_jsonc,
@@ -355,9 +355,10 @@ def load_and_validate_config(
     if isinstance(raw_config, dict):
         raw_log_level = raw_config.get("log_level")
         if isinstance(raw_log_level, str) and raw_log_level:
-            logger.setLevel(
-                logger.determineLogLevel(args=args, root_log_level=raw_log_level)
+            log_level = logger.determineLogLevel(
+                args=args, root_log_level=raw_log_level
             )
+            setRootLevel(log_level)
 
     # --- Parse structure into final form without types ---
     try:

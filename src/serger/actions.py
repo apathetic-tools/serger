@@ -111,7 +111,7 @@ def _get_metadata_from_header(script_path: Path) -> tuple[str, str]:
     version = "unknown"
     commit = "unknown"
 
-    logger.trace("reading commit from header:", script_path)
+    logger.trace("reading commit from header: %s", script_path)
 
     with suppress(Exception):
         text = script_path.read_text(encoding="utf-8")
@@ -143,7 +143,7 @@ def get_metadata() -> Metadata:
     """
     script_path = Path(__file__)
     logger = getAppLogger()
-    logger.trace("get_metadata ran from:", Path(__file__).resolve())
+    logger.trace("get_metadata ran from: %s", Path(__file__).resolve())
 
     # --- Heuristic: stitched script lives outside `src/` ---
     if globals().get("__STITCHED__", False):

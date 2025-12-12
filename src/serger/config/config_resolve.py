@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
+from apathetic_logging import setRootLevel
 from apathetic_utils import cast_hint, has_glob_chars, literal_to_set, load_toml
 
 from serger.constants import (
@@ -2910,7 +2911,7 @@ def resolve_config(
     log_level = logger.determineLogLevel(args=args, root_log_level=root_log)
 
     # --- sync runtime ---
-    logger.setLevel(log_level)
+    setRootLevel(log_level)
 
     # Set log_level in config before resolving (resolve_build_config expects it)
     root_cfg["log_level"] = log_level

@@ -1,13 +1,16 @@
 # src/serger/logs.py
 
-import logging
 from typing import cast
 
 from apathetic_logging import (
+    INHERIT_LEVEL,
     Logger,
+    getLogger,
     registerDefaultLogLevel,
     registerLogger,
     registerLogLevelEnvVars,
+    setLoggerClass,
+    setRootLevel,
 )
 
 from .constants import DEFAULT_ENV_LOG_LEVEL, DEFAULT_LOG_LEVEL
@@ -24,25 +27,35 @@ class AppLogger(Logger):
 
 # Force the logging module to use the Logger class globally.
 # This must happen *before* any loggers are created.
-logging.setLoggerClass(AppLogger)
-
-# Force registration of TRACE and SILENT levels
-AppLogger.extendLoggingModule()
+setLoggerClass(AppLogger)
 
 # Register log level environment variables and default
-# This must happen before any loggers are created so they use the registered values
+# This should happen BEFORE extendLoggingModule() so the root logger
+# uses these settings when its level is determined.
 registerLogLevelEnvVars(
     [f"{PROGRAM_ENV}_{DEFAULT_ENV_LOG_LEVEL}", DEFAULT_ENV_LOG_LEVEL]
 )
 registerDefaultLogLevel(DEFAULT_LOG_LEVEL)
 
-# Register the logger name so getLogger() can find it
+# Register the logger name for auto-inference
 registerLogger(PROGRAM_PACKAGE)
 
-# Create the app logger instance via logging.getLogger()
-# This ensures it's registered with the logging module and can be retrieved
-# by other code that uses logging.getLogger()
-_APP_LOGGER = cast("AppLogger", logging.getLogger(PROGRAM_PACKAGE))
+# Force registration of TRACE and SILENT levels
+# This also replaces the root logger with AppLogger and sets up handlers
+AppLogger.extendLoggingModule()
+
+# Set root logger level to INFO to allow all messages through
+# (Child loggers will do their own filtering based on their level)
+setRootLevel("info")
+
+# Create the app logger instance via getLogger()
+# This is a child logger that inherits from the root logger.
+# The root logger (created by extendLoggingModule) has the DualStreamHandler,
+# and this child logger propagates to it via propagate=True.
+_APP_LOGGER = cast("AppLogger", getLogger(PROGRAM_PACKAGE))
+
+# Set the app logger level to INHERIT_LEVEL so it inherits from its parent
+_APP_LOGGER.setLevel(INHERIT_LEVEL)
 
 
 # --- Convenience utils ---------------------------------------------------------

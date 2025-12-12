@@ -57,7 +57,10 @@ def module_logger(
     original_logger_name = mod_meta.PROGRAM_PACKAGE
     new_logger = mod_logs.AppLogger(original_logger_name, enable_color=False)
     new_logger.setLevel("test")
-    new_logger.propagate = False
+    # Use setPropagate() instead of direct assignment to set _propagate_explicit flag.
+    # This prevents apathetic_logging.getLogger() from later resetting propagate=True
+    # when it's called elsewhere (e.g., in load_jsonc), which would remove our handler.
+    new_logger.setPropagate(False)
 
     # Replace the logger in the logging registry
     registry = logging.Logger.manager.loggerDict

@@ -115,7 +115,7 @@ def test_main_fallbacks_to_safe_log(
 
     try:
         # initialize hanlders so we have something to replace
-        logger.ensureHandlers()
+        logger.manageHandlers()
 
         # Replace handlers with the exploding one
         logger.handlers = [BoomHandler()]
@@ -124,7 +124,7 @@ def test_main_fallbacks_to_safe_log(
     finally:
         # Always restore to avoid affecting other tests
         logger.handlers = old_handlers
-        logger.ensureHandlers()
+        logger.manageHandlers()
         logger.setLevel(old_level)
 
     # --- verify ---

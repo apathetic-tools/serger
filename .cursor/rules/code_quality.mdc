@@ -129,7 +129,7 @@ When inline statements (ternary expressions, comprehensions, generator expressio
 
 ### Static checks, Type Checking, Formatting, Linting, and Tests
 
-**Requirement**: All code must pass `poetry run poe check:fix` **EVEN if the errors do not appear related to the work currently being done**. This command must be re-run every time until it is completely clean. It runs Static checks, Formatting, Type Checking, Linting, and Tests in both installed and singlefile runtimes.
+**Requirement**: All code must pass `poetry run poe check:fix` **EVEN if the errors do not appear related to the work currently being done**. This command must be re-run every time until it is completely clean. It runs Static checks, Formatting, Type Checking, Linting, and Tests in both package and stitched runtimes.
 
 **CI requirement**: `poetry run poe check:fix` must pass for CI to pass. **You cannot push code until this is resolved.**
 
@@ -145,23 +145,23 @@ You can run individual tools using `poetry run poe <command>` (including `poetry
 - `poetry run poe fix` - Auto-fix formatting and linting issues
 - `poetry run poe lint` - Run linting checks only
 - `poetry run poe typecheck` - Run type checking (mypy + pyright)
-- `poetry run poe test` - Run test suite in both installed and singlefile runtimes
+- `poetry run poe test` - Run test suite in both package and stitched runtimes
 
 **Individual tool commands:**
 - `poetry run poe lint:ruff` - Run ruff linting checks
-- `poetry run poe fix:ruff:installed` - Auto-fix ruff linting issues
-- `poetry run poe fix:format:installed` - Format code with ruff
+- `poetry run poe fix:ruff:package` - Auto-fix ruff linting issues
+- `poetry run poe fix:format:package` - Format code with ruff
 - `poetry run poe typecheck:mypy` - Run mypy type checking
 - `poetry run poe typecheck:pyright` - Run pyright type checking
-- `poetry run poe test:pytest:installed` - Run tests in installed module mode
-- `poetry run poe test:pytest:script` - Run tests in singlefile runtime mode
+- `poetry run poe test:pytest:package` - Run tests in package runtime mode
+- `poetry run poe test:pytest:script` - Run tests in stitched runtime mode
 
 **Running tools on specific files:**
 - Format a single file: `poetry run ruff format src/serger/build.py`
 - Check a single file: `poetry run ruff check src/serger/build.py`
 - Fix a single file: `poetry run ruff check --fix src/serger/build.py`
-- Run a specific test (installed mode): `poetry run pytest tests/9_integration/test_log_level.py::test_specific_function`
-- Run a specific test (singlefile mode): `RUNTIME_MODE=singlefile poetry run pytest tests/9_integration/test_log_level.py::test_specific_function`
+- Run a specific test (package mode): `poetry run pytest tests/9_integration/test_log_level.py::test_specific_function`
+- Run a specific test (stitched mode): `RUNTIME_MODE=stitched poetry run pytest tests/9_integration/test_log_level.py::test_specific_function`
 
 #### Checkpoint Commits
 

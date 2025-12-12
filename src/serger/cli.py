@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from difflib import get_close_matches
 from pathlib import Path
 
-from apathetic_logging import LEVEL_ORDER, safeLog
+from apathetic_logging import LEVEL_ORDER, safeLog, setRootLevel
 from apathetic_utils import cast_hint, get_sys_version_info
 
 from .actions import get_metadata, watch_for_changes
@@ -458,7 +458,7 @@ def _initialize_logger(args: argparse.Namespace) -> None:
     """Initialize logger with CLI args, env vars, and defaults."""
     logger = getAppLogger()
     log_level = logger.determineLogLevel(args=args)
-    logger.setLevel(log_level)
+    setRootLevel(log_level)
     logger.enable_color = getattr(args, "enable_color", logger.determineColorEnabled())
     logger.trace("[BOOT] log-level initialized: %s", logger.levelName)
 
