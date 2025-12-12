@@ -5,26 +5,12 @@ and matches the declared version from pyproject.toml.
 """
 
 import re
-import sys
 from typing import Any, cast
 
 import apathetic_utils
 
-from tests.utils import PROJ_ROOT
-
-
-if sys.version_info >= (3, 11):
-    # tomllib has no type stubs
-    import tomllib  # type: ignore[import-not-found]
-else:
-    # tomli (fallback for Python <3.11); also has no type stubs
-    try:
-        import tomli as tomllib  # type: ignore[import-not-found]
-    except ImportError:
-        msg = "tomli is required for Python < 3.11"
-        raise ImportError(msg) from None
-
 import serger.meta as mod_meta
+from tests.utils import PROJ_ROOT
 
 
 # --- only for stitched runs ---
@@ -46,13 +32,8 @@ def test_stitched_script_metadata_and_execution() -> None:
     assert pyproject.exists(), "pyproject.toml missing — project layout inconsistent."
 
     # - Load declared version from pyproject.toml -
-    with pyproject.open("rb") as f:
-        # tomllib/tomli lack type stubs; cast and ignore unknown member types
-        pyproject_data = cast(  # type: ignore[redundant-cast,unused-ignore]
-            "dict[str, Any]",
-            tomllib.load(f),  # pyright: ignore[reportUnknownMemberType]
-        )
-
+    pyproject_data = apathetic_utils.load_toml(pyproject, required=True)
+    assert pyproject_data is not None
     project_section = cast("dict[str, Any]", pyproject_data.get("project", {}))
     declared_version = cast("str", project_section.get("version"))
     assert declared_version, "Version not found in pyproject.toml"
